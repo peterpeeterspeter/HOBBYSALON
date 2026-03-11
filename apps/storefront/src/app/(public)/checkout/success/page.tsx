@@ -3,19 +3,54 @@ import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 
 export const dynamic = "force-dynamic";
 
+function parseBundleIds(value?: string): string[] {
+  if (!value) return [];
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseNonNegativeNumber(value?: string): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{
+    order?: string;
+    bundle_id?: string;
+    bundle_count?: string;
+    bundle_value?: string;
+    bundle_ids?: string;
+  }>;
 }) {
   const params = await searchParams;
   const orderId = params.order;
+  const bundleIds = parseBundleIds(params.bundle_ids);
+  const bundleId = params.bundle_id?.trim() || bundleIds[0] || null;
+  const bundleCount = parseNonNegativeNumber(params.bundle_count) ?? bundleIds.length;
+  const bundleValue = parseNonNegativeNumber(params.bundle_value) ?? 0;
+  const hasBundleContext = bundleCount > 0;
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <TrackOnMount
         event="checkout_completed"
-        payload={{ order_id: orderId ?? null }}
+        payload={{
+          order_id: orderId ?? null,
+          bundle_id: bundleId,
+          bundle_count: bundleCount,
+          bundle_value: bundleValue,
+          bundle_ids: bundleIds,
+        }}
       />
       <h1 className="text-3xl font-bold text-[var(--foreground)] mb-4">
         Bedankt voor je bestelling!
@@ -26,6 +61,12 @@ export default async function CheckoutSuccessPage({
         {orderId && (
           <span className="block mt-2 font-mono text-sm">
             Ordernummer: {orderId}
+          </span>
+        )}
+        {hasBundleContext && (
+          <span className="mt-2 block text-sm">
+            Bundelcontext bevestigd: {bundleCount} bundel
+            {bundleCount === 1 ? "" : "s"} verwerkt in je bestelling.
           </span>
         )}
       </p>

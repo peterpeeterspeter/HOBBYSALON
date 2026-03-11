@@ -13,8 +13,21 @@ export async function GET(request: NextRequest) {
   if (redirectStatus === "succeeded") {
     const result = await checkoutComplete({ redirect: false });
     if (result.success && result.orderSetId) {
+      const params = new URLSearchParams({
+        order: result.orderSetId,
+      });
+      if ((result.bundleCount ?? 0) > 0) {
+        if (result.bundleId) {
+          params.set("bundle_id", result.bundleId);
+        }
+        params.set("bundle_count", String(result.bundleCount));
+        params.set("bundle_value", String(result.bundleValue ?? 0));
+        if (result.bundleIds?.length) {
+          params.set("bundle_ids", result.bundleIds.join(","));
+        }
+      }
       return NextResponse.redirect(
-        `${origin}/checkout/success?order=${result.orderSetId}`
+        `${origin}/checkout/success?${params.toString()}`
       );
     }
     return NextResponse.redirect(`${origin}/checkout?payment_error=1`);

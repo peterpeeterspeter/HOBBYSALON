@@ -56,11 +56,12 @@ Overview of documentation files in this repository.
 | Event | Trigger | Required payload fields |
 |------|---------|-------------------------|
 | `project_view` | Project detail page mount | `project_id`, `project_slug`, `difficulty_level` |
+| `bundle_add` | Project bundle add-to-cart action | `bundle_id`, `bundle_label`, `item_count` |
 | `add_to_cart` | Add-to-cart success | `variant_id`, `quantity` |
 | `workshop_booking_request_submitted` | Booking request success | `workshop_id`, `creator_id` |
 | `newsletter_signup` | Newsletter form success | `source` |
-| `checkout_started` | Checkout page mount | `currency_code`, `total_amount`, `item_count` |
-| `checkout_completed` | Checkout success page mount | `order_id` |
+| `checkout_started` | Checkout page mount | `currency_code`, `total_amount`, `item_count`, `bundle_id`, `bundle_count`, `bundle_value` |
+| `checkout_completed` | Checkout success page mount | `order_id`, `bundle_id`, `bundle_count`, `bundle_value` |
 
 All tracked events include shared metadata from `trackEvent`:
 

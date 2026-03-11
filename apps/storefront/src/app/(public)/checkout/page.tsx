@@ -21,6 +21,58 @@ function formatPrice(amount: number, currencyCode: string): string {
   }).format(amount / 100);
 }
 
+type CheckoutPageCartItem = {
+  id?: string;
+  quantity?: number;
+  unit_price?: number;
+  total?: number;
+  metadata?: Record<string, unknown>;
+  variant?: { product?: { title?: string }; title?: string };
+};
+
+type BundleGroup = {
+  bundleId: string;
+  bundleLabel: string;
+  itemCount: number;
+  total: number;
+};
+
+function getBundleGroups(items: CheckoutPageCartItem[] | undefined): BundleGroup[] {
+  const groups = new Map<string, BundleGroup>();
+
+  for (const item of items ?? []) {
+    const bundleId =
+      typeof item.metadata?.bundle_id === "string"
+        ? item.metadata.bundle_id
+        : null;
+    if (!bundleId) continue;
+
+    const bundleLabel =
+      typeof item.metadata?.bundle_label === "string" &&
+      item.metadata.bundle_label.trim().length > 0
+        ? item.metadata.bundle_label
+        : bundleId;
+    const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+    const itemTotal = item.total ?? (item.unit_price ?? 0) * quantity;
+    const existing = groups.get(bundleId);
+
+    if (existing) {
+      existing.itemCount += quantity;
+      existing.total += itemTotal;
+      continue;
+    }
+
+    groups.set(bundleId, {
+      bundleId,
+      bundleLabel,
+      itemCount: quantity,
+      total: itemTotal,
+    });
+  }
+
+  return [...groups.values()];
+}
+
 type PageProps = { searchParams: Promise<{ payment_error?: string }> };
 
 export default async function CheckoutPage({ searchParams }: PageProps) {
@@ -46,7 +98,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
     payment_collection?: { payment_sessions?: unknown[] };
     region_id?: string;
     currency_code?: string;
-    items?: { variant?: { product?: { title?: string }; title?: string }; quantity?: number; unit_price?: number; total?: number }[];
+    items?: CheckoutPageCartItem[];
   };
 
   const currencyCode = c.currency_code ?? "eur";
@@ -69,6 +121,10 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
       const qty = (item as { quantity?: number }).quantity ?? 1;
       return sum + qty;
     }, 0) ?? 0;
+  const bundleGroups = getBundleGroups(c.items);
+  const bundleIds = bundleGroups.map((group) => group.bundleId);
+  const bundleValue = bundleGroups.reduce((sum, group) => sum + group.total, 0);
+  const primaryBundleId = bundleIds[0] ?? null;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -78,6 +134,10 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           currency_code: currencyCode,
           total_amount: total,
           item_count: itemCount,
+          bundle_id: primaryBundleId,
+          bundle_count: bundleGroups.length,
+          bundle_value: bundleValue,
+          bundle_ids: bundleIds,
         }}
       />
       <h1 className="text-2xl font-bold text-[var(--foreground)] mb-8">
@@ -89,7 +149,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           Overzicht
         </p>
         {(cart.items ?? []).map((item) => {
-          const i = item as { id?: string; variant?: { product?: { title?: string }; title?: string }; quantity?: number; total?: number };
+          const i = item as CheckoutPageCartItem;
           const variant = i.variant;
           const title =
             variant?.product?.title ?? variant?.title ?? "Product";
@@ -102,6 +162,28 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
             </div>
           );
         })}
+        {bundleGroups.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+            <p className="text-sm font-medium text-[var(--foreground)]">
+              Bundels in deze checkout
+            </p>
+            {bundleGroups.map((group) => (
+              <div
+                key={group.bundleId}
+                className="rounded-md border border-[var(--border)] p-2"
+              >
+                <div className="flex justify-between text-sm text-[var(--foreground)]">
+                  <span>{group.bundleLabel}</span>
+                  <span>{formatPrice(group.total, currencyCode)}</span>
+                </div>
+                <p className="text-xs text-[var(--muted)]">
+                  {group.itemCount} artikel{group.itemCount === 1 ? "" : "en"} ·
+                  ID: {group.bundleId}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="mt-2 flex justify-between border-t border-[var(--border)] pt-2 font-medium text-[var(--foreground)]">
           <span>Subtotaal</span>
           <span>{formatPrice(subtotal, currencyCode)}</span>

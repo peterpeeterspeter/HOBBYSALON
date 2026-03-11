@@ -157,8 +157,46 @@ export async function checkoutInitiatePayment(): Promise<CheckoutInitiatePayment
 export type CheckoutCompleteResult = {
   success: boolean;
   orderSetId?: string;
+  bundleCount?: number;
+  bundleValue?: number;
+  bundleId?: string;
+  bundleIds?: string[];
   message?: string;
 };
+
+type CheckoutLineItem = {
+  quantity?: number;
+  total?: number;
+  unit_price?: number;
+  metadata?: Record<string, unknown>;
+};
+
+function getBundleContextFromCart(cart: unknown): {
+  bundleIds: string[];
+  bundleValue: number;
+} {
+  const items = ((cart as { items?: unknown[] })?.items ?? []) as CheckoutLineItem[];
+  const bundleIds = new Set<string>();
+  let bundleValue = 0;
+
+  for (const item of items) {
+    const bundleId =
+      typeof item.metadata?.bundle_id === "string"
+        ? item.metadata.bundle_id
+        : null;
+    if (!bundleId) continue;
+    bundleIds.add(bundleId);
+    const itemTotal =
+      item.total ??
+      ((item.unit_price ?? 0) * (item.quantity && item.quantity > 0 ? item.quantity : 1));
+    bundleValue += itemTotal;
+  }
+
+  return {
+    bundleIds: [...bundleIds],
+    bundleValue,
+  };
+}
 
 export async function checkoutComplete(options?: {
   redirect?: boolean;
@@ -168,6 +206,9 @@ export async function checkoutComplete(options?: {
   if (!cartId) {
     return { success: false, message: "Geen winkelwagen gevonden" };
   }
+
+  const cartBeforeComplete = await getCartForCheckout(cartId);
+  const bundleContext = getBundleContextFromCart(cartBeforeComplete);
 
   const result = await completeCart(cartId);
 
@@ -184,12 +225,30 @@ export async function checkoutComplete(options?: {
   cookieStore.delete(CART_COOKIE_NAME);
 
   const shouldRedirect = options?.redirect !== false;
-  if (shouldRedirect && orderSetId) {
-    redirect(`/checkout/success?order=${orderSetId}`);
-  }
   if (shouldRedirect) {
-    redirect("/checkout/success");
+    const successParams = new URLSearchParams();
+    if (orderSetId) {
+      successParams.set("order", orderSetId);
+    }
+    if (bundleContext.bundleIds.length > 0) {
+      const primaryBundleId = bundleContext.bundleIds[0];
+      if (primaryBundleId) {
+        successParams.set("bundle_id", primaryBundleId);
+      }
+      successParams.set("bundle_count", String(bundleContext.bundleIds.length));
+      successParams.set("bundle_value", String(bundleContext.bundleValue));
+      successParams.set("bundle_ids", bundleContext.bundleIds.join(","));
+    }
+    const query = successParams.toString();
+    redirect(query ? `/checkout/success?${query}` : "/checkout/success");
   }
 
-  return { success: true, orderSetId };
+  return {
+    success: true,
+    orderSetId,
+    bundleCount: bundleContext.bundleIds.length,
+    bundleValue: bundleContext.bundleValue,
+    bundleId: bundleContext.bundleIds[0] ?? undefined,
+    bundleIds: bundleContext.bundleIds,
+  };
 }

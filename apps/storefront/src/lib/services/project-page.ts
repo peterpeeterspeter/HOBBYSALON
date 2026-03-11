@@ -4,6 +4,7 @@ import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listProductsByIds } from "@/lib/platform/queries/products";
 import { listWorkshopsByIds } from "@/lib/platform/queries/workshops";
+import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import {
   getProjectBySlug,
   listDomainsByProject,
@@ -24,11 +25,22 @@ export type ProjectPageData = {
   project: Project | null;
   domains: Domain[];
   steps: ProjectStep[];
+  bundleItems: ProjectBundleItem[];
   relatedProducts: Product[];
   relatedWorkshops: Workshop[];
   relatedEvents: Event[];
   relatedArticles: Article[];
   relatedCreators: Creator[];
+};
+
+export type ProjectBundleItem = {
+  product_id: string;
+  product_slug: string;
+  title: string;
+  variant_id: string;
+  variant_title?: string;
+  price_amount: number | null;
+  currency_code: string | null;
 };
 
 export async function getProjectPageData(slug: string): Promise<ProjectPageData> {
@@ -39,6 +51,7 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
       project: null,
       domains: [],
       steps: [],
+      bundleItems: [],
       relatedProducts: [],
       relatedWorkshops: [],
       relatedEvents: [],
@@ -78,10 +91,13 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
       listCreatorsByIds(creatorIds),
     ]);
 
+  const bundleItems = await buildProjectBundleItems(relatedProducts);
+
   return {
     project,
     domains,
     steps,
+    bundleItems,
     relatedProducts,
     relatedWorkshops,
     relatedEvents,
@@ -96,4 +112,43 @@ async function listCreatorsByIds(ids: string[]): Promise<Creator[]> {
   const uniqueIds = [...new Set(ids)];
   const creators = await Promise.all(uniqueIds.map((id) => getCreatorById(id)));
   return creators.filter((creator): creator is Creator => !!creator);
+}
+
+async function buildProjectBundleItems(
+  products: Product[]
+): Promise<ProjectBundleItem[]> {
+  const candidateProducts = products.filter(
+    (product) => product.product_type === "supply" || product.product_type === "workshop_kit"
+  );
+
+  const results = await Promise.all(
+    candidateProducts.map(async (product) => {
+      const medusaProduct = await getMedusaProduct(product.medusa_product_id);
+      const firstVariant = medusaProduct?.variants?.[0];
+      if (!firstVariant?.id) {
+        return null;
+      }
+
+      const calculatedPrice = (
+        firstVariant as {
+          calculated_price?: {
+            calculated_amount: number;
+            currency_code: string;
+          };
+        }
+      ).calculated_price;
+
+      return {
+        product_id: product.id,
+        product_slug: product.slug,
+        title: product.title,
+        variant_id: firstVariant.id,
+        variant_title: firstVariant.title,
+        price_amount: calculatedPrice?.calculated_amount ?? null,
+        currency_code: calculatedPrice?.currency_code ?? null,
+      } as ProjectBundleItem;
+    })
+  );
+
+  return results.filter((item): item is ProjectBundleItem => !!item);
 }

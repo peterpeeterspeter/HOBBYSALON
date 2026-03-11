@@ -10,6 +10,14 @@ const CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 export { CART_COOKIE_NAME, CART_COOKIE_MAX_AGE };
 
+type CartLineMetadata = Record<string, unknown>;
+
+export type BundleLineInput = {
+  variant_id: string;
+  quantity?: number;
+  product_id?: string;
+};
+
 let cachedRegionId: string | null = null;
 
 /** Get Europe region ID for cart creation (cached). */
@@ -47,14 +55,22 @@ export async function createCart(): Promise<{ cart_id: string } | null> {
 export async function addToCart(
   cartId: string,
   variantId: string,
-  quantity: number = 1
+  quantity: number = 1,
+  metadata?: CartLineMetadata
 ): Promise<{ success: boolean; cart_id?: string }> {
   try {
     const fields =
       "id,currency_code,*items,*items.variant,*items.variant.product";
+    const payload: { variant_id: string; quantity: number; metadata?: CartLineMetadata } = {
+      variant_id: variantId,
+      quantity,
+    };
+    if (metadata) {
+      payload.metadata = metadata;
+    }
     await sdk.store.cart.createLineItem(
       cartId,
-      { variant_id: variantId, quantity },
+      payload,
       { fields }
     );
     return { success: true, cart_id: cartId };
@@ -67,6 +83,55 @@ export async function addToCart(
     );
     return { success: false };
   }
+}
+
+/** Add multiple line items with shared bundle metadata. */
+export async function addBundleToCart(
+  cartId: string,
+  bundleId: string,
+  items: BundleLineInput[],
+  options?: {
+    bundleLabel?: string;
+    bundleSource?: "project" | "workshop" | "event" | "manual";
+  }
+): Promise<{
+  success: boolean;
+  cart_id: string;
+  added_count: number;
+  failed_variant_ids: string[];
+}> {
+  let addedCount = 0;
+  const failedVariantIds: string[] = [];
+
+  for (let i = 0; i < items.length; i += 1) {
+    const line = items[i];
+    const quantity = line.quantity && line.quantity > 0 ? line.quantity : 1;
+    const metadata: CartLineMetadata = {
+      bundle_id: bundleId,
+      bundle_label: options?.bundleLabel ?? null,
+      bundle_source: options?.bundleSource ?? "project",
+      bundle_item_index: i + 1,
+      bundle_product_id: line.product_id ?? null,
+    };
+    const result = await addToCart(
+      cartId,
+      line.variant_id,
+      quantity,
+      metadata
+    );
+    if (result.success) {
+      addedCount += 1;
+    } else {
+      failedVariantIds.push(line.variant_id);
+    }
+  }
+
+  return {
+    success: failedVariantIds.length === 0,
+    cart_id: cartId,
+    added_count: addedCount,
+    failed_variant_ids: failedVariantIds,
+  };
 }
 
 /** Retrieve cart with items and totals. */

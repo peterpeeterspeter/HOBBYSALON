@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+import { AddBundleToCartButton } from "@/components/cart/AddBundleToCartButton";
 import { ProductCard } from "@/components/shared/ProductCard";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { EventCard } from "@/components/shared/EventCard";
@@ -38,6 +39,14 @@ function formatBudget(cents: number | null, currencyCode: string): string | null
   }).format(cents / 100);
 }
 
+function formatPrice(amount: number, currencyCode: string): string {
+  return new Intl.NumberFormat("nl-NL", {
+    style: "currency",
+    currency: currencyCode.toUpperCase(),
+    minimumFractionDigits: 2,
+  }).format(amount / 100);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { project } = await getProjectPageData(slug);
@@ -62,11 +71,16 @@ export default async function ProjectPage({ params }: Props) {
 
   if (!data.project) notFound();
 
-  const { project, domains, steps, relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators } =
+  const { project, domains, steps, bundleItems, relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators } =
     data;
   const durationLabel = formatDuration(project.estimated_duration_minutes);
   const budgetMinLabel = formatBudget(project.budget_min_cents, project.currency_code);
   const budgetMaxLabel = formatBudget(project.budget_max_cents, project.currency_code);
+  const bundleTotalCents = bundleItems.reduce(
+    (sum, item) => sum + (item.price_amount ?? 0),
+    0
+  );
+  const bundleCurrencyCode = bundleItems.find((item) => item.currency_code)?.currency_code ?? "EUR";
 
   const howToJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -147,6 +161,24 @@ export default async function ProjectPage({ params }: Props) {
           </div>
         )}
       </header>
+
+      {bundleItems.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">
+            Startbundel materialen
+          </h2>
+          {bundleTotalCents > 0 && (
+            <p className="mb-3 text-sm text-[var(--muted)]">
+              Indicatief totaal: {formatPrice(bundleTotalCents, bundleCurrencyCode)}
+            </p>
+          )}
+          <AddBundleToCartButton
+            bundleId={`project:${project.id}`}
+            bundleLabel={project.title}
+            items={bundleItems}
+          />
+        </section>
+      )}
 
       {steps.length > 0 && (
         <section className="mt-10">

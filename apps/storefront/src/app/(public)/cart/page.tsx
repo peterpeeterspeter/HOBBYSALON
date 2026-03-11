@@ -73,12 +73,28 @@ export default async function CartPage() {
 
       <div className="space-y-6">
         {(cart.items ?? []).map((item) => {
-          const i = item as { id?: string; variant?: { id?: string; title?: string; product?: { title?: string } }; unit_price?: number; quantity?: number; total?: number; title?: string };
+          const i = item as {
+            id?: string;
+            variant?: { id?: string; title?: string; product?: { title?: string } };
+            unit_price?: number;
+            quantity?: number;
+            total?: number;
+            title?: string;
+            metadata?: Record<string, unknown>;
+          };
           const variant = i.variant as {
             id: string;
             title?: string;
             product?: { title?: string };
           };
+          const bundleId =
+            typeof i.metadata?.bundle_id === "string"
+              ? i.metadata.bundle_id
+              : null;
+          const bundleLabel =
+            typeof i.metadata?.bundle_label === "string"
+              ? i.metadata.bundle_label
+              : null;
           const title =
             variant?.product?.title ?? variant?.title ?? i?.title ?? "Product";
           const unitPrice = i.unit_price ?? 0;
@@ -94,6 +110,11 @@ export default async function CartPage() {
                 <p className="font-medium text-[var(--foreground)]">{title}</p>
                 {variant?.title && variant.title !== "Default" && (
                   <p className="text-sm text-[var(--muted)]">{variant.title}</p>
+                )}
+                {bundleId && (
+                  <p className="mt-1 text-xs font-medium text-[var(--accent)]">
+                    Bundel: {bundleLabel ?? bundleId}
+                  </p>
                 )}
                 <p className="mt-1 text-sm text-[var(--muted)]">
                   Aantal: {qty}
