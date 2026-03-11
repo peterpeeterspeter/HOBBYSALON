@@ -1,6 +1,7 @@
 import { parse as parseCsv } from 'csv-parse/sync'
 import { z } from 'zod'
 
+import { normalizeSourceCategory } from '../../../category-mappings/utils'
 import { CreateProduct } from '../../validators'
 
 type CsvRecord = Record<string, string | null | undefined>
@@ -15,6 +16,7 @@ export const VendorImportDryRunMapping = z
     external_id: z.string().min(1).optional(),
     type_id: z.string().min(1).optional(),
     collection_id: z.string().min(1).optional(),
+    source_category: z.string().min(1).optional(),
     category_id: z.string().min(1).optional(),
     tag_ids: z.string().min(1).optional(),
     sales_channel_ids: z.string().min(1).optional(),
@@ -53,6 +55,8 @@ export type VendorImportDryRunPreviewItem = {
   row: number
   title: string
   status: 'draft' | 'proposed'
+  source_category?: string
+  domain_id?: string
   sku?: string
   price_amount?: number
   price_currency?: string
@@ -63,6 +67,7 @@ export type VendorImportDryRunResult = {
   valid_count: number
   error_count: number
   error_issue_count: number
+  unmapped_count: number
   columns: string[]
   errors: VendorImportDryRunError[]
   preview: VendorImportDryRunPreviewItem[]
@@ -73,6 +78,7 @@ type DryRunOptions = {
   mapping?: VendorImportDryRunMappingType
   delimiter?: string
   defaultCurrencyCode?: string
+  sourceCategoryDomainMap?: Record<string, string>
 }
 
 const normalizeKey = (value: string) => value.trim().toLowerCase()
@@ -148,11 +154,17 @@ const getRowValueFactory = (
 const createDraftProductFromRow = (
   row: CsvRecord,
   mapping: VendorImportDryRunMappingType | undefined,
-  defaultCurrencyCode: string
+  defaultCurrencyCode: string,
+  sourceCategoryDomainMap?: Record<string, string>
 ) => {
   const getValue = getRowValueFactory(row, mapping)
 
   const title = getValue('title')
+  const sourceCategory = getValue('source_category')
+  const mappedDomainId = sourceCategory
+    ? sourceCategoryDomainMap?.[normalizeSourceCategory(sourceCategory)]
+    : undefined
+  const resolvedCategoryId = getValue('category_id') || mappedDomainId
   const statusRaw = getValue('status')?.toLowerCase()
   const status = statusRaw === 'proposed' ? 'proposed' : 'draft'
 
@@ -188,9 +200,8 @@ const createDraftProductFromRow = (
     product.width = width
   }
 
-  const categoryId = getValue('category_id')
-  if (categoryId) {
-    product.categories = [{ id: categoryId }]
+  if (resolvedCategoryId) {
+    product.categories = [{ id: resolvedCategoryId }]
   }
 
   const tagIds = parseIdList(getValue('tag_ids'))
@@ -253,7 +264,11 @@ const createDraftProductFromRow = (
     ]
   }
 
-  return product
+  return {
+    product,
+    source_category: sourceCategory,
+    resolved_domain_id: resolvedCategoryId,
+  }
 }
 
 const formatZodErrors = (
@@ -275,6 +290,7 @@ export const runVendorProductsImportDryRun = ({
   mapping,
   delimiter,
   defaultCurrencyCode = 'eur',
+  sourceCategoryDomainMap,
 }: DryRunOptions): VendorImportDryRunResult => {
   const records = parseCsv(fileContent, {
     columns: true,
@@ -291,6 +307,7 @@ export const runVendorProductsImportDryRun = ({
       valid_count: 0,
       error_count: 0,
       error_issue_count: 0,
+      unmapped_count: 0,
       columns: [],
       errors: [],
       preview: [],
@@ -302,15 +319,28 @@ export const runVendorProductsImportDryRun = ({
   const preview: VendorImportDryRunPreviewItem[] = []
   let validCount = 0
   let errorRows = 0
+  let unmappedCount = 0
 
   records.forEach((row, index) => {
     const rowNumber = index + 2
     const draftProduct = createDraftProductFromRow(
       row,
       mapping,
-      defaultCurrencyCode
+      defaultCurrencyCode,
+      sourceCategoryDomainMap
     )
-    const parsed = CreateProduct.safeParse(draftProduct)
+    if (draftProduct.source_category && !draftProduct.resolved_domain_id) {
+      unmappedCount += 1
+      errorRows += 1
+      errors.push({
+        row: rowNumber,
+        field: 'category_id',
+        message: `No domain mapping found for source category "${draftProduct.source_category}"`,
+      })
+      return
+    }
+
+    const parsed = CreateProduct.safeParse(draftProduct.product)
 
     if (!parsed.success) {
       errorRows += 1
@@ -326,6 +356,8 @@ export const runVendorProductsImportDryRun = ({
         row: rowNumber,
         title: parsed.data.title,
         status: parsed.data.status,
+        source_category: draftProduct.source_category,
+        domain_id: draftProduct.resolved_domain_id,
         sku: variant?.sku,
         price_amount: variant?.prices?.[0]?.amount,
         price_currency: variant?.prices?.[0]?.currency_code,
@@ -338,6 +370,7 @@ export const runVendorProductsImportDryRun = ({
     valid_count: validCount,
     error_count: errorRows,
     error_issue_count: errors.length,
+    unmapped_count: unmappedCount,
     columns,
     errors,
     preview,

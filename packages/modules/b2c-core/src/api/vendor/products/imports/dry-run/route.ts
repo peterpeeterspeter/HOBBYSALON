@@ -1,5 +1,8 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from '@medusajs/framework'
-import { MedusaError } from '@medusajs/framework/utils'
+import {
+  ContainerRegistrationKeys,
+  MedusaError,
+} from '@medusajs/framework/utils'
 
 import { fetchSellerByAuthActorId } from '../../../../../shared/infra/http/utils'
 import {
@@ -58,7 +61,8 @@ export const POST = async (
     )
   }
 
-  await fetchSellerByAuthActorId(req.auth_context.actor_id, req.scope)
+  const seller = await fetchSellerByAuthActorId(req.auth_context.actor_id, req.scope)
+  const knex = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
 
   let mapping: VendorImportDryRunMappingType | undefined
   if (body.mapping) {
@@ -76,6 +80,22 @@ export const POST = async (
     }
   }
 
+  const mappingRows = (await knex('merchant_category_mapping')
+    .select('source_category_normalized', 'product_category_id')
+    .where('seller_id', seller.id)
+    .where('active', true)
+    .whereNull('deleted_at')) as Array<{
+    source_category_normalized: string
+    product_category_id: string
+  }>
+
+  const sourceCategoryDomainMap = Object.fromEntries(
+    mappingRows.map((row) => [
+      row.source_category_normalized,
+      row.product_category_id,
+    ])
+  )
+
   const dryRun = runVendorProductsImportDryRun({
     fileContent: input.buffer.toString('utf-8'),
     mapping,
@@ -84,6 +104,7 @@ export const POST = async (
       typeof body.currency_code === 'string'
         ? body.currency_code
         : undefined,
+    sourceCategoryDomainMap,
   })
 
   res.json({ dry_run: dryRun })

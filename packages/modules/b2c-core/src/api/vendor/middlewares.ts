@@ -7,6 +7,7 @@ import {
 import { unlessBaseUrl } from "../../shared/infra/http/utils";
 import { vendorAttributeMiddlewares } from "./attributes/middlewares";
 import { vendorCampaignsMiddlewares } from "./campaigns/middlewares";
+import { vendorCategoryMappingsMiddlewares } from "./category-mappings/middlewares";
 import { vendorCors } from "./cors";
 import { vendorCustomerGroupsMiddlewares } from "./customer-groups/middlewares";
 import { vendorCustomersMiddlewares } from "./customers/middlewares";
@@ -114,6 +115,7 @@ export const vendorMiddlewares: MiddlewareRoute[] = [
   ...vendorPriceListsMiddlewares,
   ...vendorPromotionsMiddlewares,
   ...vendorCampaignsMiddlewares,
+  ...vendorCategoryMappingsMiddlewares,
   ...vendorStatisticsMiddlewares,
   ...vendorFulfillmentProvidersMiddlewares,
   ...vendorReturnsMiddlewares,
