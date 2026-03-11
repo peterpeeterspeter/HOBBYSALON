@@ -9,6 +9,7 @@ import { ArticleCard } from "@/components/shared/ArticleCard";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -19,7 +20,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!creator) return { title: "Niet gevonden" };
   const title = `${creator.display_name} | Hobbysalon`;
   const description = creator.bio ?? undefined;
-  return { title, description };
+  return buildPageMetadata({
+    title,
+    description,
+    path: `/creator/${creator.slug}`,
+    image: creator.avatar_url ?? creator.banner_url,
+  });
 }
 
 export default async function CreatorPage({ params }: Props) {

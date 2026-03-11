@@ -7,8 +7,10 @@ import { CreatorCard } from "@/components/shared/CreatorCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -17,10 +19,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { article } = await getArticlePageData(slug);
   if (!article) return { title: "Niet gevonden" };
-  return {
+  return buildPageMetadata({
     title: article.seo_title ?? `${article.title} | Hobbysalon`,
     description: article.seo_description ?? article.excerpt ?? undefined,
-  };
+    path: `/artikel/${article.slug}`,
+    image: article.featured_image_url,
+    type: "article",
+  });
 }
 
 export default async function ArticlePage({ params }: Props) {
@@ -33,9 +38,34 @@ export default async function ArticlePage({ params }: Props) {
   const articleIsFavorite = user
     ? await isFavorite(user.id, "article", article.id)
     : false;
+  const articleJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: article.title,
+    description: article.excerpt ?? undefined,
+    image: article.featured_image_url
+      ? [absoluteUrl(article.featured_image_url)]
+      : undefined,
+    datePublished: article.published_at ?? article.created_at,
+    dateModified: article.updated_at,
+    author: data.relatedCreators[0]
+      ? {
+          "@type": "Person",
+          name: data.relatedCreators[0].display_name,
+        }
+      : {
+          "@type": "Organization",
+          name: "Hobbysalon",
+        },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": absoluteUrl(`/artikel/${article.slug}`),
+    },
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      <JsonLd data={articleJsonLd} />
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
         <ol className="flex flex-wrap gap-2">
           <li>

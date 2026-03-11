@@ -9,8 +9,10 @@ import { EventCard } from "@/components/shared/EventCard";
 import { ProductCard } from "@/components/shared/ProductCard";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -22,7 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = product.seo_title ?? `${product.title} | Hobbysalon`;
   const description =
     product.seo_description ?? product.short_description ?? undefined;
-  return { title, description };
+  return buildPageMetadata({
+    title,
+    description,
+    path: `/product/${product.slug}`,
+    image: product.featured_image_url,
+  });
 }
 
 function formatPrice(amount: number, currencyCode: string): string {
@@ -44,9 +51,37 @@ export default async function ProductPage({ params }: Props) {
   const productIsFavorite = user
     ? await isFavorite(user.id, "product", product.id)
     : false;
+  const productJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.short_description ?? product.description ?? undefined,
+    image: product.featured_image_url
+      ? [absoluteUrl(product.featured_image_url)]
+      : undefined,
+    sku: product.medusa_product_id ?? product.id,
+    brand: creator
+      ? {
+          "@type": "Brand",
+          name: creator.display_name,
+        }
+      : undefined,
+    offers: price
+      ? {
+          "@type": "Offer",
+          priceCurrency: price.currency_code.toUpperCase(),
+          price: (price.amount / 100).toFixed(2),
+          availability: product.is_active
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+          url: absoluteUrl(`/product/${product.slug}`),
+        }
+      : undefined,
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <JsonLd data={productJsonLd} />
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
         <ol className="flex flex-wrap gap-2">
           <li>

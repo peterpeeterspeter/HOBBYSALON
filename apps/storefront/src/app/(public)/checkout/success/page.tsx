@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,10 @@ export default async function CheckoutSuccessPage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
+      <TrackOnMount
+        event="checkout_completed"
+        payload={{ order_id: orderId ?? null }}
+      />
       <h1 className="text-3xl font-bold text-[var(--foreground)] mb-4">
         Bedankt voor je bestelling!
       </h1>

@@ -21,81 +21,104 @@ export async function Header() {
     ];
   }
 
+  const navLinks = [
+    { href: "/agenda", label: "Agenda" },
+    { href: "/workshops", label: "Workshops" },
+    { href: "/cart", label: "Winkelwagen" },
+    { href: "/favorites", label: "Favorieten" },
+    ...domainLinks.map((domain) => ({
+      href: `/${domain.slug}`,
+      label: domain.name,
+    })),
+    { href: "/creators", label: "Creators" },
+  ];
+
+  const desktopLinkClass =
+    "inline-flex min-h-11 items-center rounded-md px-3 py-2 text-[var(--foreground)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+  const mobileLinkClass =
+    "block w-full rounded-md px-3 py-2 text-[var(--foreground)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+  const mobileButtonClass =
+    "inline-flex min-h-11 items-center rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+
   return (
     <header className="border-b border-[var(--border)] bg-[var(--card)]">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <a href="#main-content" className="skip-link">
+        Ga naar inhoud
+      </a>
+      <div className="mx-auto max-w-6xl px-4 py-3">
         <Link
           href="/"
-          className="text-xl font-bold text-[var(--foreground)] hover:text-[var(--accent)]"
+          className="inline-flex min-h-11 items-center rounded-md px-2 text-xl font-bold text-[var(--foreground)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
         >
           Hobbysalon
         </Link>
-        <nav className="flex items-center gap-6" aria-label="Hoofdnavigatie">
-          <Link
-            href="/agenda"
-            className="text-[var(--foreground)] hover:text-[var(--accent)]"
-          >
-            Agenda
-          </Link>
-          <Link
-            href="/workshops"
-            className="text-[var(--foreground)] hover:text-[var(--accent)]"
-          >
-            Workshops
-          </Link>
-          <Link
-            href="/cart"
-            className="text-[var(--foreground)] hover:text-[var(--accent)]"
-          >
-            Winkelwagen
-          </Link>
-          <Link
-            href="/favorites"
-            className="text-[var(--foreground)] hover:text-[var(--accent)]"
-          >
-            Favorieten
-          </Link>
-          {domainLinks.map((domain) => (
-            <Link
-              key={domain.id}
-              href={`/${domain.slug}`}
-              className="text-[var(--foreground)] hover:text-[var(--accent)]"
-            >
-              {domain.name}
-            </Link>
-          ))}
-          <Link
-            href="/creators"
-            className="text-[var(--foreground)] hover:text-[var(--accent)]"
-          >
-            Creators
-          </Link>
-          {user ? (
-            <>
+        <div className="mt-3 hidden flex-wrap items-center justify-end gap-1 md:flex">
+          <nav className="flex flex-wrap items-center gap-1" aria-label="Hoofdnavigatie">
+            {navLinks.map((link) => (
               <Link
-                href="/dashboard"
-                className="text-[var(--foreground)] hover:text-[var(--accent)]"
+                key={link.href}
+                href={link.href}
+                className={desktopLinkClass}
               >
-                Dashboard
+                {link.label}
               </Link>
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="text-[var(--foreground)] hover:text-[var(--accent)]"
-                >
-                  Uitloggen
-                </button>
-              </form>
-            </>
-          ) : (
+            ))}
+          </nav>
+          {user ? (
             <Link
-              href="/login"
-              className="text-[var(--foreground)] hover:text-[var(--accent)]"
+              href="/dashboard"
+              className={desktopLinkClass}
             >
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className={desktopLinkClass}>
               Inloggen
             </Link>
           )}
-        </nav>
+          {user && (
+            <form action={logoutAction}>
+              <button type="submit" className={desktopLinkClass}>
+                Uitloggen
+              </button>
+            </form>
+          )}
+        </div>
+        <div className="mt-3 flex items-center justify-end gap-2 md:hidden">
+          <Link href="/cart" className={mobileButtonClass}>
+            Winkelwagen
+          </Link>
+          <details className="relative">
+            <summary className={mobileButtonClass}>Menu</summary>
+            <nav
+              aria-label="Mobiele navigatie"
+              className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-lg"
+            >
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={mobileLinkClass}>
+                  {link.label}
+                </Link>
+              ))}
+              <div className="my-2 border-t border-[var(--border)]" />
+              {user ? (
+                <>
+                  <Link href="/dashboard" className={mobileLinkClass}>
+                    Dashboard
+                  </Link>
+                  <form action={logoutAction}>
+                    <button type="submit" className={`${mobileLinkClass} text-left`}>
+                      Uitloggen
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <Link href="/login" className={mobileLinkClass}>
+                  Inloggen
+                </Link>
+              )}
+            </nav>
+          </details>
+        </div>
       </div>
     </header>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { submitWorkshopBookingRequest } from "@/app/actions/workshop-booking";
+import { trackEvent } from "@/lib/analytics/track";
 
 type WorkshopSession = {
   id: string;
@@ -43,6 +44,12 @@ export function WorkshopBookingRequestForm({
     );
 
     if (result.success) {
+      trackEvent("workshop_booking_request_submitted", {
+        workshop_id: workshopId,
+        creator_id: creatorId,
+        workshop_session_id:
+          formData.get("workshop_session_id")?.toString() || null,
+      });
       setStatus("success");
     } else {
       setStatus("error");

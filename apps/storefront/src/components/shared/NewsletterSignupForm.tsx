@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import {
   subscribeNewsletterAction,
   type NewsletterActionState,
 } from "@/app/actions/newsletter";
+import { trackEvent } from "@/lib/analytics/track";
 
 const INITIAL_STATE: NewsletterActionState = {
   success: false,
@@ -31,6 +32,20 @@ export function NewsletterSignupForm() {
     subscribeNewsletterAction,
     INITIAL_STATE
   );
+  const trackedSuccess = useRef(false);
+
+  useEffect(() => {
+    if (state.success && !trackedSuccess.current) {
+      trackedSuccess.current = true;
+      trackEvent("newsletter_signup", {
+        source: "footer_form",
+      });
+    }
+
+    if (!state.success) {
+      trackedSuccess.current = false;
+    }
+  }, [state.success]);
 
   return (
     <form action={formAction} className="space-y-2">

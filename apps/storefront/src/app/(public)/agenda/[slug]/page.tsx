@@ -6,8 +6,10 @@ import { ProductCard } from "@/components/shared/ProductCard";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -39,10 +41,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { event } = await getEventPageData(slug);
   if (!event) return { title: "Niet gevonden" };
-  return {
+  return buildPageMetadata({
     title: event.seo_title ?? `${event.title} | Hobbysalon Agenda`,
     description: event.seo_description ?? event.short_description ?? undefined,
-  };
+    path: `/agenda/${event.slug}`,
+    image: event.featured_image_url,
+    type: "website",
+  });
 }
 
 export default async function EventPage({ params }: Props) {
@@ -64,9 +69,51 @@ export default async function EventPage({ params }: Props) {
   const user = await getAuthUser();
   const eventIsFavorite = user ? await isFavorite(user.id, "event", event.id) : false;
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
+  const eventJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: event.title,
+    description: event.short_description ?? event.description ?? undefined,
+    startDate: event.starts_at,
+    endDate: event.ends_at,
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    eventStatus: "https://schema.org/EventScheduled",
+    image: event.featured_image_url
+      ? [absoluteUrl(event.featured_image_url)]
+      : undefined,
+    location: {
+      "@type": "Place",
+      name: event.location_name ?? event.title,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: event.address_line_1 ?? undefined,
+        postalCode: event.postal_code ?? undefined,
+        addressLocality: event.city ?? undefined,
+        addressCountry: event.country_code ?? "BE",
+      },
+    },
+    organizer: organizer
+      ? {
+          "@type": "Organization",
+          name: organizer.display_name,
+          url: absoluteUrl(`/creator/${organizer.slug}`),
+        }
+      : undefined,
+    offers:
+      event.ticket_price_cents != null && event.ticket_price_cents > 0
+        ? {
+            "@type": "Offer",
+            price: (event.ticket_price_cents / 100).toFixed(2),
+            priceCurrency: (event.currency_code ?? "EUR").toUpperCase(),
+            availability: "https://schema.org/InStock",
+            url: event.ticket_url ?? absoluteUrl(`/agenda/${event.slug}`),
+          }
+        : undefined,
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <JsonLd data={eventJsonLd} />
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
         <ol className="flex flex-wrap gap-2">
           <li>

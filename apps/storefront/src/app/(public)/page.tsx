@@ -5,6 +5,14 @@ import { ProductCard } from "@/components/shared/ProductCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
 import { CreatorCard } from "@/components/shared/CreatorCard";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Hobbysalon | Creatieve hobby community",
+  description:
+    "Ontdek handgemaakte producten, benodigdheden, workshops, events en inspiratie op Hobbysalon.",
+  path: "/",
+});
 
 export default async function HomePage() {
   let data: Awaited<ReturnType<typeof getHomePageData>> = {

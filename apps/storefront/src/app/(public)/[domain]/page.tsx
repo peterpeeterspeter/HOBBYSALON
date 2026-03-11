@@ -10,6 +10,7 @@ import { Section } from "@/components/shared/Section";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ domain: string }> };
@@ -18,10 +19,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { domain: slug } = await params;
   const { domain } = await getDomainPageData(slug);
   if (!domain) return { title: "Niet gevonden" };
-  return {
+  return buildPageMetadata({
     title: domain.seo_title ?? `${domain.name} | Hobbysalon`,
     description: domain.seo_description ?? domain.short_description ?? undefined,
-  };
+    path: `/${domain.slug}`,
+    image: domain.hero_image_url,
+  });
 }
 
 export default async function DomainPage({ params }: Props) {

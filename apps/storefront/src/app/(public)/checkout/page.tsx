@@ -9,6 +9,7 @@ import {
 import { CheckoutAddressForm } from "@/components/checkout/CheckoutAddressForm";
 import { CheckoutShippingStep } from "@/components/checkout/CheckoutShippingStep";
 import { CheckoutPaymentForm } from "@/components/checkout/CheckoutPaymentForm";
+import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 
 export const dynamic = "force-dynamic";
 
@@ -63,9 +64,22 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
 
   const shippingTotal = (cart as { shipping_total?: number }).shipping_total ?? 0;
   const total = (cart as { total?: number }).total ?? subtotal + shippingTotal;
+  const itemCount =
+    cart.items?.reduce((sum: number, item) => {
+      const qty = (item as { quantity?: number }).quantity ?? 1;
+      return sum + qty;
+    }, 0) ?? 0;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+      <TrackOnMount
+        event="checkout_started"
+        payload={{
+          currency_code: currencyCode,
+          total_amount: total,
+          item_count: itemCount,
+        }}
+      />
       <h1 className="text-2xl font-bold text-[var(--foreground)] mb-8">
         Afrekenen
       </h1>

@@ -10,6 +10,7 @@ import { WorkshopBookingRequestForm } from "@/components/workshop/WorkshopBookin
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -45,10 +46,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { workshop } = await getWorkshopPageData(slug);
   if (!workshop) return { title: "Niet gevonden" };
-  return {
+  return buildPageMetadata({
     title: workshop.seo_title ?? `${workshop.title} | Hobbysalon`,
     description: workshop.seo_description ?? workshop.short_description ?? undefined,
-  };
+    path: `/workshop/${workshop.slug}`,
+    image: workshop.featured_image_url,
+  });
 }
 
 export default async function WorkshopPage({ params }: Props) {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addToCartAction } from "@/app/actions/cart";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics/track";
 
 type AddToCartButtonProps = {
   variantId: string;
@@ -30,6 +31,10 @@ export function AddToCartButton({
     const result = await addToCartAction(variantId, quantity);
     setPending(false);
     if (result.success) {
+      trackEvent("add_to_cart", {
+        variant_id: variantId,
+        quantity,
+      });
       setMessage("Toegevoegd aan winkelwagen");
       router.refresh();
       router.push("/cart");
