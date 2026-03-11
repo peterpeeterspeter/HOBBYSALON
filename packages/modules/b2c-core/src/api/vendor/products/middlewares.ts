@@ -35,6 +35,8 @@ import {
   VendorUpdateProduct,
   VendorUpdateProductStatus,
 } from "./validators";
+import { VendorGetProductImportJobsParams } from "./imports/validators";
+import { vendorProductImportJobsQueryConfig } from "./imports/query-config";
 
 const canVendorCreateProduct = [
   checkConfigurationRule(ConfigurationRuleType.GLOBAL_PRODUCT_CATALOG, false),
@@ -82,6 +84,20 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
     method: ["POST"],
     matcher: "/vendor/products/export",
     middlewares: [],
+  },
+  {
+    method: ["GET"],
+    matcher: "/vendor/products/imports",
+    middlewares: [
+      checkConfigurationRule(
+        ConfigurationRuleType.PRODUCT_IMPORT_ENABLED,
+        true
+      ),
+      validateAndTransformQuery(
+        VendorGetProductImportJobsParams,
+        vendorProductImportJobsQueryConfig.list
+      ),
+    ],
   },
   {
     method: ["POST"],
