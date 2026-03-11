@@ -58,4 +58,9 @@ export const vendorSellersMiddlewares: MiddlewareRoute[] = [
       ),
     ],
   },
+  {
+    method: ["GET", "POST"],
+    matcher: "/vendor/sellers/me/onboarding/merchant",
+    middlewares: [],
+  },
 ];
