@@ -4,9 +4,15 @@ export enum StoreStatus {
   SUSPENDED = "SUSPENDED",
 }
 
+export enum SellerType {
+  CREATOR = "creator",
+  MERCHANT = "merchant",
+}
+
 export type SellerDTO = {
   id: string;
   store_status: StoreStatus;
+  seller_type: SellerType;
   created_at: Date;
   updated_at: Date;
   name: string;

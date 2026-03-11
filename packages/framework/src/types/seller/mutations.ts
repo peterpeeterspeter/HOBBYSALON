@@ -1,4 +1,4 @@
-import { MemberInviteDTO, MemberRole, SellerDTO, StoreStatus } from './common'
+import { MemberInviteDTO, MemberRole, SellerDTO, SellerType, StoreStatus } from './common'
 
 export interface CreateSellerDTO
   extends Omit<
@@ -23,6 +23,7 @@ export interface UpdateSellerDTO {
   handle?: string
   photo?: string
   store_status?: StoreStatus
+  seller_type?: SellerType
 }
 
 export interface CreateMemberDTO {

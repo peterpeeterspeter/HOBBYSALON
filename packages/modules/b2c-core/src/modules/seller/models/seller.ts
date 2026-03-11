@@ -1,6 +1,6 @@
 import { model } from "@medusajs/framework/utils";
 
-import { StoreStatus } from "@mercurjs/framework";
+import { SellerType, StoreStatus } from "@mercurjs/framework";
 import { MemberInvite } from "./invite";
 import { Member } from "./member";
 import { SellerOnboarding } from "./onboarding";
@@ -8,6 +8,7 @@ import { SellerOnboarding } from "./onboarding";
 export const Seller = model.define("seller", {
   id: model.id({ prefix: "sel" }).primaryKey(),
   store_status: model.enum(StoreStatus).default(StoreStatus.ACTIVE),
+  seller_type: model.enum(SellerType).default(SellerType.CREATOR),
   name: model.text().searchable(),
   handle: model.text().unique(),
   description: model.text().searchable().nullable(),

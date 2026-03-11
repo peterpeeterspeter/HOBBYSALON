@@ -10,6 +10,10 @@
  *     type: string
  *     enum: [active, inactive, suspended]
  *     description: The status of the seller's store.
+ *   seller_type:
+ *     type: string
+ *     enum: [creator, merchant]
+ *     description: The seller business type.
  *   name:
  *     type: string
  *     description: The name of the seller.

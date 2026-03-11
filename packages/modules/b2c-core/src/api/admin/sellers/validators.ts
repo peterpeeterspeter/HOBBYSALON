@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { createFindParams } from "@medusajs/medusa/api/utils/validators";
 
-import { buildHostAddress, Hosts, StoreStatus } from "@mercurjs/framework";
+import { buildHostAddress, Hosts, SellerType, StoreStatus } from "@mercurjs/framework";
 
 export type AdminSellerParamsType = z.infer<typeof AdminSellerParams>;
 export const AdminSellerParams = createFindParams({
@@ -51,6 +51,7 @@ export const AdminUpdateSeller = z
     country_code: z.string().optional(),
     tax_id: z.string().optional(),
     store_status: z.nativeEnum(StoreStatus).optional(),
+    seller_type: z.nativeEnum(SellerType).optional(),
   })
   .strict();
 

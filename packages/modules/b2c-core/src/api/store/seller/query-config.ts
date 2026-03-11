@@ -1,6 +1,7 @@
 export const storeSellerFields = [
   'id',
   'store_status',
+  'seller_type',
   'name',
   'handle',
   'description',

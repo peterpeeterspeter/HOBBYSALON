@@ -3,6 +3,7 @@ import { defaultAdminOrderFields } from '@medusajs/medusa/api/admin/orders/query
 
 export const adminSellerFields = [
   'id',
+  'seller_type',
   'name',
   'handle',
   'description',

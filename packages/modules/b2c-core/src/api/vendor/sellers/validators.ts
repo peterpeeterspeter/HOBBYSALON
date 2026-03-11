@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { createSelectParams } from "@medusajs/medusa/api/utils/validators";
+import { SellerType } from "@mercurjs/framework";
 
 export type VendorGetSellerParamsType = z.infer<typeof VendorGetSellerParams>;
 export const VendorGetSellerParams = createSelectParams();
@@ -55,6 +56,10 @@ export const VendorGetSellerParams = createSelectParams();
  *     type: string
  *     nullable: true
  *     description: Seller tax id.
+ *   seller_type:
+ *     type: string
+ *     enum: [creator, merchant]
+ *     description: Seller business type.
  *   member:
  *     type: object
  *     required:
@@ -95,6 +100,7 @@ export const VendorCreateSeller = z
     postal_code: z.string().nullish().optional(),
     country_code: z.string().nullish().optional(),
     tax_id: z.string().nullish().optional(),
+    seller_type: z.nativeEnum(SellerType).optional(),
     member: z.object({
       name: z.string(),
       email: z.string().email(),
@@ -154,6 +160,10 @@ export const VendorCreateSeller = z
  *     type: string
  *     nullable: true
  *     description: Seller tax id.
+ *   seller_type:
+ *     type: string
+ *     enum: [creator, merchant]
+ *     description: Seller business type.
  */
 export type VendorUpdateSellerType = z.infer<typeof VendorUpdateSeller>;
 export const VendorUpdateSeller = z
@@ -171,6 +181,7 @@ export const VendorUpdateSeller = z
     postal_code: z.string().optional(),
     country_code: z.string().optional(),
     tax_id: z.string().optional(),
+    seller_type: z.nativeEnum(SellerType).optional(),
   })
   .strict();
 

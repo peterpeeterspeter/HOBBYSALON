@@ -132,6 +132,10 @@ export async function GET(
  *             type: string
  *             enum: [active, inactive, suspended]
  *             description: The status of the seller's store.
+ *           seller_type:
+ *             type: string
+ *             enum: [creator, merchant]
+ *             description: The seller business type.
  * responses:
  *   "200":
  *     description: OK

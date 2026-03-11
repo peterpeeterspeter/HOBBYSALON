@@ -30,6 +30,10 @@
  *   handle:
  *     type: string
  *     description: A unique handle for the seller.
+ *   seller_type:
+ *     type: string
+ *     enum: [creator, merchant]
+ *     description: The seller business type.
  *   email:
  *     type: string
  *     nullable: true
