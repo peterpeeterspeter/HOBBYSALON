@@ -37,6 +37,11 @@ import {
 } from "./validators";
 import { VendorGetProductImportJobsParams } from "./imports/validators";
 import { vendorProductImportJobsQueryConfig } from "./imports/query-config";
+import {
+  VendorGetProductSyncJobsParams,
+  VendorStartProductSync,
+} from "./sync/validators";
+import { vendorProductSyncJobsQueryConfig } from "./sync/query-config";
 
 const canVendorCreateProduct = [
   checkConfigurationRule(ConfigurationRuleType.GLOBAL_PRODUCT_CATALOG, false),
@@ -144,17 +149,37 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
   },
   {
     method: ["GET"],
+    matcher: "/vendor/products/sync",
+    middlewares: [
+      validateAndTransformQuery(
+        VendorGetProductSyncJobsParams,
+        vendorProductSyncJobsQueryConfig.list
+      ),
+    ],
+  },
+  {
+    method: ["POST"],
+    matcher: "/vendor/products/sync",
+    middlewares: [validateAndTransformBody(VendorStartProductSync)],
+  },
+  {
+    method: ["GET"],
+    matcher: "/vendor/products/sync/:job_id",
+    middlewares: [],
+  },
+  {
+    method: ["GET"],
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
-        /.*\/products\/(export|import|imports)/,
+        /.*\/products\/(export|import|imports|sync)/,
         checkResourceOwnershipByResourceId({
           entryPoint: sellerProductLink.entryPoint,
           filterField: "product_id",
         })
       ),
       unlessPath(
-        /.*\/products\/(export|import|imports)/,
+        /.*\/products\/(export|import|imports|sync)/,
         validateAndTransformQuery(
           VendorGetProductParams,
           vendorProductQueryConfig.retrieve
@@ -167,18 +192,18 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
-        /.*\/products\/(export|import|imports)/,
+        /.*\/products\/(export|import|imports|sync)/,
         checkResourceOwnershipByResourceId({
           entryPoint: sellerProductLink.entryPoint,
           filterField: "product_id",
         })
       ),
       unlessPath(
-        /.*\/products\/(export|import|imports)/,
+        /.*\/products\/(export|import|imports|sync)/,
         validateAndTransformBody(VendorUpdateProduct)
       ),
       unlessPath(
-        /.*\/products\/(export|import|imports)/,
+        /.*\/products\/(export|import|imports|sync)/,
         validateAndTransformQuery(
           VendorGetProductParams,
           vendorProductQueryConfig.retrieve
