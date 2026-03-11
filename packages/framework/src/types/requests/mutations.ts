@@ -2,7 +2,7 @@ export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'draft'
 
 export type CreateRequestDTO = {
   type: string
-  data: any
+  data: unknown
   submitter_id: string
   reviewer_id?: string
   reviewer_note?: string
@@ -19,13 +19,13 @@ export type UpdateRequestDTO = {
 export type UpdateRequestDataDTO = {
   id: string
   type: string
-  data: any
+  data: unknown
 }
 
 export type AcceptRequestDTO = {
   id: string
   reviewer_id: string
   reviewer_note: string
-  data: any
+  data: unknown
   status: RequestStatus
 }

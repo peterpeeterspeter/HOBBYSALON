@@ -8,6 +8,7 @@ export default [
       '**/node_modules/**',
       '**/dist/**',
       '**/.medusa/**',
+      '**/.next/**',
       '**/build/**',
       '**/*.js',
       '**/*.mjs',
@@ -49,6 +50,13 @@ export default [
       'object-shorthand': ['error', 'always'],
       'prefer-template': 'warn',
       'prefer-rest-params': 'warn'
+    }
+  },
+  {
+    files: ['packages/modules/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'prefer-rest-params': 'off'
     }
   }
 ]

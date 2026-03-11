@@ -112,7 +112,9 @@ function PaymentFormInner({
               console.error("[PaymentElement loaderror]", err ?? e);
             }
             setLoadError(isTerminal ? "De vorige betalingssessie is verlopen. Klik op Opnieuw laden." : msg);
-            isTerminal && onTerminalError?.();
+            if (isTerminal && onTerminalError) {
+              onTerminalError();
+            }
           }}
         />
       </div>

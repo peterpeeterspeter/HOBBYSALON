@@ -75,6 +75,16 @@ export default async function DomainPage({ params }: Props) {
             </p>
           )}
         </div>
+        {handmadeProducts.length > 0 && (
+          <div className="mt-4">
+            <Link
+              href={`/${domain.slug}/handmade`}
+              className="text-sm font-medium text-[var(--accent)] hover:underline"
+            >
+              Alle handgemaakte producten →
+            </Link>
+          </div>
+        )}
       </Section>
 
       <Section title="Benodigdheden">
@@ -88,6 +98,16 @@ export default async function DomainPage({ params }: Props) {
             </p>
           )}
         </div>
+        {supplyProducts.length > 0 && (
+          <div className="mt-4">
+            <Link
+              href={`/${domain.slug}/supplies`}
+              className="text-sm font-medium text-[var(--accent)] hover:underline"
+            >
+              Alle benodigdheden →
+            </Link>
+          </div>
+        )}
       </Section>
 
       <Section title="Workshops">
@@ -104,7 +124,7 @@ export default async function DomainPage({ params }: Props) {
         {data.workshops.length > 0 && (
           <div className="mt-4">
             <Link
-              href="/workshops"
+              href={`/${domain.slug}/workshops`}
               className="text-sm font-medium text-[var(--accent)] hover:underline"
             >
               Alle workshops bekijken →
@@ -147,6 +167,16 @@ export default async function DomainPage({ params }: Props) {
             </p>
           )}
         </div>
+        {data.articles.length > 0 && (
+          <div className="mt-4">
+            <Link
+              href={`/${domain.slug}/artikels`}
+              className="text-sm font-medium text-[var(--accent)] hover:underline"
+            >
+              Alle artikelen bekijken →
+            </Link>
+          </div>
+        )}
       </Section>
     </div>
   );

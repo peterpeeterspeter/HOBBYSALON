@@ -17,13 +17,14 @@ export async function GET(request: NextRequest) {
         `${origin}/checkout/success?order=${result.orderSetId}`
       );
     }
+    return NextResponse.redirect(`${origin}/checkout?payment_error=1`);
   }
 
-  if (redirectStatus === "failed") {
+  if (redirectStatus === "failed" || redirectStatus === "canceled") {
     return NextResponse.redirect(
       `${origin}/checkout?payment_error=1`
     );
   }
 
-  return NextResponse.redirect(`${origin}/checkout/success`);
+  return NextResponse.redirect(`${origin}/checkout?payment_error=1`);
 }

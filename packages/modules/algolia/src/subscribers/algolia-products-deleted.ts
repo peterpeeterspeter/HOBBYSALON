@@ -1,5 +1,4 @@
 import { SubscriberArgs, SubscriberConfig } from '@medusajs/framework'
-import { Logger } from '@medusajs/framework/types'
 import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 import { AlgoliaEvents, IndexType } from '@mercurjs/framework'

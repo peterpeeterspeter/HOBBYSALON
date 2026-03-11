@@ -1,45 +1,31 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createPlatformClient } from "@/lib/platform/client";
+import { getArticlePageData } from "@/lib/services/article-page";
+import { ProductCard } from "@/components/shared/ProductCard";
+import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { CreatorCard } from "@/components/shared/CreatorCard";
+import { EventCard } from "@/components/shared/EventCard";
+import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
 
-async function getArticleBySlug(slug: string) {
-  const supabase = createPlatformClient();
-  const { data, error } = await supabase
-    .from("articles")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_published", true)
-    .single();
-  if (error || !data) return null;
-  return data;
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const { article } = await getArticlePageData(slug);
   if (!article) return { title: "Niet gevonden" };
   return {
-    title: (article as { seo_title?: string }).seo_title ?? `${(article as { title: string }).title} | Hobbysalon`,
-    description: (article as { seo_description?: string }).seo_description ?? (article as { excerpt?: string }).excerpt ?? undefined,
+    title: article.seo_title ?? `${article.title} | Hobbysalon`,
+    description: article.seo_description ?? article.excerpt ?? undefined,
   };
 }
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
-  if (!article) notFound();
+  const data = await getArticlePageData(slug);
+  if (!data.article) notFound();
 
-  const a = article as {
-    title: string;
-    excerpt?: string;
-    body_markdown?: string;
-    featured_image_url?: string;
-    article_type?: string;
-    reading_time_minutes?: number;
-  };
+  const article = data.article;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -49,35 +35,75 @@ export default async function ArticlePage({ params }: Props) {
             <Link href="/" className="hover:text-[var(--foreground)]">Home</Link>
           </li>
           <li>/</li>
-          <li className="text-[var(--foreground)]">{a.title}</li>
+          <li className="text-[var(--foreground)]">{article.title}</li>
         </ol>
       </nav>
 
       <article>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">{a.title}</h1>
-        {a.excerpt && (
-          <p className="mt-4 text-lg text-[var(--muted)]">{a.excerpt}</p>
+        <h1 className="text-3xl font-bold text-[var(--foreground)]">{article.title}</h1>
+        {article.excerpt && (
+          <p className="mt-4 text-lg text-[var(--muted)]">{article.excerpt}</p>
         )}
-        {a.reading_time_minutes && (
+        {article.reading_time_minutes && (
           <p className="mt-2 text-sm text-[var(--muted)]">
-            {a.reading_time_minutes} min lezen
+            {article.reading_time_minutes} min lezen
           </p>
         )}
-        {a.featured_image_url && (
+        {article.featured_image_url && (
           <div className="mt-6 aspect-video overflow-hidden rounded-lg">
             <img
-              src={a.featured_image_url}
-              alt={a.title}
+              src={article.featured_image_url}
+              alt={article.title}
               className="h-full w-full object-cover"
             />
           </div>
         )}
-        {a.body_markdown && (
+        {article.body_markdown && (
           <div className="mt-8 whitespace-pre-wrap text-[var(--foreground)]">
-            {a.body_markdown}
+            {article.body_markdown}
           </div>
         )}
       </article>
+
+      <EntityLinkBlock
+        title="Gerelateerde producten"
+        isEmpty={data.relatedProducts.length === 0}
+        emptyMessage="Geen gerelateerde producten."
+      >
+        {data.relatedProducts.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </EntityLinkBlock>
+
+      <EntityLinkBlock
+        title="Gerelateerde workshops"
+        isEmpty={data.relatedWorkshops.length === 0}
+        emptyMessage="Geen gerelateerde workshops."
+      >
+        {data.relatedWorkshops.map((workshop) => (
+          <WorkshopCard key={workshop.id} workshop={workshop} />
+        ))}
+      </EntityLinkBlock>
+
+      <EntityLinkBlock
+        title="Gerelateerde creators"
+        isEmpty={data.relatedCreators.length === 0}
+        emptyMessage="Geen gerelateerde creators."
+      >
+        {data.relatedCreators.map((creator) => (
+          <CreatorCard key={creator.id} creator={creator} />
+        ))}
+      </EntityLinkBlock>
+
+      <EntityLinkBlock
+        title="Gerelateerde evenementen"
+        isEmpty={data.relatedEvents.length === 0}
+        emptyMessage="Geen gerelateerde evenementen."
+      >
+        {data.relatedEvents.map((event) => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </EntityLinkBlock>
     </div>
   );
 }

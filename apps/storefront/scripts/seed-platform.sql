@@ -119,6 +119,19 @@ INSERT INTO public.event_workshops (event_id, workshop_id) VALUES
   ('e7777777-7777-7777-7777-777777777702', '55555555-5555-5555-5555-555555555503')
 ON CONFLICT (event_id, workshop_id) DO NOTHING;
 
+-- Articles (3)
+INSERT INTO public.articles (id, slug, title, excerpt, body_markdown, article_type, reading_time_minutes, published_at, is_published, is_featured, author_creator_id, domain_id, seo_title, seo_description) VALUES
+  ('a8888888-8888-8888-8888-888888888801', 'starten-met-amigurumi', 'Starten met amigurumi', 'De eerste steken en tools die je nodig hebt om amigurumi te leren.', 'Amigurumi is een toegankelijke manier om te starten met haken. In dit artikel overlopen we materialen, basissteken en een eenvoudig eerste project.', 'guide', 6, NOW() - INTERVAL '5 days', true, true, 'c2222222-2222-2222-2222-222222222201', 'd1111111-1111-1111-1111-111111111101', 'Starten met amigurumi | Hobbysalon', 'Leer hoe je begint met amigurumi en welke materialen je nodig hebt.'),
+  ('a8888888-8888-8888-8888-888888888802', 'pottenbakken-thuis-beginnen', 'Pottenbakken thuis beginnen', 'Praktische tips om met klei te starten, ook zonder draaischijf.', 'Je kan perfect thuis starten met klei en handvormtechnieken. We tonen welke basismaterialen je nodig hebt en hoe je eerste objecten maakt.', 'tutorial', 7, NOW() - INTERVAL '3 days', true, true, 'c2222222-2222-2222-2222-222222222203', 'd1111111-1111-1111-1111-111111111107', 'Pottenbakken thuis beginnen | Hobbysalon', 'Praktische gids om thuis te starten met keramiek en pottenbakken.'),
+  ('a8888888-8888-8888-8888-888888888803', 'bezoek-de-handmade-markt-antwerpen', 'Bezoek de Handmade Markt Antwerpen', 'Wat je mag verwachten op de volgende editie van de markt in Antwerpen.', 'De Handmade Markt Antwerpen brengt makers, workshops en inspiratie samen. Hier vind je het programma, de locaties en onze tips.', 'inspiration', 4, NOW() - INTERVAL '1 day', true, false, 'c2222222-2222-2222-2222-222222222203', 'd1111111-1111-1111-1111-111111111101', 'Handmade Markt Antwerpen | Hobbysalon', 'Ontdek het programma van de Handmade Markt Antwerpen.');
+
+-- Article domains
+INSERT INTO public.article_domains (article_id, domain_id) VALUES
+  ('a8888888-8888-8888-8888-888888888801', 'd1111111-1111-1111-1111-111111111101'),
+  ('a8888888-8888-8888-8888-888888888802', 'd1111111-1111-1111-1111-111111111107'),
+  ('a8888888-8888-8888-8888-888888888803', 'd1111111-1111-1111-1111-111111111101')
+ON CONFLICT (article_id, domain_id) DO NOTHING;
+
 -- Entity links
 INSERT INTO public.entity_links (source_entity_type, source_entity_id, target_entity_type, target_entity_id, relation_type, sort_order) VALUES
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'creator', 'c2222222-2222-2222-2222-222222222201', 'features', 1),
@@ -129,18 +142,33 @@ INSERT INTO public.entity_links (source_entity_type, source_entity_id, target_en
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'workshop', '55555555-5555-5555-5555-555555555501', 'features', 1),
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'workshop', '55555555-5555-5555-5555-555555555503', 'features', 2),
   ('domain', 'd1111111-1111-1111-1111-111111111107', 'workshop', '55555555-5555-5555-5555-555555555502', 'features', 1),
+  ('domain', 'd1111111-1111-1111-1111-111111111101', 'article', 'a8888888-8888-8888-8888-888888888801', 'features', 1),
+  ('domain', 'd1111111-1111-1111-1111-111111111101', 'article', 'a8888888-8888-8888-8888-888888888803', 'features', 2),
+  ('domain', 'd1111111-1111-1111-1111-111111111107', 'article', 'a8888888-8888-8888-8888-888888888802', 'features', 1),
   ('creator', 'c2222222-2222-2222-2222-222222222201', 'product', '44444444-4444-4444-4444-444444444401', 'sells', 1),
   ('creator', 'c2222222-2222-2222-2222-222222222201', 'product', '44444444-4444-4444-4444-444444444403', 'sells', 2),
   ('creator', 'c2222222-2222-2222-2222-222222222201', 'product', '44444444-4444-4444-4444-444444444404', 'sells', 3),
+  ('creator', 'c2222222-2222-2222-2222-222222222201', 'article', 'a8888888-8888-8888-8888-888888888801', 'publishes', 1),
+  ('creator', 'c2222222-2222-2222-2222-222222222203', 'article', 'a8888888-8888-8888-8888-888888888802', 'publishes', 1),
+  ('creator', 'c2222222-2222-2222-2222-222222222203', 'article', 'a8888888-8888-8888-8888-888888888803', 'publishes', 2),
   ('creator', 'c2222222-2222-2222-2222-222222222202', 'product', '44444444-4444-4444-4444-444444444402', 'sells', 1),
   ('creator', 'c2222222-2222-2222-2222-222222222202', 'product', '44444444-4444-4444-4444-444444444406', 'sells', 2),
   ('creator', 'c2222222-2222-2222-2222-222222222203', 'product', '44444444-4444-4444-4444-444444444405', 'sells', 1),
   ('product', '44444444-4444-4444-4444-444444444401', 'workshop', '55555555-5555-5555-5555-555555555501', 'related', 1),
   ('product', '44444444-4444-4444-4444-444444444401', 'workshop', '55555555-5555-5555-5555-555555555503', 'related', 2),
   ('product', '44444444-4444-4444-4444-444444444405', 'workshop', '55555555-5555-5555-5555-555555555502', 'related', 1),
+  ('product', '44444444-4444-4444-4444-444444444401', 'article', 'a8888888-8888-8888-8888-888888888801', 'related', 1),
+  ('product', '44444444-4444-4444-4444-444444444405', 'article', 'a8888888-8888-8888-8888-888888888802', 'related', 1),
   ('workshop', '55555555-5555-5555-5555-555555555501', 'product', '44444444-4444-4444-4444-444444444401', 'uses', 1),
   ('workshop', '55555555-5555-5555-5555-555555555501', 'product', '44444444-4444-4444-4444-444444444402', 'uses', 2),
   ('workshop', '55555555-5555-5555-5555-555555555502', 'product', '44444444-4444-4444-4444-444444444405', 'uses', 1),
+  ('workshop', '55555555-5555-5555-5555-555555555501', 'article', 'a8888888-8888-8888-8888-888888888801', 'related', 1),
+  ('workshop', '55555555-5555-5555-5555-555555555502', 'article', 'a8888888-8888-8888-8888-888888888802', 'related', 1),
   ('event', 'e7777777-7777-7777-7777-777777777701', 'product', '44444444-4444-4444-4444-444444444401', 'features', 1),
   ('event', 'e7777777-7777-7777-7777-777777777701', 'product', '44444444-4444-4444-4444-444444444405', 'features', 2),
-  ('event', 'e7777777-7777-7777-7777-777777777702', 'product', '44444444-4444-4444-4444-444444444402', 'features', 1);
+  ('event', 'e7777777-7777-7777-7777-777777777702', 'product', '44444444-4444-4444-4444-444444444402', 'features', 1),
+  ('event', 'e7777777-7777-7777-7777-777777777701', 'article', 'a8888888-8888-8888-8888-888888888803', 'features', 1),
+  ('article', 'a8888888-8888-8888-8888-888888888801', 'product', '44444444-4444-4444-4444-444444444402', 'recommends', 1),
+  ('article', 'a8888888-8888-8888-8888-888888888801', 'workshop', '55555555-5555-5555-5555-555555555501', 'recommends', 1),
+  ('article', 'a8888888-8888-8888-8888-888888888801', 'creator', 'c2222222-2222-2222-2222-222222222201', 'mentions', 1),
+  ('article', 'a8888888-8888-8888-8888-888888888803', 'event', 'e7777777-7777-7777-7777-777777777701', 'mentions', 1);

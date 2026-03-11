@@ -1,8 +1,11 @@
 import { getCreatorBySlug } from "@/lib/platform/queries/creators";
 import { listProductsByCreator } from "@/lib/platform/queries/products";
+import { getWorkshopById } from "@/lib/platform/queries/workshops";
+import { listEventsByIds } from "@/lib/platform/queries/events";
+import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import type { Creator, Product, Domain } from "@/types/platform";
+import type { Creator, Product, Domain, Workshop, Event, Article } from "@/types/platform";
 
 export type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
@@ -12,8 +15,9 @@ export type CreatorPageData = {
   creator: Creator | null;
   products: ProductWithPrice[];
   domains: Domain[];
-  relatedWorkshops: { id: string; target_entity_id: string }[];
-  relatedEvents: { id: string; target_entity_id: string }[];
+  relatedWorkshops: Workshop[];
+  relatedEvents: Event[];
+  relatedArticles: Article[];
 };
 
 export async function getCreatorPageData(slug: string): Promise<CreatorPageData> {
@@ -25,6 +29,7 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
       domains: [],
       relatedWorkshops: [],
       relatedEvents: [],
+      relatedArticles: [],
     };
   }
 
@@ -35,12 +40,15 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
   ]);
 
   const domains = creatorDomains;
-  const relatedWorkshops = entityLinks
+  const relatedWorkshopIds = entityLinks
     .filter((l) => l.target_entity_type === "workshop")
-    .map((l) => ({ id: l.id, target_entity_id: l.target_entity_id }));
-  const relatedEvents = entityLinks
+    .map((l) => l.target_entity_id);
+  const relatedEventIds = entityLinks
     .filter((l) => l.target_entity_type === "event")
-    .map((l) => ({ id: l.id, target_entity_id: l.target_entity_id }));
+    .map((l) => l.target_entity_id);
+  const relatedArticleIds = entityLinks
+    .filter((l) => l.target_entity_type === "article")
+    .map((l) => l.target_entity_id);
 
   const productsWithPrices = await Promise.all(
     products.map(async (p) => {
@@ -55,12 +63,23 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     })
   );
 
+  const [relatedWorkshops, relatedEvents, relatedArticles] = await Promise.all([
+    relatedWorkshopIds.length > 0
+      ? (
+          await Promise.all(relatedWorkshopIds.map((id) => getWorkshopById(id)))
+        ).filter((workshop): workshop is Workshop => workshop != null)
+      : [],
+    listEventsByIds(relatedEventIds),
+    listArticlesByIds(relatedArticleIds),
+  ]);
+
   return {
     creator,
     products: productsWithPrices,
     domains,
     relatedWorkshops,
     relatedEvents,
+    relatedArticles,
   };
 }
 

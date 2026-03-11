@@ -107,7 +107,7 @@ export const checkResourceOwnershipByResourceId = <Body>({
   }
 }
 
-export const checkResourcesOwnershipByResourceBatch = <Body>({
+export const checkResourcesOwnershipByResourceBatch = ({
   entryPoint,
   filterField = 'id',
   resourceIds = (req) => ({ add: req.validatedBody.add || [], remove: req.validatedBody.remove || [] })

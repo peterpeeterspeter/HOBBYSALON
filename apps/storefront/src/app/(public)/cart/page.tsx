@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { getCart } from "@/lib/commerce/medusa/cart";
-import { CART_COOKIE_NAME } from "@/lib/commerce/medusa/cart";
+import { CART_COOKIE_NAME, getCart } from "@/lib/commerce/medusa/cart";
 import { RemoveFromCartButton } from "@/components/cart/RemoveFromCartButton";
 
 export const dynamic = "force-dynamic";

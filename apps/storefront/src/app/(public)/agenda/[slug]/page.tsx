@@ -4,6 +4,7 @@ import { getEventPageData } from "@/lib/services/event-page";
 import { CreatorCard } from "@/components/shared/CreatorCard";
 import { ProductCard } from "@/components/shared/ProductCard";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { ArticleCard } from "@/components/shared/ArticleCard";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -47,7 +48,15 @@ export default async function EventPage({ params }: Props) {
 
   if (!data.event) notFound();
 
-  const { event, organizer, domains, creators, workshops, relatedProducts } =
+  const {
+    event,
+    organizer,
+    domains,
+    creators,
+    workshops,
+    relatedProducts,
+    relatedArticles,
+  } =
     data;
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
 
@@ -198,6 +207,19 @@ export default async function EventPage({ params }: Props) {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {relatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {relatedArticles.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+            Gerelateerde artikelen
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {relatedArticles.map((article) => (
+              <ArticleCard key={article.id} article={article} />
             ))}
           </div>
         </section>

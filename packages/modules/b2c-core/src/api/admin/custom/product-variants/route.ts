@@ -2,8 +2,7 @@ import {
   AuthenticatedMedusaRequest,
   MedusaResponse,
 } from "@medusajs/framework/http";
-import { HttpTypes } from "@medusajs/framework/types";
-import type { ProductVariantDTO } from "@medusajs/framework/types";
+import { HttpTypes, type ProductVariantDTO } from "@medusajs/framework/types";
 
 import {
   remapKeysForVariant,

@@ -127,7 +127,6 @@ export async function getVariantIdToHasAdminStockLocationMap(
     return new Map()
   }
 
-  const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const variantIdToLocationIds = await getVariantIdToLocationIdsMap(scope, ids)
   const allLocationIds = [
     ...new Set(
@@ -341,5 +340,4 @@ export async function attachStockLocationOwnerToFulfillments(
     }
   }
 }
-
 

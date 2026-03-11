@@ -72,7 +72,7 @@ Application services / query layer
 Postgres platform schema + Mercur/Medusa commerce engine
 ↓
 External services (auth, storage, payments, email)
-
+```
 
 ⸻
 
@@ -528,9 +528,9 @@ a connected creative hobby platform where discovery, commerce, workshops, events
 
 ## Aanbevolen docs-map
 
-```text id="8x3f2u"
+```text
 docs/
   PRD.md
   schema.md
   architecture.md
-
+```

@@ -4,7 +4,9 @@ import { getProductPageData } from "@/lib/services/product-page";
 import { CreatorCard } from "@/components/shared/CreatorCard";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
-import { AddToCartButton } from "@/components/cart/AddToCartButton";
+import { ArticleCard } from "@/components/shared/ArticleCard";
+import { EventCard } from "@/components/shared/EventCard";
+import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -88,20 +90,6 @@ export default async function ProductPage({ params }: Props) {
               {formatPrice(price.amount, price.currency_code)}
             </p>
           )}
-          {variants.length > 1 && (
-            <div className="mt-4">
-              <p className="text-sm font-medium text-[var(--muted)]">
-                Varianten
-              </p>
-              <ul className="mt-1 space-y-1">
-                {variants.map((v) => (
-                  <li key={v.id} className="text-[var(--foreground)]">
-                    {v.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           {product.short_description && (
             <p className="mt-4 text-[var(--foreground)]">
               {product.short_description}
@@ -113,16 +101,7 @@ export default async function ProductPage({ params }: Props) {
             </p>
           )}
           <div className="mt-6">
-            {variants.length > 0 ? (
-              <AddToCartButton
-                variantId={variants[0]!.id}
-                className="w-fit"
-              />
-            ) : (
-              <p className="text-sm text-[var(--muted)]">
-                Toevoegen aan winkelwagen binnenkort beschikbaar
-              </p>
-            )}
+            <ProductPurchaseControls variants={variants} />
           </div>
         </div>
       </div>
@@ -150,13 +129,21 @@ export default async function ProductPage({ params }: Props) {
         title="Gerelateerde artikelen"
         isEmpty={data.relatedArticles.length === 0}
         emptyMessage="Geen gerelateerde artikelen."
-      />
+      >
+        {data.relatedArticles.map((article) => (
+          <ArticleCard key={article.id} article={article} />
+        ))}
+      </EntityLinkBlock>
 
       <EntityLinkBlock
         title="Gerelateerde evenementen"
         isEmpty={data.relatedEvents.length === 0}
         emptyMessage="Geen gerelateerde evenementen."
-      />
+      >
+        {data.relatedEvents.map((event) => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </EntityLinkBlock>
     </div>
   );
 }
