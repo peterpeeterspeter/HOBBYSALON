@@ -5,6 +5,7 @@ import {
   createCollectionsWorkflow,
   createInventoryLevelsWorkflow,
   createProductCategoriesWorkflow,
+  createProductTypesWorkflow,
   createProductsWorkflow,
   createRegionsWorkflow,
   createSalesChannelsWorkflow,
@@ -31,6 +32,7 @@ import {
 } from '@mercurjs/framework'
 
 import { productsToInsert } from './seed-products'
+import { hobbysalonProductsToInsert } from './seed-hobbysalon-products'
 
 const countries = ['be', 'de', 'dk', 'se', 'fr', 'es', 'it', 'pl', 'cz', 'nl']
 
@@ -123,6 +125,14 @@ export async function createStore(
   })
 }
 export async function createRegions(container: MedusaContainer) {
+  const regionService = container.resolve(Modules.REGION)
+
+  // Return existing region if already seeded
+  const [existingRegion] = await regionService.listRegions({ name: 'Europe' })
+  if (existingRegion) {
+    return existingRegion
+  }
+
   const {
     result: [region]
   } = await createRegionsWorkflow(container).run({
@@ -132,24 +142,32 @@ export async function createRegions(container: MedusaContainer) {
           name: 'Europe',
           currency_code: 'eur',
           countries,
-          payment_providers: ['pp_system_default']
+          payment_providers: ['pp_card_stripe-connect']
         }
       ]
     }
   })
 
-  const { result: taxRegions } = await createTaxRegionsWorkflow(container).run({
-    input: countries.map((country_code) => ({
-      country_code
-    }))
-  })
+  // Only create tax regions that don't exist yet
+  const taxService = container.resolve(Modules.TAX)
+  const existingTaxRegions = await taxService.listTaxRegions({})
+  const existingCodes = new Set(existingTaxRegions.map((t: { country_code: string }) => t.country_code))
+  const missingCountries = countries.filter((c) => !existingCodes.has(c))
 
-  await updateTaxRegionsWorkflow(container).run({
-    input: taxRegions.map((taxRegion) => ({
-      id: taxRegion.id,
-      provider_id: 'tp_system'
-    }))
-  })
+  if (missingCountries.length > 0) {
+    const { result: taxRegions } = await createTaxRegionsWorkflow(container).run({
+      input: missingCountries.map((country_code) => ({
+        country_code
+      }))
+    })
+
+    await updateTaxRegionsWorkflow(container).run({
+      input: taxRegions.map((taxRegion) => ({
+        id: taxRegion.id,
+        provider_id: 'tp_system'
+      }))
+    })
+  }
 
   return region
 }
@@ -190,71 +208,81 @@ export async function createPublishableKey(
 }
 
 export async function createProductCategories(container: MedusaContainer) {
-  const { result } = await createProductCategoriesWorkflow(container).run({
-    input: {
-      product_categories: [
-        {
-          name: 'Sneakers',
-          is_active: true
-        },
-        {
-          name: 'Sandals',
-          is_active: true
-        },
-        {
-          name: 'Boots',
-          is_active: true
-        },
-        {
-          name: 'Sport',
-          is_active: true
-        },
-        {
-          name: 'Accessories',
-          is_active: true
-        },
-        {
-          name: 'Tops',
-          is_active: true
-        }
-      ]
-    }
-  })
+  const productService = container.resolve(Modules.PRODUCT)
+  const allCategories = [
+    { name: 'Sneakers', is_active: true },
+    { name: 'Sandals', is_active: true },
+    { name: 'Boots', is_active: true },
+    { name: 'Sport', is_active: true },
+    { name: 'Accessories', is_active: true },
+    { name: 'Tops', is_active: true }
+  ]
 
-  return result
+  const results = []
+  for (const cat of allCategories) {
+    try {
+      const { result } = await createProductCategoriesWorkflow(container).run({
+        input: { product_categories: [cat] }
+      })
+      results.push(...result)
+    } catch (e: unknown) {
+      const raw = e as { message?: string }
+      const msg = (raw?.message ?? String(e)).toLowerCase()
+      if (!msg.includes('already') && !msg.includes('duplicate') && !msg.includes('unique') && !msg.includes('exists')) {
+        throw e
+      }
+    }
+  }
+
+  return results.length ? results : productService.listProductCategories({})
 }
 
 export async function createProductCollections(container: MedusaContainer) {
-  const { result } = await createCollectionsWorkflow(container).run({
-    input: {
-      collections: [
-        {
-          title: 'Luxury'
-        },
-        {
-          title: 'Vintage'
-        },
-        {
-          title: 'Casual'
-        },
-        {
-          title: 'Soho'
-        },
-        {
-          title: 'Streetwear'
-        },
-        {
-          title: 'Y2K'
-        }
-      ]
-    }
-  })
+  const productService = container.resolve(Modules.PRODUCT)
+  const allCollections = [
+    { title: 'Luxury' },
+    { title: 'Vintage' },
+    { title: 'Casual' },
+    { title: 'Soho' },
+    { title: 'Streetwear' },
+    { title: 'Y2K' }
+  ]
 
-  return result
+  const results = []
+  for (const col of allCollections) {
+    try {
+      const { result } = await createCollectionsWorkflow(container).run({
+        input: { collections: [col] }
+      })
+      results.push(...result)
+    } catch (e: unknown) {
+      const raw = e as { message?: string }
+      const msg = (raw?.message ?? String(e)).toLowerCase()
+      if (!msg.includes('already') && !msg.includes('duplicate') && !msg.includes('unique') && !msg.includes('exists')) {
+        throw e
+      }
+    }
+  }
+
+  return results.length ? results : productService.listProductCollections({})
 }
 
 export async function createSeller(container: MedusaContainer) {
   const authService = container.resolve(Modules.AUTH)
+
+  // Return existing seller if already seeded
+  try {
+    const [existing] = await authService.listAuthIdentities({
+      provider_identities: { entity_id: 'seller@mercurjs.com', provider: 'emailpass' }
+    })
+    if (existing) {
+      const sellerModule = container.resolve(SELLER_MODULE)
+      const [existingSeller] = await sellerModule.listSellers({})
+      if (existingSeller) return existingSeller
+    }
+  } catch {
+    // fall through to create
+  }
 
   const { authIdentity } = await authService.register('emailpass', {
     body: {
@@ -465,43 +493,72 @@ export async function createSellerProducts(
   salesChannelId: string
 ) {
   const productService = container.resolve(Modules.PRODUCT)
-  const collections = await productService.listProductCollections(
-    {},
-    { select: ['id', 'title'] }
-  )
-  const categories = await productService.listProductCategories(
-    {},
-    { select: ['id', 'name'] }
-  )
+  const existing = await productService.listProducts({}, { select: ['handle'] })
+  const existingHandles = new Set(existing.map((p: { handle: string }) => p.handle))
 
-  const randomCategory = () =>
-    categories[Math.floor(Math.random() * categories.length)]
-  const randomCollection = () =>
-    collections[Math.floor(Math.random() * collections.length)]
+  const collections = await productService.listProductCollections({}, { select: ['id', 'title'] })
+  const categories = await productService.listProductCategories({}, { select: ['id', 'name'] })
+  const randomCategory = () => categories[Math.floor(Math.random() * categories.length)]
+  const randomCollection = () => collections[Math.floor(Math.random() * collections.length)]
 
-  const toInsert = productsToInsert.map((p) => ({
+  const newProducts = productsToInsert.filter((p) => !existingHandles.has(p.handle))
+  if (!newProducts.length) return existing
+
+  const toInsert = newProducts.map((p) => ({
     ...p,
-    categories: [
-      {
-        id: randomCategory().id
-      }
-    ],
+    categories: [{ id: randomCategory().id }],
     collection_id: randomCollection().id,
-    sales_channels: [
-      {
-        id: salesChannelId
-      }
-    ]
+    sales_channels: [{ id: salesChannelId }]
   }))
 
   const { result } = await createProductsWorkflow.run({
     container,
-    input: {
-      products: toInsert,
-      additional_data: {
-        seller_id: sellerId
-      }
+    input: { products: toInsert, additional_data: { seller_id: sellerId } }
+  })
+
+  return result
+}
+
+export async function createHobbysalonProducts(
+  container: MedusaContainer,
+  sellerId: string,
+  salesChannelId: string
+) {
+  const productService = container.resolve(Modules.PRODUCT)
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const existing = await productService.listProducts({}, { select: ['handle'] })
+  const existingHandles = new Set(existing.map((p: { handle: string }) => p.handle))
+
+  const { data: productTypes } = await query.graph({
+    entity: 'product_type',
+    fields: ['id', 'value'],
+    filters: {}
+  })
+  const typeIdByValue = new Map(productTypes.map((t: { id: string; value: string }) => [t.value, t.id]))
+
+  const collections = await productService.listProductCollections({}, { select: ['id', 'title'] })
+  const categories = await productService.listProductCategories({}, { select: ['id', 'name'] })
+  const randomCategory = () => categories[Math.floor(Math.random() * categories.length)]
+  const randomCollection = () => collections[Math.floor(Math.random() * collections.length)]
+
+  const newProducts = hobbysalonProductsToInsert.filter((p) => !existingHandles.has(p.handle))
+  if (!newProducts.length) return existing
+
+  const toInsert = newProducts.map((p) => {
+    const { product_type, ...rest } = p as { product_type?: string; [k: string]: unknown }
+    const type_id = product_type ? typeIdByValue.get(product_type) : undefined
+    return {
+      ...rest,
+      ...(type_id && { type_id }),
+      categories: [{ id: randomCategory().id }],
+      collection_id: randomCollection().id,
+      sales_channels: [{ id: salesChannelId }]
     }
+  })
+
+  const { result } = await createProductsWorkflow.run({
+    container,
+    input: { products: toInsert, additional_data: { seller_id: sellerId } }
   })
 
   return result
@@ -512,51 +569,165 @@ export async function createInventoryItemStockLevels(
   stockLocationId: string
 ) {
   const inventoryService = container.resolve(Modules.INVENTORY)
-  const items = await inventoryService.listInventoryItems(
-    {},
-    { select: ['id'] }
-  )
+  const items = await inventoryService.listInventoryItems({}, { select: ['id'] })
 
-  const toCreate = items.map((i) => ({
-    inventory_item_id: i.id,
-    location_id: stockLocationId,
-    stocked_quantity: Math.floor(Math.random() * 50) + 1
-  }))
+  const existingLevels = await inventoryService.listInventoryLevels(
+    { location_id: stockLocationId },
+    { select: ['inventory_item_id'] }
+  )
+  const existingItemIds = new Set(existingLevels.map((l: { inventory_item_id: string }) => l.inventory_item_id))
+
+  const toCreate = items
+    .filter((i: { id: string }) => !existingItemIds.has(i.id))
+    .map((i: { id: string }) => ({
+      inventory_item_id: i.id,
+      location_id: stockLocationId,
+      stocked_quantity: Math.floor(Math.random() * 50) + 1
+    }))
+
+  if (!toCreate.length) return []
 
   const { result } = await createInventoryLevelsWorkflow.run({
     container,
-    input: {
-      inventory_levels: toCreate
-    }
+    input: { inventory_levels: toCreate }
   })
   return result
 }
 
-export async function createDefaultCommissionLevel(container: MedusaContainer) {
-  await createCommissionRuleWorkflow.run({
-    container,
-    input: {
-      name: 'default',
-      is_active: true,
-      reference: 'site',
-      reference_id: '',
-      rate: {
-        include_tax: true,
-        type: 'percentage',
-        percentage_rate: 2
-      }
+/**
+ * Hobbysalon commission matrix (see docs/billing-commission-matrix.md):
+ * - supply: 10%, handmade: 6%
+ * - event_listing, event_ticket, workshop_ticket: flat (TBD amount, placeholder 100 = 1 EUR)
+ * - workshop_kit: no rule (commerce only)
+ */
+const HOBBYSALON_PRODUCT_TYPES = [
+  'supply',
+  'handmade',
+  'event_listing',
+  'event_ticket',
+  'workshop_ticket',
+  'workshop_kit'
+] as const
+
+const COMMISSION_CONFIG: Record<
+  string,
+  { type: 'percentage' | 'flat'; percentage_rate?: number; price_set?: { amount: number; currency_code: string }[] }
+> = {
+  supply: { type: 'percentage', percentage_rate: 10 },
+  handmade: { type: 'percentage', percentage_rate: 6 },
+  event_listing: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
+  event_ticket: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
+  workshop_ticket: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
+  workshop_kit: { type: 'percentage', percentage_rate: 0 } // No platform fee; explicit 0% overrides site default
+}
+
+function tryCommissionRule(container: MedusaContainer, fn: () => Promise<unknown>) {
+  return fn().catch((e: unknown) => {
+    const raw = e as { message?: string }
+    const msg = (raw?.message ?? String(e)).toLowerCase()
+    if (!msg.includes('already') && !msg.includes('duplicate') && !msg.includes('unique') && !msg.includes('exists')) {
+      throw e
     }
   })
 }
 
-export async function createConfigurationRules(container: MedusaContainer) {
-  for (const [ruleType, isEnabled] of ConfigurationRuleDefaults) {
-    await createConfigurationRuleWorkflow.run({
+export async function ensureHobbysalonProductTypes(container: MedusaContainer) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const { data: existing } = await query.graph({
+    entity: 'product_type',
+    fields: ['id', 'value'],
+    filters: {}
+  })
+  const existingValues = new Set(existing.map((t: { value: string }) => t.value))
+  const toCreate = HOBBYSALON_PRODUCT_TYPES.filter((v) => !existingValues.has(v))
+  if (toCreate.length === 0) return existing
+
+  try {
+    const { result } = await createProductTypesWorkflow.run({
+      container,
+      input: { product_types: toCreate.map((value) => ({ value })) }
+    })
+    return [...existing, ...(result ?? [])]
+  } catch (e: unknown) {
+    const raw = e as { message?: string }
+    const msg = (raw?.message ?? String(e)).toLowerCase()
+    if (msg.includes('already') || msg.includes('duplicate') || msg.includes('unique') || msg.includes('exists')) {
+      return existing
+    }
+    throw e
+  }
+}
+
+export async function createHobbysalonCommissionRules(container: MedusaContainer) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const { data: productTypes } = await query.graph({
+    entity: 'product_type',
+    fields: ['id', 'value'],
+    filters: {}
+  })
+  const byValue = new Map(productTypes.map((t: { id: string; value: string }) => [t.value, t.id]))
+
+  for (const value of HOBBYSALON_PRODUCT_TYPES) {
+    const config = COMMISSION_CONFIG[value]
+    if (!config) continue
+    const refId = byValue.get(value)
+    if (!refId) continue
+
+    await tryCommissionRule(container, () =>
+      createCommissionRuleWorkflow.run({
+        container,
+        input: {
+          name: `hobbysalon-${value}`,
+          is_active: true,
+          reference: 'product_type',
+          reference_id: refId,
+          rate: {
+            include_tax: true,
+            type: config.type,
+            ...(config.percentage_rate != null && { percentage_rate: config.percentage_rate }),
+            ...(config.price_set && { price_set: config.price_set })
+          }
+        }
+      })
+    )
+  }
+}
+
+export async function createDefaultCommissionLevel(container: MedusaContainer) {
+  await tryCommissionRule(container, () =>
+    createCommissionRuleWorkflow.run({
       container,
       input: {
-        rule_type: ruleType,
-        is_enabled: isEnabled
+        name: 'default',
+        is_active: true,
+        reference: 'site',
+        reference_id: '',
+        rate: {
+          include_tax: true,
+          type: 'percentage',
+          percentage_rate: 2
+        }
       }
     })
+  )
+}
+
+export async function createConfigurationRules(container: MedusaContainer) {
+  for (const [ruleType, isEnabled] of ConfigurationRuleDefaults) {
+    try {
+      await createConfigurationRuleWorkflow.run({
+        container,
+        input: {
+          rule_type: ruleType,
+          is_enabled: isEnabled
+        }
+      })
+    } catch (e: unknown) {
+      const raw = e as { message?: string }
+      const msg = (raw?.message ?? String(e)).toLowerCase()
+      if (!msg.includes('already') && !msg.includes('duplicate') && !msg.includes('unique') && !msg.includes('exists')) {
+        throw e
+      }
+    }
   }
 }

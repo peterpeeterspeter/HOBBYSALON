@@ -1,0 +1,301 @@
+import { sdk } from "./client";
+
+const getBackendUrl = () =>
+  process.env.MEDUSA_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
+  "http://localhost:9000";
+
+const CART_COOKIE_NAME = "medusa_cart_id";
+const CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+
+export { CART_COOKIE_NAME, CART_COOKIE_MAX_AGE };
+
+let cachedRegionId: string | null = null;
+
+/** Get Europe region ID for cart creation (cached). */
+export async function getDefaultRegionId(): Promise<string | null> {
+  if (cachedRegionId) return cachedRegionId;
+  try {
+    const { regions } = await sdk.store.region.list({ limit: 50 });
+    const europe = regions?.find((r) => r.name === "Europe");
+    if (europe?.id) {
+      cachedRegionId = europe.id;
+      return europe.id;
+    }
+    return regions?.[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Create a new cart. */
+export async function createCart(): Promise<{ cart_id: string } | null> {
+  const regionId = await getDefaultRegionId();
+  if (!regionId) return null;
+  try {
+    const { cart } = await sdk.store.cart.create(
+      { region_id: regionId },
+      { fields: "id" }
+    );
+    return cart?.id ? { cart_id: cart.id } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Add a line item to a cart. */
+export async function addToCart(
+  cartId: string,
+  variantId: string,
+  quantity: number = 1
+): Promise<{ success: boolean; cart_id?: string }> {
+  try {
+    const fields =
+      "id,currency_code,*items,*items.variant,*items.variant.product";
+    await sdk.store.cart.createLineItem(
+      cartId,
+      { variant_id: variantId, quantity },
+      { fields }
+    );
+    return { success: true, cart_id: cartId };
+  } catch (e) {
+    const err = e as { message?: string; response?: { status?: number } };
+    console.error(
+      "Add to cart failed:",
+      err?.message ?? err,
+      err?.response?.status ? `(HTTP ${err.response.status})` : ""
+    );
+    return { success: false };
+  }
+}
+
+/** Retrieve cart with items and totals. */
+export async function getCart(cartId: string) {
+  try {
+    const query = {
+      fields:
+        "id,currency_code,*items,*items.variant,*items.variant.product",
+    };
+    const { cart } = await sdk.store.cart.retrieve(cartId, query);
+    if (!cart) return null;
+    // Mercur/Medusa cart uses items relation
+    const c = cart as { items?: unknown[]; line_items?: unknown[] };
+    const items = c.items ?? c.line_items ?? [];
+    return { ...cart, items };
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getCart] failed:", e);
+    }
+    return null;
+  }
+}
+
+/** Retrieve cart with checkout fields (region, shipping, payment). */
+export async function getCartForCheckout(cartId: string) {
+  try {
+    const query = {
+      fields:
+        "id,currency_code,region_id,email,shipping_address.*,billing_address.*,subtotal,total,shipping_total,*items,*items.variant,*items.variant.product,shipping_methods.*,payment_collection.*,payment_collection.payment_sessions.*,payment_collection.payment_sessions.data",
+    };
+    const { cart } = await sdk.store.cart.retrieve(cartId, query);
+    if (!cart) return null;
+    const c = cart as { items?: unknown[]; line_items?: unknown[] };
+    const items = c.items ?? c.line_items ?? [];
+    return { ...cart, items };
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getCartForCheckout] failed:", e);
+    }
+    return null;
+  }
+}
+
+/** Remove a line item from the cart. */
+export async function removeFromCart(
+  cartId: string,
+  lineItemId: string
+): Promise<{ success: boolean }> {
+  try {
+    const fields =
+      "id,currency_code,*items,*items.variant,*items.variant.product";
+    await sdk.store.cart.deleteLineItem(cartId, lineItemId, { fields });
+    return { success: true };
+  } catch (e) {
+    console.error("Remove from cart failed:", e);
+    return { success: false };
+  }
+}
+
+/** Address shape for shipping/billing. */
+export type CartAddress = {
+  first_name: string;
+  last_name: string;
+  address_1: string;
+  address_2?: string;
+  city: string;
+  postal_code: string;
+  province?: string;
+  country_code: string;
+  phone?: string;
+};
+
+/** Update cart with email and addresses. */
+export async function updateCart(
+  cartId: string,
+  data: {
+    email?: string;
+    shipping_address?: CartAddress;
+    billing_address?: CartAddress;
+  }
+): Promise<{ success: boolean }> {
+  try {
+    await sdk.store.cart.update(cartId, data, {
+      fields:
+        "id,email,shipping_address.*,billing_address.*,*items,*items.variant,*items.variant.product",
+    });
+    return { success: true };
+  } catch (e) {
+    console.error("Update cart failed:", e);
+    return { success: false };
+  }
+}
+
+/** Shipping option returned from API. */
+export type ShippingOption = {
+  id: string;
+  name: string;
+  price_type?: string;
+  amount?: number;
+  data?: Record<string, unknown>;
+};
+
+/** List shipping options for cart. */
+export async function getShippingOptions(
+  cartId: string
+): Promise<ShippingOption[] | null> {
+  try {
+    const { shipping_options } = await sdk.store.fulfillment.listCartOptions({
+      cart_id: cartId,
+    });
+    return (shipping_options ?? []) as ShippingOption[];
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getShippingOptions] failed:", e);
+    }
+    return null;
+  }
+}
+
+/** Add shipping method to cart. */
+export async function addShippingMethod(
+  cartId: string,
+  optionId: string,
+  data?: Record<string, unknown>
+): Promise<{ success: boolean }> {
+  try {
+    await sdk.store.cart.addShippingMethod(
+      cartId,
+      { option_id: optionId, data: data ?? {} },
+      {
+        fields:
+          "id,*items,*items.variant,*items.variant.product,shipping_methods.*",
+      }
+    );
+    return { success: true };
+  } catch (e) {
+    console.error("Add shipping method failed:", e);
+    return { success: false };
+  }
+}
+
+/** List payment providers for region. */
+export async function getPaymentProviders(regionId: string) {
+  try {
+    const { payment_providers } = await sdk.store.payment.listPaymentProviders({
+      region_id: regionId,
+    });
+    return payment_providers ?? [];
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getPaymentProviders] failed:", e);
+    }
+    return [];
+  }
+}
+
+/** Fetch Stripe client_secret from backend (auto-refreshes if PaymentIntent is terminal). */
+export async function getPaymentClientSecret(
+  cartId: string
+): Promise<{ client_secret?: string; error?: string }> {
+  try {
+    const baseUrl = getBackendUrl();
+    const pk =
+      process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
+      process.env.MEDUSA_PUBLISHABLE_KEY ??
+      "";
+    const res = await fetch(
+      `${baseUrl}/store/carts/${cartId}/payment-client-secret`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-publishable-api-key": pk,
+        },
+      }
+    );
+    const json = (await res.json()) as {
+      client_secret?: string;
+      message?: string;
+    };
+    if (!res.ok) {
+      return { error: json.message ?? "Failed to get client secret" };
+    }
+    return { client_secret: json.client_secret };
+  } catch (e) {
+    console.error("[getPaymentClientSecret]", e);
+    return { error: "Network error" };
+  }
+}
+
+/** Initiate payment session for cart (e.g. Stripe). */
+export async function initiatePaymentSession(
+  cart: { id: string; region_id: string },
+  providerId: string,
+  data?: Record<string, unknown>
+) {
+  try {
+    const { payment_collection } = await sdk.store.payment.initiatePaymentSession(
+      cart as Parameters<typeof sdk.store.payment.initiatePaymentSession>[0],
+      { provider_id: providerId, data: data ?? {} },
+      { fields: "id,payment_sessions.id,payment_sessions.data,payment_sessions.*" }
+    );
+    return { success: true, payment_collection };
+  } catch (e) {
+    console.error("Initiate payment session failed:", e);
+    return { success: false };
+  }
+}
+
+/** Complete cart and place order. Returns order_set for Mercur. */
+export async function completeCart(cartId: string) {
+  try {
+    const result = await sdk.store.cart.complete(cartId, {
+      fields:
+        "id,orders.*,orders.items.*,orders.shipping_address.*,orders.billing_address.*",
+    });
+    if (result.type === "cart") {
+      const err = (result as { error?: { message?: string } }).error;
+      return {
+        success: false,
+        error: typeof err === "string" ? err : err?.message ?? "Bestelling kon niet worden afgerond",
+      };
+    }
+    return {
+      success: true,
+      order_set: (result as { order_set?: unknown }).order_set ?? result,
+    };
+  } catch (e) {
+    console.error("Complete cart failed:", e);
+    return { success: false };
+  }
+}

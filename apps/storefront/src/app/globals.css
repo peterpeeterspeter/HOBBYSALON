@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* Hobbysalon design tokens: warm palette, senior-friendly base */
+:root {
+  --background: #fdfbf7;
+  --foreground: #2d2a26;
+  --muted: #6b6560;
+  --accent: #c17f59;
+  --accent-foreground: #ffffff;
+  --accent-hover: #a86b46;
+  --border: #e8e2da;
+  --card: #ffffff;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
