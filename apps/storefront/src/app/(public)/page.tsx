@@ -25,6 +25,9 @@ export default async function HomePage() {
     latestArticles: [],
     creatorsOfTheMonth: [],
     featuredProjects: [],
+    recommendedProjects: [],
+    recommendationSource: "cold_start",
+    recommendationLatencyMs: 0,
   };
 
   try {
@@ -41,6 +44,32 @@ export default async function HomePage() {
       <p className="text-lg text-[var(--muted)] mb-8">
         Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
       </p>
+
+      <section className="mb-10">
+        <h2 className="mb-2 text-xl font-semibold text-[var(--foreground)]">
+          {data.recommendationSource === "personalized"
+            ? "Aanbevolen voor jou"
+            : "Populaire projecten om te starten"}
+        </h2>
+        <p className="mb-4 text-sm text-[var(--muted)]">
+          {data.recommendationSource === "personalized"
+            ? "Gebaseerd op je favorieten, domeingedrag en recente interacties."
+            : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {data.recommendedProjects.map((item) => (
+            <div key={item.project.id} className="space-y-2">
+              <ProjectCard project={item.project} />
+              <p className="text-xs text-[var(--muted)]">{item.reasons[0] ?? "Aanbevolen project"}</p>
+            </div>
+          ))}
+          {data.recommendedProjects.length === 0 && (
+            <p className="col-span-full text-[var(--muted)]">
+              Nog geen aanbevelingen beschikbaar.
+            </p>
+          )}
+        </div>
+      </section>
 
       <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Populaire domeinen</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

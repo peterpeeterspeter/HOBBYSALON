@@ -5,7 +5,13 @@ import { listUpcomingWorkshops } from "@/lib/platform/queries/workshops";
 import { listEvents } from "@/lib/platform/queries/events";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
 import { listFeaturedProjects } from "@/lib/platform/queries/projects";
+import {
+  getProjectRecommendations,
+  type RecommendedProject,
+  type RecommendationSource,
+} from "@/lib/platform/queries/recommendations";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
+import { getAuthUser } from "@/lib/auth/session";
 import type {
   Domain,
   Creator,
@@ -29,6 +35,9 @@ export type HomePageData = {
   latestArticles: Article[];
   creatorsOfTheMonth: Creator[];
   featuredProjects: Project[];
+  recommendedProjects: RecommendedProject[];
+  recommendationSource: RecommendationSource;
+  recommendationLatencyMs: number;
 };
 
 async function enrichProductsWithPrices(
@@ -53,6 +62,7 @@ async function enrichProductsWithPrices(
 
 export async function getHomePageData(): Promise<HomePageData> {
   const fromDate = new Date().toISOString();
+  const authUser = await getAuthUser();
 
   const [
     popularDomains,
@@ -63,6 +73,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     latestArticles,
     creatorsOfTheMonth,
     featuredProjects,
+    recommendationResult,
   ] = await Promise.all([
     listActiveDomains(),
     listUpcomingWorkshops(6),
@@ -72,6 +83,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     listLatestArticles(6),
     listFeaturedCreators(6),
     listFeaturedProjects(4),
+    getProjectRecommendations({ userId: authUser?.id ?? null, limit: 6 }),
   ]);
 
   const [handmadeWithPrices, suppliesWithPrices] = await Promise.all([
@@ -88,5 +100,8 @@ export async function getHomePageData(): Promise<HomePageData> {
     latestArticles,
     creatorsOfTheMonth,
     featuredProjects,
+    recommendedProjects: recommendationResult.projects,
+    recommendationSource: recommendationResult.source,
+    recommendationLatencyMs: recommendationResult.latencyMs,
   };
 }
