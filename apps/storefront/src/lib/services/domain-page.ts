@@ -4,9 +4,10 @@ import { listProductsByDomain } from "@/lib/platform/queries/products";
 import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import { listEvents } from "@/lib/platform/queries/events";
 import { listArticlesByDomain } from "@/lib/platform/queries/articles";
+import { listProjectsByDomain } from "@/lib/platform/queries/projects";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import type { Domain, Creator, Product, Workshop, Event, Article } from "@/types/platform";
+import type { Domain, Creator, Product, Workshop, Event, Article, Project } from "@/types/platform";
 
 export type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
@@ -20,6 +21,7 @@ export type DomainPageData = {
   workshops: Workshop[];
   events: Event[];
   articles: Article[];
+  projects: Project[];
   relatedWorkshops: { id: string; target_entity_id: string }[];
   relatedEvents: { id: string; target_entity_id: string }[];
   relatedArticles: { id: string; target_entity_id: string }[];
@@ -36,6 +38,7 @@ export async function getDomainPageData(slug: string): Promise<DomainPageData> {
       workshops: [],
       events: [],
       articles: [],
+      projects: [],
       relatedWorkshops: [],
       relatedEvents: [],
       relatedArticles: [],
@@ -43,7 +46,7 @@ export async function getDomainPageData(slug: string): Promise<DomainPageData> {
   }
 
   const fromDate = new Date().toISOString();
-  const [creators, handmadeProducts, supplyProducts, workshops, events, articles, entityLinks] =
+  const [creators, handmadeProducts, supplyProducts, workshops, events, articles, projects, entityLinks] =
     await Promise.all([
       listCreatorsByDomain(domain.id),
       listProductsByDomain(domain.id, "handmade"),
@@ -51,6 +54,7 @@ export async function getDomainPageData(slug: string): Promise<DomainPageData> {
       listWorkshopsByDomain(domain.id),
       listEvents({ domain_id: domain.id, from_date: fromDate }),
       listArticlesByDomain(domain.id),
+      listProjectsByDomain(domain.id),
       getRelatedEntities("domain", domain.id),
     ]);
 
@@ -75,6 +79,7 @@ export async function getDomainPageData(slug: string): Promise<DomainPageData> {
     workshops,
     events,
     articles,
+    projects,
     relatedWorkshops,
     relatedEvents,
     relatedArticles,

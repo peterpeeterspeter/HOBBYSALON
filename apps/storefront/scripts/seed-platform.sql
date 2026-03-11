@@ -132,11 +132,127 @@ INSERT INTO public.article_domains (article_id, domain_id) VALUES
   ('a8888888-8888-8888-8888-888888888803', 'd1111111-1111-1111-1111-111111111101')
 ON CONFLICT (article_id, domain_id) DO NOTHING;
 
+-- Projects (3)
+INSERT INTO public.projects (
+  id,
+  slug,
+  title,
+  short_description,
+  description,
+  difficulty_level,
+  estimated_duration_minutes,
+  budget_min_cents,
+  budget_max_cents,
+  currency_code,
+  is_featured,
+  is_active,
+  seo_title,
+  seo_description
+) VALUES
+  (
+    '99999999-9999-9999-9999-999999999901',
+    'amigurumi-eerste-beertje',
+    'Amigurumi: je eerste beertje',
+    'Een beginner-proof startproject met een duidelijk stappenplan.',
+    'Combineer materialen, een workshop en inspiratie om je eerste amigurumi-beertje te maken.',
+    'beginner',
+    180,
+    3500,
+    9000,
+    'EUR',
+    true,
+    true,
+    'Amigurumi eerste beertje | Hobbysalon Project',
+    'Start met amigurumi via een volledig project met materialen en workshop.'
+  ),
+  (
+    '99999999-9999-9999-9999-999999999902',
+    'keramiek-mok-weekend',
+    'Keramiek mok weekendproject',
+    'Maak in een weekend je eerste handgemaakte mok.',
+    'Project met workshop, inspiratie en materiaalkeuzes voor een afgewerkte keramiek mok.',
+    'beginner',
+    240,
+    7500,
+    15000,
+    'EUR',
+    true,
+    true,
+    'Keramiek mok weekendproject | Hobbysalon',
+    'Volg een keramiek traject met workshop en tips om je eerste mok te maken.'
+  ),
+  (
+    '99999999-9999-9999-9999-999999999903',
+    'handmade-markt-voorbereiding',
+    'Voorbereiding op een handmade markt',
+    'Praktisch project om je creaties marktklaar te maken.',
+    'Plan je beursvoorbereiding met inspiratie, event-context en relevante workshops.',
+    'intermediate',
+    300,
+    5000,
+    18000,
+    'EUR',
+    false,
+    true,
+    'Handmade markt voorbereiding | Hobbysalon',
+    'Bereid je slim voor op je volgende handmade markt met een duidelijk projectplan.'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  slug = EXCLUDED.slug,
+  title = EXCLUDED.title,
+  short_description = EXCLUDED.short_description,
+  description = EXCLUDED.description,
+  difficulty_level = EXCLUDED.difficulty_level,
+  estimated_duration_minutes = EXCLUDED.estimated_duration_minutes,
+  budget_min_cents = EXCLUDED.budget_min_cents,
+  budget_max_cents = EXCLUDED.budget_max_cents,
+  currency_code = EXCLUDED.currency_code,
+  is_featured = EXCLUDED.is_featured,
+  is_active = EXCLUDED.is_active,
+  seo_title = EXCLUDED.seo_title,
+  seo_description = EXCLUDED.seo_description;
+
+-- Project domains
+INSERT INTO public.project_domains (project_id, domain_id, is_primary) VALUES
+  ('99999999-9999-9999-9999-999999999901', 'd1111111-1111-1111-1111-111111111101', true),
+  ('99999999-9999-9999-9999-999999999902', 'd1111111-1111-1111-1111-111111111107', true),
+  ('99999999-9999-9999-9999-999999999903', 'd1111111-1111-1111-1111-111111111101', true),
+  ('99999999-9999-9999-9999-999999999903', 'd1111111-1111-1111-1111-111111111107', false)
+ON CONFLICT (project_id, domain_id) DO NOTHING;
+
+-- Project steps
+INSERT INTO public.project_steps (
+  id,
+  project_id,
+  step_order,
+  title,
+  instruction,
+  related_entity_type,
+  related_entity_id
+) VALUES
+  ('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaa901', '99999999-9999-9999-9999-999999999901', 1, 'Kies je startmateriaal', 'Start met een eenvoudig wolpakket zodat je meteen kan oefenen.', 'product', '44444444-4444-4444-4444-444444444402'),
+  ('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaa902', '99999999-9999-9999-9999-999999999901', 2, 'Volg een basisworkshop', 'Leer de kernsteken en basisvormen met begeleiding.', 'workshop', '55555555-5555-5555-5555-555555555501'),
+  ('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaa903', '99999999-9999-9999-9999-999999999901', 3, 'Werk met een eenvoudig patroon', 'Gebruik het artikel als leidraad voor je eerste figuurtje.', 'article', 'a8888888-8888-8888-8888-888888888801'),
+  ('aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaa901', '99999999-9999-9999-9999-999999999902', 1, 'Voorzie je klei en tools', 'Gebruik een afgewerkt voorbeeld om materiaalkeuze te versnellen.', 'product', '44444444-4444-4444-4444-444444444405'),
+  ('aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaa902', '99999999-9999-9999-9999-999999999902', 2, 'Volg de draaischijf workshop', 'Plan je sessie en focus op basisvormen voor je eerste mok.', 'workshop', '55555555-5555-5555-5555-555555555502'),
+  ('aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaa903', '99999999-9999-9999-9999-999999999902', 3, 'Lees de thuisgids', 'Gebruik het artikel om thuis verder te oefenen.', 'article', 'a8888888-8888-8888-8888-888888888802'),
+  ('aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaa901', '99999999-9999-9999-9999-999999999903', 1, 'Verzamel marktreferenties', 'Bekijk het event om sfeer en doelgroep in te schatten.', 'event', 'e7777777-7777-7777-7777-777777777701'),
+  ('aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaa902', '99999999-9999-9999-9999-999999999903', 2, 'Kies je focuscollectie', 'Selecteer een beperkt aanbod voor een duidelijke stand.', 'creator', 'c2222222-2222-2222-2222-222222222201'),
+  ('aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaa903', '99999999-9999-9999-9999-999999999903', 3, 'Test een snelle live demo', 'Gebruik een korte workshopflow als attractie op de stand.', 'workshop', '55555555-5555-5555-5555-555555555503')
+ON CONFLICT (project_id, step_order) DO UPDATE SET
+  title = EXCLUDED.title,
+  instruction = EXCLUDED.instruction,
+  related_entity_type = EXCLUDED.related_entity_type,
+  related_entity_id = EXCLUDED.related_entity_id;
+
 -- Entity links
 INSERT INTO public.entity_links (source_entity_type, source_entity_id, target_entity_type, target_entity_id, relation_type, sort_order) VALUES
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'creator', 'c2222222-2222-2222-2222-222222222201', 'features', 1),
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'creator', 'c2222222-2222-2222-2222-222222222202', 'features', 2),
   ('domain', 'd1111111-1111-1111-1111-111111111107', 'creator', 'c2222222-2222-2222-2222-222222222203', 'features', 1),
+  ('domain', 'd1111111-1111-1111-1111-111111111101', 'project', '99999999-9999-9999-9999-999999999901', 'features', 1),
+  ('domain', 'd1111111-1111-1111-1111-111111111107', 'project', '99999999-9999-9999-9999-999999999902', 'features', 1),
+  ('domain', 'd1111111-1111-1111-1111-111111111101', 'project', '99999999-9999-9999-9999-999999999903', 'features', 2),
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'product', '44444444-4444-4444-4444-444444444401', 'features', 1),
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'product', '44444444-4444-4444-4444-444444444402', 'features', 2),
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'workshop', '55555555-5555-5555-5555-555555555501', 'features', 1),
@@ -168,6 +284,19 @@ INSERT INTO public.entity_links (source_entity_type, source_entity_id, target_en
   ('event', 'e7777777-7777-7777-7777-777777777701', 'product', '44444444-4444-4444-4444-444444444405', 'features', 2),
   ('event', 'e7777777-7777-7777-7777-777777777702', 'product', '44444444-4444-4444-4444-444444444402', 'features', 1),
   ('event', 'e7777777-7777-7777-7777-777777777701', 'article', 'a8888888-8888-8888-8888-888888888803', 'features', 1),
+  ('project', '99999999-9999-9999-9999-999999999901', 'product', '44444444-4444-4444-4444-444444444402', 'requires', 1),
+  ('project', '99999999-9999-9999-9999-999999999901', 'workshop', '55555555-5555-5555-5555-555555555501', 'includes', 1),
+  ('project', '99999999-9999-9999-9999-999999999901', 'article', 'a8888888-8888-8888-8888-888888888801', 'inspires', 1),
+  ('project', '99999999-9999-9999-9999-999999999901', 'creator', 'c2222222-2222-2222-2222-222222222201', 'led_by', 1),
+  ('project', '99999999-9999-9999-9999-999999999902', 'product', '44444444-4444-4444-4444-444444444405', 'requires', 1),
+  ('project', '99999999-9999-9999-9999-999999999902', 'workshop', '55555555-5555-5555-5555-555555555502', 'includes', 1),
+  ('project', '99999999-9999-9999-9999-999999999902', 'article', 'a8888888-8888-8888-8888-888888888802', 'inspires', 1),
+  ('project', '99999999-9999-9999-9999-999999999903', 'event', 'e7777777-7777-7777-7777-777777777701', 'prepares_for', 1),
+  ('project', '99999999-9999-9999-9999-999999999903', 'workshop', '55555555-5555-5555-5555-555555555503', 'includes', 1),
+  ('project', '99999999-9999-9999-9999-999999999903', 'creator', 'c2222222-2222-2222-2222-222222222201', 'mentions', 1),
+  ('workshop', '55555555-5555-5555-5555-555555555501', 'project', '99999999-9999-9999-9999-999999999901', 'part_of_project', 1),
+  ('article', 'a8888888-8888-8888-8888-888888888801', 'project', '99999999-9999-9999-9999-999999999901', 'part_of_project', 1),
+  ('event', 'e7777777-7777-7777-7777-777777777701', 'project', '99999999-9999-9999-9999-999999999903', 'part_of_project', 1),
   ('article', 'a8888888-8888-8888-8888-888888888801', 'product', '44444444-4444-4444-4444-444444444402', 'recommends', 1),
   ('article', 'a8888888-8888-8888-8888-888888888801', 'workshop', '55555555-5555-5555-5555-555555555501', 'recommends', 1),
   ('article', 'a8888888-8888-8888-8888-888888888801', 'creator', 'c2222222-2222-2222-2222-222222222201', 'mentions', 1),

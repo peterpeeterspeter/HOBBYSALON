@@ -480,6 +480,93 @@ create index if not exists idx_article_domains_article_id on public.article_doma
 create index if not exists idx_article_domains_domain_id on public.article_domains(domain_id);
 
 -- =========================================================
+-- PROJECTS
+-- Connected hobby projects combining content, commerce and bookings
+-- =========================================================
+
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  short_description text,
+  description text,
+  difficulty_level text not null default 'beginner',
+  estimated_duration_minutes integer,
+  budget_min_cents integer,
+  budget_max_cents integer,
+  currency_code text not null default 'EUR',
+  featured_image_url text,
+  is_featured boolean not null default false,
+  is_active boolean not null default true,
+  seo_title text,
+  seo_description text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint projects_difficulty_level_check check (
+    difficulty_level in ('beginner','intermediate','advanced')
+  ),
+  constraint projects_budget_range_check check (
+    budget_min_cents is null or
+    budget_max_cents is null or
+    budget_min_cents <= budget_max_cents
+  )
+);
+
+create index if not exists idx_projects_is_featured on public.projects(is_featured);
+create index if not exists idx_projects_is_active on public.projects(is_active);
+create index if not exists idx_projects_difficulty_level on public.projects(difficulty_level);
+
+create trigger trg_projects_updated_at
+before update on public.projects
+for each row execute function public.set_updated_at();
+
+-- =========================================================
+-- PROJECT DOMAINS
+-- Many-to-many relation between projects and domains
+-- =========================================================
+
+create table if not exists public.project_domains (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  domain_id uuid not null references public.domains(id) on delete cascade,
+  is_primary boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (project_id, domain_id)
+);
+
+create index if not exists idx_project_domains_project_id on public.project_domains(project_id);
+create index if not exists idx_project_domains_domain_id on public.project_domains(domain_id);
+
+-- =========================================================
+-- PROJECT STEPS
+-- Ordered project guidance with optional linked entities
+-- =========================================================
+
+create table if not exists public.project_steps (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  step_order integer not null,
+  title text not null,
+  instruction text not null,
+  related_entity_type text,
+  related_entity_id uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint project_steps_related_entity_type_check check (
+    related_entity_type is null or
+    related_entity_type in ('creator','product','workshop','event','article')
+  ),
+  unique (project_id, step_order)
+);
+
+create index if not exists idx_project_steps_project_id on public.project_steps(project_id);
+create index if not exists idx_project_steps_related_entity on public.project_steps(related_entity_type, related_entity_id);
+
+create trigger trg_project_steps_updated_at
+before update on public.project_steps
+for each row execute function public.set_updated_at();
+
+-- =========================================================
 -- ENTITY LINKS
 -- Core graph table
 -- =========================================================
@@ -495,10 +582,10 @@ create table if not exists public.entity_links (
   sort_order integer,
   created_at timestamptz not null default now(),
   constraint entity_links_source_entity_type_check check (
-    source_entity_type in ('domain','creator','product','workshop','event','article')
+    source_entity_type in ('domain','creator','product','workshop','event','article','project')
   ),
   constraint entity_links_target_entity_type_check check (
-    target_entity_type in ('domain','creator','product','workshop','event','article')
+    target_entity_type in ('domain','creator','product','workshop','event','article','project')
   )
 );
 
@@ -517,7 +604,7 @@ create table if not exists public.favorites (
   entity_id uuid not null,
   created_at timestamptz not null default now(),
   constraint favorites_entity_type_check check (
-    entity_type in ('domain','creator','product','workshop','event','article')
+    entity_type in ('domain','creator','product','workshop','event','article','project')
   ),
   unique (user_id, entity_type, entity_id)
 );

@@ -6,6 +6,7 @@ import { CreatorCard } from "@/components/shared/CreatorCard";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
+import { ProjectCard } from "@/components/shared/ProjectCard";
 import { Section } from "@/components/shared/Section";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { getAuthUser } from "@/lib/auth/session";
@@ -195,6 +196,19 @@ export default async function DomainPage({ params }: Props) {
             </Link>
           </div>
         )}
+      </Section>
+
+      <Section title="Projecten om te starten">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {data.projects.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
+          {data.projects.length === 0 && (
+            <p className="col-span-full text-[var(--muted)]">
+              Nog geen projecten in dit domein.
+            </p>
+          )}
+        </div>
       </Section>
     </div>
   );

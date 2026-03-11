@@ -11,6 +11,7 @@ Overview of documentation files in this repository.
 | [PRD.md](./PRD.md) | Product requirements document — vision, scope, user types, UX |
 | [schema.md](./schema.md) | Data model — domains, creators, products, workshops, events, articles |
 | [architecture.md](./architecture.md) | Technical architecture — layers, integrations, flows |
+| [phase-5-sprintboard.md](./phase-5-sprintboard.md) | Sprint planning for Phase 5 (P0/P1/P2) |
 
 ---
 
@@ -47,3 +48,23 @@ Overview of documentation files in this repository.
 - **Commerce**: Mercur/Medusa — products, carts, orders, checkout
 - **Storefront**: `apps/storefront` — Next.js public site
 - **Backend**: `apps/backend` — Medusa + custom routes
+
+---
+
+## Analytics Event Dictionary (Storefront)
+
+| Event | Trigger | Required payload fields |
+|------|---------|-------------------------|
+| `project_view` | Project detail page mount | `project_id`, `project_slug`, `difficulty_level` |
+| `add_to_cart` | Add-to-cart success | `variant_id`, `quantity` |
+| `workshop_booking_request_submitted` | Booking request success | `workshop_id`, `creator_id` |
+| `newsletter_signup` | Newsletter form success | `source` |
+| `checkout_started` | Checkout page mount | `currency_code`, `total_amount`, `item_count` |
+| `checkout_completed` | Checkout success page mount | `order_id` |
+
+All tracked events include shared metadata from `trackEvent`:
+
+- `timestamp`
+- `source` (`storefront`)
+- `session_id`
+- `path`

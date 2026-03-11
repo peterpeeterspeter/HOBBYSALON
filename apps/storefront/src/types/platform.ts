@@ -137,6 +137,38 @@ export type Article = {
   updated_at: string;
 };
 
+export type Project = {
+  id: string;
+  slug: string;
+  title: string;
+  short_description: string | null;
+  description: string | null;
+  difficulty_level: string;
+  estimated_duration_minutes: number | null;
+  budget_min_cents: number | null;
+  budget_max_cents: number | null;
+  currency_code: string;
+  featured_image_url: string | null;
+  is_featured: boolean;
+  is_active: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjectStep = {
+  id: string;
+  project_id: string;
+  step_order: number;
+  title: string;
+  instruction: string;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type EntityLink = {
   id: string;
   source_entity_type: string;
@@ -154,4 +186,5 @@ export type EntityType =
   | "product"
   | "workshop"
   | "event"
-  | "article";
+  | "article"
+  | "project";

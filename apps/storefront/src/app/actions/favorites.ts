@@ -13,6 +13,7 @@ const ALLOWED_ENTITY_TYPES = new Set<EntityType>([
   "workshop",
   "event",
   "article",
+  "project",
 ]);
 
 export async function toggleFavoriteAction(formData: FormData): Promise<void> {

@@ -20,6 +20,7 @@ const SECTION_LABELS: Record<EntityType, string> = {
   workshop: "Workshops",
   event: "Events",
   article: "Artikelen",
+  project: "Projecten",
 };
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default async function FavoritesPage() {
       workshop: [],
       event: [],
       article: [],
+      project: [],
     }
   );
 
@@ -57,6 +59,7 @@ export default async function FavoritesPage() {
     workshopsResult,
     eventsResult,
     articlesResult,
+    projectsResult,
   ] = await Promise.all([
     idsByType.domain.length > 0
       ? supabase.from("domains").select("id, slug, name").in("id", idsByType.domain)
@@ -81,6 +84,9 @@ export default async function FavoritesPage() {
       : Promise.resolve({ data: [] }),
     idsByType.article.length > 0
       ? supabase.from("articles").select("id, slug, title").in("id", idsByType.article)
+      : Promise.resolve({ data: [] }),
+    idsByType.project.length > 0
+      ? supabase.from("projects").select("id, slug, title").in("id", idsByType.project)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -134,6 +140,14 @@ export default async function FavoritesPage() {
       entityType: "article",
     });
   }
+  for (const project of projectsResult.data ?? []) {
+    itemByKey.set(`project:${project.id}`, {
+      id: project.id,
+      title: project.title,
+      href: `/project/${project.slug}`,
+      entityType: "project",
+    });
+  }
 
   const grouped = favorites.reduce<Record<EntityType, FavoriteItem[]>>(
     (acc, favorite) => {
@@ -151,6 +165,7 @@ export default async function FavoritesPage() {
       workshop: [],
       event: [],
       article: [],
+      project: [],
     }
   );
 

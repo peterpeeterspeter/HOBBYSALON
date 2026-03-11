@@ -4,6 +4,7 @@ import { listFeaturedProducts } from "@/lib/platform/queries/products";
 import { listUpcomingWorkshops } from "@/lib/platform/queries/workshops";
 import { listEvents } from "@/lib/platform/queries/events";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
+import { listFeaturedProjects } from "@/lib/platform/queries/projects";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import type {
   Domain,
@@ -12,6 +13,7 @@ import type {
   Event,
   Article,
   Product,
+  Project,
 } from "@/types/platform";
 
 type ProductWithPrice = Product & {
@@ -26,6 +28,7 @@ export type HomePageData = {
   upcomingEvents: Event[];
   latestArticles: Article[];
   creatorsOfTheMonth: Creator[];
+  featuredProjects: Project[];
 };
 
 async function enrichProductsWithPrices(
@@ -59,6 +62,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     upcomingEvents,
     latestArticles,
     creatorsOfTheMonth,
+    featuredProjects,
   ] = await Promise.all([
     listActiveDomains(),
     listUpcomingWorkshops(6),
@@ -67,6 +71,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     listEvents({ from_date: fromDate, limit: 6 }),
     listLatestArticles(6),
     listFeaturedCreators(6),
+    listFeaturedProjects(4),
   ]);
 
   const [handmadeWithPrices, suppliesWithPrices] = await Promise.all([
@@ -82,5 +87,6 @@ export async function getHomePageData(): Promise<HomePageData> {
     upcomingEvents,
     latestArticles,
     creatorsOfTheMonth,
+    featuredProjects,
   };
 }

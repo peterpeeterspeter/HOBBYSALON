@@ -5,6 +5,7 @@ import { ProductCard } from "@/components/shared/ProductCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
 import { CreatorCard } from "@/components/shared/CreatorCard";
+import { ProjectCard } from "@/components/shared/ProjectCard";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata = buildPageMetadata({
@@ -23,6 +24,7 @@ export default async function HomePage() {
     upcomingEvents: [],
     latestArticles: [],
     creatorsOfTheMonth: [],
+    featuredProjects: [],
   };
 
   try {
@@ -99,6 +101,15 @@ export default async function HomePage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data.latestArticles.map((article) => (
             <ArticleCard key={article.id} article={article} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Projecten om direct te starten</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {data.featuredProjects.map((project) => (
+            <ProjectCard key={project.id} project={project} />
           ))}
         </div>
       </section>
