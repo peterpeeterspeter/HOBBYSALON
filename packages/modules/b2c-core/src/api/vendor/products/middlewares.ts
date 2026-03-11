@@ -85,6 +85,38 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
   },
   {
     method: ["POST"],
+    matcher: "/vendor/products/imports",
+    middlewares: [
+      checkConfigurationRule(
+        ConfigurationRuleType.PRODUCT_IMPORT_ENABLED,
+        true
+      ),
+      upload.single("file"),
+    ],
+  },
+  {
+    method: ["GET"],
+    matcher: "/vendor/products/imports/:job_id",
+    middlewares: [
+      checkConfigurationRule(
+        ConfigurationRuleType.PRODUCT_IMPORT_ENABLED,
+        true
+      ),
+    ],
+  },
+  {
+    method: ["POST"],
+    matcher: "/vendor/products/imports/dry-run",
+    middlewares: [
+      checkConfigurationRule(
+        ConfigurationRuleType.PRODUCT_IMPORT_ENABLED,
+        true
+      ),
+      upload.single("file"),
+    ],
+  },
+  {
+    method: ["POST"],
     matcher: "/vendor/products/import",
     middlewares: [
       checkConfigurationRule(
@@ -99,14 +131,14 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
-        /.*\/products\/(export|import)/,
+        /.*\/products\/(export|import|imports)/,
         checkResourceOwnershipByResourceId({
           entryPoint: sellerProductLink.entryPoint,
           filterField: "product_id",
         })
       ),
       unlessPath(
-        /.*\/products\/(export|import)/,
+        /.*\/products\/(export|import|imports)/,
         validateAndTransformQuery(
           VendorGetProductParams,
           vendorProductQueryConfig.retrieve
@@ -119,18 +151,18 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
-        /.*\/products\/(export|import)/,
+        /.*\/products\/(export|import|imports)/,
         checkResourceOwnershipByResourceId({
           entryPoint: sellerProductLink.entryPoint,
           filterField: "product_id",
         })
       ),
       unlessPath(
-        /.*\/products\/(export|import)/,
+        /.*\/products\/(export|import|imports)/,
         validateAndTransformBody(VendorUpdateProduct)
       ),
       unlessPath(
-        /.*\/products\/(export|import)/,
+        /.*\/products\/(export|import|imports)/,
         validateAndTransformQuery(
           VendorGetProductParams,
           vendorProductQueryConfig.retrieve

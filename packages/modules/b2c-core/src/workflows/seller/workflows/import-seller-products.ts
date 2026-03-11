@@ -22,6 +22,7 @@ export const importSellerProductsWorkflow = createWorkflow(
     file_content: string;
     seller_id: string;
     submitter_id: string;
+    import_job_id?: string;
   }) {
     const products = parseProductCsvStep(input.file_content);
     const batchCreate = validateProductsToImportStep(products);
@@ -36,10 +37,12 @@ export const importSellerProductsWorkflow = createWorkflow(
     const requestsPayload = transform(
       { created, input },
       ({ created, input }) => {
-        return created.map((p) => ({
+        return created.map((p, index) => ({
           data: {
             ...p,
             product_id: p.id,
+            import_job_id: input.import_job_id,
+            import_row_index: index + 1,
           },
           submitter_id: input.submitter_id,
           type: "product_import",
