@@ -65,12 +65,14 @@ export async function Header() {
             ))}
           </nav>
           {user ? (
-            <Link
-              href="/dashboard"
-              className={desktopLinkClass}
-            >
-              Dashboard
-            </Link>
+            <>
+              <Link href="/profile" className={desktopLinkClass}>
+                Profiel
+              </Link>
+              <Link href="/dashboard" className={desktopLinkClass}>
+                Dashboard
+              </Link>
+            </>
           ) : (
             <Link href="/login" className={desktopLinkClass}>
               Inloggen
@@ -102,6 +104,9 @@ export async function Header() {
               <div className="my-2 border-t border-[var(--border)]" />
               {user ? (
                 <>
+                  <Link href="/profile" className={mobileLinkClass}>
+                    Profiel
+                  </Link>
                   <Link href="/dashboard" className={mobileLinkClass}>
                     Dashboard
                   </Link>

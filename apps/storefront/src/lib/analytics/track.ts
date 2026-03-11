@@ -269,6 +269,43 @@ function appendEventToLog(eventPayload: DataLayerEvent): void {
   }
 }
 
+function sendEventToPassportIngest(eventPayload: DataLayerEvent): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const hasAuthenticatedUser = typeof eventPayload.user_id === "string" && eventPayload.user_id.length > 0;
+  if (!hasAuthenticatedUser) {
+    return;
+  }
+
+  const payload: Record<string, unknown> = {
+    event: eventPayload.event,
+    user_id: eventPayload.user_id,
+    path: eventPayload.path,
+    timestamp: eventPayload.timestamp,
+    project_id: eventPayload.project_id,
+    bundle_id: eventPayload.bundle_id,
+    variant_id: eventPayload.variant_id,
+    workshop_id: eventPayload.workshop_id,
+    order_id: eventPayload.order_id,
+    recommendation_source: eventPayload.recommendation_source,
+    item_count: eventPayload.item_count,
+  };
+
+  fetch("/api/analytics/events", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    keepalive: true,
+    credentials: "same-origin",
+  }).catch(() => {
+    // no-op
+  });
+}
+
 export function readStoredAnalyticsEvents(): DataLayerEvent[] {
   if (typeof window === "undefined") {
     return [];
@@ -335,6 +372,7 @@ export function trackEvent(event: string, payload: AnalyticsPayload = {}): void 
   const dataLayer = (window.dataLayer ??= []);
   dataLayer.push(eventPayload);
   appendEventToLog(eventPayload);
+  sendEventToPassportIngest(eventPayload);
   window.dispatchEvent(
     new CustomEvent<DataLayerEvent>("hs:analytics_event", { detail: eventPayload })
   );

@@ -37,3 +37,36 @@ export async function listFavoritesByUser(userId: string): Promise<Favorite[]> {
   if (error) return [];
   return (data ?? []) as Favorite[];
 }
+
+export type FavoriteProfileSummary = {
+  total: number;
+  byType: Record<EntityType, number>;
+};
+
+function createFavoriteTypeCounter(): Record<EntityType, number> {
+  return {
+    domain: 0,
+    creator: 0,
+    product: 0,
+    workshop: 0,
+    event: 0,
+    article: 0,
+    project: 0,
+  };
+}
+
+export async function getFavoriteProfileSummary(
+  userId: string
+): Promise<FavoriteProfileSummary> {
+  const favorites = await listFavoritesByUser(userId);
+  const byType = createFavoriteTypeCounter();
+
+  for (const favorite of favorites) {
+    byType[favorite.entity_type] += 1;
+  }
+
+  return {
+    total: favorites.length,
+    byType,
+  };
+}
