@@ -1,6 +1,40 @@
 import { createPlatformClient } from "../client";
 import type { Event } from "@/types/platform";
 
+function normalizeLocationValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getEventLocalityScore(
+  event: Event,
+  preferredCity: string | null,
+  preferredCountryCode: string | null
+): number {
+  let score = 0;
+  const eventCity = normalizeLocationValue(event.city);
+  const eventCountry = normalizeLocationValue(event.country_code);
+
+  if (preferredCity && eventCity) {
+    if (eventCity === preferredCity) {
+      score += 100;
+    } else if (eventCity.includes(preferredCity) || preferredCity.includes(eventCity)) {
+      score += 60;
+    }
+  }
+
+  if (preferredCountryCode && eventCountry === preferredCountryCode) {
+    score += 25;
+  }
+
+  if (event.is_featured) {
+    score += 5;
+  }
+
+  return score;
+}
+
 export async function getEventById(id: string): Promise<Event | null> {
   const supabase = createPlatformClient();
   const { data, error } = await supabase
@@ -31,6 +65,9 @@ export async function listEvents(filters?: {
   domain_id?: string;
   event_type?: string;
   city?: string;
+  country_code?: string;
+  preferred_city?: string;
+  preferred_country_code?: string;
   from_date?: string;
   to_date?: string;
   limit?: number;
@@ -71,6 +108,9 @@ export async function listEvents(filters?: {
   if (filters?.city) {
     query = query.ilike("city", `%${filters.city}%`);
   }
+  if (filters?.country_code) {
+    query = query.eq("country_code", filters.country_code.toUpperCase());
+  }
 
   if (filters?.limit) {
     query = query.limit(filters.limit);
@@ -79,7 +119,24 @@ export async function listEvents(filters?: {
   const { data, error } = await query;
   if (error) return [];
 
-  return (data ?? []) as Event[];
+  const events = (data ?? []) as Event[];
+  const preferredCity = normalizeLocationValue(filters?.preferred_city);
+  const preferredCountryCode = normalizeLocationValue(filters?.preferred_country_code);
+  if (!preferredCity && !preferredCountryCode) {
+    return events;
+  }
+
+  if (filters?.city || filters?.country_code) {
+    return events;
+  }
+
+  return [...events].sort((a, b) => {
+    const scoreDelta =
+      getEventLocalityScore(b, preferredCity, preferredCountryCode) -
+      getEventLocalityScore(a, preferredCity, preferredCountryCode);
+    if (scoreDelta !== 0) return scoreDelta;
+    return a.starts_at.localeCompare(b.starts_at);
+  });
 }
 
 export async function listEventsByIds(ids: string[]): Promise<Event[]> {

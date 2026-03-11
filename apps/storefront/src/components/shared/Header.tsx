@@ -2,9 +2,15 @@ import Link from "next/link";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { getAuthUser } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
+import {
+  clearLocationPreferenceAction,
+  updateLocationPreferenceAction,
+} from "@/app/actions/location";
+import { getLocationPreference } from "@/lib/location/preference";
 
 export async function Header() {
   const user = await getAuthUser();
+  const locationPreference = await getLocationPreference();
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
   try {
     const domains = await listDomainsBySort();
@@ -85,6 +91,51 @@ export async function Header() {
               </button>
             </form>
           )}
+        </div>
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[var(--muted)]">
+              Locatievoorkeur:{" "}
+              <span className="font-medium text-[var(--foreground)]">
+                {locationPreference.label ?? "niet ingesteld"}
+              </span>
+            </p>
+            {locationPreference.hasPreference && (
+              <form action={clearLocationPreferenceAction}>
+                <button
+                  type="submit"
+                  className="text-xs font-medium text-[var(--accent)] hover:underline"
+                >
+                  Wissen
+                </button>
+              </form>
+            )}
+          </div>
+          <form
+            action={updateLocationPreferenceAction}
+            className="mt-2 grid gap-2 sm:grid-cols-3"
+          >
+            <input
+              type="text"
+              name="city"
+              defaultValue={locationPreference.city ?? ""}
+              placeholder="Stad (bv. Antwerpen)"
+              className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)]"
+            />
+            <input
+              type="text"
+              name="country_code"
+              defaultValue={locationPreference.countryCode ?? ""}
+              placeholder="Landcode (BE)"
+              className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)]"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-[var(--accent-foreground)] hover:opacity-90"
+            >
+              Locatie opslaan
+            </button>
+          </form>
         </div>
         <div className="mt-3 flex items-center justify-end gap-2 md:hidden">
           <Link href="/cart" className={mobileButtonClass}>

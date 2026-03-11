@@ -12,6 +12,7 @@ import {
 } from "@/lib/platform/queries/recommendations";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import { getAuthUser } from "@/lib/auth/session";
+import { getLocationPreference } from "@/lib/location/preference";
 import type {
   Domain,
   Creator,
@@ -63,7 +64,10 @@ async function enrichProductsWithPrices(
 
 export async function getHomePageData(): Promise<HomePageData> {
   const fromDate = new Date().toISOString();
-  const authUser = await getAuthUser();
+  const [authUser, locationPreference] = await Promise.all([
+    getAuthUser(),
+    getLocationPreference(),
+  ]);
 
   const [
     popularDomains,
@@ -77,10 +81,18 @@ export async function getHomePageData(): Promise<HomePageData> {
     recommendationResult,
   ] = await Promise.all([
     listActiveDomains(),
-    listUpcomingWorkshops(6),
+    listUpcomingWorkshops(6, {
+      preferred_city: locationPreference.city ?? undefined,
+      preferred_country_code: locationPreference.countryCode ?? undefined,
+    }),
     listFeaturedProducts({ productType: "handmade", limit: 8 }),
     listFeaturedProducts({ productType: "supply", limit: 8 }),
-    listEvents({ from_date: fromDate, limit: 6 }),
+    listEvents({
+      from_date: fromDate,
+      limit: 6,
+      preferred_city: locationPreference.city ?? undefined,
+      preferred_country_code: locationPreference.countryCode ?? undefined,
+    }),
     listLatestArticles(6),
     listFeaturedCreators(6),
     listFeaturedProjects(4),

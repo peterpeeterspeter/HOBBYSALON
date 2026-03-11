@@ -3,6 +3,7 @@ import Link from "next/link";
 import { listAllWorkshops } from "@/lib/platform/queries/workshops";
 import { createPlatformClient } from "@/lib/platform/client";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { getLocationPreference } from "@/lib/location/preference";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,6 +15,8 @@ type SearchParams = Promise<{
   domain?: string;
   difficulty?: string;
   format?: string;
+  city?: string;
+  country?: string;
 }>;
 
 async function getDomains() {
@@ -26,14 +29,61 @@ async function getDomains() {
   return (data ?? []) as Array<{ id: string; name: string; slug: string }>;
 }
 
+async function getUniqueWorkshopCities(): Promise<string[]> {
+  const supabase = createPlatformClient();
+  const { data } = await supabase
+    .from("workshops")
+    .select("city")
+    .eq("is_active", true)
+    .not("city", "is", null);
+
+  const cities = [
+    ...new Set(
+      (data ?? [])
+        .map((row) => (row as { city: string | null }).city)
+        .filter((city): city is string => !!city)
+    ),
+  ];
+
+  return cities.sort();
+}
+
+async function getUniqueWorkshopCountries(): Promise<string[]> {
+  const supabase = createPlatformClient();
+  const { data } = await supabase
+    .from("workshops")
+    .select("country_code")
+    .eq("is_active", true)
+    .not("country_code", "is", null);
+
+  const countries = [
+    ...new Set(
+      (data ?? [])
+        .map((row) => (row as { country_code: string | null }).country_code)
+        .filter((country): country is string => !!country)
+    ),
+  ];
+
+  return countries.sort();
+}
+
 async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  const locationPreference = await getLocationPreference();
   const workshops = await listAllWorkshops({
     domain_id: params.domain,
     difficulty_level: params.difficulty,
     format_type: params.format,
+    city: params.city,
+    country_code: params.country,
+    preferred_city: locationPreference.city ?? undefined,
+    preferred_country_code: locationPreference.countryCode ?? undefined,
   });
-  const domains = await getDomains();
+  const [domains, cities, countries] = await Promise.all([
+    getDomains(),
+    getUniqueWorkshopCities(),
+    getUniqueWorkshopCountries(),
+  ]);
 
   const formatTypeOptions = [
     { value: "physical", label: "Fysiek" },
@@ -57,12 +107,33 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
         <p className="text-lg text-[var(--muted)]">
           Leer nieuwe technieken van ervaren instructeurs
         </p>
+        {locationPreference.hasPreference && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
+              Lokale prioriteit: {locationPreference.label}
+            </span>
+            {locationPreference.city && (
+              <Link
+                href={`/workshops?city=${encodeURIComponent(locationPreference.city)}`}
+                className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
+                Alleen {locationPreference.city}
+              </Link>
+            )}
+            <Link
+              href="/workshops"
+              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              Reset filters
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
       <div className="mb-8 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="font-semibold text-[var(--foreground)]">Filters</h2>
-        <form method="GET" action="/workshops" className="grid gap-4 sm:grid-cols-4">
+        <form method="GET" action="/workshops" className="grid gap-4 sm:grid-cols-6">
           {/* Domain Filter */}
           <div>
             <label htmlFor="domain" className="block text-sm font-medium text-[var(--foreground)] mb-2">
@@ -118,6 +189,42 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
               {difficultyOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="city" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Stad
+            </label>
+            <select
+              id="city"
+              name="city"
+              defaultValue={params.city ?? ""}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
+            >
+              <option value="">Alle steden</option>
+              {cities.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="country" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Regio (land)
+            </label>
+            <select
+              id="country"
+              name="country"
+              defaultValue={params.country ?? ""}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
+            >
+              <option value="">Alle landen</option>
+              {countries.map((country) => (
+                <option key={country} value={country}>
+                  {country}
                 </option>
               ))}
             </select>

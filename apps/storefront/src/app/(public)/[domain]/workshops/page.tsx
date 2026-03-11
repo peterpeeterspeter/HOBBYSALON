@@ -4,8 +4,12 @@ import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { getLocationPreference } from "@/lib/location/preference";
 
-type Props = { params: Promise<{ domain: string }> };
+type Props = {
+  params: Promise<{ domain: string }>;
+  searchParams: Promise<{ city?: string; country?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { domain: slug } = await params;
@@ -17,12 +21,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function DomainWorkshopsPage({ params }: Props) {
+export default async function DomainWorkshopsPage({ params, searchParams }: Props) {
   const { domain: slug } = await params;
+  const filters = await searchParams;
   const domain = await getDomainBySlug(slug);
   if (!domain) notFound();
+  const locationPreference = await getLocationPreference();
 
-  const workshops = await listWorkshopsByDomain(domain.id);
+  const workshops = await listWorkshopsByDomain(domain.id, {
+    city: filters.city,
+    country_code: filters.country,
+    preferred_city: locationPreference.city ?? undefined,
+    preferred_country_code: locationPreference.countryCode ?? undefined,
+  });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -48,6 +59,11 @@ export default async function DomainWorkshopsPage({ params }: Props) {
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
           {domain.name} workshops
         </h1>
+        {locationPreference.hasPreference && (
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Lokale prioriteit actief voor {locationPreference.label}.
+          </p>
+        )}
       </header>
 
       {workshops.length === 0 ? (
