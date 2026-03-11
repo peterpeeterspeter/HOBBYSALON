@@ -1,5 +1,6 @@
 import { getEventBySlug } from "@/lib/platform/queries/events";
 import { getCreatorById } from "@/lib/platform/queries/creators";
+import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import type {
@@ -8,6 +9,7 @@ import type {
   Domain,
   Product,
   Workshop,
+  Article,
 } from "@/types/platform";
 
 export type EventPageData = {
@@ -17,6 +19,7 @@ export type EventPageData = {
   creators: Creator[];
   workshops: Workshop[];
   relatedProducts: Product[];
+  relatedArticles: Article[];
 };
 
 export async function getEventPageData(
@@ -31,6 +34,7 @@ export async function getEventPageData(
       creators: [],
       workshops: [],
       relatedProducts: [],
+      relatedArticles: [],
     };
   }
 
@@ -85,9 +89,14 @@ export async function getEventPageData(
     workshops = (workshopData ?? []) as Workshop[];
   }
 
-  // Related products via entity_links
-  const entityLinks = await getRelatedEntities("event", event.id, "product");
-  const relatedProductIds = entityLinks.map((l) => l.target_entity_id);
+  // Related entities via entity_links
+  const entityLinks = await getRelatedEntities("event", event.id);
+  const relatedProductIds = entityLinks
+    .filter((l) => l.target_entity_type === "product")
+    .map((l) => l.target_entity_id);
+  const relatedArticleIds = entityLinks
+    .filter((l) => l.target_entity_type === "article")
+    .map((l) => l.target_entity_id);
   let relatedProducts: Product[] = [];
   if (relatedProductIds.length > 0) {
     const { data: productData } = await supabase
@@ -97,6 +106,7 @@ export async function getEventPageData(
       .eq("is_active", true);
     relatedProducts = (productData ?? []) as Product[];
   }
+  const relatedArticles = await listArticlesByIds(relatedArticleIds);
 
   return {
     event,
@@ -105,5 +115,6 @@ export async function getEventPageData(
     creators,
     workshops,
     relatedProducts,
+    relatedArticles,
   };
 }

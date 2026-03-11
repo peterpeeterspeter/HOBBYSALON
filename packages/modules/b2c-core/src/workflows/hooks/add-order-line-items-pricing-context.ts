@@ -32,7 +32,7 @@ type RegionWithCurrency = Pick<RegionDTO, 'id' | 'currency_code'>
  */
 addOrderLineItemsWorkflow.hooks.setPricingContext(
   async (
-    { order, variantIds, region, customerData, additional_data },
+    { order, variantIds, region, customerData: _customerData, additional_data: _additional_data },
     { container }
   ) => {
     const query = container.resolve(ContainerRegistrationKeys.QUERY)

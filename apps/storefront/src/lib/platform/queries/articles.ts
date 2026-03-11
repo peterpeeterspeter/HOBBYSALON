@@ -1,6 +1,19 @@
 import { createPlatformClient } from "../client";
 import type { Article } from "@/types/platform";
 
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .single();
+
+  if (error || !data) return null;
+  return data as Article;
+}
+
 export async function listArticlesByDomain(domainId: string): Promise<Article[]> {
   const supabase = createPlatformClient();
   const { data: adData } = await supabase
@@ -44,4 +57,23 @@ export async function listArticlesByDomain(domainId: string): Promise<Article[]>
     const bDate = b.published_at ?? b.created_at;
     return new Date(bDate).getTime() - new Date(aDate).getTime();
   });
+}
+
+export async function listArticlesByIds(ids: string[]): Promise<Article[]> {
+  if (!ids.length) return [];
+
+  const uniqueIds = [...new Set(ids)];
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .in("id", uniqueIds)
+    .eq("is_published", true);
+
+  if (error || !data) return [];
+
+  const byId = new Map((data as Article[]).map((article) => [article.id, article]));
+  return uniqueIds
+    .map((id) => byId.get(id))
+    .filter((article): article is Article => !!article);
 }

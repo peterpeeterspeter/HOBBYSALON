@@ -45,10 +45,7 @@ export function AddToCartButton({
           type="button"
           onClick={handleClick}
           disabled={pending}
-          className={
-            "rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] transition-opacity hover:opacity-90 disabled:opacity-60 " +
-            className
-          }
+          className={`rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] transition-opacity hover:opacity-90 disabled:opacity-60 ${className}`}
         >
           {pending ? "Bezig..." : "In winkelwagen"}
         </button>

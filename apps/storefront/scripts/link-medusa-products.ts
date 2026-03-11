@@ -19,15 +19,6 @@ const medusaUrl =
   process.env.MEDUSA_BACKEND_URL ?? process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ?? "http://localhost:9000";
 const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? "";
 
-const HANDLE_TO_SLUG: Record<string, string> = {
-  "handmade-crochet-scarf": "handmade-crochet-scarf",
-  "supply-yarn-bundle": "supply-yarn-bundle",
-  "handmade-knitted-hat": "handmade-knitted-hat",
-  "supply-pattern-pdf": "supply-pattern-pdf",
-  "handmade-pottery-mug": "handmade-pottery-mug",
-  "supply-bead-kit": "supply-bead-kit",
-};
-
 async function main() {
   if (!supabaseUrl || !supabaseKey) {
     console.error("Missing Supabase env vars");
@@ -46,23 +37,26 @@ async function main() {
 
   const { products } = await sdk.store.product.list({ limit: 500 });
   if (!products?.length) {
-    console.log("No Medusa products found");
+    console.warn("No Medusa products found");
     return;
   }
 
   for (const product of products) {
     const handle = product.handle ?? "";
-    if (!HANDLE_TO_SLUG[handle]) continue;
+    if (!handle) continue;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("products")
       .update({ medusa_product_id: product.id })
-      .eq("slug", handle);
+      .eq("slug", handle)
+      .select("id");
 
     if (error) {
       console.error(`Failed to link ${handle}:`, error.message);
+    } else if (!data?.length) {
+      console.warn(`No platform product found for handle ${handle}`);
     } else {
-      console.log(`Linked ${handle} -> ${product.id}`);
+      console.warn(`Linked ${handle} -> ${product.id}`);
     }
   }
 }

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { getCreatorPageData } from "@/lib/services/creator-page";
 import { ProductCard } from "@/components/shared/ProductCard";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
+import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { EventCard } from "@/components/shared/EventCard";
+import { ArticleCard } from "@/components/shared/ArticleCard";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -22,7 +25,7 @@ export default async function CreatorPage({ params }: Props) {
 
   if (!data.creator) notFound();
 
-  const { creator, products, domains, relatedWorkshops, relatedEvents } = data;
+  const { creator, products, domains, relatedWorkshops, relatedEvents, relatedArticles } = data;
 
   const CREATOR_TYPE_LABELS: Record<string, string> = {
     maker: "Maker",
@@ -124,13 +127,31 @@ export default async function CreatorPage({ params }: Props) {
         title="Workshops"
         isEmpty={relatedWorkshops.length === 0}
         emptyMessage="Workshops binnenkort beschikbaar."
-      />
+      >
+        {relatedWorkshops.map((workshop) => (
+          <WorkshopCard key={workshop.id} workshop={workshop} />
+        ))}
+      </EntityLinkBlock>
 
       <EntityLinkBlock
         title="Evenementen"
         isEmpty={relatedEvents.length === 0}
         emptyMessage="Evenementen binnenkort beschikbaar."
-      />
+      >
+        {relatedEvents.map((event) => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </EntityLinkBlock>
+
+      <EntityLinkBlock
+        title="Artikelen"
+        isEmpty={relatedArticles.length === 0}
+        emptyMessage="Artikelen binnenkort beschikbaar."
+      >
+        {relatedArticles.map((article) => (
+          <ArticleCard key={article.id} article={article} />
+        ))}
+      </EntityLinkBlock>
     </div>
   );
 }

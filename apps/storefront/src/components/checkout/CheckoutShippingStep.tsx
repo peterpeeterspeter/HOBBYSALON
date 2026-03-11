@@ -68,12 +68,11 @@ export function CheckoutShippingStep({
               type="button"
               onClick={() => handleSelect(opt.id)}
               disabled={!!pending}
-              className={
-                "flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors " +
-                (isSelected
+              className={`flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors ${
+                isSelected
                   ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                  : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50")
-              }
+                  : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50"
+              }`}
             >
               <span className="font-medium text-[var(--foreground)]">
                 {opt.name}

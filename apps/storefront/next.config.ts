@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const isDev = process.env.NODE_ENV === "development";
+const workspaceRoot = path.resolve(import.meta.dirname, "../../");
 
 // In development, React Fast Refresh and source maps use eval.
 // Allow unsafe-eval only in dev; production stays strict.
 const cspHeader = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com" + (isDev ? " 'unsafe-eval'" : ""),
+  `script-src 'self' 'unsafe-inline' https://js.stripe.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://js.stripe.com",
   "img-src 'self' blob: data: https:",
   "font-src 'self' https://js.stripe.com",
@@ -17,6 +19,10 @@ const cspHeader = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@medusajs/js-sdk"],
+  outputFileTracingRoot: workspaceRoot,
+  turbopack: {
+    root: workspaceRoot,
+  },
   async headers() {
     return [
       {

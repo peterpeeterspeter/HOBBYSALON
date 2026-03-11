@@ -34,7 +34,7 @@ export const filterOrderSetsWithKnexStep = createStep(
     const orderSetOrderTable = "marketplace_order_set_order_order";
     const sellerOrderTable = "seller_seller_order_order";
 
-    let query = knex("order_set as os")
+    const query = knex("order_set as os")
       .select("os.id")
       .distinct();
 

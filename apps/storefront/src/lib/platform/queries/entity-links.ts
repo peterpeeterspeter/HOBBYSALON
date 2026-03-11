@@ -1,6 +1,5 @@
 import { createPlatformClient } from "../client";
-import type { EntityLink } from "@/types/platform";
-import type { EntityType } from "@/types/platform";
+import type { EntityLink, EntityType } from "@/types/platform";
 
 export async function getRelatedEntities(
   sourceType: EntityType,

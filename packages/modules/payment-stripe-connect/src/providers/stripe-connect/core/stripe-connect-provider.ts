@@ -226,7 +226,7 @@ abstract class StripeConnectProvider extends AbstractPaymentProvider<Options> {
       const intent = (await this.client_.paymentIntents.retrieve(id)) as any;
 
       intent.amount = getAmountFromSmallestUnit(intent.amount, intent.currency);
-      console.log("Stripe - retrieving", intent);
+      this.logger_?.warn("Stripe - retrieving payment intent");
       return { data: intent };
     } catch (e) {
       throw this.buildError("An error occurred in retrievePayment", e);

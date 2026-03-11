@@ -3,7 +3,7 @@ import { StepResponse, createStep } from '@medusajs/framework/workflows-sdk'
 
 type Input = {
   name: string
-  data: Record<string, any>
+  data: Record<string, unknown>
 }
 
 export const emitMultipleEventsStep = createStep(

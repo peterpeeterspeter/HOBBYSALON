@@ -53,7 +53,6 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const shippingOptions = hasAddress ? await getShippingOptions(cartId) : null;
   const selectedShippingId = c.shipping_methods?.[0]?.shipping_option_id;
   const hasShipping = !!selectedShippingId;
-  const hasPaymentSession = (c.payment_collection?.payment_sessions?.length ?? 0) > 0;
 
   const subtotal =
     cart.items?.reduce((sum: number, item) => {

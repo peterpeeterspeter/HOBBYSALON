@@ -1,8 +1,10 @@
 import { getWorkshopBySlug } from "@/lib/platform/queries/workshops";
 import { getCreatorById } from "@/lib/platform/queries/creators";
+import { listEventsByIds } from "@/lib/platform/queries/events";
+import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
-import type { Workshop, Creator, Domain, Product } from "@/types/platform";
+import type { Workshop, Creator, Domain, Product, Event, Article } from "@/types/platform";
 
 export type WorkshopSession = {
   id: string;
@@ -19,7 +21,8 @@ export type WorkshopPageData = {
   domain: Domain | null;
   sessions: WorkshopSession[];
   relatedProducts: Product[];
-  relatedEvents: { id: string; target_entity_id: string }[];
+  relatedEvents: Event[];
+  relatedArticles: Article[];
 };
 
 export async function getWorkshopPageData(
@@ -34,6 +37,7 @@ export async function getWorkshopPageData(
       sessions: [],
       relatedProducts: [],
       relatedEvents: [],
+      relatedArticles: [],
     };
   }
 
@@ -69,9 +73,17 @@ export async function getWorkshopPageData(
     relatedProducts.push(...((data ?? []) as Product[]));
   }
 
-  const relatedEvents = entityLinks
+  const relatedEventIds = entityLinks
     .filter((l) => l.target_entity_type === "event")
-    .map((l) => ({ id: l.id, target_entity_id: l.target_entity_id }));
+    .map((l) => l.target_entity_id);
+  const relatedArticleIds = entityLinks
+    .filter((l) => l.target_entity_type === "article")
+    .map((l) => l.target_entity_id);
+
+  const [relatedEvents, relatedArticles] = await Promise.all([
+    listEventsByIds(relatedEventIds),
+    listArticlesByIds(relatedArticleIds),
+  ]);
 
   return {
     workshop,
@@ -80,6 +92,7 @@ export async function getWorkshopPageData(
     sessions,
     relatedProducts,
     relatedEvents,
+    relatedArticles,
   };
 }
 

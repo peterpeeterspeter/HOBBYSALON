@@ -4,6 +4,8 @@ import { getWorkshopPageData } from "@/lib/services/workshop-page";
 import { CreatorCard } from "@/components/shared/CreatorCard";
 import { ProductCard } from "@/components/shared/ProductCard";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
+import { EventCard } from "@/components/shared/EventCard";
+import { ArticleCard } from "@/components/shared/ArticleCard";
 import { WorkshopBookingRequestForm } from "@/components/workshop/WorkshopBookingRequestForm";
 import type { Metadata } from "next";
 
@@ -206,7 +208,21 @@ export default async function WorkshopPage({ params }: Props) {
         title="Gerelateerde evenementen"
         isEmpty={data.relatedEvents.length === 0}
         emptyMessage="Geen gerelateerde evenementen."
-      />
+      >
+        {data.relatedEvents.map((event) => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </EntityLinkBlock>
+
+      <EntityLinkBlock
+        title="Gerelateerde artikelen"
+        isEmpty={data.relatedArticles.length === 0}
+        emptyMessage="Geen gerelateerde artikelen."
+      >
+        {data.relatedArticles.map((article) => (
+          <ArticleCard key={article.id} article={article} />
+        ))}
+      </EntityLinkBlock>
     </div>
   );
 }

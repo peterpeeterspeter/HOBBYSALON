@@ -1,5 +1,4 @@
-import type { ProductVariantDTO } from "@medusajs/framework/types";
-import { HttpTypes } from "@medusajs/framework/types";
+import { HttpTypes, type ProductVariantDTO } from "@medusajs/framework/types";
 import { remapVariantResponse } from "@medusajs/medusa/api/admin/products/helpers";
 import type { StockLocationManagedBy } from "../../../../utils/stock-locations";
 
@@ -63,5 +62,4 @@ export function remapVariantWithManagedBy(
 
   return { ...remapped, managed_by: managedBy };
 }
-
 

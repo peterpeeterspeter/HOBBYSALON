@@ -5,7 +5,6 @@ import {
 } from '@medusajs/framework'
 
 import { checkResourceOwnershipByResourceId, filterBySellerId } from '@mercurjs/framework'
-import { createLinkBody } from '@medusajs/medusa/api/utils/validators'
 import sellerCampaign from '../../../links/seller-campaign'
 import sellerPromotion from '../../../links/seller-promotion'
 import { vendorCampaignQueryConfig } from './query-config'

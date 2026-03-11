@@ -35,7 +35,7 @@ async function main() {
   const in45 = addDays(45);
   const in46 = addDays(46);
 
-  console.log("Seeding events...");
+  console.warn("Seeding events...");
 
   const { error: e1 } = await supabase.from("events").upsert(
     [
@@ -94,7 +94,7 @@ async function main() {
     console.error("Events:", e1.message);
     process.exit(1);
   }
-  console.log("  Events OK");
+  console.warn("  Events OK");
 
   const { error: e2 } = await supabase.from("event_domains").upsert(
     [
@@ -108,7 +108,7 @@ async function main() {
   if (e2) {
     console.error("Event domains:", e2.message);
   } else {
-    console.log("  Event domains OK");
+    console.warn("  Event domains OK");
   }
 
   const { error: e3 } = await supabase.from("event_creators").upsert(
@@ -123,7 +123,7 @@ async function main() {
   if (e3) {
     console.error("Event creators:", e3.message);
   } else {
-    console.log("  Event creators OK");
+    console.warn("  Event creators OK");
   }
 
   const { error: e4 } = await supabase.from("event_workshops").upsert(
@@ -136,7 +136,7 @@ async function main() {
   if (e4) {
     console.error("Event workshops:", e4.message);
   } else {
-    console.log("  Event workshops OK");
+    console.warn("  Event workshops OK");
   }
 
   const entityLinks = [
@@ -150,9 +150,9 @@ async function main() {
       console.error("Entity link:", el.message);
     }
   }
-  console.log("  Entity links OK (duplicates ignored)");
+  console.warn("  Entity links OK (duplicates ignored)");
 
-  console.log("Done.");
+  console.warn("Done.");
 }
 
 main();

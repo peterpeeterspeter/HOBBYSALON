@@ -1,10 +1,12 @@
 import { getProductBySlug } from "@/lib/platform/queries/products";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { getWorkshopById } from "@/lib/platform/queries/workshops";
+import { listEventsByIds } from "@/lib/platform/queries/events";
+import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import type { Product, Creator, Domain, Workshop } from "@/types/platform";
+import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
 
 export type ProductPageData = {
   product: Product | null;
@@ -13,8 +15,8 @@ export type ProductPageData = {
   price: { amount: number; currency_code: string } | null;
   variants: Array<{ id: string; title: string }>;
   relatedWorkshops: Workshop[];
-  relatedArticles: { id: string; target_entity_id: string }[];
-  relatedEvents: { id: string; target_entity_id: string }[];
+  relatedArticles: Article[];
+  relatedEvents: Event[];
 };
 
 export async function getProductPageData(slug: string): Promise<ProductPageData> {
@@ -70,12 +72,17 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
           )
         ).filter((w): w is Workshop => w != null)
       : [];
-  const relatedArticles = entityLinks
+  const relatedArticleIds = entityLinks
     .filter((l) => l.target_entity_type === "article")
-    .map((l) => ({ id: l.id, target_entity_id: l.target_entity_id }));
-  const relatedEvents = entityLinks
+    .map((l) => l.target_entity_id);
+  const relatedEventIds = entityLinks
     .filter((l) => l.target_entity_type === "event")
-    .map((l) => ({ id: l.id, target_entity_id: l.target_entity_id }));
+    .map((l) => l.target_entity_id);
+
+  const [relatedArticles, relatedEvents] = await Promise.all([
+    listArticlesByIds(relatedArticleIds),
+    listEventsByIds(relatedEventIds),
+  ]);
 
   return {
     product,

@@ -34,8 +34,8 @@ Rules and context for AI-assisted development.
 ## Conventions
 
 - Use Dutch for user-facing copy in the storefront
-- Prefer LangChain for AI workflows; follow LCEL patterns
-- Use Pydantic for structured outputs
+- Keep data access in `lib/platform/queries/*` and composition in `lib/services/*`
+- Prefer server components for public pages; keep client components interaction-focused
 - Environment variables for secrets; never hardcode keys
 
 ---

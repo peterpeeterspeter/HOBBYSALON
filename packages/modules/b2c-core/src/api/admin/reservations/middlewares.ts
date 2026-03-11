@@ -1,5 +1,3 @@
-import { NextFunction } from 'express';
-
 import { MiddlewareRoute } from '@medusajs/framework';
 
 import { canDeleteReservation } from '../../vendor/reservations/middlewares';
