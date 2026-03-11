@@ -169,6 +169,41 @@ export type ProjectStep = {
   updated_at: string;
 };
 
+export type LearningPath = {
+  id: string;
+  domain_id: string;
+  slug: string;
+  title: string;
+  short_description: string | null;
+  difficulty_level: string;
+  estimated_duration_minutes: number | null;
+  is_featured: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LearningPathStepEntityType =
+  | "article"
+  | "workshop"
+  | "product"
+  | "project";
+
+export type LearningPathStep = {
+  id: string;
+  learning_path_id: string;
+  step_order: number;
+  title: string;
+  instruction: string | null;
+  related_entity_type: LearningPathStepEntityType;
+  related_entity_id: string;
+  estimated_minutes: number | null;
+  is_required: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type EntityLink = {
   id: string;
   source_entity_type: string;

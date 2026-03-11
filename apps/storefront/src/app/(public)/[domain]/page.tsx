@@ -210,6 +210,54 @@ export default async function DomainPage({ params }: Props) {
           )}
         </div>
       </Section>
+
+      <Section title="Learning paths">
+        {data.learningPathTeasers.length === 0 ? (
+          <p className="text-[var(--muted)]">
+            Nog geen learning paths in dit domein.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {data.learningPathTeasers.map((path) => (
+                <article
+                  key={path.id}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--accent)]">
+                    {path.difficulty_level}
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                    {path.title}
+                  </h3>
+                  {path.short_description && (
+                    <p className="mt-2 text-sm text-[var(--muted)]">
+                      {path.short_description}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-[var(--muted)]">
+                    {path.step_count} stap{path.step_count === 1 ? "" : "pen"}
+                  </p>
+                  <Link
+                    href={`/${domain.slug}/learning-paths/${path.slug}`}
+                    className="mt-3 inline-block text-sm font-medium text-[var(--accent)] hover:underline"
+                  >
+                    Open learning path →
+                  </Link>
+                </article>
+              ))}
+            </div>
+            <div className="mt-4">
+              <Link
+                href={`/${domain.slug}/learning-paths`}
+                className="text-sm font-medium text-[var(--accent)] hover:underline"
+              >
+                Alle learning paths bekijken →
+              </Link>
+            </div>
+          </>
+        )}
+      </Section>
     </div>
   );
 }

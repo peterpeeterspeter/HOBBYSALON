@@ -567,6 +567,99 @@ before update on public.project_steps
 for each row execute function public.set_updated_at();
 
 -- =========================================================
+-- LEARNING PATHS
+-- Beginner -> advanced trajectories per domain
+-- =========================================================
+
+create table if not exists public.learning_paths (
+  id uuid primary key default gen_random_uuid(),
+  domain_id uuid not null references public.domains(id) on delete cascade,
+  slug text not null,
+  title text not null,
+  short_description text,
+  difficulty_level text not null default 'beginner',
+  estimated_duration_minutes integer,
+  is_featured boolean not null default false,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint learning_paths_difficulty_level_check check (
+    difficulty_level in ('beginner','intermediate','advanced')
+  ),
+  unique (domain_id, slug)
+);
+
+create index if not exists idx_learning_paths_domain_id on public.learning_paths(domain_id);
+create index if not exists idx_learning_paths_featured on public.learning_paths(is_featured);
+create index if not exists idx_learning_paths_is_active on public.learning_paths(is_active);
+
+create trigger trg_learning_paths_updated_at
+before update on public.learning_paths
+for each row execute function public.set_updated_at();
+
+create table if not exists public.learning_path_steps (
+  id uuid primary key default gen_random_uuid(),
+  learning_path_id uuid not null references public.learning_paths(id) on delete cascade,
+  step_order integer not null,
+  title text not null,
+  instruction text,
+  related_entity_type text not null,
+  related_entity_id uuid not null,
+  estimated_minutes integer,
+  is_required boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint learning_path_steps_related_entity_type_check check (
+    related_entity_type in ('article','workshop','product','project')
+  ),
+  unique (learning_path_id, step_order)
+);
+
+create index if not exists idx_learning_path_steps_learning_path_id on public.learning_path_steps(learning_path_id);
+create index if not exists idx_learning_path_steps_related_entity on public.learning_path_steps(related_entity_type, related_entity_id);
+
+create trigger trg_learning_path_steps_updated_at
+before update on public.learning_path_steps
+for each row execute function public.set_updated_at();
+
+create or replace function public.validate_learning_path_step_entity()
+returns trigger
+language plpgsql
+as $$
+declare
+  has_target boolean;
+begin
+  if new.related_entity_type = 'article' then
+    select exists(select 1 from public.articles a where a.id = new.related_entity_id and a.is_published = true)
+      into has_target;
+  elsif new.related_entity_type = 'workshop' then
+    select exists(select 1 from public.workshops w where w.id = new.related_entity_id and w.is_active = true)
+      into has_target;
+  elsif new.related_entity_type = 'product' then
+    select exists(select 1 from public.products p where p.id = new.related_entity_id and p.is_active = true and p.status = 'active')
+      into has_target;
+  elsif new.related_entity_type = 'project' then
+    select exists(select 1 from public.projects pr where pr.id = new.related_entity_id and pr.is_active = true)
+      into has_target;
+  else
+    has_target := false;
+  end if;
+
+  if not has_target then
+    raise exception 'Learning path step verwijst naar onbestaande %: %', new.related_entity_type, new.related_entity_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_validate_learning_path_step_entity on public.learning_path_steps;
+create trigger trg_validate_learning_path_step_entity
+before insert or update on public.learning_path_steps
+for each row execute function public.validate_learning_path_step_entity();
+
+-- =========================================================
 -- ENTITY LINKS
 -- Core graph table
 -- =========================================================

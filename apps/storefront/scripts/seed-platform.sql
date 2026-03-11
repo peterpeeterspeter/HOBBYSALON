@@ -245,6 +245,87 @@ ON CONFLICT (project_id, step_order) DO UPDATE SET
   related_entity_type = EXCLUDED.related_entity_type,
   related_entity_id = EXCLUDED.related_entity_id;
 
+-- Learning paths (at least one per top domain)
+INSERT INTO public.learning_paths (
+  id,
+  domain_id,
+  slug,
+  title,
+  short_description,
+  difficulty_level,
+  estimated_duration_minutes,
+  is_featured,
+  is_active,
+  sort_order
+) VALUES
+  ('b1111111-1111-4111-8111-111111111101', 'd1111111-1111-1111-1111-111111111101', 'crochet-starterspad', 'Crochet starterspad', 'Van eerste steek tot je eerste afgewerkt project.', 'beginner', 180, true, true, 1),
+  ('b1111111-1111-4111-8111-111111111102', 'd1111111-1111-1111-1111-111111111102', 'knitting-basis', 'Breien basistraject', 'Leer de basistechnieken en werk naar een eenvoudig eindresultaat.', 'beginner', 200, true, true, 1),
+  ('b1111111-1111-4111-8111-111111111103', 'd1111111-1111-1111-1111-111111111103', 'kaart-ontwerp-flow', 'Kaarten maken: ontwerpflow', 'Van inspiratie tot een eerste collectie handgemaakte kaarten.', 'beginner', 150, false, true, 1),
+  ('b1111111-1111-4111-8111-111111111104', 'd1111111-1111-1111-1111-111111111104', 'naaien-startflow', 'Naaien startflow', 'Een pragmatisch traject om je eerste naaiproject te plannen.', 'beginner', 210, false, true, 1),
+  ('b1111111-1111-4111-8111-111111111105', 'd1111111-1111-1111-1111-111111111105', 'sieraden-beginner', 'Sieraden maken voor beginners', 'Werk met een startset en leer je eerste eenvoudige ontwerpen.', 'beginner', 170, false, true, 1),
+  ('b1111111-1111-4111-8111-111111111106', 'd1111111-1111-1111-1111-111111111106', 'scrapbook-opbouw', 'Scrapbooking opbouwtraject', 'Structuur voor je eerste scrapbook-project.', 'beginner', 160, false, true, 1),
+  ('b1111111-1111-4111-8111-111111111107', 'd1111111-1111-1111-1111-111111111107', 'pottery-van-start-tot-mok', 'Keramiek: van start tot mok', 'Start met klei en werk stapsgewijs naar je eerste mok.', 'beginner', 240, true, true, 1),
+  ('b1111111-1111-4111-8111-111111111108', 'd1111111-1111-1111-1111-111111111108', 'diy-project-flow', 'DIY project flow', 'Bouw een gestructureerde aanpak voor je volgende DIY-project.', 'intermediate', 220, false, true, 1)
+ON CONFLICT (domain_id, slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  short_description = EXCLUDED.short_description,
+  difficulty_level = EXCLUDED.difficulty_level,
+  estimated_duration_minutes = EXCLUDED.estimated_duration_minutes,
+  is_featured = EXCLUDED.is_featured,
+  is_active = EXCLUDED.is_active,
+  sort_order = EXCLUDED.sort_order;
+
+-- Learning path steps (ordered and linked to existing article/workshop/product/project)
+INSERT INTO public.learning_path_steps (
+  id,
+  learning_path_id,
+  step_order,
+  title,
+  instruction,
+  related_entity_type,
+  related_entity_id,
+  estimated_minutes,
+  is_required
+) VALUES
+  ('b2222222-2222-4222-8222-222222221101', 'b1111111-1111-4111-8111-111111111101', 1, 'Open je eerste crochet project', 'Gebruik het project als kapstok voor je leerdoelen.', 'project', '99999999-9999-9999-9999-999999999901', 20, true),
+  ('b2222222-2222-4222-8222-222222221102', 'b1111111-1111-4111-8111-111111111101', 2, 'Voorzie je materialen', 'Start met een compact wolpakket zodat je direct kan oefenen.', 'product', '44444444-4444-4444-4444-444444444402', 15, true),
+  ('b2222222-2222-4222-8222-222222221103', 'b1111111-1111-4111-8111-111111111101', 3, 'Plan je eerste workshop', 'Boek een live sessie om techniekfouten snel te corrigeren.', 'workshop', '55555555-5555-5555-5555-555555555501', 45, true),
+
+  ('b2222222-2222-4222-8222-222222221201', 'b1111111-1111-4111-8111-111111111102', 1, 'Kick-off met een eenvoudig project', 'Werk vanuit een bestaand beginnerstraject.', 'project', '99999999-9999-9999-9999-999999999901', 20, true),
+  ('b2222222-2222-4222-8222-222222221202', 'b1111111-1111-4111-8111-111111111102', 2, 'Lees de basisuitleg', 'Gebruik de uitleg als checklist voor techniek en tempo.', 'article', 'a8888888-8888-8888-8888-888888888801', 20, true),
+  ('b2222222-2222-4222-8222-222222221203', 'b1111111-1111-4111-8111-111111111102', 3, 'Rond af met een klein productdoel', 'Kies een compact item dat je volledig kan afwerken.', 'product', '44444444-4444-4444-4444-444444444403', 30, true),
+
+  ('b2222222-2222-4222-8222-222222221301', 'b1111111-1111-4111-8111-111111111103', 1, 'Verzamel inspiratie', 'Start met actuele voorbeelden en noteer je stijlkeuzes.', 'article', 'a8888888-8888-8888-8888-888888888803', 20, true),
+  ('b2222222-2222-4222-8222-222222221302', 'b1111111-1111-4111-8111-111111111103', 2, 'Gebruik een projecttemplate', 'Volg een bestaand projectformat voor structuur.', 'project', '99999999-9999-9999-9999-999999999903', 25, true),
+  ('b2222222-2222-4222-8222-222222221303', 'b1111111-1111-4111-8111-111111111103', 3, 'Maak een materiaalkeuze', 'Kies een materiaalset die je stijl ondersteunt.', 'product', '44444444-4444-4444-4444-444444444406', 15, true),
+
+  ('b2222222-2222-4222-8222-222222221401', 'b1111111-1111-4111-8111-111111111104', 1, 'Plan je naaiproject', 'Gebruik een projectflow om scope en timing scherp te zetten.', 'project', '99999999-9999-9999-9999-999999999903', 25, true),
+  ('b2222222-2222-4222-8222-222222221402', 'b1111111-1111-4111-8111-111111111104', 2, 'Oefen met een begeleide sessie', 'Korte workshop om fouten vroeg te detecteren.', 'workshop', '55555555-5555-5555-5555-555555555503', 45, true),
+  ('b2222222-2222-4222-8222-222222221403', 'b1111111-1111-4111-8111-111111111104', 3, 'Gebruik een referentieartikel', 'Check het artikel voor praktische uitvoeringstips.', 'article', 'a8888888-8888-8888-8888-888888888803', 20, true),
+
+  ('b2222222-2222-4222-8222-222222221501', 'b1111111-1111-4111-8111-111111111105', 1, 'Start met een basiskit', 'Kies een starterskit om meteen te bouwen.', 'product', '44444444-4444-4444-4444-444444444406', 15, true),
+  ('b2222222-2222-4222-8222-222222221502', 'b1111111-1111-4111-8111-111111111105', 2, 'Gebruik een projectstructuur', 'Werk in iteraties met een duidelijk projectkader.', 'project', '99999999-9999-9999-9999-999999999903', 20, true),
+  ('b2222222-2222-4222-8222-222222221503', 'b1111111-1111-4111-8111-111111111105', 3, 'Lees marktinspiratie', 'Laat je inspireren door voorbeelden en trends.', 'article', 'a8888888-8888-8888-8888-888888888803', 20, true),
+
+  ('b2222222-2222-4222-8222-222222221601', 'b1111111-1111-4111-8111-111111111106', 1, 'Onderzoek voorbeelden', 'Analyseer voorbeelden en kies je verhaallijn.', 'article', 'a8888888-8888-8888-8888-888888888803', 20, true),
+  ('b2222222-2222-4222-8222-222222221602', 'b1111111-1111-4111-8111-111111111106', 2, 'Werk met projectkaders', 'Gebruik een traject met duidelijke milestones.', 'project', '99999999-9999-9999-9999-999999999903', 20, true),
+  ('b2222222-2222-4222-8222-222222221603', 'b1111111-1111-4111-8111-111111111106', 3, 'Kies je materiaalset', 'Selecteer materialen die passen bij je lay-outplan.', 'product', '44444444-4444-4444-4444-444444444402', 15, true),
+
+  ('b2222222-2222-4222-8222-222222221701', 'b1111111-1111-4111-8111-111111111107', 1, 'Open het keramiek traject', 'Volg het bestaande traject als basisroute.', 'project', '99999999-9999-9999-9999-999999999902', 20, true),
+  ('b2222222-2222-4222-8222-222222221702', 'b1111111-1111-4111-8111-111111111107', 2, 'Plan draaischijf begeleiding', 'Boek een sessie om techniek onder begeleiding te leren.', 'workshop', '55555555-5555-5555-5555-555555555502', 50, true),
+  ('b2222222-2222-4222-8222-222222221703', 'b1111111-1111-4111-8111-111111111107', 3, 'Werk thuis verder met gids', 'Gebruik het artikel als nabegeleiding.', 'article', 'a8888888-8888-8888-8888-888888888802', 25, true),
+
+  ('b2222222-2222-4222-8222-222222221801', 'b1111111-1111-4111-8111-111111111108', 1, 'Definieer je DIY-scope', 'Start vanuit een project met duidelijke randvoorwaarden.', 'project', '99999999-9999-9999-9999-999999999903', 20, true),
+  ('b2222222-2222-4222-8222-222222221802', 'b1111111-1111-4111-8111-111111111108', 2, 'Test je flow live', 'Gebruik een workshop om je aanpak te valideren.', 'workshop', '55555555-5555-5555-5555-555555555503', 45, true),
+  ('b2222222-2222-4222-8222-222222221803', 'b1111111-1111-4111-8111-111111111108', 3, 'Documenteer je werkwijze', 'Leg je stappen vast met inspiratie uit het artikel.', 'article', 'a8888888-8888-8888-8888-888888888803', 20, true)
+ON CONFLICT (learning_path_id, step_order) DO UPDATE SET
+  title = EXCLUDED.title,
+  instruction = EXCLUDED.instruction,
+  related_entity_type = EXCLUDED.related_entity_type,
+  related_entity_id = EXCLUDED.related_entity_id,
+  estimated_minutes = EXCLUDED.estimated_minutes,
+  is_required = EXCLUDED.is_required;
+
 -- Entity links
 INSERT INTO public.entity_links (source_entity_type, source_entity_id, target_entity_type, target_entity_id, relation_type, sort_order) VALUES
   ('domain', 'd1111111-1111-1111-1111-111111111101', 'creator', 'c2222222-2222-2222-2222-222222222201', 'features', 1),
