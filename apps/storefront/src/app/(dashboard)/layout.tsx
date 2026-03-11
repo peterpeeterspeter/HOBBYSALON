@@ -43,6 +43,9 @@ export default async function DashboardLayout({
               <Link href="/dashboard/events" className="hover:text-[var(--accent)]">
                 Events
               </Link>
+              <Link href="/dashboard/analytics" className="hover:text-[var(--accent)]">
+                Analytics
+              </Link>
             </nav>
             <form action={logoutAction}>
               <button

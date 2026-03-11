@@ -7,6 +7,7 @@ import { ArticleCard } from "@/components/shared/ArticleCard";
 import { CreatorCard } from "@/components/shared/CreatorCard";
 import { ProjectCard } from "@/components/shared/ProjectCard";
 import { buildPageMetadata } from "@/lib/seo";
+import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 
 export const metadata = buildPageMetadata({
   title: "Hobbysalon | Creatieve hobby community",
@@ -28,6 +29,7 @@ export default async function HomePage() {
     recommendedProjects: [],
     recommendationSource: "cold_start",
     recommendationLatencyMs: 0,
+    viewerUserId: null,
   };
 
   try {
@@ -38,6 +40,15 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
+      <TrackOnMount
+        event="home_recommendations_viewed"
+        payload={{
+          recommendation_source: data.recommendationSource,
+          item_count: data.recommendedProjects.length,
+          latency_ms: data.recommendationLatencyMs,
+          user_id: data.viewerUserId,
+        }}
+      />
       <h1 className="text-3xl font-bold text-[var(--foreground)] mb-2">
         Welkom bij Hobbysalon
       </h1>

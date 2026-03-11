@@ -56,10 +56,11 @@ Overview of documentation files in this repository.
 | Event | Trigger | Required payload fields |
 |------|---------|-------------------------|
 | `project_view` | Project detail page mount | `project_id`, `project_slug`, `difficulty_level` |
+| `home_recommendations_viewed` | Home recommendations section mount | `recommendation_source`, `item_count` |
 | `bundle_add` | Project bundle add-to-cart action | `bundle_id`, `bundle_label`, `item_count` |
 | `add_to_cart` | Add-to-cart success | `variant_id`, `quantity` |
 | `workshop_booking_request_submitted` | Booking request success | `workshop_id`, `creator_id` |
-| `newsletter_signup` | Newsletter form success | `source` |
+| `newsletter_signup` | Newsletter form success | `signup_source` |
 | `checkout_started` | Checkout page mount | `currency_code`, `total_amount`, `item_count`, `bundle_id`, `bundle_count`, `bundle_value` |
 | `checkout_completed` | Checkout success page mount | `order_id`, `bundle_id`, `bundle_count`, `bundle_value` |
 
@@ -68,4 +69,17 @@ All tracked events include shared metadata from `trackEvent`:
 - `timestamp`
 - `source` (`storefront`)
 - `session_id`
+- `visitor_id`
+- `actor_id` (prefers `user_id`, else `visitor_id`)
 - `path`
+- `funnel_stage`
+- `schema_valid` + `required_fields_missing`
+
+### Analytics QA Checklist (Staging)
+
+- Open `/dashboard/analytics` while logged in and verify funnel counters move after user actions.
+- Run discovery step: open at least one project page and verify `project_view` is schema-valid.
+- Run intent step: use bundle add and regular add-to-cart, verify `bundle_add` and `add_to_cart`.
+- Run checkout step: open checkout page and verify `checkout_started` with currency + totals.
+- Run purchase step: place test order and verify `checkout_completed` with `order_id`.
+- Confirm no schema-invalid rows for required funnel events in the latest events table.

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+import { getAuthUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function CheckoutSuccessPage({
     bundle_ids?: string;
   }>;
 }) {
+  const viewer = await getAuthUser();
   const params = await searchParams;
   const orderId = params.order;
   const bundleIds = parseBundleIds(params.bundle_ids);
@@ -50,6 +52,7 @@ export default async function CheckoutSuccessPage({
           bundle_count: bundleCount,
           bundle_value: bundleValue,
           bundle_ids: bundleIds,
+          user_id: viewer?.id ?? null,
         }}
       />
       <h1 className="text-3xl font-bold text-[var(--foreground)] mb-4">

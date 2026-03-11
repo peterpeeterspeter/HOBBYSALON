@@ -11,6 +11,7 @@ import { ArticleCard } from "@/components/shared/ArticleCard";
 import { CreatorCard } from "@/components/shared/CreatorCard";
 import { getProjectPageData } from "@/lib/services/project-page";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
+import { getAuthUser } from "@/lib/auth/session";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -67,7 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProjectPage({ params }: Props) {
   const { slug } = await params;
-  const data = await getProjectPageData(slug);
+  const [data, viewer] = await Promise.all([getProjectPageData(slug), getAuthUser()]);
 
   if (!data.project) notFound();
 
@@ -109,6 +110,7 @@ export default async function ProjectPage({ params }: Props) {
           project_id: project.id,
           project_slug: project.slug,
           difficulty_level: project.difficulty_level,
+          user_id: viewer?.id ?? null,
         }}
       />
 

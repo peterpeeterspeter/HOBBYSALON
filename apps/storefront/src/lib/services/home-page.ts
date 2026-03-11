@@ -38,6 +38,7 @@ export type HomePageData = {
   recommendedProjects: RecommendedProject[];
   recommendationSource: RecommendationSource;
   recommendationLatencyMs: number;
+  viewerUserId: string | null;
 };
 
 async function enrichProductsWithPrices(
@@ -103,5 +104,6 @@ export async function getHomePageData(): Promise<HomePageData> {
     recommendedProjects: recommendationResult.projects,
     recommendationSource: recommendationResult.source,
     recommendationLatencyMs: recommendationResult.latencyMs,
+    viewerUserId: authUser?.id ?? null,
   };
 }

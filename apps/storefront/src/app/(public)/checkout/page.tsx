@@ -10,6 +10,7 @@ import { CheckoutAddressForm } from "@/components/checkout/CheckoutAddressForm";
 import { CheckoutShippingStep } from "@/components/checkout/CheckoutShippingStep";
 import { CheckoutPaymentForm } from "@/components/checkout/CheckoutPaymentForm";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+import { getAuthUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
     redirect("/cart");
   }
 
-  const cart = await getCartForCheckout(cartId);
+  const [cart, viewer] = await Promise.all([getCartForCheckout(cartId), getAuthUser()]);
 
   if (!cart || !cart.items?.length) {
     redirect("/cart");
@@ -138,6 +139,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           bundle_count: bundleGroups.length,
           bundle_value: bundleValue,
           bundle_ids: bundleIds,
+          user_id: viewer?.id ?? null,
         }}
       />
       <h1 className="text-2xl font-bold text-[var(--foreground)] mb-8">
