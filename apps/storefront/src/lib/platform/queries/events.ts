@@ -33,6 +33,7 @@ export async function listEvents(filters?: {
   city?: string;
   from_date?: string;
   to_date?: string;
+  limit?: number;
 }): Promise<Event[]> {
   const supabase = createPlatformClient();
   let domainEventIds: string[] | null = null;
@@ -69,6 +70,10 @@ export async function listEvents(filters?: {
   }
   if (filters?.city) {
     query = query.ilike("city", `%${filters.city}%`);
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
   }
 
   const { data, error } = await query;

@@ -1,4 +1,9 @@
-import { getProductBySlug } from "@/lib/platform/queries/products";
+import {
+  getProductBySlug,
+  listProductsByCreator,
+  listProductsByDomain,
+  listProductsByIds,
+} from "@/lib/platform/queries/products";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { getWorkshopById } from "@/lib/platform/queries/workshops";
 import { listEventsByIds } from "@/lib/platform/queries/events";
@@ -15,6 +20,7 @@ export type ProductPageData = {
   price: { amount: number; currency_code: string } | null;
   variants: Array<{ id: string; title: string }>;
   relatedWorkshops: Workshop[];
+  relatedSupplies: Product[];
   relatedArticles: Article[];
   relatedEvents: Event[];
 };
@@ -29,6 +35,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       price: null,
       variants: [],
       relatedWorkshops: [] as Workshop[],
+      relatedSupplies: [],
       relatedArticles: [],
       relatedEvents: [],
     };
@@ -78,11 +85,43 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
   const relatedEventIds = entityLinks
     .filter((l) => l.target_entity_type === "event")
     .map((l) => l.target_entity_id);
+  const relatedProductIds = entityLinks
+    .filter((l) => l.target_entity_type === "product")
+    .map((l) => l.target_entity_id);
 
-  const [relatedArticles, relatedEvents] = await Promise.all([
+  const [relatedArticles, relatedEvents, linkedProducts] = await Promise.all([
     listArticlesByIds(relatedArticleIds),
     listEventsByIds(relatedEventIds),
+    listProductsByIds(relatedProductIds),
   ]);
+
+  const domainSuppliesPromise =
+    domain?.id && product.product_type === "handmade"
+      ? listProductsByDomain(domain.id, "supply")
+      : Promise.resolve([]);
+  const creatorSuppliesPromise =
+    creator?.id && product.product_type === "handmade"
+      ? listProductsByCreator(creator.id)
+      : Promise.resolve([]);
+
+  const [domainSupplies, creatorProducts] = await Promise.all([
+    domainSuppliesPromise,
+    creatorSuppliesPromise,
+  ]);
+
+  const relatedSupplyMap = new Map<string, Product>();
+  const allSupplyCandidates = [
+    ...linkedProducts.filter((p) => p.product_type === "supply"),
+    ...domainSupplies.filter((p) => p.product_type === "supply"),
+    ...creatorProducts.filter((p) => p.product_type === "supply"),
+  ];
+  for (const candidate of allSupplyCandidates) {
+    if (candidate.id === product.id) continue;
+    if (!relatedSupplyMap.has(candidate.id)) {
+      relatedSupplyMap.set(candidate.id, candidate);
+    }
+  }
+  const relatedSupplies = Array.from(relatedSupplyMap.values()).slice(0, 8);
 
   return {
     product,
@@ -91,6 +130,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     price,
     variants,
     relatedWorkshops,
+    relatedSupplies,
     relatedArticles,
     relatedEvents,
   };

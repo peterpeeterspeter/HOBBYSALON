@@ -25,6 +25,18 @@ export async function getCreatorById(id: string): Promise<Creator | null> {
   return data as Creator;
 }
 
+export async function getCreatorByUserId(userId: string): Promise<Creator | null> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("creators")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) return null;
+  return data as Creator;
+}
+
 export async function listCreatorsByDomain(domainId: string): Promise<Creator[]> {
   const supabase = createPlatformClient();
   const { data: links, error: linksError } = await supabase

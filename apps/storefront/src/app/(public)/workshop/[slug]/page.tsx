@@ -7,6 +7,9 @@ import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { EventCard } from "@/components/shared/EventCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
 import { WorkshopBookingRequestForm } from "@/components/workshop/WorkshopBookingRequestForm";
+import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { getAuthUser } from "@/lib/auth/session";
+import { isFavorite } from "@/lib/platform/queries/favorites";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -54,7 +57,11 @@ export default async function WorkshopPage({ params }: Props) {
 
   if (!data.workshop) notFound();
 
-  const { workshop, creator, domain, sessions, relatedProducts } = data;
+  const { workshop, creator, domain, sessions, requiredProducts, optionalProducts } = data;
+  const user = await getAuthUser();
+  const workshopIsFavorite = user
+    ? await isFavorite(user.id, "workshop", workshop.id)
+    : false;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -121,6 +128,14 @@ export default async function WorkshopPage({ params }: Props) {
           {workshop.short_description && (
             <p className="mt-4 text-[var(--foreground)]">{workshop.short_description}</p>
           )}
+          <div className="mt-4">
+            <FavoriteToggleButton
+              entityType="workshop"
+              entityId={workshop.id}
+              isFavorited={workshopIsFavorite}
+              nextPath={`/workshop/${workshop.slug}`}
+            />
+          </div>
           {workshop.description && (
             <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
               {workshop.description}
@@ -195,11 +210,21 @@ export default async function WorkshopPage({ params }: Props) {
       )}
 
       <EntityLinkBlock
-        title="Gerelateerde producten"
-        isEmpty={relatedProducts.length === 0}
-        emptyMessage="Geen gerelateerde producten."
+        title="Benodigde materialen"
+        isEmpty={requiredProducts.length === 0}
+        emptyMessage="Geen verplichte materialen opgegeven."
       >
-        {relatedProducts.map((p) => (
+        {requiredProducts.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </EntityLinkBlock>
+
+      <EntityLinkBlock
+        title="Aanbevolen materialen"
+        isEmpty={optionalProducts.length === 0}
+        emptyMessage="Geen extra materialen."
+      >
+        {optionalProducts.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}
       </EntityLinkBlock>

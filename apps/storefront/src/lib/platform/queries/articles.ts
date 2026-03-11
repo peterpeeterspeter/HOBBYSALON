@@ -77,3 +77,17 @@ export async function listArticlesByIds(ids: string[]): Promise<Article[]> {
     .map((id) => byId.get(id))
     .filter((article): article is Article => !!article);
 }
+
+export async function listLatestArticles(limit = 8): Promise<Article[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .eq("is_published", true)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) return [];
+  return (data ?? []) as Article[];
+}

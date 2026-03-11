@@ -7,6 +7,9 @@ import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
 import { Section } from "@/components/shared/Section";
+import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { getAuthUser } from "@/lib/auth/session";
+import { isFavorite } from "@/lib/platform/queries/favorites";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ domain: string }> };
@@ -28,6 +31,10 @@ export default async function DomainPage({ params }: Props) {
   if (!data.domain) notFound();
 
   const { domain, creators, handmadeProducts, supplyProducts } = data;
+  const user = await getAuthUser();
+  const domainIsFavorite = user
+    ? await isFavorite(user.id, "domain", domain.id)
+    : false;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -49,6 +56,14 @@ export default async function DomainPage({ params }: Props) {
             />
           </div>
         )}
+        <div className="mt-4">
+          <FavoriteToggleButton
+            entityType="domain"
+            entityId={domain.id}
+            isFavorited={domainIsFavorite}
+            nextPath={`/${domain.slug}`}
+          />
+        </div>
       </header>
 
       <Section title="Makers & leveranciers">

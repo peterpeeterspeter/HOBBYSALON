@@ -79,3 +79,41 @@ export async function listAllWorkshops(filters?: {
   if (error) return [];
   return (data ?? []) as Workshop[];
 }
+
+export async function listWorkshopsByIds(ids: string[]): Promise<Workshop[]> {
+  if (!ids.length) return [];
+
+  const uniqueIds = [...new Set(ids)];
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("workshops")
+    .select("*")
+    .in("id", uniqueIds)
+    .eq("is_active", true);
+
+  if (error || !data) return [];
+
+  const byId = new Map((data as Workshop[]).map((workshop) => [workshop.id, workshop]));
+  return uniqueIds
+    .map((id) => byId.get(id))
+    .filter((workshop): workshop is Workshop => !!workshop);
+}
+
+export async function listUpcomingWorkshops(limit = 8): Promise<Workshop[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("workshop_sessions")
+    .select("workshop_id")
+    .eq("is_cancelled", false)
+    .gte("starts_at", new Date().toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(limit * 3);
+
+  if (error || !data) return [];
+
+  const workshopIds = [...new Set((data ?? []).map((row) => row.workshop_id))].slice(
+    0,
+    limit
+  );
+  return listWorkshopsByIds(workshopIds);
+}

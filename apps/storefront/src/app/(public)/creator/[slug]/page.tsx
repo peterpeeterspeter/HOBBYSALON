@@ -6,6 +6,9 @@ import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
+import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { getAuthUser } from "@/lib/auth/session";
+import { isFavorite } from "@/lib/platform/queries/favorites";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -26,6 +29,10 @@ export default async function CreatorPage({ params }: Props) {
   if (!data.creator) notFound();
 
   const { creator, products, domains, relatedWorkshops, relatedEvents, relatedArticles } = data;
+  const user = await getAuthUser();
+  const creatorIsFavorite = user
+    ? await isFavorite(user.id, "creator", creator.id)
+    : false;
 
   const CREATOR_TYPE_LABELS: Record<string, string> = {
     maker: "Maker",
@@ -81,6 +88,14 @@ export default async function CreatorPage({ params }: Props) {
                 {creator.bio}
               </p>
             )}
+            <div className="mt-4">
+              <FavoriteToggleButton
+                entityType="creator"
+                entityId={creator.id}
+                isFavorited={creatorIsFavorite}
+                nextPath={`/creator/${creator.slug}`}
+              />
+            </div>
             {domains.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {domains.map((d) => (

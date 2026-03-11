@@ -16,6 +16,7 @@ export type Domain = {
 
 export type Creator = {
   id: string;
+  user_id?: string | null;
   slug: string;
   display_name: string;
   business_name: string | null;

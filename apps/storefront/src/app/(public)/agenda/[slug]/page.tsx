@@ -5,6 +5,9 @@ import { CreatorCard } from "@/components/shared/CreatorCard";
 import { ProductCard } from "@/components/shared/ProductCard";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
+import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { getAuthUser } from "@/lib/auth/session";
+import { isFavorite } from "@/lib/platform/queries/favorites";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -58,6 +61,8 @@ export default async function EventPage({ params }: Props) {
     relatedArticles,
   } =
     data;
+  const user = await getAuthUser();
+  const eventIsFavorite = user ? await isFavorite(user.id, "event", event.id) : false;
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
 
   return (
@@ -137,6 +142,14 @@ export default async function EventPage({ params }: Props) {
           {event.short_description && (
             <p className="mt-4 text-[var(--foreground)]">{event.short_description}</p>
           )}
+          <div className="mt-4">
+            <FavoriteToggleButton
+              entityType="event"
+              entityId={event.id}
+              isFavorited={eventIsFavorite}
+              nextPath={`/agenda/${event.slug}`}
+            />
+          </div>
           {event.description && (
             <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
               {event.description}

@@ -6,6 +6,9 @@ import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { CreatorCard } from "@/components/shared/CreatorCard";
 import { EventCard } from "@/components/shared/EventCard";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
+import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { getAuthUser } from "@/lib/auth/session";
+import { isFavorite } from "@/lib/platform/queries/favorites";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -26,6 +29,10 @@ export default async function ArticlePage({ params }: Props) {
   if (!data.article) notFound();
 
   const article = data.article;
+  const user = await getAuthUser();
+  const articleIsFavorite = user
+    ? await isFavorite(user.id, "article", article.id)
+    : false;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -44,6 +51,14 @@ export default async function ArticlePage({ params }: Props) {
         {article.excerpt && (
           <p className="mt-4 text-lg text-[var(--muted)]">{article.excerpt}</p>
         )}
+        <div className="mt-4">
+          <FavoriteToggleButton
+            entityType="article"
+            entityId={article.id}
+            isFavorited={articleIsFavorite}
+            nextPath={`/artikel/${article.slug}`}
+          />
+        </div>
         {article.reading_time_minutes && (
           <p className="mt-2 text-sm text-[var(--muted)]">
             {article.reading_time_minutes} min lezen

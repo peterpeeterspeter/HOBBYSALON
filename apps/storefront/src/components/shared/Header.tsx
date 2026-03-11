@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
+import { getAuthUser } from "@/lib/auth/session";
+import { logoutAction } from "@/app/actions/auth";
 
 export async function Header() {
+  const user = await getAuthUser();
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
   try {
     const domains = await listDomainsBySort();
@@ -46,6 +49,12 @@ export async function Header() {
           >
             Winkelwagen
           </Link>
+          <Link
+            href="/favorites"
+            className="text-[var(--foreground)] hover:text-[var(--accent)]"
+          >
+            Favorieten
+          </Link>
           {domainLinks.map((domain) => (
             <Link
               key={domain.id}
@@ -61,6 +70,31 @@ export async function Header() {
           >
             Creators
           </Link>
+          {user ? (
+            <>
+              <Link
+                href="/dashboard"
+                className="text-[var(--foreground)] hover:text-[var(--accent)]"
+              >
+                Dashboard
+              </Link>
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="text-[var(--foreground)] hover:text-[var(--accent)]"
+                >
+                  Uitloggen
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="text-[var(--foreground)] hover:text-[var(--accent)]"
+            >
+              Inloggen
+            </Link>
+          )}
         </nav>
       </div>
     </header>

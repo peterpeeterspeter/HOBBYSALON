@@ -6,7 +6,11 @@ import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { WorkshopCard } from "@/components/shared/WorkshopCard";
 import { ArticleCard } from "@/components/shared/ArticleCard";
 import { EventCard } from "@/components/shared/EventCard";
+import { ProductCard } from "@/components/shared/ProductCard";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
+import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { getAuthUser } from "@/lib/auth/session";
+import { isFavorite } from "@/lib/platform/queries/favorites";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -36,6 +40,10 @@ export default async function ProductPage({ params }: Props) {
   if (!data.product) notFound();
 
   const { product, creator, domain, price, variants } = data;
+  const user = await getAuthUser();
+  const productIsFavorite = user
+    ? await isFavorite(user.id, "product", product.id)
+    : false;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -95,6 +103,14 @@ export default async function ProductPage({ params }: Props) {
               {product.short_description}
             </p>
           )}
+          <div className="mt-4">
+            <FavoriteToggleButton
+              entityType="product"
+              entityId={product.id}
+              isFavorited={productIsFavorite}
+              nextPath={`/product/${product.slug}`}
+            />
+          </div>
           {product.description && (
             <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
               {product.description}
@@ -124,6 +140,18 @@ export default async function ProductPage({ params }: Props) {
           <WorkshopCard key={w.id} workshop={w} />
         ))}
       </EntityLinkBlock>
+
+      {product.product_type === "handmade" && (
+        <EntityLinkBlock
+          title="Relevante benodigdheden"
+          isEmpty={data.relatedSupplies.length === 0}
+          emptyMessage="Nog geen relevante benodigdheden."
+        >
+          {data.relatedSupplies.map((supply) => (
+            <ProductCard key={supply.id} product={supply} />
+          ))}
+        </EntityLinkBlock>
+      )}
 
       <EntityLinkBlock
         title="Gerelateerde artikelen"

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
+import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 
 export async function Footer() {
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
@@ -21,21 +22,36 @@ export async function Footer() {
   return (
     <footer className="mt-16 border-t border-[var(--border)] bg-[var(--card)] py-8">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[var(--muted)]">
-            © {new Date().getFullYear()} Hobbysalon. Creatief platform voor hobbyisten.
-          </p>
-          <nav className="flex gap-4" aria-label="Footernavigatie">
-            {domainLinks.map((domain) => (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div>
+            <p className="text-sm text-[var(--muted)]">
+              © {new Date().getFullYear()} Hobbysalon. Creatief platform voor hobbyisten.
+            </p>
+            <nav className="mt-3 flex flex-wrap gap-4" aria-label="Footernavigatie">
               <Link
-                key={domain.id}
-                href={`/${domain.slug}`}
+                href="/favorites"
                 className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
               >
-                {domain.name}
+                Favorieten
               </Link>
-            ))}
-          </nav>
+              <Link
+                href="/dashboard"
+                className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
+                Dashboard
+              </Link>
+              {domainLinks.map((domain) => (
+                <Link
+                  key={domain.id}
+                  href={`/${domain.slug}`}
+                  className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
+                >
+                  {domain.name}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <NewsletterSignupForm />
         </div>
       </div>
     </footer>

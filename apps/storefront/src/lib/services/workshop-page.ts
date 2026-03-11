@@ -2,6 +2,7 @@ import { getWorkshopBySlug } from "@/lib/platform/queries/workshops";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
+import { listProductsByIds } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import type { Workshop, Creator, Domain, Product, Event, Article } from "@/types/platform";
@@ -20,7 +21,8 @@ export type WorkshopPageData = {
   creator: Creator | null;
   domain: Domain | null;
   sessions: WorkshopSession[];
-  relatedProducts: Product[];
+  requiredProducts: Product[];
+  optionalProducts: Product[];
   relatedEvents: Event[];
   relatedArticles: Article[];
 };
@@ -35,7 +37,8 @@ export async function getWorkshopPageData(
       creator: null,
       domain: null,
       sessions: [],
-      relatedProducts: [],
+      requiredProducts: [],
+      optionalProducts: [],
       relatedEvents: [],
       relatedArticles: [],
     };
@@ -62,16 +65,41 @@ export async function getWorkshopPageData(
     .filter((l) => l.target_entity_type === "product")
     .map((l) => l.target_entity_id);
 
-  const relatedProducts: Product[] = [];
-  if (relatedProductIds.length > 0) {
-    const supabase = createPlatformClient();
-    const { data } = await supabase
-      .from("products")
-      .select("*")
-      .in("id", relatedProductIds)
-      .eq("is_active", true);
-    relatedProducts.push(...((data ?? []) as Product[]));
-  }
+  const requiredRows = await getWorkshopRequiredProducts(workshop.id);
+  const requiredProductIds = requiredRows.map((row) => row.product_id);
+
+  const [requiredProductsRaw, linkedProducts] = await Promise.all([
+    listProductsByIds(requiredProductIds),
+    listProductsByIds(relatedProductIds),
+  ]);
+
+  const productsById = new Map(
+    requiredProductsRaw.map((product) => [product.id, product])
+  );
+
+  const requiredProducts = requiredRows
+    .filter((row) => row.is_required)
+    .map((row) => productsById.get(row.product_id))
+    .filter((product): product is Product => !!product);
+
+  const optionalProductsFromRequiredRows = requiredRows
+    .filter((row) => !row.is_required)
+    .map((row) => productsById.get(row.product_id))
+    .filter((product): product is Product => !!product);
+
+  const alreadyIncluded = new Set([
+    ...requiredProducts.map((product) => product.id),
+    ...optionalProductsFromRequiredRows.map((product) => product.id),
+  ]);
+
+  const optionalLinkedProducts = linkedProducts.filter(
+    (product) => !alreadyIncluded.has(product.id)
+  );
+
+  const optionalProducts = [
+    ...optionalProductsFromRequiredRows,
+    ...optionalLinkedProducts,
+  ];
 
   const relatedEventIds = entityLinks
     .filter((l) => l.target_entity_type === "event")
@@ -90,7 +118,8 @@ export async function getWorkshopPageData(
     creator: creator ?? null,
     domain: domain ?? null,
     sessions,
-    relatedProducts,
+    requiredProducts,
+    optionalProducts,
     relatedEvents,
     relatedArticles,
   };
@@ -110,4 +139,24 @@ async function getWorkshopSessions(
 
   if (error) return [];
   return (data ?? []) as WorkshopSession[];
+}
+
+type WorkshopRequiredProductRow = {
+  product_id: string;
+  is_required: boolean;
+  sort_order: number;
+};
+
+async function getWorkshopRequiredProducts(
+  workshopId: string
+): Promise<WorkshopRequiredProductRow[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("workshop_required_products")
+    .select("product_id, is_required, sort_order")
+    .eq("workshop_id", workshopId)
+    .order("sort_order", { ascending: true });
+
+  if (error) return [];
+  return (data ?? []) as WorkshopRequiredProductRow[];
 }
