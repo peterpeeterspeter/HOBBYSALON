@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ShoppingCart, Heart, ChevronDown, MapPin } from "lucide-react";
+import { NavLink } from "@/components/shared/NavLink";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { getAuthUser } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
@@ -67,9 +68,9 @@ export async function Header() {
           aria-label="Hoofdnavigatie"
         >
           {STATIC_LINKS.discover.map((link) => (
-            <Link key={link.href} href={link.href} className={navLinkClass}>
+            <NavLink key={link.href} href={link.href} className={navLinkClass}>
               {link.label}
-            </Link>
+            </NavLink>
           ))}
           <DomainsDropdown domainLinks={domainLinks} navLinkClass={navLinkClass} />
         </nav>

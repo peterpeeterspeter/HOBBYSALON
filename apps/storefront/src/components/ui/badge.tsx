@@ -14,7 +14,7 @@ const badgeVariants = cva(
         status:
           "bg-[var(--muted)]/15 text-[var(--muted)]",
         new:
-          "bg-[var(--success)]/15 text-[var(--success)]",
+          "bg-[var(--accent-secondary)]/15 text-[var(--accent-secondary)]",
         popular:
           "bg-[var(--warning)]/15 text-[var(--warning)]",
         soldOut:

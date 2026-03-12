@@ -2,6 +2,10 @@ import { createPlatformClient } from "../client";
 import { listActiveDomains } from "./domains";
 import { listFavoritesByUser } from "./favorites";
 import { listFeaturedProjects } from "./projects";
+import {
+  REGISTRATION_ALLOWED_INTEREST_TYPES,
+  type RegistrationInterestType,
+} from "@/lib/auth/registration-options";
 import type { EntityType, Project } from "@/types/platform";
 
 export type RecommendationSource = "personalized" | "cold_start";
@@ -29,6 +33,10 @@ type FavoriteSignal = {
 
 type FavoriteBuckets = Record<EntityType, string[]>;
 type RecencyIndex = Record<EntityType, Map<string, number>>;
+type DomainScoreCollection = {
+  domainScores: Map<string, number>;
+  interestTypes: RegistrationInterestType[];
+};
 
 const DEFAULT_LIMIT = 6;
 const MAX_FAVORITE_SIGNALS = 80;
@@ -52,6 +60,16 @@ const LINKED_PROJECT_TYPES: EntityType[] = [
   "event",
   "article",
 ];
+
+const INTEREST_TYPE_SET = new Set<string>(REGISTRATION_ALLOWED_INTEREST_TYPES);
+
+const INTEREST_DOMAIN_SIGNAL_BASE: Record<RegistrationInterestType, number> = {
+  workshop: 1.9,
+  supply: 1.7,
+  handmade: 1.7,
+  event: 1.2,
+  article: 1.1,
+};
 
 function createBuckets(): FavoriteBuckets {
   return {
@@ -114,6 +132,124 @@ function toTopIds(scoreMap: Map<string, number>, limit: number): string[] {
 function clampLimit(limit: number | undefined): number {
   if (!limit || Number.isNaN(limit)) return DEFAULT_LIMIT;
   return Math.max(1, Math.min(12, Math.floor(limit)));
+}
+
+function sanitizeRegistrationInterestTypes(values: unknown): RegistrationInterestType[] {
+  if (!Array.isArray(values) || values.length === 0) return [];
+  return Array.from(
+    new Set(
+      values
+        .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+        .filter(
+          (value): value is RegistrationInterestType =>
+            value.length > 0 && INTEREST_TYPE_SET.has(value)
+        )
+    )
+  );
+}
+
+async function collectInterestDomainSignals(
+  userId: string
+): Promise<{ domainScores: Map<string, number>; interestTypes: RegistrationInterestType[] }> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("user_preferences")
+    .select("interest_types")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      domainScores: new Map<string, number>(),
+      interestTypes: [],
+    };
+  }
+
+  const interestTypes = sanitizeRegistrationInterestTypes(
+    (data as { interest_types?: unknown }).interest_types
+  );
+  if (interestTypes.length === 0) {
+    return {
+      domainScores: new Map<string, number>(),
+      interestTypes: [],
+    };
+  }
+
+  const domainScores = new Map<string, number>();
+
+  if (interestTypes.includes("workshop")) {
+    const { data: workshopRows } = await supabase
+      .from("workshops")
+      .select("domain_id")
+      .eq("is_active", true)
+      .limit(1200);
+    for (const row of (workshopRows ?? []) as Array<{ domain_id: string | null }>) {
+      if (!row.domain_id) continue;
+      addScore(domainScores, row.domain_id, INTEREST_DOMAIN_SIGNAL_BASE.workshop);
+    }
+  }
+
+  if (interestTypes.includes("supply")) {
+    const { data: supplyRows } = await supabase
+      .from("products")
+      .select("domain_id")
+      .eq("is_active", true)
+      .eq("status", "active")
+      .eq("product_type", "supply")
+      .limit(1600);
+    for (const row of (supplyRows ?? []) as Array<{ domain_id: string | null }>) {
+      if (!row.domain_id) continue;
+      addScore(domainScores, row.domain_id, INTEREST_DOMAIN_SIGNAL_BASE.supply);
+    }
+  }
+
+  if (interestTypes.includes("handmade")) {
+    const { data: handmadeRows } = await supabase
+      .from("products")
+      .select("domain_id")
+      .eq("is_active", true)
+      .eq("status", "active")
+      .eq("product_type", "handmade")
+      .limit(1600);
+    for (const row of (handmadeRows ?? []) as Array<{ domain_id: string | null }>) {
+      if (!row.domain_id) continue;
+      addScore(domainScores, row.domain_id, INTEREST_DOMAIN_SIGNAL_BASE.handmade);
+    }
+  }
+
+  if (interestTypes.includes("event")) {
+    const { data: eventDomains } = await supabase
+      .from("event_domains")
+      .select("domain_id")
+      .limit(1200);
+    for (const row of (eventDomains ?? []) as Array<{ domain_id: string | null }>) {
+      if (!row.domain_id) continue;
+      addScore(domainScores, row.domain_id, INTEREST_DOMAIN_SIGNAL_BASE.event);
+    }
+  }
+
+  if (interestTypes.includes("article")) {
+    const { data: articleRows } = await supabase
+      .from("articles")
+      .select("domain_id")
+      .eq("is_published", true)
+      .limit(1200);
+    for (const row of (articleRows ?? []) as Array<{ domain_id: string | null }>) {
+      if (!row.domain_id) continue;
+      addScore(domainScores, row.domain_id, INTEREST_DOMAIN_SIGNAL_BASE.article);
+    }
+
+    const { data: articleDomains } = await supabase
+      .from("article_domains")
+      .select("domain_id")
+      .limit(1200);
+    for (const row of (articleDomains ?? []) as Array<{ domain_id: string | null }>) {
+      if (!row.domain_id) continue;
+      addScore(domainScores, row.domain_id, INTEREST_DOMAIN_SIGNAL_BASE.article);
+    }
+  }
+
+  return { domainScores, interestTypes };
 }
 
 function toColdStartRecommendations(
@@ -257,7 +393,7 @@ async function collectDomainScores(
   userId: string,
   buckets: FavoriteBuckets,
   recencyIndex: RecencyIndex
-): Promise<Map<string, number>> {
+): Promise<DomainScoreCollection> {
   const supabase = createPlatformClient();
   const domainScores = new Map<string, number>();
 
@@ -385,7 +521,15 @@ async function collectDomainScores(
     }
   }
 
-  return domainScores;
+  const interestSignals = await collectInterestDomainSignals(userId);
+  for (const [domainId, score] of interestSignals.domainScores.entries()) {
+    addScore(domainScores, domainId, score);
+  }
+
+  return {
+    domainScores,
+    interestTypes: interestSignals.interestTypes,
+  };
 }
 
 async function collectProjectBoosts(
@@ -432,23 +576,27 @@ async function buildPersonalizedRecommendations(
   userId: string,
   limit: number
 ): Promise<{ projects: RecommendedProject[]; signalCount: number }> {
-  const { buckets, recencyIndex, recentInteractionCount } = await collectSignals(userId);
-  const [domainScores, projectBoosts] = await Promise.all([
+  const { signals, buckets, recencyIndex, recentInteractionCount } = await collectSignals(userId);
+  const [domainSignalCollection, projectBoosts] = await Promise.all([
     collectDomainScores(userId, buckets, recencyIndex),
     collectProjectBoosts(buckets, recencyIndex),
   ]);
+  const domainScores = domainSignalCollection.domainScores;
+  const hasInterestSignals = domainSignalCollection.interestTypes.length > 0;
+  const hasFavoriteSignals = signals.length > 0;
+  const signalCount = recentInteractionCount + domainSignalCollection.interestTypes.length;
 
   const topDomainIds = toTopIds(domainScores, 6);
   const domainProjectIds = await fetchProjectIdsForDomains(topDomainIds);
   const candidateProjectIds = new Set<string>([...projectBoosts.keys(), ...domainProjectIds]);
 
   if (!candidateProjectIds.size) {
-    return { projects: [], signalCount: recentInteractionCount };
+    return { projects: [], signalCount };
   }
 
   const projects = await fetchActiveProjectsByIds([...candidateProjectIds]);
   if (!projects.length) {
-    return { projects: [], signalCount: recentInteractionCount };
+    return { projects: [], signalCount };
   }
 
   const domainMap = await fetchProjectDomainMap(projects.map((project) => project.id));
@@ -467,7 +615,15 @@ async function buildPersonalizedRecommendations(
 
     const reasons: string[] = [];
     if (projectBoost > 0.2) reasons.push("Gelinkt aan je favorieten");
-    if (domainBoost > 0.2) reasons.push("Past bij je favoriete domeinen");
+    if (domainBoost > 0.2) {
+      if (hasFavoriteSignals) {
+        reasons.push("Past bij je favoriete domeinen");
+      } else if (hasInterestSignals) {
+        reasons.push("Past bij je profielinteresses");
+      } else {
+        reasons.push("Past bij populaire domeinen");
+      }
+    }
     if (recentInteractionCount > 0 && reasons.length > 0) {
       reasons.push("Gebaseerd op recente activiteit");
     }
@@ -485,7 +641,7 @@ async function buildPersonalizedRecommendations(
 
   return {
     projects: scored.sort((a, b) => b.score - a.score).slice(0, limit),
-    signalCount: recentInteractionCount,
+    signalCount,
   };
 }
 

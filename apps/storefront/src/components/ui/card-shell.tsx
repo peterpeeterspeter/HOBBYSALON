@@ -9,7 +9,7 @@ const cardShellVariants = cva(
         default:
           "border-[var(--border)] shadow-[var(--shadow-sm)]",
         interactive:
-          "border-[var(--border)] shadow-[var(--shadow-sm)] hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)] cursor-pointer",
+          "border-[var(--border)] shadow-[var(--shadow-sm)] cursor-pointer group hover:border-[var(--accent)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5 will-change-transform motion-reduce:hover:transform-none",
         featured:
           "border-[var(--accent)]/40 shadow-[var(--shadow-md)] ring-1 ring-[var(--accent)]/10",
       },
