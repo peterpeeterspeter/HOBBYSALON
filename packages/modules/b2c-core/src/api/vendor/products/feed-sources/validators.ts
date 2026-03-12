@@ -159,6 +159,12 @@ export type VendorPullFeedSourceType = z.infer<typeof VendorPullFeedSource>
 export const VendorPullFeedSource = z
   .object({
     limit: z.number().int().min(1).max(5000).optional(),
+    retries: z
+      .preprocess(toOptionalInteger, z.number().int().min(0).max(5))
+      .optional(),
+    timeout_ms: z
+      .preprocess(toOptionalInteger, z.number().int().min(1000).max(120000))
+      .optional(),
   })
   .strict()
 
@@ -186,6 +192,12 @@ export const VendorPreviewFeedSource = z
       .optional(),
     default_location_id: z
       .preprocess(toOptionalTrimmedString, z.string().min(1))
+      .optional(),
+    retries: z
+      .preprocess(toOptionalInteger, z.number().int().min(0).max(5))
+      .optional(),
+    timeout_ms: z
+      .preprocess(toOptionalInteger, z.number().int().min(1000).max(120000))
       .optional(),
   })
   .strict()

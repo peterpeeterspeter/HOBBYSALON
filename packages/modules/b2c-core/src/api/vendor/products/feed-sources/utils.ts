@@ -73,6 +73,15 @@ type BuildSyncUpdatesOptions = {
   limit?: number
 }
 
+type FetchFeedWithRetryInput = {
+  url: string
+  method?: string
+  headers?: Record<string, string>
+  retries?: number
+  timeoutMs?: number
+  retryDelayMs?: number
+}
+
 const toJsonObject = (value: unknown): Record<string, unknown> | null => {
   if (value === null || value === undefined) {
     return null
@@ -242,6 +251,79 @@ const getArrayFromObject = (payload: Record<string, unknown>) => {
   }
 
   return null
+}
+
+const sleep = async (ms: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+
+const isRetryableStatus = (status: number) => status === 429 || status >= 500
+
+export const fetchFeedWithRetry = async ({
+  url,
+  method = 'GET',
+  headers = {},
+  retries = 2,
+  timeoutMs = 15000,
+  retryDelayMs = 750,
+}: FetchFeedWithRetryInput): Promise<Response> => {
+  const maxRetries = Math.max(0, retries)
+  let attempt = 0
+  let lastError: unknown = null
+
+  while (attempt <= maxRetries) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        signal: controller.signal,
+      })
+
+      if (response.ok) {
+        clearTimeout(timer)
+        return response
+      }
+
+      const shouldRetry =
+        isRetryableStatus(response.status) && attempt < maxRetries
+      if (shouldRetry) {
+        clearTimeout(timer)
+        await response.body?.cancel()
+        await sleep(retryDelayMs * (attempt + 1))
+        attempt += 1
+        continue
+      }
+
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Feed request failed with status ${response.status}`
+      )
+    } catch (error) {
+      clearTimeout(timer)
+      lastError = error
+      if (attempt >= maxRetries) {
+        break
+      }
+
+      await sleep(retryDelayMs * (attempt + 1))
+      attempt += 1
+    }
+  }
+
+  if (lastError instanceof MedusaError) {
+    throw lastError
+  }
+
+  const reason =
+    lastError instanceof Error ? lastError.message : 'Unknown fetch error'
+  throw new MedusaError(
+    MedusaError.Types.INVALID_DATA,
+    `Feed request failed: ${reason}`
+  )
 }
 
 const toRecordArray = (value: unknown): Record<string, unknown>[] => {

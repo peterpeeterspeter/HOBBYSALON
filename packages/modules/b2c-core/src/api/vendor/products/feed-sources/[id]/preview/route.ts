@@ -7,6 +7,7 @@ import { VendorPreviewFeedSourceType } from '../../validators'
 import {
   FeedSourceRow,
   buildSyncUpdatesFromFeed,
+  fetchFeedWithRetry,
   parseFeedContent,
   serializeFeedSource,
 } from '../../utils'
@@ -62,17 +63,13 @@ export const POST = async (
     ])
   )
 
-  const response = await fetch(serialized.url, {
+  const response = await fetchFeedWithRetry({
+    url: serialized.url,
     method: serialized.method || 'GET',
     headers,
+    retries: req.validatedBody.retries,
+    timeoutMs: req.validatedBody.timeout_ms,
   })
-
-  if (!response.ok) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      `Feed request failed with status ${response.status}`
-    )
-  }
 
   const rawText = await response.text()
   const rows = parseFeedContent(

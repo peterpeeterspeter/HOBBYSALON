@@ -8,6 +8,7 @@ import { VendorStartProductSync } from '../api/vendor/products/sync/validators'
 import {
   FeedSourceRow,
   buildSyncUpdatesFromFeed,
+  fetchFeedWithRetry,
   parseFeedContent,
   serializeFeedSource,
 } from '../api/vendor/products/feed-sources/utils'
@@ -15,6 +16,8 @@ import {
 const DEFAULT_PULL_INTERVAL_MINUTES = 60
 const MAX_PREVIEW_ERRORS = 50
 const RUN_STALE_AFTER_MS = 2 * 60 * 60 * 1000
+const DEFAULT_FETCH_TIMEOUT_MS = 20000
+const DEFAULT_FETCH_RETRIES = 2
 
 const isDue = (source: FeedSourceRow, now: Date) => {
   if (!source.active || !source.auto_pull_enabled) {
@@ -140,14 +143,13 @@ export default async function merchantFeedAutoPullJob(container: MedusaContainer
         deleted_at: null,
       })
 
-      const response = await fetch(serialized.url, {
+      const response = await fetchFeedWithRetry({
+        url: serialized.url,
         method: serialized.method || 'GET',
         headers,
+        retries: DEFAULT_FETCH_RETRIES,
+        timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
       })
-
-      if (!response.ok) {
-        throw new Error(`Feed request failed with status ${response.status}`)
-      }
 
       const rawText = await response.text()
       const rows = parseFeedContent(
