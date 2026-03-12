@@ -16,6 +16,13 @@ type PersistUserRegistrationInput = {
   interestTypes?: string[];
 };
 
+type CompatibilityMigrationInput = {
+  userId: string;
+  email?: string | null;
+  legacyCity?: string | null;
+  legacyCountryCode?: string | null;
+};
+
 export type UserAccountRole =
   | "user"
   | "creator"
@@ -31,6 +38,7 @@ type PersistResult = {
 };
 
 export type UserPreferenceSnapshot = {
+  city: string | null;
   postalCode: string | null;
   countryCode: string;
   interestTypes: RegistrationInterestType[];
@@ -63,6 +71,20 @@ function sanitizeCountryCode(value: string | null | undefined): string {
   const cleaned = value.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(cleaned)) return REGISTRATION_DEFAULT_COUNTRY;
   return cleaned;
+}
+
+function sanitizeCountryCodeOrNull(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const cleaned = value.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cleaned)) return null;
+  return cleaned;
+}
+
+function sanitizeCity(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const cleaned = value.trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, 80);
 }
 
 function sanitizeInterestTypes(
@@ -189,6 +211,118 @@ export async function getUserAccountRoles(userId: string): Promise<UserAccountRo
   return Array.from(new Set(data.map((row) => row.role as UserAccountRole)));
 }
 
+async function getNewsletterInterestTypesByEmail(
+  email: string
+): Promise<RegistrationInterestType[]> {
+  const supabase = createPlatformClient();
+  const { data: subscriber } = await supabase
+    .from("subscribers")
+    .select("id")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+
+  if (!subscriber?.id) {
+    return [];
+  }
+
+  const { data: segments } = await supabase
+    .from("survey_segments")
+    .select("interest_type")
+    .eq("subscriber_id", subscriber.id)
+    .limit(50);
+
+  return sanitizeInterestTypes(
+    (segments ?? []).map((segment) => segment.interest_type as string)
+  );
+}
+
+export async function runRegistrationCompatibilityMigration(
+  input: CompatibilityMigrationInput
+): Promise<PersistResult> {
+  const supabase = createPlatformClient();
+  const errors: string[] = [];
+
+  const legacyCity = sanitizeCity(input.legacyCity);
+  const legacyCountryCode = sanitizeCountryCodeOrNull(input.legacyCountryCode);
+
+  const [preferenceResult, roleResult] = await Promise.all([
+    supabase
+      .from("user_preferences")
+      .select("city,country_code,interest_types,onboarding_completed")
+      .eq("user_id", input.userId)
+      .maybeSingle(),
+    supabase.from("user_account_roles").upsert(
+      {
+        user_id: input.userId,
+        role: "user",
+      },
+      { onConflict: "user_id,role" }
+    ),
+  ]);
+
+  if (roleResult.error) {
+    errors.push(roleResult.error.message);
+  }
+
+  const existingPreference = preferenceResult.data;
+  const existingCity = sanitizeCity(existingPreference?.city);
+  const existingCountry = sanitizeCountryCodeOrNull(existingPreference?.country_code);
+  const existingInterests = sanitizeInterestTypes(
+    existingPreference?.interest_types as string[] | null | undefined
+  );
+
+  const newsletterInterestTypes = input.email
+    ? await getNewsletterInterestTypesByEmail(input.email)
+    : [];
+
+  const mergedInterests = Array.from(
+    new Set<RegistrationInterestType>([
+      ...existingInterests,
+      ...newsletterInterestTypes,
+    ])
+  );
+  const nextCity = existingCity ?? legacyCity;
+  const nextCountry =
+    existingCountry ??
+    (legacyCountryCode && !existingCountry ? legacyCountryCode : null) ??
+    REGISTRATION_DEFAULT_COUNTRY;
+  const nextOnboardingCompleted =
+    existingPreference?.onboarding_completed ??
+    !!(legacyCity || legacyCountryCode || mergedInterests.length > 0);
+  const hasMigrationSignal =
+    !!legacyCity || !!legacyCountryCode || mergedInterests.length > 0;
+
+  const shouldUpsertPreference =
+    (!!existingPreference &&
+      ((!!legacyCity && !existingCity) ||
+        (!!legacyCountryCode &&
+          (!existingCountry || existingCountry === REGISTRATION_DEFAULT_COUNTRY)) ||
+        mergedInterests.length > existingInterests.length)) ||
+    (!existingPreference && hasMigrationSignal);
+
+  if (shouldUpsertPreference) {
+    const { error } = await supabase.from("user_preferences").upsert(
+      {
+        user_id: input.userId,
+        city: nextCity,
+        country_code: nextCountry,
+        interest_types: mergedInterests,
+        onboarding_completed: nextOnboardingCompleted,
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (error) {
+      errors.push(error.message);
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
 export async function getUserRegistrationContext(
   userId: string
 ): Promise<UserRegistrationContext> {
@@ -199,7 +333,7 @@ export async function getUserRegistrationContext(
       supabase.from("user_account_roles").select("role").eq("user_id", userId),
       supabase
         .from("user_preferences")
-        .select("postal_code,country_code,interest_types,onboarding_completed")
+        .select("city,postal_code,country_code,interest_types,onboarding_completed")
         .eq("user_id", userId)
         .maybeSingle(),
       supabase
@@ -218,6 +352,7 @@ export async function getUserRegistrationContext(
 
   const preference = preferenceResult.data
     ? {
+        city: sanitizeCity(preferenceResult.data.city),
         postalCode: preferenceResult.data.postal_code ?? null,
         countryCode:
           sanitizeCountryCode(preferenceResult.data.country_code) ??

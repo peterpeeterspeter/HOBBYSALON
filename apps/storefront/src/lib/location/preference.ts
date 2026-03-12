@@ -1,6 +1,8 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { getAuthUser } from "@/lib/auth/session";
+import { createPlatformClient } from "@/lib/platform/client";
 
 export const LOCATION_CITY_COOKIE = "hs_pref_city";
 export const LOCATION_COUNTRY_COOKIE = "hs_pref_country";
@@ -31,12 +33,31 @@ export function sanitizeLocationCountryCode(
 
 export async function getLocationPreference(): Promise<LocationPreference> {
   const cookieStore = await cookies();
-  const city = sanitizeLocationCity(
+  const cookieCity = sanitizeLocationCity(
     cookieStore.get(LOCATION_CITY_COOKIE)?.value ?? null
   );
-  const countryCode = sanitizeLocationCountryCode(
+  const cookieCountryCode = sanitizeLocationCountryCode(
     cookieStore.get(LOCATION_COUNTRY_COOKIE)?.value ?? null
   );
+  let city = cookieCity;
+  let countryCode = cookieCountryCode;
+
+  const user = await getAuthUser();
+  if (user?.id) {
+    const supabase = createPlatformClient();
+    const { data } = await supabase
+      .from("user_preferences")
+      .select("city,country_code")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const dbCity = sanitizeLocationCity(data?.city ?? null);
+    const dbCountryCode = sanitizeLocationCountryCode(data?.country_code ?? null);
+
+    city = dbCity ?? cookieCity;
+    countryCode = dbCountryCode ?? cookieCountryCode;
+  }
+
   const hasPreference = !!city || !!countryCode;
   const label = city && countryCode ? `${city}, ${countryCode}` : city ?? countryCode;
 

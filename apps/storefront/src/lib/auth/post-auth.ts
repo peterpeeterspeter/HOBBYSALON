@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  getUserAccountRoles,
+  getUserRegistrationContext,
   type UserAccountRole,
 } from "@/lib/platform/queries/user-registration";
 
@@ -43,12 +43,27 @@ export async function resolvePostAuthRedirectPath(options: {
     return safeDefault;
   }
 
-  const roles = await getUserAccountRoles(options.userId);
-  if (roles.includes("merchant")) {
+  const context = await getUserRegistrationContext(options.userId);
+  const hasMerchantRole = context.roles.includes("merchant");
+  const hasMerchantLink = context.sellerLinks.some(
+    (link) => link.sellerType === "merchant"
+  );
+
+  if (hasMerchantRole || hasMerchantLink) {
+    if (!hasMerchantLink) {
+      return `/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`;
+    }
     return "/dashboard/materials";
   }
 
-  if (roles.some((role) => CREATOR_DASHBOARD_ROLES.has(role))) {
+  const hasCreatorRole = context.roles.some((role) =>
+    CREATOR_DASHBOARD_ROLES.has(role)
+  );
+  const hasCreatorLink = context.sellerLinks.some(
+    (link) => link.sellerType === "creator"
+  );
+
+  if (hasCreatorRole || hasCreatorLink || context.hasCreatorProfile) {
     return "/dashboard/creator";
   }
 

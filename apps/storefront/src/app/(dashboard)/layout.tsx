@@ -82,7 +82,8 @@ export default async function DashboardLayout({
       </header>
       <main>
         <Container className="py-8">
-          {!registrationContext.preference?.onboardingCompleted && (
+          {registrationContext.preference &&
+            !registrationContext.preference.onboardingCompleted && (
             <CardShell variant="featured" padding="md" className="mb-6 border-sky-300 bg-sky-50">
               <p className="text-sm text-sky-900">
                 Vervolledig je profiel met interesses en postcode voor betere lokale aanbevelingen.{" "}

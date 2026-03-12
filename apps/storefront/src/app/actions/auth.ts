@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   clearAuthSession,
@@ -19,7 +20,14 @@ import {
   ensureUserRole,
   linkUserToSeller,
   persistUserRegistrationProfile,
+  runRegistrationCompatibilityMigration,
 } from "@/lib/platform/queries/user-registration";
+import {
+  LOCATION_CITY_COOKIE,
+  LOCATION_COUNTRY_COOKIE,
+  sanitizeLocationCity,
+  sanitizeLocationCountryCode,
+} from "@/lib/location/preference";
 
 export type AuthActionState = {
   success: boolean;
@@ -70,10 +78,32 @@ export async function loginAction(
     };
   }
 
+  const registrationUserId = user?.id ?? session.user?.id ?? null;
+  if (registrationUserId) {
+    const cookieStore = await cookies();
+    const compatibilityResult = await runRegistrationCompatibilityMigration({
+      userId: registrationUserId,
+      email: user?.email ?? session.user?.email ?? email,
+      legacyCity: sanitizeLocationCity(
+        cookieStore.get(LOCATION_CITY_COOKIE)?.value ?? null
+      ),
+      legacyCountryCode: sanitizeLocationCountryCode(
+        cookieStore.get(LOCATION_COUNTRY_COOKIE)?.value ?? null
+      ),
+    });
+
+    if (!compatibilityResult.ok) {
+      console.error("Failed to run registration compatibility migration", {
+        userId: registrationUserId,
+        errors: compatibilityResult.errors,
+      });
+    }
+  }
+
   const redirectPath = await resolvePostAuthRedirectPath({
-    userId: user?.id ?? session.user?.id ?? null,
+    userId: registrationUserId,
     requestedNextPath,
-    defaultPath: "/dashboard",
+    defaultPath: "/",
   });
 
   await persistAuthSession(session);
@@ -138,7 +168,7 @@ export async function registerAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: "/dashboard",
+      defaultPath: "/",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -367,7 +397,9 @@ export async function registerMerchantAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: merchantProvisioned ? "/dashboard/materials" : "/dashboard/onboarding",
+      defaultPath: merchantProvisioned
+        ? "/dashboard/materials"
+        : `/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`,
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -518,7 +550,7 @@ export async function completeRegistrationProfileAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
-    defaultPath: "/dashboard",
+    defaultPath: "/",
   });
   redirect(redirectPath);
 }

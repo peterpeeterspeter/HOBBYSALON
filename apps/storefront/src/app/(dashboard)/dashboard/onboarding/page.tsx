@@ -17,7 +17,7 @@ export default async function DashboardOnboardingPage({ searchParams }: Props) {
 
   const context = await getUserRegistrationContext(user.id);
   const { next } = await searchParams;
-  const nextPath = next?.startsWith("/") ? next : "/dashboard";
+  const nextPath = next?.startsWith("/") ? next : "";
 
   return (
     <section className="space-y-6">

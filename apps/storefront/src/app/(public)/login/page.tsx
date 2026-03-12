@@ -19,10 +19,10 @@ type Props = {
 export default async function LoginPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next } = await searchParams;
-  const nextPath = next?.startsWith("/") ? next : "/dashboard";
+  const nextPath = next?.startsWith("/") ? next : "";
 
   if (user) {
-    redirect(nextPath);
+    redirect(nextPath || "/");
   }
 
   return (
@@ -37,7 +37,14 @@ export default async function LoginPage({ searchParams }: Props) {
 
       <p className="mt-4 text-sm text-[var(--muted)]">
         Nog geen account?{" "}
-        <Link href={`/register?next=${encodeURIComponent(nextPath)}`} className="text-[var(--accent)] underline">
+        <Link
+          href={
+            nextPath
+              ? `/register?next=${encodeURIComponent(nextPath)}`
+              : "/register"
+          }
+          className="text-[var(--accent)] underline"
+        >
           Registreer hier
         </Link>
         .
