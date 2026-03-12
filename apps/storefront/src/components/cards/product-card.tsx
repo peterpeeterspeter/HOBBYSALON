@@ -15,6 +15,7 @@ type ProductCardProps = {
 
 const PRODUCT_TYPE_LABELS: Record<string, string> = {
   handmade: "Handgemaakt",
+  supply: "Benodigdheden",
   supplies: "Benodigdheden",
 };
 
