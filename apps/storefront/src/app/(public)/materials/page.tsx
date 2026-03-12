@@ -28,6 +28,7 @@ type SearchParams = Promise<{
   category?: string;
   creator_type?: string;
   sort?: string;
+  page?: string;
 }>;
 
 const MATERIAL_CATEGORY_FILTERS = [
@@ -61,6 +62,8 @@ type ProductWithPrice = SupplyMarketplaceProduct & {
   price?: { amount: number; currency_code: string } | null;
 };
 
+const PAGE_SIZE = 24;
+
 async function enrichProductsWithPrices(
   products: SupplyMarketplaceProduct[]
 ): Promise<ProductWithPrice[]> {
@@ -82,21 +85,24 @@ function sortProducts(products: ProductWithPrice[], sort: string | undefined) {
   if (sort === "newest") {
     return [...products].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
-  if (sort === "price_asc") {
-    return [...products].sort((a, b) => {
-      const left = a.price?.amount ?? Number.POSITIVE_INFINITY;
-      const right = b.price?.amount ?? Number.POSITIVE_INFINITY;
-      return left - right;
-    });
-  }
-  if (sort === "price_desc") {
-    return [...products].sort((a, b) => {
-      const left = a.price?.amount ?? Number.NEGATIVE_INFINITY;
-      const right = b.price?.amount ?? Number.NEGATIVE_INFINITY;
-      return right - left;
-    });
-  }
   return products;
+}
+
+function buildMaterialsHref(
+  base: Record<string, string | undefined>,
+  nextPage: number
+) {
+  const query = new URLSearchParams();
+  Object.entries(base).forEach(([key, value]) => {
+    if (value && value.trim()) {
+      query.set(key, value);
+    }
+  });
+  if (nextPage > 1) {
+    query.set("page", String(nextPage));
+  }
+  const serialized = query.toString();
+  return serialized ? `/materials?${serialized}` : "/materials";
 }
 
 export default async function MaterialsMarketplacePage({
@@ -118,6 +124,9 @@ export default async function MaterialsMarketplacePage({
       ? categoryFilter
       : undefined;
   const categoryNameFilter = categoryIdFilter ? undefined : categoryFilter;
+  const pageRaw = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const offset = (page - 1) * PAGE_SIZE;
   const locationPreference = await getLocationPreference();
   const [domains, categoryOptions, supplyProducts] = await Promise.all([
     listActiveDomains(),
@@ -130,14 +139,24 @@ export default async function MaterialsMarketplacePage({
       creator_type: creatorTypeFilter,
       preferred_city: locationPreference.city ?? undefined,
       preferred_country_code: locationPreference.countryCode ?? undefined,
-      limit: 72,
+      limit: PAGE_SIZE + 1,
+      offset,
     }),
   ]);
 
+  const hasNextPage = supplyProducts.length > PAGE_SIZE;
+  const pagedProducts = hasNextPage ? supplyProducts.slice(0, PAGE_SIZE) : supplyProducts;
   const productsWithPrices = sortProducts(
-    await enrichProductsWithPrices(supplyProducts),
+    await enrichProductsWithPrices(pagedProducts),
     params.sort
   );
+  const baseQuery = {
+    q: params.q,
+    domain: params.domain,
+    category: params.category,
+    creator_type: params.creator_type,
+    sort: params.sort,
+  };
 
   return (
     <Container className="py-8">
@@ -153,14 +172,6 @@ export default async function MaterialsMarketplacePage({
             <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
               Lokale prioriteit: {locationPreference.label}
             </span>
-            {locationPreference.city && (
-              <Link
-                href={`/materials?city=${encodeURIComponent(locationPreference.city)}`}
-                className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                Alleen {locationPreference.city}
-              </Link>
-            )}
             <Link
               href="/materials"
               className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -228,8 +239,6 @@ export default async function MaterialsMarketplacePage({
             options={[
               { value: "relevance", label: "Relevantie" },
               { value: "newest", label: "Nieuwste" },
-              { value: "price_asc", label: "Prijs (laag-hoog)" },
-              { value: "price_desc", label: "Prijs (hoog-laag)" },
             ]}
             defaultValue={params.sort ?? "relevance"}
           />
@@ -250,14 +259,34 @@ export default async function MaterialsMarketplacePage({
       ) : (
         <>
           <p className="mb-6 text-sm text-[var(--muted)]">
-            {productsWithPrices.length} materiaal
-            {productsWithPrices.length !== 1 ? "en" : ""} gevonden
+            Pagina {page} · {productsWithPrices.length} materiaal
+            {productsWithPrices.length !== 1 ? "en" : ""} op deze pagina
           </p>
           <GridLayout cols={4} gap="lg">
             {productsWithPrices.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </GridLayout>
+          <div className="mt-8 flex items-center justify-between gap-3">
+            {page > 1 ? (
+              <Button asChild variant="secondary" size="sm">
+                <Link href={buildMaterialsHref(baseQuery, page - 1)}>
+                  Vorige pagina
+                </Link>
+              </Button>
+            ) : (
+              <span />
+            )}
+            {hasNextPage ? (
+              <Button asChild size="sm">
+                <Link href={buildMaterialsHref(baseQuery, page + 1)}>
+                  Volgende pagina
+                </Link>
+              </Button>
+            ) : (
+              <span />
+            )}
+          </div>
         </>
       )}
     </Container>

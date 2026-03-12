@@ -160,6 +160,7 @@ export async function listSupplyMarketplaceProducts(filters?: {
   preferred_city?: string;
   preferred_country_code?: string;
   limit?: number;
+  offset?: number;
 }): Promise<SupplyMarketplaceProduct[]> {
   const supabase = createPlatformClient();
   let creatorIdsFilter: string[] | null = null;
@@ -227,7 +228,11 @@ export async function listSupplyMarketplaceProducts(filters?: {
   if (creatorIdsFilter) {
     query = query.in("creator_id", creatorIdsFilter);
   }
-  if (filters?.limit) {
+  if (typeof filters?.offset === "number" && Number.isFinite(filters.offset)) {
+    const safeOffset = Math.max(0, filters.offset);
+    const safeLimit = Math.max(1, filters?.limit || 50);
+    query = query.range(safeOffset, safeOffset + safeLimit - 1);
+  } else if (filters?.limit) {
     query = query.limit(filters.limit);
   }
 
