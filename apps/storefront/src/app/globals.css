@@ -2,14 +2,14 @@
 
 /* Hobbysalon design tokens: warm palette, senior-friendly base */
 :root {
-  /* Core palette */
-  --background: #fdfbf7;
+  /* Core palette – warm, duidelijk zichtbaar */
+  --background: #f8f4ee;
   --foreground: #2d2a26;
   --muted: #6b6560;
   --accent: #c17f59;
   --accent-foreground: #ffffff;
   --accent-hover: #a86b46;
-  --border: #e8e2da;
+  --border: #e5ddd2;
   --card: #ffffff;
   --radius: 0.5rem;
 
