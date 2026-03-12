@@ -20,6 +20,23 @@ const toOptionalTrimmedString = (value: unknown) => {
   return trimmed.length ? trimmed : undefined
 }
 
+const toOptionalInteger = (value: unknown) => {
+  if (value === null || value === undefined || value === '') {
+    return undefined
+  }
+
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? value : value
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.trim(), 10)
+    return Number.isInteger(parsed) ? parsed : value
+  }
+
+  return value
+}
+
 const toOptionalBoolean = z.preprocess((value) => {
   if (typeof value === 'boolean') {
     return value
@@ -92,6 +109,11 @@ export const VendorCreateFeedSource = z
       .preprocess(toOptionalTrimmedString, z.string().min(1))
       .optional(),
     active: z.boolean().optional().default(true),
+    auto_pull_enabled: z.boolean().optional().default(false),
+    pull_interval_minutes: z
+      .preprocess(toOptionalInteger, z.number().int().min(15).max(10080))
+      .optional()
+      .default(60),
   })
   .strict()
 
@@ -122,6 +144,11 @@ export const VendorUpdateFeedSource = z
       .nullable()
       .optional(),
     active: z.boolean().optional(),
+    auto_pull_enabled: z.boolean().optional(),
+    pull_interval_minutes: z
+      .preprocess(toOptionalInteger, z.number().int().min(15).max(10080))
+      .nullable()
+      .optional(),
   })
   .strict()
   .refine((input) => Object.keys(input).length > 0, {

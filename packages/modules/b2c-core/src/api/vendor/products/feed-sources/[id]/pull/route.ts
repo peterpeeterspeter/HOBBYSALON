@@ -147,6 +147,7 @@ export const POST = async (
         last_pulled_at: new Date(),
         last_pull_status: 'success',
         last_error: null,
+        last_sync_job_id: syncJobId,
         updated_at: new Date(),
       })
 

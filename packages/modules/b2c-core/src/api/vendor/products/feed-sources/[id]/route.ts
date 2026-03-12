@@ -105,6 +105,12 @@ export const PUT = async (
   if (updates.active !== undefined) {
     updatePayload.active = updates.active
   }
+  if (updates.auto_pull_enabled !== undefined) {
+    updatePayload.auto_pull_enabled = updates.auto_pull_enabled
+  }
+  if (updates.pull_interval_minutes !== undefined) {
+    updatePayload.pull_interval_minutes = updates.pull_interval_minutes || null
+  }
 
   await knex('merchant_feed_source')
     .where('id', row.id)

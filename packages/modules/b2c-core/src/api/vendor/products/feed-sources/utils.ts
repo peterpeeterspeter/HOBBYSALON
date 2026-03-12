@@ -14,6 +14,9 @@ export type FeedSourceRow = {
   default_currency: string | null
   default_location_id: string | null
   active: boolean
+  auto_pull_enabled: boolean
+  pull_interval_minutes: number | null
+  last_sync_job_id: string | null
   last_pulled_at: Date | string | null
   last_pull_status: 'success' | 'failed' | null
   last_error: string | null
@@ -357,6 +360,9 @@ export const serializeFeedSource = (row: FeedSourceRow) => ({
   default_currency: row.default_currency,
   default_location_id: row.default_location_id,
   active: row.active,
+  auto_pull_enabled: row.auto_pull_enabled,
+  pull_interval_minutes: row.pull_interval_minutes,
+  last_sync_job_id: row.last_sync_job_id,
   last_pulled_at: row.last_pulled_at,
   last_pull_status: row.last_pull_status,
   last_error: row.last_error,
