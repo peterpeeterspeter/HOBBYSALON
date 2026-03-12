@@ -4,9 +4,11 @@ import { redirect } from "next/navigation";
 import {
   clearAuthSession,
   createEmailSession,
+  getAuthUser,
   persistAuthSession,
   registerEmailUser,
 } from "@/lib/auth/session";
+import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
   type RegistrationInterestType,
@@ -50,7 +52,7 @@ export async function loginAction(
 ): Promise<AuthActionState> {
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
   const password = formData.get("password")?.toString() ?? "";
-  const nextPath = formData.get("next")?.toString() || "/dashboard";
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!email || !password) {
     return {
@@ -59,7 +61,7 @@ export async function loginAction(
     };
   }
 
-  const { session, error } = await createEmailSession(email, password);
+  const { user, session, error } = await createEmailSession(email, password);
 
   if (error || !session) {
     return {
@@ -68,8 +70,14 @@ export async function loginAction(
     };
   }
 
+  const redirectPath = await resolvePostAuthRedirectPath({
+    userId: user?.id ?? session.user?.id ?? null,
+    requestedNextPath,
+    defaultPath: "/dashboard",
+  });
+
   await persistAuthSession(session);
-  redirect(nextPath);
+  redirect(redirectPath);
 }
 
 export async function registerAction(
@@ -81,7 +89,7 @@ export async function registerAction(
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
   const interestTypes = parseInterestTypes(formData);
-  const nextPath = formData.get("next")?.toString() || "/dashboard";
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!email || !password) {
     return {
@@ -127,8 +135,13 @@ export async function registerAction(
   }
 
   if (session) {
+    const redirectPath = await resolvePostAuthRedirectPath({
+      userId: registrationUserId ?? session.user?.id ?? null,
+      requestedNextPath,
+      defaultPath: "/dashboard",
+    });
     await persistAuthSession(session);
-    redirect(nextPath);
+    redirect(redirectPath);
   }
 
   if (user) {
@@ -162,7 +175,7 @@ export async function registerCreatorAction(
     .map((value) => value.toString().trim().toLowerCase())
     .filter((value) => ALLOWED_CREATOR_TYPES.has(value));
   const interestTypes = parseInterestTypes(formData);
-  const nextPath = formData.get("next")?.toString() || "/dashboard/creator";
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!displayName) {
     return {
@@ -220,8 +233,13 @@ export async function registerCreatorAction(
   }
 
   if (session) {
+    const redirectPath = await resolvePostAuthRedirectPath({
+      userId: registrationUserId ?? session.user?.id ?? null,
+      requestedNextPath,
+      defaultPath: "/dashboard/creator",
+    });
     await persistAuthSession(session);
-    redirect(nextPath);
+    redirect(redirectPath);
   }
 
   if (user) {
@@ -252,7 +270,7 @@ export async function registerMerchantAction(
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
   const interestTypes = parseInterestTypes(formData);
-  const nextPath = formData.get("next")?.toString() || "/dashboard/materials";
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!displayName) {
     return {
@@ -346,8 +364,13 @@ export async function registerMerchantAction(
   }
 
   if (session) {
+    const redirectPath = await resolvePostAuthRedirectPath({
+      userId: registrationUserId ?? session.user?.id ?? null,
+      requestedNextPath,
+      defaultPath: merchantProvisioned ? "/dashboard/materials" : "/dashboard/onboarding",
+    });
     await persistAuthSession(session);
-    redirect(nextPath);
+    redirect(redirectPath);
   }
 
   if (user) {
@@ -363,6 +386,141 @@ export async function registerMerchantAction(
     success: false,
     message: "Registratie mislukt.",
   };
+}
+
+export async function onboardMerchantForLoggedInUserAction(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const user = await getAuthUser();
+  if (!user) {
+    return {
+      success: false,
+      message: "Meld je eerst aan.",
+    };
+  }
+
+  const email = user.email?.trim().toLowerCase() ?? "";
+  const displayName = formData.get("display_name")?.toString().trim() ?? "";
+  const contactName = formData.get("contact_name")?.toString() ?? null;
+  const phone = formData.get("phone")?.toString() ?? null;
+  const city = formData.get("city")?.toString() ?? null;
+  const postalCode = formData.get("postal_code")?.toString() ?? null;
+  const countryCode = formData.get("country_code")?.toString() ?? null;
+  const interestTypes = parseInterestTypes(formData);
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
+
+  if (!displayName) {
+    return {
+      success: false,
+      message: "Handelsnaam is verplicht.",
+    };
+  }
+
+  if (!email) {
+    return {
+      success: false,
+      message: "Je account heeft geen geldig e-mailadres.",
+    };
+  }
+
+  const profileResult = await persistUserRegistrationProfile({
+    userId: user.id,
+    postalCode,
+    countryCode,
+    interestTypes,
+  });
+
+  if (!profileResult.ok) {
+    return {
+      success: false,
+      message: "Opslaan van profielgegevens mislukt.",
+    };
+  }
+
+  const roleResult = await ensureUserRole(user.id, "merchant");
+  if (!roleResult.ok) {
+    return {
+      success: false,
+      message: "Merchant-rol toekennen mislukt.",
+    };
+  }
+
+  const merchantResult = await provisionMerchantSeller({
+    displayName,
+    businessName: displayName,
+    contactName,
+    email,
+    phone,
+    city,
+    postalCode,
+    countryCode,
+  });
+
+  if (!merchantResult.ok || !merchantResult.sellerId) {
+    return {
+      success: false,
+      message: "Merchant-profiel aanmaken mislukt.",
+    };
+  }
+
+  const sellerLinkResult = await linkUserToSeller(
+    user.id,
+    merchantResult.sellerId,
+    "merchant"
+  );
+  if (!sellerLinkResult.ok) {
+    return {
+      success: false,
+      message: "Merchant-profiel werd aangemaakt maar koppelen aan account mislukte.",
+    };
+  }
+
+  const redirectPath = await resolvePostAuthRedirectPath({
+    userId: user.id,
+    requestedNextPath,
+    defaultPath: "/dashboard/materials",
+  });
+  redirect(redirectPath);
+}
+
+export async function completeRegistrationProfileAction(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const user = await getAuthUser();
+  if (!user) {
+    return {
+      success: false,
+      message: "Meld je eerst aan.",
+    };
+  }
+
+  const postalCode = formData.get("postal_code")?.toString() ?? null;
+  const countryCode = formData.get("country_code")?.toString() ?? null;
+  const interestTypes = parseInterestTypes(formData);
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
+
+  const result = await persistUserRegistrationProfile({
+    userId: user.id,
+    postalCode,
+    countryCode,
+    interestTypes,
+  });
+
+  if (!result.ok) {
+    return {
+      success: false,
+      message: "Opslaan van onboardingvoorkeuren mislukt.",
+    };
+  }
+
+  const redirectPath = await resolvePostAuthRedirectPath({
+    userId: user.id,
+    requestedNextPath,
+    defaultPath: "/dashboard",
+  });
+  redirect(redirectPath);
 }
 
 export async function logoutAction(): Promise<void> {

@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { registerMerchantAction } from "@/app/actions/auth";
+import {
+  onboardMerchantForLoggedInUserAction,
+  registerMerchantAction,
+} from "@/app/actions/auth";
 import { MerchantRegisterForm } from "@/components/auth/MerchantRegisterForm";
+import { MerchantUpgradeForm } from "@/components/auth/MerchantUpgradeForm";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { getAuthUser } from "@/lib/auth/session";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -23,7 +28,10 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
   const nextPath = next?.startsWith("/") ? next : "/dashboard/materials";
 
   if (user) {
-    redirect(nextPath);
+    const context = await getUserRegistrationContext(user.id);
+    if (context.roles.includes("merchant")) {
+      redirect(nextPath);
+    }
   }
 
   return (
@@ -33,30 +41,47 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
       size="narrow"
     >
       <CardShell variant="default" padding="lg">
-        <MerchantRegisterForm action={registerMerchantAction} nextPath={nextPath} />
+        {user ? (
+          <MerchantUpgradeForm
+            action={onboardMerchantForLoggedInUserAction}
+            nextPath={nextPath}
+            defaultEmail={user.email ?? ""}
+          />
+        ) : (
+          <MerchantRegisterForm action={registerMerchantAction} nextPath={nextPath} />
+        )}
       </CardShell>
 
-      <p className="mt-4 text-sm text-[var(--muted)]">
-        Al een account?{" "}
-        <Link
-          href={`/login?next=${encodeURIComponent(nextPath)}`}
-          className="text-[var(--accent)] underline"
-        >
-          Meld je aan
-        </Link>
-        .
-      </p>
+      {user ? (
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Je bent aangemeld als <strong>{user.email ?? "account"}</strong>. Activeer hierboven je
+          merchant-profiel op deze account.
+        </p>
+      ) : (
+        <>
+          <p className="mt-4 text-sm text-[var(--muted)]">
+            Al een account?{" "}
+            <Link
+              href={`/login?next=${encodeURIComponent(nextPath)}`}
+              className="text-[var(--accent)] underline"
+            >
+              Meld je aan
+            </Link>
+            .
+          </p>
 
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Gewone gebruiker?{" "}
-        <Link
-          href={`/register?next=${encodeURIComponent("/dashboard")}`}
-          className="text-[var(--accent)] underline"
-        >
-          Gebruik standaard registratie
-        </Link>
-        .
-      </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Gewone gebruiker?{" "}
+            <Link
+              href={`/register?next=${encodeURIComponent("/dashboard")}`}
+              className="text-[var(--accent)] underline"
+            >
+              Gebruik standaard registratie
+            </Link>
+            .
+          </p>
+        </>
+      )}
     </PageLayout>
   );
 }

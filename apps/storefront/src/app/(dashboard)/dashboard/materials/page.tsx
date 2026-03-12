@@ -9,7 +9,9 @@ import {
   updateMerchantFeedSourceAction,
 } from "@/app/actions/materials-ops";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createPlatformClient } from "@/lib/platform/client";
+import { getAuthUser } from "@/lib/auth/session";
 import {
   getMerchantImportJobDetail,
   getMerchantFeedSourceMetrics,
@@ -19,6 +21,7 @@ import {
   listMaterialCategoryOptions,
   listMerchantMaterialsOverview,
 } from "@/lib/commerce/medusa/materials-ops";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,6 +197,16 @@ function formatDate(value: string) {
 }
 
 export default async function DashboardMaterialsPage({ searchParams }: Props) {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect("/login?next=/dashboard/materials");
+  }
+
+  const registrationContext = await getUserRegistrationContext(user.id);
+  if (!registrationContext.roles.includes("merchant")) {
+    redirect(`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`);
+  }
+
   const {
     success,
     error,
