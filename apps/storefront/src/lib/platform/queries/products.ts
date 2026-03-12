@@ -173,13 +173,13 @@ export async function listSupplyMarketplaceProducts(filters?: {
 
   if (creatorQueryNeedsFilter) {
     let creatorQuery = supabase.from("creators").select("id");
-    if (filters.city) {
+    if (filters?.city) {
       creatorQuery = creatorQuery.ilike("city", `%${filters.city}%`);
     }
-    if (filters.country_code) {
+    if (filters?.country_code) {
       creatorQuery = creatorQuery.eq("country_code", filters.country_code.toUpperCase());
     }
-    if (filters.creator_type) {
+    if (filters?.creator_type) {
       creatorQuery = creatorQuery.contains("creator_types", [filters.creator_type]);
     }
 
@@ -210,6 +210,7 @@ export async function listSupplyMarketplaceProducts(filters?: {
     .eq("is_active", true)
     .eq("status", "active")
     .in("product_type", ["supply", "supplies"])
+    .not("medusa_product_id", "is", null)
     .order("is_featured", { ascending: false })
     .order("created_at", { ascending: false });
 

@@ -25,6 +25,40 @@ export type MedusaProductData = {
   };
 } | null;
 
+function toMedusaProductData(product: {
+  id: string;
+  title: string;
+  handle?: string;
+  variants?: Array<{
+    id: string;
+    title: string;
+    calculated_price?: {
+      calculated_amount: number;
+      currency_code: string;
+    };
+  }>;
+}): MedusaProductData {
+  const firstVariant = product.variants?.[0];
+  const calculatedPrice = firstVariant?.calculated_price;
+
+  return {
+    id: product.id,
+    title: product.title,
+    handle: product.handle ?? "",
+    variants: product.variants?.map((v) => ({
+      id: v.id,
+      title: v.title ?? "",
+      calculated_price: v.calculated_price,
+    })),
+    calculated_price: calculatedPrice
+      ? {
+          calculated_amount: calculatedPrice.calculated_amount,
+          currency_code: calculatedPrice.currency_code ?? "EUR",
+        }
+      : undefined,
+  };
+}
+
 /**
  * Fetch Medusa product by ID for price, variants, inventory display.
  * Returns null if not found or if medusaProductId is empty.
@@ -37,44 +71,39 @@ export async function getMedusaProduct(
   try {
     const { product } = await sdk.store.product.retrieve(medusaProductId, {
       fields: "*variants.calculated_price",
-      country_code: "nl",
+      country_code: process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be",
     });
 
     if (!product) return null;
+    return toMedusaProductData(product as Parameters<typeof toMedusaProductData>[0]);
+  } catch {
+    try {
+      const { product } = await sdk.store.product.retrieve(medusaProductId, {
+        fields: "*variants.calculated_price",
+      });
+      if (!product) return null;
+      return toMedusaProductData(product as Parameters<typeof toMedusaProductData>[0]);
+    } catch {
+      return null;
+    }
+  }
+}
 
-    const data = product as {
-      id: string;
-      title: string;
-      handle?: string;
-      variants?: Array<{
-        id: string;
-        title: string;
-        calculated_price?: {
-          calculated_amount: number;
-          currency_code: string;
-        };
-      }>;
-    };
+export async function getMedusaProductByHandle(
+  handle: string | null
+): Promise<MedusaProductData> {
+  if (!handle) return null;
 
-    const firstVariant = data.variants?.[0];
-    const calculated_price = firstVariant?.calculated_price;
-
-    return {
-      id: data.id,
-      title: data.title,
-      handle: data.handle ?? "",
-      variants: data.variants?.map((v) => ({
-        id: v.id,
-        title: v.title ?? "",
-        calculated_price: v.calculated_price,
-      })),
-      calculated_price: calculated_price
-        ? {
-            calculated_amount: calculated_price.calculated_amount,
-            currency_code: calculated_price.currency_code ?? "EUR",
-          }
-        : undefined,
-    };
+  try {
+    const { products } = await sdk.store.product.list({
+      handle,
+      fields: "*variants.calculated_price",
+      country_code: process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be",
+      limit: 1,
+    });
+    const product = products?.[0];
+    if (!product) return null;
+    return toMedusaProductData(product as Parameters<typeof toMedusaProductData>[0]);
   } catch {
     return null;
   }

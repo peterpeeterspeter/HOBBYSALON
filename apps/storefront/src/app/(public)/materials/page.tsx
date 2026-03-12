@@ -15,7 +15,10 @@ import {
   listSupplyMarketplaceProducts,
   type SupplyMarketplaceProduct,
 } from "@/lib/platform/queries/products";
-import { getMedusaProduct } from "@/lib/commerce/medusa/products";
+import {
+  getMedusaProduct,
+  getMedusaProductByHandle,
+} from "@/lib/commerce/medusa/products";
 
 export const metadata: Metadata = {
   title: "Hobbymaterialen | Hobbysalon",
@@ -67,18 +70,24 @@ const PAGE_SIZE = 24;
 async function enrichProductsWithPrices(
   products: SupplyMarketplaceProduct[]
 ): Promise<ProductWithPrice[]> {
-  return Promise.all(
+  const rows = await Promise.all(
     products.map(async (product) => {
-      const medusa = await getMedusaProduct(product.medusa_product_id);
+      const medusaById = await getMedusaProduct(product.medusa_product_id);
+      const medusa = medusaById ?? (await getMedusaProductByHandle(product.slug));
       const price = medusa?.calculated_price
         ? {
             amount: medusa.calculated_price.calculated_amount,
             currency_code: medusa.calculated_price.currency_code,
           }
         : null;
-      return { ...product, price };
+      return {
+        ...product,
+        medusa_product_id: product.medusa_product_id ?? medusa?.id ?? null,
+        price,
+      };
     })
   );
+  return rows.filter((row) => !!row.medusa_product_id);
 }
 
 function sortProducts(products: ProductWithPrice[], sort: string | undefined) {

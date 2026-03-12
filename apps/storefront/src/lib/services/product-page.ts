@@ -10,7 +10,10 @@ import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
-import { getMedusaProduct } from "@/lib/commerce/medusa/products";
+import {
+  getMedusaProduct,
+  getMedusaProductByHandle,
+} from "@/lib/commerce/medusa/products";
 import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
 
 export type ProductPageData = {
@@ -41,7 +44,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     };
   }
 
-  const [creator, domain, medusa, entityLinks] = await Promise.all([
+  const [creator, domain, medusaById, entityLinks] = await Promise.all([
     product.creator_id ? getCreatorById(product.creator_id) : Promise.resolve(null),
     product.domain_id
       ? (async () => {
@@ -57,6 +60,8 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     getMedusaProduct(product.medusa_product_id),
     getRelatedEntities("product", product.id),
   ]);
+  const medusa =
+    medusaById ?? (await getMedusaProductByHandle(product.slug ?? null));
 
   const price = medusa?.calculated_price
     ? {
