@@ -42,6 +42,13 @@ import {
   VendorStartProductSync,
 } from "./sync/validators";
 import { vendorProductSyncJobsQueryConfig } from "./sync/query-config";
+import {
+  VendorCreateFeedSource,
+  VendorGetFeedSourcesParams,
+  VendorPullFeedSource,
+  VendorUpdateFeedSource,
+} from "./feed-sources/validators";
+import { vendorFeedSourcesQueryConfig } from "./feed-sources/query-config";
 
 const canVendorCreateProduct = [
   checkConfigurationRule(ConfigurationRuleType.GLOBAL_PRODUCT_CATALOG, false),
@@ -169,17 +176,52 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
   },
   {
     method: ["GET"],
+    matcher: "/vendor/products/feed-sources",
+    middlewares: [
+      validateAndTransformQuery(
+        VendorGetFeedSourcesParams,
+        vendorFeedSourcesQueryConfig.list
+      ),
+    ],
+  },
+  {
+    method: ["POST"],
+    matcher: "/vendor/products/feed-sources",
+    middlewares: [validateAndTransformBody(VendorCreateFeedSource)],
+  },
+  {
+    method: ["GET"],
+    matcher: "/vendor/products/feed-sources/:id",
+    middlewares: [],
+  },
+  {
+    method: ["PUT"],
+    matcher: "/vendor/products/feed-sources/:id",
+    middlewares: [validateAndTransformBody(VendorUpdateFeedSource)],
+  },
+  {
+    method: ["DELETE"],
+    matcher: "/vendor/products/feed-sources/:id",
+    middlewares: [],
+  },
+  {
+    method: ["POST"],
+    matcher: "/vendor/products/feed-sources/:id/pull",
+    middlewares: [validateAndTransformBody(VendorPullFeedSource)],
+  },
+  {
+    method: ["GET"],
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
-        /.*\/products\/(export|import|imports|sync)/,
+        /.*\/products\/(export|import|imports|sync|feed-sources)/,
         checkResourceOwnershipByResourceId({
           entryPoint: sellerProductLink.entryPoint,
           filterField: "product_id",
         })
       ),
       unlessPath(
-        /.*\/products\/(export|import|imports|sync)/,
+        /.*\/products\/(export|import|imports|sync|feed-sources)/,
         validateAndTransformQuery(
           VendorGetProductParams,
           vendorProductQueryConfig.retrieve
@@ -192,18 +234,18 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
-        /.*\/products\/(export|import|imports|sync)/,
+        /.*\/products\/(export|import|imports|sync|feed-sources)/,
         checkResourceOwnershipByResourceId({
           entryPoint: sellerProductLink.entryPoint,
           filterField: "product_id",
         })
       ),
       unlessPath(
-        /.*\/products\/(export|import|imports|sync)/,
+        /.*\/products\/(export|import|imports|sync|feed-sources)/,
         validateAndTransformBody(VendorUpdateProduct)
       ),
       unlessPath(
-        /.*\/products\/(export|import|imports|sync)/,
+        /.*\/products\/(export|import|imports|sync|feed-sources)/,
         validateAndTransformQuery(
           VendorGetProductParams,
           vendorProductQueryConfig.retrieve
