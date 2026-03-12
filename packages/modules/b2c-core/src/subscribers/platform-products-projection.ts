@@ -61,6 +61,14 @@ type PlatformCategoryMapping = {
   domain_id: string | null
 }
 
+type ExistingCreatorRow = {
+  id: string
+}
+
+type UserSellerLinkRow = {
+  user_id: string
+}
+
 const SUPABASE_URL =
   process.env.PLATFORM_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -127,6 +135,10 @@ const resolveProductType = (product: ProductRow) => {
 
   if (product.seller?.seller_type === 'merchant') {
     return 'supply'
+  }
+
+  if (product.seller?.seller_type === 'creator') {
+    return 'handmade'
   }
 
   return null
@@ -271,56 +283,134 @@ const resolveUniqueProductSlug = async (
 const ensurePlatformCreator = async (
   supabase: SupabaseRestClient,
   seller: SellerRow,
-  cache: Map<string, string>
+  product: ProductRow,
+  sellerCache: Map<string, string>,
+  creatorIdCache: Map<string, string | null>
 ) => {
-  const cached = cache.get(seller.id)
+  const cached = sellerCache.get(seller.id)
   if (cached) {
     return cached
   }
 
-  const creatorSlug = sanitizeSlug(`merchant-${seller.id}`, `merchant-${seller.id}`)
+  const resolveExistingCreatorId = async (creatorId: string) => {
+    if (creatorIdCache.has(creatorId)) {
+      return creatorIdCache.get(creatorId)
+    }
 
+    const rows = (await supabase.get('creators', {
+      select: 'id',
+      id: `eq.${escapePostgrestValue(creatorId)}`,
+      limit: '1',
+    })) as ExistingCreatorRow[] | null
+    const resolved = rows?.[0]?.id || null
+    creatorIdCache.set(creatorId, resolved)
+    return resolved
+  }
+
+  const ensureSyntheticCreator = async (
+    slugPrefix: 'merchant' | 'creator',
+    creatorTypes: string[]
+  ) => {
+    const creatorSlug = sanitizeSlug(
+      `${slugPrefix}-${seller.id}`,
+      `${slugPrefix}-${seller.id}`
+    )
+
+    const existing = (await supabase.get('creators', {
+      select: 'id',
+      slug: `eq.${creatorSlug}`,
+      limit: '1',
+    })) as ExistingCreatorRow[] | null
+
+    if (existing?.[0]?.id) {
+      return existing[0].id
+    }
+
+    const now = new Date().toISOString()
+    const created = (await supabase.post(
+      'creators',
+      [
+        {
+          slug: creatorSlug,
+          display_name:
+            seller.name ||
+            seller.handle ||
+            `${slugPrefix === 'merchant' ? 'Merchant' : 'Creator'} ${seller.id}`,
+          business_name: seller.name || null,
+          bio: seller.description || null,
+          city: seller.city || null,
+          country_code: seller.country_code || 'BE',
+          creator_types: creatorTypes,
+          is_verified: false,
+          is_featured: false,
+          accepts_bookings: false,
+          accepts_marketplace_orders: true,
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+      {},
+      'return=representation'
+    )) as Array<{ id: string }> | null
+
+    const creatorId = created?.[0]?.id
+    if (!creatorId) {
+      throw new Error(`Unable to create platform creator for seller ${seller.id}`)
+    }
+
+    return creatorId
+  }
+
+  const metadataCreatorId = toNullableString(product.metadata?.platform_creator_id)
+  if (metadataCreatorId) {
+    const existingMetadataCreatorId = await resolveExistingCreatorId(metadataCreatorId)
+    if (existingMetadataCreatorId) {
+      sellerCache.set(seller.id, existingMetadataCreatorId)
+      return existingMetadataCreatorId
+    }
+  }
+
+  if (seller.seller_type === 'creator') {
+    const links = (await supabase.get('user_seller_links', {
+      select: 'user_id',
+      seller_id: `eq.${escapePostgrestValue(seller.id)}`,
+      seller_type: 'eq.creator',
+      limit: '1',
+    })) as UserSellerLinkRow[] | null
+
+    const linkedUserId = links?.[0]?.user_id || null
+    if (linkedUserId) {
+      const linkedCreators = (await supabase.get('creators', {
+        select: 'id',
+        user_id: `eq.${escapePostgrestValue(linkedUserId)}`,
+        limit: '1',
+      })) as ExistingCreatorRow[] | null
+
+      if (linkedCreators?.[0]?.id) {
+        sellerCache.set(seller.id, linkedCreators[0].id)
+        return linkedCreators[0].id
+      }
+    }
+
+    const syntheticCreatorId = await ensureSyntheticCreator('creator', ['creator'])
+    sellerCache.set(seller.id, syntheticCreatorId)
+    return syntheticCreatorId
+  }
+
+  const creatorSlug = sanitizeSlug(`merchant-${seller.id}`, `merchant-${seller.id}`)
   const existing = (await supabase.get('creators', {
     select: 'id',
     slug: `eq.${creatorSlug}`,
     limit: '1',
-  })) as Array<{ id: string }> | null
+  })) as ExistingCreatorRow[] | null
 
   if (existing?.[0]?.id) {
-    cache.set(seller.id, existing[0].id)
+    sellerCache.set(seller.id, existing[0].id)
     return existing[0].id
   }
 
-  const now = new Date().toISOString()
-  const created = (await supabase.post(
-    'creators',
-    [
-      {
-        slug: creatorSlug,
-        display_name: seller.name || seller.handle || `Merchant ${seller.id}`,
-        business_name: seller.name || null,
-        bio: seller.description || null,
-        city: seller.city || null,
-        country_code: seller.country_code || 'BE',
-        creator_types: ['supplier'],
-        is_verified: false,
-        is_featured: false,
-        accepts_bookings: false,
-        accepts_marketplace_orders: true,
-        created_at: now,
-        updated_at: now,
-      },
-    ],
-    {},
-    'return=representation'
-  )) as Array<{ id: string }> | null
-
-  const creatorId = created?.[0]?.id
-  if (!creatorId) {
-    throw new Error(`Unable to create platform creator for seller ${seller.id}`)
-  }
-
-  cache.set(seller.id, creatorId)
+  const creatorId = await ensureSyntheticCreator('merchant', ['supplier'])
+  sellerCache.set(seller.id, creatorId)
   return creatorId
 }
 
@@ -357,6 +447,7 @@ const buildUpsertRows = async (
   supabase: SupabaseRestClient,
   productIds: string[],
   creatorCache: Map<string, string>,
+  creatorIdCache: Map<string, string | null>,
   categoryCache: Map<string, PlatformCategoryMapping | null>,
   slugCache: Map<string, string>
 ) => {
@@ -402,19 +493,25 @@ const buildUpsertRows = async (
       continue
     }
 
-    if (product.seller.seller_type !== 'merchant') {
+    const sellerType = (product.seller.seller_type || '').toLowerCase()
+    if (sellerType !== 'merchant' && sellerType !== 'creator') {
       continue
     }
 
     const productType = resolveProductType(product)
-    if (productType !== 'supply') {
+    const allowedForSeller =
+      (sellerType === 'merchant' && productType === 'supply') ||
+      (sellerType === 'creator' && productType === 'handmade')
+    if (!allowedForSeller || !productType) {
       continue
     }
 
     const creatorId = await ensurePlatformCreator(
       supabase,
       product.seller,
-      creatorCache
+      product,
+      creatorCache,
+      creatorIdCache
     )
 
     const title = toNullableString(product.title) || `Product ${product.id}`
@@ -450,7 +547,7 @@ const buildUpsertRows = async (
       title,
       short_description: toShortDescription(subtitle, description),
       description,
-      product_type: 'supply',
+      product_type: productType,
       status: 'active',
       is_active: true,
       featured_image_url: featuredImage,
@@ -508,6 +605,7 @@ export default async function platformProductsProjectionHandler({
     SUPABASE_SERVICE_ROLE_KEY
   )
   const creatorCache = new Map<string, string>()
+  const creatorIdCache = new Map<string, string | null>()
   const categoryCache = new Map<string, PlatformCategoryMapping | null>()
   const slugCache = new Map<string, string>()
 
@@ -517,6 +615,7 @@ export default async function platformProductsProjectionHandler({
     supabase,
     publishedIds,
     creatorCache,
+    creatorIdCache,
     categoryCache,
     slugCache
   )
@@ -535,7 +634,7 @@ export default async function platformProductsProjectionHandler({
   }
 
   logger.info(
-    `Platform projection synced ${upsertRows.length} supply products and archived ${toArchiveIds.length} products`
+    `Platform projection synced ${upsertRows.length} products (merchant/supply + creator/handmade) and archived ${toArchiveIds.length} products`
   )
 }
 

@@ -27,7 +27,7 @@ const chunk = <T>(items: T[], size: number): T[][] => {
  * @oas [post] /admin/platform/products/projection/sync
  * operationId: "AdminSyncPlatformProductsProjection"
  * summary: "Sync Platform Product Projection"
- * description: "Queues projection sync events for published merchant products so Medusa products are reflected in platform products."
+ * description: "Queues projection sync events for published merchant and creator products so Medusa products are reflected in platform products."
  * x-authenticated: true
  * tags:
  *   - Admin Platform
@@ -59,7 +59,7 @@ export const POST = async (
     })
     .whereNull('p.deleted_at')
     .where('p.status', 'published')
-    .where('s.seller_type', 'merchant')
+    .whereIn('s.seller_type', ['merchant', 'creator'])
 
   if (body.seller_id) {
     baseQuery = baseQuery.where('s.id', body.seller_id)
@@ -77,7 +77,7 @@ export const POST = async (
   }
 
   logger.info(
-    `Queued ${batches.length} projection sync batch(es) for ${productIds.length} merchant products`
+    `Queued ${batches.length} projection sync batch(es) for ${productIds.length} merchant/creator products`
   )
 
   res.status(202).json({

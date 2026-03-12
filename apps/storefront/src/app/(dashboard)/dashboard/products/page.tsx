@@ -112,6 +112,11 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   </summary>
                   <form action={updateProductAction} className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={product.id} />
+                    <input
+                      type="hidden"
+                      name="medusa_product_id"
+                      value={product.medusa_product_id ?? ""}
+                    />
                     <Input
                       name="title"
                       label="Titel *"
