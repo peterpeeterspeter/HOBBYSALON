@@ -6,6 +6,10 @@ import { EventCard } from "@/components/cards";
 import { getLocationPreference } from "@/lib/location/preference";
 import { Container } from "@/components/ui/container";
 import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Metadata } from "next";
 
@@ -128,121 +132,59 @@ async function AgendaContent({ searchParams }: { searchParams: SearchParams }) {
         )}
       </header>
 
-      <div className="mb-8 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="font-semibold text-[var(--foreground)]">Filters</h2>
+      <CardShell variant="default" padding="lg" className="mb-8">
+        <h2 className="font-semibold text-[var(--foreground)] mb-4">Filters</h2>
         <form method="GET" action="/agenda" className="grid gap-4 sm:grid-cols-6">
-          <div>
-            <label
-              htmlFor="domain"
-              className="block text-sm font-medium text-[var(--foreground)] mb-1"
-            >
-              Domein
-            </label>
-            <select
-              id="domain"
-              name="domain"
-              defaultValue={params.domain ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle domeinen</option>
-              {domains.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="type"
-              className="block text-sm font-medium text-[var(--foreground)] mb-1"
-            >
-              Type
-            </label>
-            <select
-              id="type"
-              name="type"
-              defaultValue={params.type ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle types</option>
-              {eventTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="city"
-              className="block text-sm font-medium text-[var(--foreground)] mb-1"
-            >
-              Stad
-            </label>
-            <select
-              id="city"
-              name="city"
-              defaultValue={params.city ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle steden</option>
-              {cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="country"
-              className="block text-sm font-medium text-[var(--foreground)] mb-1"
-            >
-              Regio (land)
-            </label>
-            <select
-              id="country"
-              name="country"
-              defaultValue={params.country ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle landen</option>
-              {countries.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="from"
-              className="block text-sm font-medium text-[var(--foreground)] mb-1"
-            >
-              Vanaf
-            </label>
-            <input
-              id="from"
-              name="from"
-              type="date"
-              defaultValue={params.from ?? new Date().toISOString().slice(0, 10)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            />
-          </div>
+          <Select
+            id="domain"
+            name="domain"
+            label="Domein"
+            placeholder="Alle domeinen"
+            options={domains.map((d) => ({ value: d.id, label: d.name }))}
+            defaultValue={params.domain ?? ""}
+          />
+          <Select
+            id="type"
+            name="type"
+            label="Type"
+            placeholder="Alle types"
+            options={eventTypeOptions}
+            defaultValue={params.type ?? ""}
+          />
+          <Select
+            id="city"
+            name="city"
+            label="Stad"
+            placeholder="Alle steden"
+            options={cities.map((c) => ({ value: c, label: c }))}
+            defaultValue={params.city ?? ""}
+          />
+          <Select
+            id="country"
+            name="country"
+            label="Regio (land)"
+            placeholder="Alle landen"
+            options={countries.map((country) => ({ value: country, label: country }))}
+            defaultValue={params.country ?? ""}
+          />
+          <Input
+            id="from"
+            name="from"
+            type="date"
+            label="Vanaf"
+            defaultValue={params.from ?? new Date().toISOString().slice(0, 10)}
+          />
           <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-[var(--accent)] px-6 py-2 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-            >
+            <Button type="submit" fullWidth>
               Filteren
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </CardShell>
 
       {events.length === 0 ? (
         <EmptyState
+          image="emptySearch"
           title="Geen evenementen gevonden"
           description="Geen evenementen gevonden met deze filters."
           action={{ label: "Alle evenementen bekijken", href: "/agenda" }}

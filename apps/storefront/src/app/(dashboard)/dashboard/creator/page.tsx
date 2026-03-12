@@ -1,6 +1,9 @@
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { saveCreatorProfileAction } from "@/app/actions/dashboard";
+import { CardShell } from "@/components/ui/card-shell";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -35,82 +38,59 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
         </p>
       )}
 
-      <form action={saveCreatorProfileAction} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+      <CardShell variant="default" padding="lg">
+        <form action={saveCreatorProfileAction} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Naam *</span>
-            <input
-              name="display_name"
-              required
-              defaultValue={creator?.display_name ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Slug</span>
-            <input
-              name="slug"
-              defaultValue={creator?.slug ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Bedrijfsnaam</span>
-            <input
-              name="business_name"
-              defaultValue={creator?.business_name ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Stad</span>
-            <input
-              name="city"
-              defaultValue={creator?.city ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Website</span>
-            <input
-              name="website_url"
-              defaultValue={creator?.website_url ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Instagram</span>
-            <input
-              name="instagram_url"
-              defaultValue={creator?.instagram_url ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Avatar URL</span>
-            <input
-              name="avatar_url"
-              defaultValue={creator?.avatar_url ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Banner URL</span>
-            <input
-              name="banner_url"
-              defaultValue={creator?.banner_url ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-            />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium">Bio</span>
+          <Input
+            name="display_name"
+            label="Naam *"
+            required
+            defaultValue={creator?.display_name ?? ""}
+          />
+          <Input
+            name="slug"
+            label="Slug"
+            defaultValue={creator?.slug ?? ""}
+          />
+          <Input
+            name="business_name"
+            label="Bedrijfsnaam"
+            defaultValue={creator?.business_name ?? ""}
+          />
+          <Input
+            name="city"
+            label="Stad"
+            defaultValue={creator?.city ?? ""}
+          />
+          <Input
+            name="website_url"
+            label="Website"
+            defaultValue={creator?.website_url ?? ""}
+          />
+          <Input
+            name="instagram_url"
+            label="Instagram"
+            defaultValue={creator?.instagram_url ?? ""}
+          />
+          <Input
+            name="avatar_url"
+            label="Avatar URL"
+            defaultValue={creator?.avatar_url ?? ""}
+          />
+          <Input
+            name="banner_url"
+            label="Banner URL"
+            defaultValue={creator?.banner_url ?? ""}
+          />
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Bio</label>
             <textarea
               name="bio"
               rows={4}
               defaultValue={creator?.bio ?? ""}
-              className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
-          </label>
+          </div>
         </div>
 
         <fieldset className="mt-4">
@@ -130,13 +110,11 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
           </div>
         </fieldset>
 
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-[var(--accent)] px-5 py-2.5 font-semibold text-[var(--accent-foreground)]"
-        >
+        <Button type="submit" className="mt-6">
           Profiel opslaan
-        </button>
-      </form>
+        </Button>
+        </form>
+      </CardShell>
     </section>
   );
 }

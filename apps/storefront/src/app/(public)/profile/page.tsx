@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthUser } from "@/lib/auth/session";
 import { getHobbyPassportData } from "@/lib/platform/queries/hobby-passport";
+import { PageLayout } from "@/components/layout/page-layout";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
 import type { EntityType } from "@/types/platform";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -55,46 +58,42 @@ export default async function ProfilePage() {
   const passport = await getHobbyPassportData(user.id);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <header className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+    <PageLayout title="Mijn profiel" description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}>
+      <CardShell variant="default" padding="lg" className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
           Hobbypaspoort
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">Mijn profiel</h1>
-        <p className="mt-2 text-[var(--muted)]">
-          Ingelogd als {user.email ?? "onbekende gebruiker"}
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+        <GridLayout cols={4} className="mt-4">
+          <CardShell variant="default" padding="md">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Punten</p>
             <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
               {passport.profile.points}
             </p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+          </CardShell>
+          <CardShell variant="default" padding="md">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
               Voltooide activiteiten
             </p>
             <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
               {passport.profile.completedActivities}
             </p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+          </CardShell>
+          <CardShell variant="default" padding="md">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Favorieten</p>
             <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
               {passport.profile.favoriteCount}
             </p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+          </CardShell>
+          <CardShell variant="default" padding="md">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Laatste activiteit</p>
             <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
               {formatDate(passport.profile.lastActivityAt)}
             </p>
-          </div>
-        </div>
-      </header>
+          </CardShell>
+        </GridLayout>
+      </CardShell>
 
-      <section className="mt-8 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <CardShell variant="default" padding="lg" className="mt-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Voortgang per domein</h2>
         {passport.domainProgress.length === 0 ? (
           <p className="mt-3 text-[var(--muted)]">
@@ -125,9 +124,9 @@ export default async function ProfilePage() {
             ))}
           </div>
         )}
-      </section>
+      </CardShell>
 
-      <section className="mt-8 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <CardShell variant="default" padding="lg" className="mt-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Badges</h2>
         {passport.badges.length === 0 ? (
           <p className="mt-3 text-[var(--muted)]">
@@ -165,10 +164,10 @@ export default async function ProfilePage() {
             })}
           </div>
         )}
-      </section>
+      </CardShell>
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <CardShell variant="default" padding="lg">
           <h2 className="text-xl font-semibold text-[var(--foreground)]">Favorieten overzicht</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {(Object.keys(FAVORITE_LABELS) as EntityType[]).map((type) => (
@@ -183,9 +182,9 @@ export default async function ProfilePage() {
           <Link href="/favorites" className="mt-4 inline-block text-sm text-[var(--accent)] underline">
             Bekijk volledige favorietenlijst
           </Link>
-        </div>
+        </CardShell>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+        <CardShell variant="default" padding="lg">
           <h2 className="text-xl font-semibold text-[var(--foreground)]">Recente activiteit</h2>
           {passport.recentActivities.length === 0 ? (
             <p className="mt-3 text-[var(--muted)]">Nog geen recente activiteiten.</p>
@@ -204,8 +203,8 @@ export default async function ProfilePage() {
               ))}
             </ul>
           )}
-        </div>
-      </section>
-    </div>
+        </CardShell>
+      </div>
+    </PageLayout>
   );
 }

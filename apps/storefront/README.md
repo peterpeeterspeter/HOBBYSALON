@@ -12,6 +12,11 @@ Next.js storefront for the Hobbysalon creative hobby platform.
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and optionally `SUPABASE_SERVICE_ROLE_KEY` for the link script)
    - `MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`
    - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (Stripe Connect uses the platform publishable key, e.g. `pk_test_...`; backend needs `STRIPE_SECRET_API_KEY`)
+   - `PEXELS_API_KEY` (recommended for placeholders): get free key at https://www.pexels.com/api
+  - `npx tsx scripts/seed-placeholder-images.ts` — downloads placeholder images from Pexels to public/landing/
+- `LAOZHANG_API_KEY` (optional, for AI-generated images):
+  - `npx tsx scripts/generate-landing-images.ts` — generates images via Nano Banana Pro (LaoZhang)
+  - Design integration: EmptyState `image` prop, AspectImage `fallbackImage`, AIGeneratedImage component
 
 3. Apply the platform schema in Supabase (see `docs/SQL.md` in the repo root).
 

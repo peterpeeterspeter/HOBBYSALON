@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import { getAuthUser } from "@/lib/auth/session";
+import { PageLayout } from "@/components/layout/page-layout";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +44,19 @@ export default async function CheckoutSuccessPage({
   const bundleValue = parseNonNegativeNumber(params.bundle_value) ?? 0;
   const hasBundleContext = bundleCount > 0;
 
+  const descriptionParts = [
+    "Je bestelling is succesvol geplaatst. Je ontvangt binnenkort een bevestiging per e-mail.",
+    orderId && `Ordernummer: ${orderId}`,
+    hasBundleContext && `Bundelcontext bevestigd: ${bundleCount} bundel${bundleCount === 1 ? "" : "s"} verwerkt in je bestelling.`,
+  ].filter(Boolean) as string[];
+
   return (
-    <div className="mx-auto max-w-xl px-4 py-16 text-center">
+    <PageLayout
+      title="Bedankt voor je bestelling!"
+      description={descriptionParts.join(" ")}
+      size="narrow"
+      className="text-center py-16"
+    >
       <TrackOnMount
         event="checkout_completed"
         payload={{
@@ -55,30 +68,11 @@ export default async function CheckoutSuccessPage({
           user_id: viewer?.id ?? null,
         }}
       />
-      <h1 className="text-3xl font-bold text-[var(--foreground)] mb-4">
-        Bedankt voor je bestelling!
-      </h1>
-      <p className="text-[var(--muted)] mb-8">
-        Je bestelling is succesvol geplaatst. Je ontvangt binnenkort een
-        bevestiging per e-mail.
-        {orderId && (
-          <span className="block mt-2 font-mono text-sm">
-            Ordernummer: {orderId}
-          </span>
-        )}
-        {hasBundleContext && (
-          <span className="mt-2 block text-sm">
-            Bundelcontext bevestigd: {bundleCount} bundel
-            {bundleCount === 1 ? "" : "s"} verwerkt in je bestelling.
-          </span>
-        )}
-      </p>
-      <Link
-        href="/crochet"
-        className="inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-      >
-        Verder winkelen
-      </Link>
-    </div>
+      <div className="flex justify-center">
+        <Button asChild>
+          <Link href="/crochet">Verder winkelen</Link>
+        </Button>
+      </div>
+    </PageLayout>
   );
 }

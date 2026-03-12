@@ -48,7 +48,8 @@
   --color-warning: var(--warning);
   --color-error: var(--error);
   --color-info: var(--info);
-  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-body), "Segoe UI", sans-serif;
+  --font-display: var(--font-heading), var(--font-body), serif;
   --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -64,6 +65,21 @@ body {
   font-family: var(--font-sans);
   font-size: 18px;
   line-height: 1.6;
+}
+
+/* Subtle warm texture overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), var(--font-body);
 }
 
 :where(a, button, input, select, textarea, summary):focus-visible {

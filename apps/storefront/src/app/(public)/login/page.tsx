@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { loginAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
+import { PageLayout } from "@/components/layout/page-layout";
+import { CardShell } from "@/components/ui/card-shell";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -24,15 +26,14 @@ export default async function LoginPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-10">
-      <h1 className="text-3xl font-bold text-[var(--foreground)]">Aanmelden</h1>
-      <p className="mt-2 text-[var(--muted)]">
-        Meld je aan om je favorieten en creator-dashboard te beheren.
-      </p>
-
-      <div className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+    <PageLayout
+      title="Aanmelden"
+      description="Meld je aan om je favorieten en creator-dashboard te beheren."
+      size="narrow"
+    >
+      <CardShell variant="default" padding="lg">
         <AuthForm mode="login" action={loginAction} nextPath={nextPath} />
-      </div>
+      </CardShell>
 
       <p className="mt-4 text-sm text-[var(--muted)]">
         Nog geen account?{" "}
@@ -41,6 +42,6 @@ export default async function LoginPage({ searchParams }: Props) {
         </Link>
         .
       </p>
-    </div>
+    </PageLayout>
   );
 }

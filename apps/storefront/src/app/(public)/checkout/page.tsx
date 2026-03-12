@@ -11,16 +11,11 @@ import { CheckoutShippingStep } from "@/components/checkout/CheckoutShippingStep
 import { CheckoutPaymentForm } from "@/components/checkout/CheckoutPaymentForm";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import { getAuthUser } from "@/lib/auth/session";
+import { PageLayout } from "@/components/layout/page-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { PriceDisplay } from "@/components/domain/price-display";
 
 export const dynamic = "force-dynamic";
-
-function formatPrice(amount: number, currencyCode: string): string {
-  return new Intl.NumberFormat("nl-NL", {
-    style: "currency",
-    currency: currencyCode.toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(amount / 100);
-}
 
 type CheckoutPageCartItem = {
   id?: string;
@@ -128,7 +123,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const primaryBundleId = bundleIds[0] ?? null;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <PageLayout title="Afrekenen" size="narrow">
       <TrackOnMount
         event="checkout_started"
         payload={{
@@ -142,11 +137,8 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           user_id: viewer?.id ?? null,
         }}
       />
-      <h1 className="text-2xl font-bold text-[var(--foreground)] mb-8">
-        Afrekenen
-      </h1>
 
-      <div className="mb-8 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+      <CardShell variant="default" padding="md" className="mb-8">
         <p className="font-medium text-[var(--foreground)] mb-2">
           Overzicht
         </p>
@@ -160,7 +152,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           return (
             <div key={i.id} className="flex justify-between text-sm text-[var(--muted)]">
               <span>{title} × {qty}</span>
-              <span>{formatPrice(itemTotal, currencyCode)}</span>
+              <PriceDisplay amount={itemTotal} currencyCode={currencyCode} size="sm" />
             </div>
           );
         })}
@@ -176,7 +168,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
               >
                 <div className="flex justify-between text-sm text-[var(--foreground)]">
                   <span>{group.bundleLabel}</span>
-                  <span>{formatPrice(group.total, currencyCode)}</span>
+                  <PriceDisplay amount={group.total} currencyCode={currencyCode} size="sm" />
                 </div>
                 <p className="text-xs text-[var(--muted)]">
                   {group.itemCount} artikel{group.itemCount === 1 ? "" : "en"} ·
@@ -188,51 +180,51 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         )}
         <div className="mt-2 flex justify-between border-t border-[var(--border)] pt-2 font-medium text-[var(--foreground)]">
           <span>Subtotaal</span>
-          <span>{formatPrice(subtotal, currencyCode)}</span>
+          <PriceDisplay amount={subtotal} currencyCode={currencyCode} size="sm" />
         </div>
         {hasShipping && (
           <div className="flex justify-between text-sm">
             <span className="text-[var(--muted)]">Verzending</span>
-            <span>{formatPrice(shippingTotal, currencyCode)}</span>
+            <PriceDisplay amount={shippingTotal} currencyCode={currencyCode} size="sm" />
           </div>
         )}
         {hasShipping && (
           <div className="flex justify-between border-t border-[var(--border)] pt-2 text-lg font-bold text-[var(--foreground)]">
             <span>Totaal</span>
-            <span>{formatPrice(total, currencyCode)}</span>
+            <PriceDisplay amount={total} currencyCode={currencyCode} size="md" />
           </div>
         )}
-      </div>
+      </CardShell>
 
       <div className="space-y-8">
         {!hasAddress && (
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+          <CardShell variant="default" padding="lg">
             <CheckoutAddressForm
               defaultEmail={c.email}
               defaultAddress={c.shipping_address as Record<string, string> | undefined}
             />
-          </div>
+          </CardShell>
         )}
 
         {hasAddress && !hasShipping && shippingOptions !== null && (
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+          <CardShell variant="default" padding="lg">
             <CheckoutShippingStep
               options={shippingOptions}
               currencyCode={currencyCode}
               selectedOptionId={selectedShippingId}
             />
-          </div>
+          </CardShell>
         )}
 
         {hasAddress && hasShipping && (
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+          <CardShell variant="default" padding="lg">
             {paymentError && (
               <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200">
                 De betaling is mislukt. Probeer een andere kaart of betaalmethode. Voor testbetalingen gebruik 4242 4242 4242 4242.
               </div>
             )}
             <CheckoutPaymentForm total={total} currencyCode={currencyCode} />
-          </div>
+          </CardShell>
         )}
 
         {hasAddress && shippingOptions !== null && !hasShipping && shippingOptions.length === 0 && (
@@ -250,6 +242,6 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           ← Terug naar winkelwagen
         </Link>
       </div>
-    </div>
+    </PageLayout>
   );
 }

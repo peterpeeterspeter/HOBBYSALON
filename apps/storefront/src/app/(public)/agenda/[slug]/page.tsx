@@ -4,6 +4,12 @@ import { getEventPageData } from "@/lib/services/event-page";
 import { CreatorCard, ProductCard, WorkshopCard, ArticleCard } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { PageLayout } from "@/components/layout/page-layout";
+import { SplitLayout } from "@/components/layout/split-layout";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { AspectImage } from "@/components/ui/aspect-image";
+import { PriceDisplay } from "@/components/domain/price-display";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -19,15 +25,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   workshop_day: "Workshopdag",
 };
 
-function formatPrice(cents: number, currencyCode: string): string {
-  return new Intl.NumberFormat("nl-NL", {
-    style: "currency",
-    currency: (currencyCode ?? "EUR").toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-}
-
-function formatDate(iso: string): string {
+function formatEventDate(iso: string): string {
   return new Intl.DateTimeFormat("nl-NL", {
     dateStyle: "long",
     timeStyle: "short",
@@ -108,51 +106,39 @@ export default async function EventPage({ params }: Props) {
         : undefined,
   };
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <JsonLd data={eventJsonLd} />
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Home
-            </Link>
-          </li>
-          <li>/</li>
-          <li>
-            <Link href="/agenda" className="hover:text-[var(--foreground)]">
-              Agenda
-            </Link>
-          </li>
-          <li>/</li>
-          <li className="text-[var(--foreground)]">{event.title}</li>
-        </ol>
-      </nav>
+  const breadcrumbs = [
+    { label: "Home", href: "/" },
+    { label: "Agenda", href: "/agenda" },
+    { label: event.title },
+  ];
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="aspect-video overflow-hidden rounded-lg bg-[var(--border)] lg:aspect-[4/3]">
-          {event.featured_image_url ? (
-            <img
-              src={event.featured_image_url}
-              alt={event.title}
-              className="h-full w-full object-cover"
+  return (
+    <PageLayout
+      breadcrumbs={breadcrumbs}
+      title={event.title}
+      description={event.short_description ?? undefined}
+    >
+      <JsonLd data={eventJsonLd} />
+      <SplitLayout
+        sidebar={
+          <div className="space-y-4">
+            <AspectImage src={event.featured_image_url} alt={event.title} ratio="video" />
+            <FavoriteToggleButton
+              entityType="event"
+              entityId={event.id}
+              isFavorited={eventIsFavorite}
+              nextPath={`/agenda/${event.slug}`}
             />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[var(--muted)]">
-              Geen afbeelding
-            </div>
-          )}
-        </div>
-        <div>
+          </div>
+        }
+      >
+        <CardShell variant="default" padding="lg">
           <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
             {typeLabel}
             {event.city && ` · ${event.city}`}
           </span>
-          <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-            {event.title}
-          </h1>
           <p className="mt-4 text-lg text-[var(--foreground)]">
-            {formatDate(event.starts_at)} – {formatDate(event.ends_at)}
+            {formatEventDate(event.starts_at)} – {formatEventDate(event.ends_at)}
           </p>
           {event.location_name && (
             <p className="mt-2 text-[var(--muted)]">
@@ -167,12 +153,16 @@ export default async function EventPage({ params }: Props) {
               )}
             </p>
           )}
-          {event.ticket_price_cents != null &&
-            event.ticket_price_cents > 0 && (
-              <p className="mt-2 font-semibold text-[var(--foreground)]">
-                Ticket: {formatPrice(event.ticket_price_cents, event.currency_code ?? "EUR")}
-              </p>
-            )}
+          {event.ticket_price_cents != null && event.ticket_price_cents > 0 && (
+            <div className="mt-2 font-semibold text-[var(--foreground)]">
+              Ticket:{" "}
+              <PriceDisplay
+                amount={event.ticket_price_cents}
+                currencyCode={event.currency_code ?? "EUR"}
+                size="md"
+              />
+            </div>
+          )}
           {event.ticketing_mode === "external_link" && event.ticket_url && (
             <a
               href={event.ticket_url}
@@ -183,27 +173,16 @@ export default async function EventPage({ params }: Props) {
               Koop tickets
             </a>
           )}
-          {event.short_description && (
-            <p className="mt-4 text-[var(--foreground)]">{event.short_description}</p>
-          )}
-          <div className="mt-4">
-            <FavoriteToggleButton
-              entityType="event"
-              entityId={event.id}
-              isFavorited={eventIsFavorite}
-              nextPath={`/agenda/${event.slug}`}
-            />
-          </div>
           {event.description && (
             <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
               {event.description}
             </p>
           )}
-        </div>
-      </div>
+        </CardShell>
+      </SplitLayout>
 
       {domains.length > 0 && (
-        <section className="mt-12">
+        <CardShell variant="default" padding="md" className="mt-12">
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
             Domeinen
           </h2>
@@ -218,7 +197,7 @@ export default async function EventPage({ params }: Props) {
               </Link>
             ))}
           </div>
-        </section>
+        </CardShell>
       )}
 
       {organizer && (
@@ -235,11 +214,11 @@ export default async function EventPage({ params }: Props) {
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
             Deelnemende makers
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {creators.map((creator) => (
               <CreatorCard key={creator.id} creator={creator} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
@@ -248,11 +227,11 @@ export default async function EventPage({ params }: Props) {
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
             Workshops op dit evenement
           </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {workshops.map((workshop) => (
               <WorkshopCard key={workshop.id} workshop={workshop} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
@@ -261,11 +240,11 @@ export default async function EventPage({ params }: Props) {
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
             Uitgelichte producten
           </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {relatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
@@ -274,13 +253,13 @@ export default async function EventPage({ params }: Props) {
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
             Gerelateerde artikelen
           </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {relatedArticles.map((article) => (
               <ArticleCard key={article.id} article={article} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
-    </div>
+    </PageLayout>
   );
 }

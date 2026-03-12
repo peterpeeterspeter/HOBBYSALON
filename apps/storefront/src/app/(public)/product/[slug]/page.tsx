@@ -6,6 +6,11 @@ import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { PageLayout } from "@/components/layout/page-layout";
+import { SplitLayout } from "@/components/layout/split-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { AspectImage } from "@/components/ui/aspect-image";
+import { PriceDisplay } from "@/components/domain/price-display";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -26,14 +31,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     path: `/product/${product.slug}`,
     image: product.featured_image_url,
   });
-}
-
-function formatPrice(amount: number, currencyCode: string): string {
-  return new Intl.NumberFormat("nl-NL", {
-    style: "currency",
-    currency: currencyCode.toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(amount / 100);
 }
 
 export default async function ProductPage({ params }: Props) {
@@ -75,66 +72,23 @@ export default async function ProductPage({ params }: Props) {
       : undefined,
   };
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <JsonLd data={productJsonLd} />
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Home
-            </Link>
-          </li>
-          {domain && (
-            <>
-              <li>/</li>
-              <li>
-                <Link
-                  href={`/${domain.slug}`}
-                  className="hover:text-[var(--foreground)]"
-                >
-                  {domain.name}
-                </Link>
-              </li>
-            </>
-          )}
-          <li>/</li>
-          <li className="text-[var(--foreground)]">{product.title}</li>
-        </ol>
-      </nav>
+  const breadcrumbs = [
+    { label: "Home", href: "/" },
+    ...(domain ? [{ label: domain.name, href: `/${domain.slug}` } as const] : []),
+    { label: product.title },
+  ];
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="aspect-square overflow-hidden rounded-lg bg-[var(--border)]">
-          {product.featured_image_url ? (
-            <img
-              src={product.featured_image_url}
-              alt={product.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[var(--muted)]">
-              Geen afbeelding
-            </div>
-          )}
-        </div>
-        <div>
-          <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
-            {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
-          </span>
-          <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-            {product.title}
-          </h1>
-          {price && (
-            <p className="mt-4 text-2xl font-bold text-[var(--foreground)]">
-              {formatPrice(price.amount, price.currency_code)}
-            </p>
-          )}
-          {product.short_description && (
-            <p className="mt-4 text-[var(--foreground)]">
-              {product.short_description}
-            </p>
-          )}
-          <div className="mt-4">
+  return (
+    <PageLayout
+      breadcrumbs={breadcrumbs}
+      title={product.title}
+      description={product.short_description ?? undefined}
+    >
+      <JsonLd data={productJsonLd} />
+      <SplitLayout
+        sidebar={
+          <div className="space-y-4">
+            <AspectImage src={product.featured_image_url} alt={product.title} ratio="square" />
             <FavoriteToggleButton
               entityType="product"
               entityId={product.id}
@@ -142,6 +96,22 @@ export default async function ProductPage({ params }: Props) {
               nextPath={`/product/${product.slug}`}
             />
           </div>
+        }
+      >
+        <CardShell variant="default" padding="lg">
+          <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
+            {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
+          </span>
+          {price && (
+            <div className="mt-4">
+              <PriceDisplay amount={price.amount} currencyCode={price.currency_code} size="lg" />
+            </div>
+          )}
+          {product.short_description && (
+            <p className="mt-4 text-[var(--foreground)]">
+              {product.short_description}
+            </p>
+          )}
           {product.description && (
             <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
               {product.description}
@@ -150,8 +120,8 @@ export default async function ProductPage({ params }: Props) {
           <div className="mt-6">
             <ProductPurchaseControls variants={variants} />
           </div>
-        </div>
-      </div>
+        </CardShell>
+      </SplitLayout>
 
       {creator && (
         <section className="mt-12">
@@ -203,6 +173,6 @@ export default async function ProductPage({ params }: Props) {
           <EventCard key={event.id} event={event} />
         ))}
       </EntityLinkBlock>
-    </div>
+    </PageLayout>
   );
 }

@@ -2,16 +2,12 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { CART_COOKIE_NAME, getCart } from "@/lib/commerce/medusa/cart";
 import { RemoveFromCartButton } from "@/components/cart/RemoveFromCartButton";
+import { PageLayout } from "@/components/layout/page-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { Button } from "@/components/ui/button";
+import { PriceDisplay } from "@/components/domain/price-display";
 
 export const dynamic = "force-dynamic";
-
-function formatPrice(amount: number, currencyCode: string): string {
-  return new Intl.NumberFormat("nl-NL", {
-    style: "currency",
-    currency: currencyCode.toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(amount / 100);
-}
 
 export default async function CartPage() {
   const cookieStore = await cookies();
@@ -19,20 +15,11 @@ export default async function CartPage() {
 
   if (!cartId) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
-        <h1 className="text-2xl font-bold text-[var(--foreground)] mb-4">
-          Winkelwagen
-        </h1>
-        <p className="text-[var(--muted)] mb-6">
-          Je winkelwagen is leeg. Ontdek onze producten en voeg iets toe.
-        </p>
-        <Link
-          href="/crochet"
-          className="inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-        >
-          Verder winkelen
-        </Link>
-      </div>
+      <PageLayout title="Winkelwagen" description="Je winkelwagen is leeg. Ontdek onze producten en voeg iets toe." size="narrow">
+        <Button asChild>
+          <Link href="/crochet">Verder winkelen</Link>
+        </Button>
+      </PageLayout>
     );
   }
 
@@ -40,20 +27,11 @@ export default async function CartPage() {
 
   if (!cart || !cart.items?.length) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
-        <h1 className="text-2xl font-bold text-[var(--foreground)] mb-4">
-          Winkelwagen
-        </h1>
-        <p className="text-[var(--muted)] mb-6">
-          Je winkelwagen is leeg. Ontdek onze producten en voeg iets toe.
-        </p>
-        <Link
-          href="/crochet"
-          className="inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-        >
-          Verder winkelen
-        </Link>
-      </div>
+      <PageLayout title="Winkelwagen" description="Je winkelwagen is leeg. Ontdek onze producten en voeg iets toe." size="narrow">
+        <Button asChild>
+          <Link href="/crochet">Verder winkelen</Link>
+        </Button>
+      </PageLayout>
     );
   }
 
@@ -66,11 +44,7 @@ export default async function CartPage() {
     }, 0) ?? 0;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-2xl font-bold text-[var(--foreground)] mb-6">
-        Winkelwagen
-      </h1>
-
+    <PageLayout title="Winkelwagen" size="narrow">
       <div className="space-y-6">
         {(cart.items ?? []).map((item) => {
           const i = item as {
@@ -102,58 +76,52 @@ export default async function CartPage() {
           const itemTotal = i.total ?? unitPrice * qty;
 
           return (
-            <div
-              key={i.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-            >
-              <div className="flex-1">
-                <p className="font-medium text-[var(--foreground)]">{title}</p>
-                {variant?.title && variant.title !== "Default" && (
-                  <p className="text-sm text-[var(--muted)]">{variant.title}</p>
-                )}
-                {bundleId && (
-                  <p className="mt-1 text-xs font-medium text-[var(--accent)]">
-                    Bundel: {bundleLabel ?? bundleId}
+            <CardShell key={i.id} variant="default" padding="md">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="font-medium text-[var(--foreground)]">{title}</p>
+                  {variant?.title && variant.title !== "Default" && (
+                    <p className="text-sm text-[var(--muted)]">{variant.title}</p>
+                  )}
+                  {bundleId && (
+                    <p className="mt-1 text-xs font-medium text-[var(--accent)]">
+                      Bundel: {bundleLabel ?? bundleId}
+                    </p>
+                  )}
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    Aantal: {qty}
                   </p>
-                )}
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Aantal: {qty}
-                </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <PriceDisplay amount={itemTotal} currencyCode={currencyCode} size="md" />
+                  <RemoveFromCartButton itemId={i.id as string} />
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <p className="font-semibold text-[var(--foreground)]">
-                  {formatPrice(itemTotal, currencyCode)}
-                </p>
-                <RemoveFromCartButton itemId={i.id as string} />
-              </div>
-            </div>
+            </CardShell>
           );
         })}
       </div>
 
-      <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xl font-bold text-[var(--foreground)]">
-          Subtotaal: {formatPrice(subtotal, currencyCode)}
-        </p>
-        <p className="text-sm text-[var(--muted)]">
-          Verzendkosten worden berekend bij het afrekenen.
-        </p>
-      </div>
+      <CardShell variant="default" padding="lg" className="mt-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xl font-bold text-[var(--foreground)]">
+            Subtotaal:{" "}
+            <PriceDisplay amount={subtotal} currencyCode={currencyCode} size="lg" />
+          </p>
+          <p className="text-sm text-[var(--muted)]">
+            Verzendkosten worden berekend bij het afrekenen.
+          </p>
+        </div>
 
-      <div className="mt-8 flex flex-wrap gap-4">
-        <Link
-          href="/checkout"
-          className="inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-        >
-          Afrekenen
-        </Link>
-        <Link
-          href="/crochet"
-          className="inline-flex rounded-lg border border-[var(--border)] px-6 py-3 font-medium text-[var(--foreground)] hover:bg-[var(--border)]"
-        >
-          Verder winkelen
-        </Link>
-      </div>
-    </div>
+        <div className="mt-6 flex flex-wrap gap-4">
+          <Button asChild>
+            <Link href="/checkout">Afrekenen</Link>
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link href="/crochet">Verder winkelen</Link>
+          </Button>
+        </div>
+      </CardShell>
+    </PageLayout>
   );
 }

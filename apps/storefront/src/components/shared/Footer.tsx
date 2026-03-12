@@ -29,6 +29,12 @@ export async function Footer() {
             </p>
             <nav className="mt-3 flex flex-wrap gap-4" aria-label="Footernavigatie">
               <Link
+                href="/landing"
+                className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
+                Over Hobbysalon
+              </Link>
+              <Link
                 href="/favorites"
                 className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
               >

@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
 import { listFavoritesByUser } from "@/lib/platform/queries/favorites";
 import { createPlatformClient } from "@/lib/platform/client";
+import { PageLayout } from "@/components/layout/page-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { EntityType } from "@/types/platform";
 import type { Metadata } from "next";
 
@@ -175,26 +178,25 @@ export default async function FavoritesPage() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-3xl font-bold text-[var(--foreground)]">Mijn favorieten</h1>
-      <p className="mt-2 text-[var(--muted)]">
-        {totalItems} opgeslagen item{totalItems !== 1 ? "s" : ""}.
-      </p>
-
+    <PageLayout
+      title="Mijn favorieten"
+      description={`${totalItems} opgeslagen item${totalItems !== 1 ? "s" : ""}.`}
+      size="narrow"
+    >
       {totalItems === 0 ? (
-        <p className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-8 text-[var(--muted)]">
-          Je hebt nog geen favorieten toegevoegd.
-        </p>
+        <EmptyState
+          image="emptyCrafts"
+          title="Geen favorieten"
+          description="Je hebt nog geen favorieten toegevoegd."
+          action={{ label: "Ontdek producten", href: "/crochet" }}
+        />
       ) : (
         <div className="mt-6 space-y-6">
           {(Object.keys(SECTION_LABELS) as EntityType[]).map((entityType) => {
             const items = grouped[entityType];
             if (items.length === 0) return null;
             return (
-              <section
-                key={entityType}
-                className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-5"
-              >
+              <CardShell key={entityType} variant="default" padding="lg">
                 <h2 className="text-lg font-semibold text-[var(--foreground)]">
                   {SECTION_LABELS[entityType]}
                 </h2>
@@ -207,11 +209,11 @@ export default async function FavoritesPage() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </CardShell>
             );
           })}
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

@@ -2,6 +2,8 @@ import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { createEventAction, updateEventAction } from "@/app/actions/dashboard";
+import { CardShell } from "@/components/ui/card-shell";
+import { Button } from "@/components/ui/button";
 import type { Event } from "@/types/platform";
 
 type Props = {
@@ -72,7 +74,8 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
-          <form action={createEventAction} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+          <CardShell variant="default" padding="lg">
+          <form action={createEventAction}>
             <h2 className="text-lg font-semibold">Nieuw event</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label>
@@ -164,10 +167,11 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                 <span className="text-sm">Actief publiceren</span>
               </label>
             </div>
-            <button type="submit" className="mt-4 rounded-md bg-[var(--accent)] px-5 py-2.5 font-semibold text-[var(--accent-foreground)]">
+            <Button type="submit" className="mt-4">
               Event aanmaken
-            </button>
+            </Button>
           </form>
+          </CardShell>
 
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Events ({events.length})</h2>

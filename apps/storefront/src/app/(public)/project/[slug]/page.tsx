@@ -5,6 +5,10 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import { AddBundleToCartButton } from "@/components/cart/AddBundleToCartButton";
 import { ProductCard, WorkshopCard, EventCard, ArticleCard, CreatorCard } from "@/components/cards";
+import { PageLayout } from "@/components/layout/page-layout";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { Badge } from "@/components/ui/badge";
 import { getProjectPageData } from "@/lib/services/project-page";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import { getAuthUser } from "@/lib/auth/session";
@@ -97,8 +101,13 @@ export default async function ProjectPage({ params }: Props) {
     })),
   };
 
+  const breadcrumbs = [
+    { label: "Home", href: "/" },
+    { label: project.title },
+  ];
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <PageLayout breadcrumbs={breadcrumbs} title={project.title} description={project.short_description ?? undefined}>
       <JsonLd data={howToJsonLd} />
       <TrackOnMount
         event="project_view"
@@ -110,30 +119,14 @@ export default async function ProjectPage({ params }: Props) {
         }}
       />
 
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Home
-            </Link>
-          </li>
-          <li>/</li>
-          <li className="text-[var(--foreground)]">{project.title}</li>
-        </ol>
-      </nav>
-
-      <header className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <CardShell variant="default" padding="lg" className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
           Project
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">{project.title}</h1>
-        {project.short_description && (
-          <p className="mt-3 max-w-3xl text-[var(--foreground)]">{project.short_description}</p>
-        )}
         <div className="mt-4 flex flex-wrap gap-2 text-sm text-[var(--muted)]">
-          <span className="rounded-full border border-[var(--border)] px-3 py-1">
-            Niveau: {DIFFICULTY_LABELS[project.difficulty_level] ?? project.difficulty_level}
-          </span>
+          <Badge variant="difficulty" difficulty={project.difficulty_level as "beginner" | "intermediate" | "advanced"}>
+            {DIFFICULTY_LABELS[project.difficulty_level] ?? project.difficulty_level}
+          </Badge>
           {durationLabel && (
             <span className="rounded-full border border-[var(--border)] px-3 py-1">
               Duur: {durationLabel}
@@ -148,17 +141,15 @@ export default async function ProjectPage({ params }: Props) {
         {domains.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {domains.map((domain) => (
-              <Link
-                key={domain.id}
-                href={`/${domain.slug}`}
-                className="rounded-full bg-[var(--background)] px-3 py-1 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--border)]"
-              >
-                {domain.name}
+              <Link key={domain.id} href={`/${domain.slug}`}>
+                <Badge variant="domain" className="cursor-pointer hover:opacity-90">
+                  {domain.name}
+                </Badge>
               </Link>
             ))}
           </div>
         )}
-      </header>
+      </CardShell>
 
       {bundleItems.length > 0 && (
         <section className="mt-8">
@@ -183,16 +174,14 @@ export default async function ProjectPage({ params }: Props) {
           <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Stappenplan</h2>
           <ol className="space-y-3">
             {steps.map((step) => (
-              <li
-                key={step.id}
-                id={`step-${step.step_order}`}
-                className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-              >
+              <li key={step.id} id={`step-${step.step_order}`}>
+                <CardShell variant="default" padding="md">
                 <p className="text-sm font-semibold uppercase tracking-wide text-[var(--accent)]">
                   Stap {step.step_order}
                 </p>
                 <h3 className="mt-1 font-semibold text-[var(--foreground)]">{step.title}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-[var(--foreground)]">{step.instruction}</p>
+                </CardShell>
               </li>
             ))}
           </ol>
@@ -202,57 +191,57 @@ export default async function ProjectPage({ params }: Props) {
       {relatedProducts.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Benodigde producten</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <GridLayout cols={4}>
             {relatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
       {relatedWorkshops.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Relevante workshops</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {relatedWorkshops.map((workshop) => (
               <WorkshopCard key={workshop.id} workshop={workshop} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
       {relatedEvents.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Gerelateerde events</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {relatedEvents.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
       {relatedArticles.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Inspiratie & artikelen</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {relatedArticles.map((article) => (
               <ArticleCard key={article.id} article={article} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
 
       {relatedCreators.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Betrokken makers</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3}>
             {relatedCreators.map((creator) => (
               <CreatorCard key={creator.id} creator={creator} />
             ))}
-          </div>
+          </GridLayout>
         </section>
       )}
-    </div>
+    </PageLayout>
   );
 }

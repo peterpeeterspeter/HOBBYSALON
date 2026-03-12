@@ -2,6 +2,11 @@ import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { createProductAction, updateProductAction } from "@/app/actions/dashboard";
+import { CardShell } from "@/components/ui/card-shell";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Product } from "@/types/platform";
 
 type Props = {
@@ -55,68 +60,50 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
-          <form action={createProductAction} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
-            <h2 className="text-lg font-semibold">Nieuw product</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Titel *</span>
-                <input name="title" required className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Slug</span>
-                <input name="slug" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Type *</span>
-                <select name="product_type" required className="w-full rounded-md border border-[var(--border)] px-3 py-2">
-                  {PRODUCT_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Afbeelding URL</span>
-                <input
-                  name="featured_image_url"
-                  className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+          <CardShell variant="default" padding="lg" className="mb-8">
+            <form action={createProductAction}>
+              <h2 className="text-lg font-semibold">Nieuw product</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Input name="title" label="Titel *" required />
+                <Input name="slug" label="Slug" />
+                <Select
+                  name="product_type"
+                  label="Type *"
+                  options={PRODUCT_TYPE_OPTIONS}
+                  required
                 />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="mb-1 block text-sm font-medium">Korte omschrijving</span>
-                <input
-                  name="short_description"
-                  className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="mb-1 block text-sm font-medium">Omschrijving</span>
-                <textarea
-                  name="description"
-                  rows={3}
-                  className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                />
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" name="is_active" />
-                <span className="text-sm">Direct actief publiceren</span>
-              </label>
-            </div>
-            <button type="submit" className="mt-4 rounded-md bg-[var(--accent)] px-5 py-2.5 font-semibold text-[var(--accent-foreground)]">
-              Product aanmaken
-            </button>
-          </form>
+                <Input name="featured_image_url" label="Afbeelding URL" />
+                <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  />
+                </div>
+                <label className="inline-flex items-center gap-2 sm:col-span-2">
+                  <input type="checkbox" name="is_active" />
+                  <span className="text-sm">Direct actief publiceren</span>
+                </label>
+              </div>
+              <Button type="submit" className="mt-4">
+                Product aanmaken
+              </Button>
+            </form>
+          </CardShell>
 
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Bestaande producten ({products.length})</h2>
             {products.length === 0 ? (
-              <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-6 text-sm text-[var(--muted)]">
-                Nog geen producten.
-              </p>
+              <EmptyState
+                title="Nog geen producten"
+                description="Maak je eerste product aan met het formulier hierboven."
+              />
             ) : (
               products.map((product) => (
-                <details key={product.id} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+                <CardShell key={product.id} variant="default" padding="md">
+                <details>
                   <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
                     {product.title}{" "}
                     <span className="text-sm text-[var(--muted)]">
@@ -125,77 +112,56 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   </summary>
                   <form action={updateProductAction} className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={product.id} />
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">Titel *</span>
-                      <input
-                        name="title"
-                        required
-                        defaultValue={product.title}
-                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">Slug</span>
-                      <input
-                        name="slug"
-                        defaultValue={product.slug}
-                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">Type *</span>
-                      <select
-                        name="product_type"
-                        required
-                        defaultValue={product.product_type}
-                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                      >
-                        {PRODUCT_TYPE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">Afbeelding URL</span>
-                      <input
-                        name="featured_image_url"
-                        defaultValue={product.featured_image_url ?? ""}
-                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                      />
-                    </label>
-                    <label className="block sm:col-span-2">
-                      <span className="mb-1 block text-sm font-medium">Korte omschrijving</span>
-                      <input
-                        name="short_description"
-                        defaultValue={product.short_description ?? ""}
-                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                      />
-                    </label>
-                    <label className="block sm:col-span-2">
-                      <span className="mb-1 block text-sm font-medium">Omschrijving</span>
+                    <Input
+                      name="title"
+                      label="Titel *"
+                      required
+                      defaultValue={product.title}
+                    />
+                    <Input
+                      name="slug"
+                      label="Slug"
+                      defaultValue={product.slug}
+                    />
+                    <Select
+                      name="product_type"
+                      label="Type *"
+                      options={PRODUCT_TYPE_OPTIONS}
+                      required
+                      defaultValue={product.product_type}
+                    />
+                    <Input
+                      name="featured_image_url"
+                      label="Afbeelding URL"
+                      defaultValue={product.featured_image_url ?? ""}
+                    />
+                    <Input
+                      name="short_description"
+                      label="Korte omschrijving"
+                      defaultValue={product.short_description ?? ""}
+                      className="sm:col-span-2"
+                    />
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
                       <textarea
                         name="description"
                         rows={3}
                         defaultValue={product.description ?? ""}
-                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                       />
-                    </label>
-                    <label className="inline-flex items-center gap-2">
+                    </div>
+                    <label className="inline-flex items-center gap-2 sm:col-span-2">
                       <input type="checkbox" name="is_active" defaultChecked={product.is_active} />
                       <span className="text-sm">Actief</span>
                     </label>
                     <div className="sm:col-span-2">
-                      <button
-                        type="submit"
-                        className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]"
-                      >
+                      <Button type="submit" variant="secondary" size="sm">
                         Opslaan
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 </details>
+                </CardShell>
               ))
             )}
           </div>

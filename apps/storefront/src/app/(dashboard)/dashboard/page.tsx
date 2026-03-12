@@ -2,6 +2,9 @@ import Link from "next/link";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { Button } from "@/components/ui/button";
 
 async function getCount(
   table: "products" | "workshops" | "events",
@@ -39,38 +42,38 @@ export default async function DashboardHomePage() {
       </p>
 
       {!creator ? (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-5">
+        <CardShell variant="default" padding="lg">
           <p className="text-[var(--foreground)]">
             Je hebt nog geen creator-profiel. Maak dit eerst aan.
           </p>
-          <Link href="/dashboard/creator" className="mt-3 inline-block text-[var(--accent)] underline">
-            Naar creator-profiel
-          </Link>
-        </div>
+          <Button asChild variant="secondary" size="sm" className="mt-3">
+            <Link href="/dashboard/creator">Naar creator-profiel</Link>
+          </Button>
+        </CardShell>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+        <GridLayout cols={3}>
+          <CardShell variant="default" padding="lg">
             <p className="text-sm text-[var(--muted)]">Producten</p>
             <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{productCount}</p>
-            <Link href="/dashboard/products" className="mt-2 inline-block text-sm text-[var(--accent)] underline">
-              Beheren
-            </Link>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+            <Button asChild variant="ghost" size="sm" className="mt-2">
+              <Link href="/dashboard/products">Beheren</Link>
+            </Button>
+          </CardShell>
+          <CardShell variant="default" padding="lg">
             <p className="text-sm text-[var(--muted)]">Workshops</p>
             <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{workshopCount}</p>
-            <Link href="/dashboard/workshops" className="mt-2 inline-block text-sm text-[var(--accent)] underline">
-              Beheren
-            </Link>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+            <Button asChild variant="ghost" size="sm" className="mt-2">
+              <Link href="/dashboard/workshops">Beheren</Link>
+            </Button>
+          </CardShell>
+          <CardShell variant="default" padding="lg">
             <p className="text-sm text-[var(--muted)]">Events</p>
             <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{eventCount}</p>
-            <Link href="/dashboard/events" className="mt-2 inline-block text-sm text-[var(--accent)] underline">
-              Beheren
-            </Link>
-          </div>
-        </div>
+            <Button asChild variant="ghost" size="sm" className="mt-2">
+              <Link href="/dashboard/events">Beheren</Link>
+            </Button>
+          </CardShell>
+        </GridLayout>
       )}
     </section>
   );

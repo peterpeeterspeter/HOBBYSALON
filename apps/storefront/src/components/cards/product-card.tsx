@@ -26,6 +26,7 @@ function ProductCard({ product, className }: ProductCardProps) {
           ratio="square"
           src={product.featured_image_url}
           alt={product.title}
+          fallbackImage="placeholderProduct"
           className="-mx-4 -mt-4 mb-3"
         />
         <Badge variant="domain">

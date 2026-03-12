@@ -6,6 +6,8 @@ import {
   updateBookingRequestStatusAction,
   updateWorkshopAction,
 } from "@/app/actions/dashboard";
+import { CardShell } from "@/components/ui/card-shell";
+import { Button } from "@/components/ui/button";
 import type { Workshop } from "@/types/platform";
 
 type BookingRequest = {
@@ -100,7 +102,8 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
-          <form action={createWorkshopAction} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+          <CardShell variant="default" padding="lg">
+          <form action={createWorkshopAction}>
             <h2 className="text-lg font-semibold">Nieuwe workshop</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label>
@@ -188,10 +191,11 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                 <span className="text-sm">Actief publiceren</span>
               </label>
             </div>
-            <button type="submit" className="mt-4 rounded-md bg-[var(--accent)] px-5 py-2.5 font-semibold text-[var(--accent-foreground)]">
+            <Button type="submit" className="mt-4">
               Workshop aanmaken
-            </button>
+            </Button>
           </form>
+          </CardShell>
 
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Workshops ({workshops.length})</h2>

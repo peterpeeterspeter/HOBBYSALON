@@ -6,6 +6,9 @@ import { WorkshopCard } from "@/components/cards";
 import { getLocationPreference } from "@/lib/location/preference";
 import { Container } from "@/components/ui/container";
 import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Metadata } from "next";
 
@@ -132,127 +135,60 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
         )}
       </header>
 
-      <div className="mb-8 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="font-semibold text-[var(--foreground)]">Filters</h2>
+      <CardShell variant="default" padding="lg" className="mb-8">
+        <h2 className="font-semibold text-[var(--foreground)] mb-4">Filters</h2>
         <form method="GET" action="/workshops" className="grid gap-4 sm:grid-cols-6">
-          <div>
-            <label
-              htmlFor="domain"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              Domein
-            </label>
-            <select
-              id="domain"
-              name="domain"
-              defaultValue={params.domain ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle domeinen</option>
-              {domains.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="format"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              Format
-            </label>
-            <select
-              id="format"
-              name="format"
-              defaultValue={params.format ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle formats</option>
-              {formatTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="difficulty"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              Niveau
-            </label>
-            <select
-              id="difficulty"
-              name="difficulty"
-              defaultValue={params.difficulty ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle niveaus</option>
-              {difficultyOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="city"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              Stad
-            </label>
-            <select
-              id="city"
-              name="city"
-              defaultValue={params.city ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle steden</option>
-              {cities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="country"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              Regio (land)
-            </label>
-            <select
-              id="country"
-              name="country"
-              defaultValue={params.country ?? ""}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
-            >
-              <option value="">Alle landen</option>
-              {countries.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            id="domain"
+            name="domain"
+            label="Domein"
+            placeholder="Alle domeinen"
+            options={domains.map((d) => ({ value: d.id, label: d.name }))}
+            defaultValue={params.domain ?? ""}
+          />
+          <Select
+            id="format"
+            name="format"
+            label="Format"
+            placeholder="Alle formats"
+            options={formatTypeOptions}
+            defaultValue={params.format ?? ""}
+          />
+          <Select
+            id="difficulty"
+            name="difficulty"
+            label="Niveau"
+            placeholder="Alle niveaus"
+            options={difficultyOptions}
+            defaultValue={params.difficulty ?? ""}
+          />
+          <Select
+            id="city"
+            name="city"
+            label="Stad"
+            placeholder="Alle steden"
+            options={cities.map((city) => ({ value: city, label: city }))}
+            defaultValue={params.city ?? ""}
+          />
+          <Select
+            id="country"
+            name="country"
+            label="Regio (land)"
+            placeholder="Alle landen"
+            options={countries.map((country) => ({ value: country, label: country }))}
+            defaultValue={params.country ?? ""}
+          />
           <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-[var(--accent)] px-6 py-2 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-            >
+            <Button type="submit" fullWidth>
               Filteren
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </CardShell>
 
       {workshops.length === 0 ? (
         <EmptyState
+          image="emptySearch"
           title="Geen workshops gevonden"
           description="Geen workshops gevonden met deze filters."
           action={{ label: "Alle workshops bekijken", href: "/workshops" }}

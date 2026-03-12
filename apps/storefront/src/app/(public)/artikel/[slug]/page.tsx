@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getArticlePageData } from "@/lib/services/article-page";
 import { ProductCard, WorkshopCard, CreatorCard, EventCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { PageLayout } from "@/components/layout/page-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { AspectImage } from "@/components/ui/aspect-image";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -60,51 +62,40 @@ export default async function ArticlePage({ params }: Props) {
     },
   };
 
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <JsonLd data={articleJsonLd} />
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">Home</Link>
-          </li>
-          <li>/</li>
-          <li className="text-[var(--foreground)]">{article.title}</li>
-        </ol>
-      </nav>
+  const breadcrumbs = [
+    { label: "Home", href: "/" },
+    { label: article.title },
+  ];
 
+  return (
+    <PageLayout breadcrumbs={breadcrumbs} title={article.title} description={article.excerpt ?? undefined} size="narrow">
+      <JsonLd data={articleJsonLd} />
       <article>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">{article.title}</h1>
-        {article.excerpt && (
-          <p className="mt-4 text-lg text-[var(--muted)]">{article.excerpt}</p>
-        )}
-        <div className="mt-4">
-          <FavoriteToggleButton
-            entityType="article"
-            entityId={article.id}
-            isFavorited={articleIsFavorite}
-            nextPath={`/artikel/${article.slug}`}
-          />
-        </div>
-        {article.reading_time_minutes && (
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            {article.reading_time_minutes} min lezen
-          </p>
-        )}
-        {article.featured_image_url && (
-          <div className="mt-6 aspect-video overflow-hidden rounded-lg">
-            <img
-              src={article.featured_image_url}
-              alt={article.title}
-              className="h-full w-full object-cover"
+        <CardShell variant="default" padding="lg">
+          <div className="mt-4">
+            <FavoriteToggleButton
+              entityType="article"
+              entityId={article.id}
+              isFavorited={articleIsFavorite}
+              nextPath={`/artikel/${article.slug}`}
             />
           </div>
-        )}
-        {article.body_markdown && (
-          <div className="mt-8 whitespace-pre-wrap text-[var(--foreground)]">
-            {article.body_markdown}
-          </div>
-        )}
+          {article.reading_time_minutes && (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {article.reading_time_minutes} min lezen
+            </p>
+          )}
+          {article.featured_image_url && (
+            <div className="mt-6">
+              <AspectImage src={article.featured_image_url} alt={article.title} ratio="video" />
+            </div>
+          )}
+          {article.body_markdown && (
+            <div className="mt-8 whitespace-pre-wrap text-[var(--foreground)]">
+              {article.body_markdown}
+            </div>
+          )}
+        </CardShell>
       </article>
 
       <EntityLinkBlock
@@ -146,6 +137,6 @@ export default async function ArticlePage({ params }: Props) {
           <EventCard key={event.id} event={event} />
         ))}
       </EntityLinkBlock>
-    </div>
+    </PageLayout>
   );
 }

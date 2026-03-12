@@ -1,3 +1,4 @@
+import React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -41,14 +42,26 @@ function Button({
   variant,
   size,
   fullWidth,
+  asChild,
   children,
-  ...props
+  ...rest
 }: ButtonProps) {
+  const combinedClassName = cn(
+    buttonVariants({ variant, size, fullWidth }),
+    className
+  );
+
+  if (asChild && React.isValidElement(children)) {
+    const child = children as React.ReactElement<{ className?: string }>;
+    return React.cloneElement(child, {
+      ...child.props,
+      className: cn(combinedClassName, child.props?.className),
+    });
+  }
+
+  const { asChild: _a, ...buttonProps } = rest as typeof rest & { asChild?: boolean };
   return (
-    <button
-      className={cn(buttonVariants({ variant, size, fullWidth }), className)}
-      {...props}
-    >
+    <button className={combinedClassName} {...buttonProps}>
       {children}
     </button>
   );

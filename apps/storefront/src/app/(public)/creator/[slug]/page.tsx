@@ -4,6 +4,10 @@ import { getCreatorPageData } from "@/lib/services/creator-page";
 import { ProductCard, WorkshopCard, EventCard, ArticleCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { PageLayout } from "@/components/layout/page-layout";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { Badge } from "@/components/ui/badge";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { buildPageMetadata } from "@/lib/seo";
@@ -48,9 +52,14 @@ export default async function CreatorPage({ params }: Props) {
     (t) => CREATOR_TYPE_LABELS[t] ?? t
   );
 
+  const breadcrumbs = [
+    { label: "Home", href: "/" },
+    { label: creator.display_name },
+  ];
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-10">
+    <PageLayout breadcrumbs={breadcrumbs} title={creator.display_name} description={creator.business_name ?? undefined}>
+      <CardShell variant="default" padding="lg" className="mb-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-[var(--border)]">
             {creator.avatar_url ? (
@@ -66,23 +75,12 @@ export default async function CreatorPage({ params }: Props) {
             )}
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              {creator.display_name}
-            </h1>
-            {creator.business_name && (
-              <p className="text-lg text-[var(--muted)]">
-                {creator.business_name}
-              </p>
-            )}
             {types.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mb-2 flex flex-wrap gap-2">
                 {types.map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full bg-[var(--border)] px-3 py-1 text-sm font-medium"
-                  >
+                  <Badge key={t} variant="format">
                     {t}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}
@@ -102,12 +100,10 @@ export default async function CreatorPage({ params }: Props) {
             {domains.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {domains.map((d) => (
-                  <Link
-                    key={d.id}
-                    href={`/${d.slug}`}
-                    className="rounded-full bg-[var(--accent)] px-3 py-1 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
-                  >
-                    {d.name}
+                  <Link key={d.id} href={`/${d.slug}`}>
+                    <Badge variant="domain" className="cursor-pointer hover:opacity-90">
+                      {d.name}
+                    </Badge>
                   </Link>
                 ))}
               </div>
@@ -116,20 +112,16 @@ export default async function CreatorPage({ params }: Props) {
         </div>
         {creator.banner_url && (
           <div className="mt-6 aspect-[3/1] overflow-hidden rounded-lg bg-[var(--border)]">
-            <img
-              src={creator.banner_url}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <img src={creator.banner_url} alt="" className="h-full w-full object-cover" />
           </div>
         )}
-      </header>
+      </CardShell>
 
       <section className="py-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
           Producten
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <GridLayout cols={4}>
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
@@ -138,7 +130,7 @@ export default async function CreatorPage({ params }: Props) {
               Nog geen producten van deze creator.
             </p>
           )}
-        </div>
+        </GridLayout>
       </section>
 
       <EntityLinkBlock
@@ -170,6 +162,6 @@ export default async function CreatorPage({ params }: Props) {
           <ArticleCard key={article.id} article={article} />
         ))}
       </EntityLinkBlock>
-    </div>
+    </PageLayout>
   );
 }
