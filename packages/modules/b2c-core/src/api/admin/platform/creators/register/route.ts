@@ -10,9 +10,9 @@ import { z } from 'zod'
 
 import { MemberRole, SellerType } from '@mercurjs/framework'
 
-import { SELLER_MODULE, SellerModuleService } from '../../../../../../modules/seller'
+import { SELLER_MODULE, SellerModuleService } from '../../../../../modules/seller'
 
-const RegisterMerchantPayload = z.object({
+const RegisterCreatorPayload = z.object({
   name: z.string().trim().min(1),
   contact_name: z.string().trim().optional().nullable(),
   email: z.string().trim().email(),
@@ -36,7 +36,7 @@ const buildUniqueHandle = async (
   knex: any,
   name: string
 ): Promise<string> => {
-  const base = toHandle(name) || `merchant-${randomUUID().slice(0, 8)}`
+  const base = toHandle(name) || `creator-${randomUUID().slice(0, 8)}`
   const safeBase = base.slice(0, 64)
 
   for (let i = 0; i < 100; i += 1) {
@@ -58,10 +58,10 @@ const buildUniqueHandle = async (
 }
 
 /**
- * @oas [post] /admin/platform/materials/merchants/register
- * operationId: "AdminRegisterMerchantSeller"
- * summary: "Register Merchant Seller"
- * description: "Creates or returns a merchant seller with an owner member."
+ * @oas [post] /admin/platform/creators/register
+ * operationId: "AdminRegisterCreatorSeller"
+ * summary: "Register Creator Seller"
+ * description: "Creates or returns a creator seller with an owner member."
  * x-authenticated: true
  * tags:
  *   - Admin Platform
@@ -70,7 +70,7 @@ const buildUniqueHandle = async (
  *   - cookie_auth: []
  */
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
-  const parsed = RegisterMerchantPayload.safeParse(req.body || {})
+  const parsed = RegisterCreatorPayload.safeParse(req.body || {})
   if (!parsed.success) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
@@ -88,7 +88,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     .first()
 
   if (existing) {
-    if (existing.seller_type !== SellerType.MERCHANT) {
+    if (existing.seller_type !== SellerType.CREATOR) {
       throw new MedusaError(
         MedusaError.Types.CONFLICT,
         `Seller with email ${payload.email} already exists as ${existing.seller_type}.`
@@ -96,7 +96,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     }
 
     res.json({
-      merchant: {
+      creator: {
         seller_id: existing.id,
         seller_type: existing.seller_type,
         status: 'existing',
@@ -111,7 +111,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const seller = await sellerService.createSellers({
     name: payload.name,
     handle,
-    seller_type: SellerType.MERCHANT,
+    seller_type: SellerType.CREATOR,
     description: normalizeNullable(payload.description),
     email: payload.email.toLowerCase(),
     phone: normalizeNullable(payload.phone),
@@ -135,7 +135,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   })
 
   res.status(201).json({
-    merchant: {
+    creator: {
       seller_id: seller.id,
       seller_type: seller.seller_type,
       status: 'created',

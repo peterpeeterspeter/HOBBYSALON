@@ -14,6 +14,7 @@ import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
+import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registration";
 import { provisionMerchantSeller } from "@/lib/commerce/medusa/merchant-registration";
 import { persistCreatorRegistrationProfile } from "@/lib/platform/queries/creator-registration";
 import {
@@ -238,6 +239,7 @@ export async function registerCreatorAction(
   }
 
   let profilePersisted = true;
+  let creatorProvisioned = false;
   const registrationUserId = user?.id ?? session?.user?.id ?? null;
 
   if (registrationUserId) {
@@ -260,6 +262,39 @@ export async function registerCreatorAction(
         errors: profileResult.errors,
       });
     }
+
+    const creatorResult = await provisionCreatorSeller({
+      displayName,
+      businessName: businessName?.trim() || displayName,
+      contactName: displayName,
+      email,
+      city,
+      postalCode,
+      countryCode,
+    });
+
+    if (!creatorResult.ok || !creatorResult.sellerId) {
+      console.error("Failed to provision creator seller", {
+        userId: registrationUserId,
+        error: creatorResult.error,
+      });
+    } else {
+      creatorProvisioned = true;
+      const sellerLinkResult = await linkUserToSeller(
+        registrationUserId,
+        creatorResult.sellerId,
+        "creator"
+      );
+
+      if (!sellerLinkResult.ok) {
+        creatorProvisioned = false;
+        console.error("Failed to link user to creator seller", {
+          userId: registrationUserId,
+          sellerId: creatorResult.sellerId,
+          errors: sellerLinkResult.errors,
+        });
+      }
+    }
   }
 
   if (session) {
@@ -275,9 +310,9 @@ export async function registerCreatorAction(
   if (user) {
     return {
       success: true,
-      message: profilePersisted
+      message: profilePersisted && creatorProvisioned
         ? "Creator-account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan."
-        : "Creator-account aangemaakt. Bevestig je e-mail en werk je creator-profiel bij in je dashboard.",
+        : "Creator-account aangemaakt. Bevestig je e-mail en vervolledig je creatorshop setup in je dashboard.",
     };
   }
 
