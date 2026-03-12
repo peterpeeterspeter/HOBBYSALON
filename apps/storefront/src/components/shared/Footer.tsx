@@ -47,7 +47,7 @@ export async function Footer() {
   ];
 
   return (
-    <footer className="mt-auto border-t border-[var(--border)] bg-[var(--card)]">
+    <footer className="mt-auto border-t-[3px] border-t-[var(--accent)]/30 bg-[var(--section-alt)]">
       <div className="mx-auto max-w-6xl px-4 py-12">
         {/* Main footer grid */}
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
@@ -64,6 +64,9 @@ export async function Footer() {
             </Link>
             <p className="mt-3 text-sm text-[var(--muted)]">
               Creatief platform voor hobbyisten — handmade, workshops en events.
+            </p>
+            <p className="mt-2 text-xs italic text-[var(--muted)]/70 font-[family-name:var(--font-heading)]">
+              Handgemaakt met liefde in Belgi&euml;
             </p>
           </div>
 
@@ -89,10 +92,10 @@ export async function Footer() {
           ))}
         </div>
 
-        {/* Newsletter */}
-        <div className="mt-10 border-t border-[var(--border)] pt-10">
+        {/* Newsletter — highlighted card */}
+        <div className="mt-10 rounded-xl bg-[var(--section-highlight)] p-6 md:p-8">
           <div className="max-w-md">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--foreground)]">
+            <h3 className="text-lg font-semibold text-[var(--foreground)] font-[family-name:var(--font-heading)]">
               Nieuwsbrief
             </h3>
             <p className="mt-1 text-sm text-[var(--muted)]">

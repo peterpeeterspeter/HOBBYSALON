@@ -58,7 +58,7 @@ function AspectImage({ src, alt, ratio, className, fill = true, fallbackImage }:
         alt={alt}
         loading="lazy"
         className={cn(
-          "object-cover transition-transform duration-[var(--transition-normal)]",
+          "object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:group-hover:transform-none",
           fill && "absolute inset-0 h-full w-full"
         )}
       />

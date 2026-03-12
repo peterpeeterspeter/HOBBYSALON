@@ -13,6 +13,18 @@
   --card: #ffffff;
   --radius: 0.5rem;
 
+  /* Secondary accent — sage green, natural complement to terracotta */
+  --accent-secondary: #5b8a72;
+  --accent-secondary-hover: #4d7a63;
+  --accent-secondary-foreground: #fdfbf7;
+
+  /* Section alternation backgrounds */
+  --section-alt: #f3ede4;
+  --section-highlight: #faf3ed;
+
+  /* Decorative */
+  --divider-accent: var(--accent);
+
   /* Semantic feedback */
   --success: #4a8c5c;
   --warning: #c4903d;
@@ -48,6 +60,9 @@
   --color-warning: var(--warning);
   --color-error: var(--error);
   --color-info: var(--info);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-section-alt: var(--section-alt);
+  --color-section-highlight: var(--section-highlight);
   --font-sans: var(--font-body), "Segoe UI", sans-serif;
   --font-display: var(--font-heading), var(--font-body), serif;
   --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;

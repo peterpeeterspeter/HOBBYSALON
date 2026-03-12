@@ -10,9 +10,9 @@ const buttonVariants = cva(
         primary:
           "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] active:scale-[0.98]",
         secondary:
-          "border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]",
+          "border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/5",
         ghost:
-          "text-[var(--accent)] hover:bg-[var(--accent)]/10",
+          "text-[var(--accent)] hover:bg-[var(--accent)]/10 hover:underline underline-offset-2",
         danger:
           "bg-[var(--error)] text-white hover:opacity-90 active:scale-[0.98]",
       },

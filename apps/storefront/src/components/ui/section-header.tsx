@@ -24,17 +24,27 @@ function SectionHeader({
       <div>
         <h2
           className={cn(
-            "font-semibold text-[var(--foreground)]",
-            subtle ? "text-base text-[var(--muted)]" : "text-2xl font-bold"
+            "text-[var(--foreground)]",
+            subtle
+              ? "text-base font-semibold text-[var(--muted)]"
+              : "text-3xl font-bold font-[family-name:var(--font-heading)]"
           )}
         >
           {title}
         </h2>
+        {/* Decorative terracotta underline for main section headers */}
+        {!subtle && (
+          <span
+            className="mt-2 block h-[3px] w-10 rounded-full bg-[var(--accent)]"
+            aria-hidden="true"
+          />
+        )}
         {description && (
           <p
             className={cn(
-              "mt-1",
-              subtle ? "text-xs text-[var(--muted)]/80" : "text-[var(--muted)]"
+              subtle
+                ? "mt-1 text-xs text-[var(--muted)]/80"
+                : "mt-3 text-base leading-relaxed text-[var(--muted)]"
             )}
           >
             {description}
@@ -44,10 +54,14 @@ function SectionHeader({
       {href && (
         <a
           href={href}
-          className="inline-flex items-center gap-1 text-[var(--accent)] font-medium hover:underline whitespace-nowrap shrink-0 min-h-[var(--touch-target-min)] px-1"
+          className="group/link inline-flex items-center gap-1 text-[var(--accent)] font-medium hover:underline whitespace-nowrap shrink-0 min-h-[var(--touch-target-min)] px-1"
         >
           {linkText}
-          <ArrowRight size={16} aria-hidden="true" />
+          <ArrowRight
+            size={16}
+            aria-hidden="true"
+            className="transition-transform duration-[var(--transition-fast)] group-hover/link:translate-x-1"
+          />
         </a>
       )}
     </div>
