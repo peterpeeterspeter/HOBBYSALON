@@ -138,6 +138,16 @@ export type MerchantImportJobDetail = {
   }>;
 };
 
+export type ConfigurationRule = {
+  id: string;
+  rule_type:
+    | "global_product_catalog"
+    | "require_product_approval"
+    | "product_request_enabled"
+    | "product_import_enabled";
+  is_enabled: boolean;
+};
+
 function getAdminBackendConfig() {
   const baseUrl =
     process.env.MEDUSA_BACKEND_URL ??
@@ -345,4 +355,29 @@ export async function getMerchantImportJobDetail(
   }
 
   return (await response.json()) as MerchantImportJobDetail;
+}
+
+export async function listConfigurationRules(): Promise<ConfigurationRule[]> {
+  const config = getAdminBackendConfig();
+  if (!config) {
+    return [];
+  }
+
+  const response = await fetch(`${config.baseUrl}/admin/configuration?limit=100`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${config.adminToken}`,
+      "x-medusa-access-token": config.adminToken,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const payload = (await response.json()) as {
+    configuration_rules?: ConfigurationRule[];
+  };
+  return payload.configuration_rules ?? [];
 }

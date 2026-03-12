@@ -10,8 +10,10 @@ type ProductCardProps = {
   product: Product & {
     price?: { amount: number; currency_code: string } | null;
     creator_display_name?: string | null;
+    creator_slug?: string | null;
     creator_city?: string | null;
     creator_country_code?: string | null;
+    creator_types?: string[];
   };
   className?: string;
 };
@@ -22,7 +24,16 @@ const PRODUCT_TYPE_LABELS: Record<string, string> = {
   supplies: "Benodigdheden",
 };
 
+function getSellerTypeLabel(types?: string[]) {
+  if (!types || types.length === 0) return null;
+  if (types.includes("supplier")) return "Leverancier";
+  if (types.includes("maker")) return "Maker";
+  return null;
+}
+
 function ProductCard({ product, className }: ProductCardProps) {
+  const sellerTypeLabel = getSellerTypeLabel(product.creator_types);
+
   return (
     <Link href={`/product/${product.slug}`} className={cn("block", className)}>
       <CardShell variant="interactive" padding="md">
@@ -41,8 +52,21 @@ function ProductCard({ product, className }: ProductCardProps) {
         </h3>
         {(product.creator_display_name || product.creator_city) && (
           <p className="mt-1 text-sm text-[var(--muted)] line-clamp-1">
-            {product.creator_display_name ?? "Aanbieder"}
-            {product.creator_city ? ` · ${product.creator_city}` : ""}
+            {product.creator_slug ? (
+              <span>
+                <span className="underline decoration-dotted underline-offset-2">
+                  {product.creator_display_name ?? "Aanbieder"}
+                </span>
+                {sellerTypeLabel ? ` (${sellerTypeLabel})` : ""}
+                {product.creator_city ? ` · ${product.creator_city}` : ""}
+              </span>
+            ) : (
+              <span>
+                {product.creator_display_name ?? "Aanbieder"}
+                {sellerTypeLabel ? ` (${sellerTypeLabel})` : ""}
+                {product.creator_city ? ` · ${product.creator_city}` : ""}
+              </span>
+            )}
           </p>
         )}
         {product.price && product.price.amount > 0 && (

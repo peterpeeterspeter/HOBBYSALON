@@ -96,6 +96,7 @@ export async function listProductsByIds(ids: string[]): Promise<Product[]> {
 type CreatorLocation = {
   id: string;
   display_name: string | null;
+  slug: string | null;
   city: string | null;
   country_code: string | null;
   creator_types: string[] | null;
@@ -103,6 +104,7 @@ type CreatorLocation = {
 
 export type SupplyMarketplaceProduct = Product & {
   creator_display_name: string | null;
+  creator_slug: string | null;
   creator_city: string | null;
   creator_country_code: string | null;
   creator_types: string[];
@@ -245,7 +247,7 @@ export async function listSupplyMarketplaceProducts(filters?: {
   const creatorIds = [...new Set(products.map((product) => product.creator_id).filter(Boolean))];
   const { data: creatorRows } = await supabase
     .from("creators")
-    .select("id, display_name, city, country_code, creator_types")
+    .select("id, display_name, slug, city, country_code, creator_types")
     .in("id", creatorIds);
 
   const creatorMap = new Map(
@@ -257,6 +259,7 @@ export async function listSupplyMarketplaceProducts(filters?: {
     return {
       ...product,
       creator_display_name: creator?.display_name ?? null,
+      creator_slug: creator?.slug ?? null,
       creator_city: creator?.city ?? null,
       creator_country_code: creator?.country_code ?? null,
       creator_types: Array.isArray(creator?.creator_types)

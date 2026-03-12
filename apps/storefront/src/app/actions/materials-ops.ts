@@ -6,6 +6,32 @@ import { redirect } from "next/navigation";
 
 const DEFAULT_REDIRECT_PATH = "/dashboard/materials";
 const DRY_RUN_COOKIE_PREFIX = "hs_materials_dry_run_";
+const FEED_MAPPING_PRESETS: Record<string, Record<string, string>> = {
+  custom_csv_basic: {
+    sku: "sku",
+    price_amount: "price",
+    price_currency: "currency",
+    stocked_quantity: "stock",
+    incoming_quantity: "incoming",
+    location_id: "location_id",
+  },
+  woocommerce: {
+    sku: "sku",
+    price_amount: "price",
+    price_currency: "currency",
+    stocked_quantity: "stock_quantity",
+    incoming_quantity: "incoming_quantity",
+    location_id: "location_id",
+  },
+  shopify: {
+    sku: "sku",
+    price_amount: "price",
+    price_currency: "currency",
+    stocked_quantity: "inventory_quantity",
+    incoming_quantity: "incoming_quantity",
+    location_id: "location_id",
+  },
+};
 
 type DryRunSnapshot = {
   seller_id: string;
@@ -104,6 +130,22 @@ function parseJsonObjectInput(raw: string, fieldName: string) {
       error instanceof Error ? error.message : `Invalid ${fieldName} JSON`
     );
   }
+}
+
+function resolveMappingFromForm(formData: FormData) {
+  const mappingPreset = formData.get("mapping_preset")?.toString().trim() || "";
+  const hasMappingJson = formData.has("mapping_json");
+  const mappingJson = formData.get("mapping_json")?.toString() || "";
+
+  if (hasMappingJson && mappingJson.trim()) {
+    return parseJsonObjectInput(mappingJson, "mapping_json");
+  }
+
+  if (mappingPreset && mappingPreset !== "none") {
+    return FEED_MAPPING_PRESETS[mappingPreset] || {};
+  }
+
+  return hasMappingJson ? {} : undefined;
 }
 
 export async function triggerMaterialsProjectionSyncAction(
@@ -274,7 +316,7 @@ export async function createMerchantFeedSourceAction(
     }
 
     const headersJson = formData.get("headers_json")?.toString() || "";
-    const mappingJson = formData.get("mapping_json")?.toString() || "";
+    const resolvedMapping = resolveMappingFromForm(formData);
 
     const payload: Record<string, unknown> = {
       name: formData.get("name")?.toString().trim() || "",
@@ -290,7 +332,7 @@ export async function createMerchantFeedSourceAction(
       ),
       active: true,
       headers: parseJsonObjectInput(headersJson, "headers_json"),
-      mapping: parseJsonObjectInput(mappingJson, "mapping_json"),
+      mapping: resolvedMapping ?? {},
     };
 
     const response = await fetch(
@@ -346,8 +388,8 @@ export async function updateMerchantFeedSourceAction(
 
     const hasHeadersJson = formData.has("headers_json");
     const hasMappingJson = formData.has("mapping_json");
+    const mappingPreset = formData.get("mapping_preset")?.toString().trim() || "";
     const headersJson = formData.get("headers_json")?.toString() || "";
-    const mappingJson = formData.get("mapping_json")?.toString() || "";
 
     const payload: Record<string, unknown> = {
       name: formData.get("name")?.toString().trim() || undefined,
@@ -365,8 +407,8 @@ export async function updateMerchantFeedSourceAction(
     if (hasHeadersJson) {
       payload.headers = parseJsonObjectInput(headersJson, "headers_json");
     }
-    if (hasMappingJson) {
-      payload.mapping = parseJsonObjectInput(mappingJson, "mapping_json");
+    if (hasMappingJson || (mappingPreset && mappingPreset !== "none")) {
+      payload.mapping = resolveMappingFromForm(formData) ?? {};
     }
 
     const intervalRaw = formData.get("pull_interval_minutes")?.toString().trim() || "";
@@ -405,6 +447,52 @@ export async function updateMerchantFeedSourceAction(
   } catch (error) {
     if (isRedirectError(error)) throw error;
     fail(path, error instanceof Error ? error.message : "Unknown feed source update error.");
+  }
+}
+
+export async function updateMaterialsRuleAction(formData: FormData): Promise<void> {
+  const sellerId = formData.get("seller_id")?.toString().trim() || "";
+  const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
+  const path = buildMaterialsPath(sellerId, merchantQ);
+
+  try {
+    const { baseUrl, adminToken } = getAdminConfig();
+    if (!adminToken) {
+      fail(
+        path,
+        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+      );
+    }
+
+    const ruleId = formData.get("rule_id")?.toString().trim() || "";
+    if (!ruleId) {
+      fail(path, "rule_id is required.");
+    }
+
+    const enabled = Boolean(formData.get("is_enabled"));
+    const response = await fetch(
+      `${baseUrl}/admin/configuration/${encodeURIComponent(ruleId)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+          "x-medusa-access-token": adminToken,
+        },
+        body: JSON.stringify({ is_enabled: enabled }),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      fail(path, `Rule update failed (${response.status}): ${body || "unknown error"}`);
+    }
+
+    ok(path, "Rule updated.");
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    fail(path, error instanceof Error ? error.message : "Unknown rule update error.");
   }
 }
 

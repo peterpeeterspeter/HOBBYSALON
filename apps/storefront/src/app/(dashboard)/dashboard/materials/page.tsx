@@ -5,6 +5,7 @@ import {
   runMerchantImportDryRunAction,
   submitMerchantImportAction,
   triggerMaterialsProjectionSyncAction,
+  updateMaterialsRuleAction,
   updateMerchantFeedSourceAction,
 } from "@/app/actions/materials-ops";
 import { cookies } from "next/headers";
@@ -13,6 +14,7 @@ import {
   getMerchantImportJobDetail,
   getMerchantFeedSourceMetrics,
   getMerchantMaterialsDetail,
+  listConfigurationRules,
   listMerchantFeedSourceRuns,
   listMaterialCategoryOptions,
   listMerchantMaterialsOverview,
@@ -63,6 +65,24 @@ type DryRunSnapshot = {
   }>;
   created_at: string;
 };
+
+type MerchantProjectionLinkage = {
+  sampledMedusaProducts: number;
+  linkedPlatformProducts: number;
+  missingPlatformLinks: number;
+  linkedCreators: Array<{
+    id: string;
+    slug: string | null;
+    display_name: string | null;
+  }>;
+};
+
+const FEED_MAPPING_PRESETS = [
+  { value: "none", label: "Geen preset (custom)" },
+  { value: "custom_csv_basic", label: "CSV basis" },
+  { value: "woocommerce", label: "WooCommerce" },
+  { value: "shopify", label: "Shopify" },
+];
 
 function getDryRunCookieName(sellerId: string) {
   return `hs_materials_dry_run_${sellerId}`.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -123,6 +143,47 @@ async function getProjectionStats() {
   };
 }
 
+async function getMerchantProjectionLinkage(
+  medusaProductIds: string[]
+): Promise<MerchantProjectionLinkage> {
+  const uniqueMedusaIds = [...new Set(medusaProductIds.filter(Boolean))];
+  if (!uniqueMedusaIds.length) {
+    return {
+      sampledMedusaProducts: 0,
+      linkedPlatformProducts: 0,
+      missingPlatformLinks: 0,
+      linkedCreators: [],
+    };
+  }
+
+  const supabase = createPlatformClient();
+  const { data: linkedProducts } = await supabase
+    .from("products")
+    .select("id, creator_id, medusa_product_id")
+    .eq("product_type", "supply")
+    .in("medusa_product_id", uniqueMedusaIds);
+
+  const linkedRows =
+    (linkedProducts as Array<{ id: string; creator_id: string; medusa_product_id: string }> | null) ??
+    [];
+  const creatorIds = [...new Set(linkedRows.map((row) => row.creator_id).filter(Boolean))];
+  const { data: creators } = creatorIds.length
+    ? await supabase
+        .from("creators")
+        .select("id, slug, display_name")
+        .in("id", creatorIds)
+    : { data: [] as Array<{ id: string; slug: string | null; display_name: string | null }> };
+
+  return {
+    sampledMedusaProducts: uniqueMedusaIds.length,
+    linkedPlatformProducts: linkedRows.length,
+    missingPlatformLinks: Math.max(0, uniqueMedusaIds.length - linkedRows.length),
+    linkedCreators:
+      (creators as Array<{ id: string; slug: string | null; display_name: string | null }> | null) ??
+      [],
+  };
+}
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -166,6 +227,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
       })()
     : Promise.resolve(null);
   const materialCategories = await listMaterialCategoryOptions();
+  const configurationRules = await listConfigurationRules();
+  const requireProductApprovalRule =
+    configurationRules.find((rule) => rule.rule_type === "require_product_approval") || null;
+  const productImportEnabledRule =
+    configurationRules.find((rule) => rule.rule_type === "product_import_enabled") || null;
   const categoryOptions = materialCategories.map((category) => ({
     value: category.id,
     label: `${category.name} (${category.handle})`,
@@ -198,6 +264,13 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
           getMerchantFeedSourceMetrics(merchantDetail.merchant.seller_id, selectedFeed.id),
         ])
       : [[], null];
+  const merchantProjectionLinkage = merchantDetail
+    ? await getMerchantProjectionLinkage(
+        merchantDetail.merchant.latest.products
+          .map((product) => product.id)
+          .filter(Boolean)
+      )
+    : null;
 
   return (
     <section className="space-y-6">
@@ -281,6 +354,84 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
             <Button type="submit">Queue Sync</Button>
           </form>
         )}
+      </CardShell>
+
+      <CardShell variant="default" padding="lg">
+        <h2 className="text-lg font-semibold text-[var(--foreground)]">
+          Approval & import rules
+        </h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          P1 controls for merchant product auto-approval and import availability.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {requireProductApprovalRule ? (
+            <form
+              action={updateMaterialsRuleAction}
+              className="rounded-lg border border-[var(--border)] p-3"
+            >
+              <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
+              <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
+              <input type="hidden" name="rule_id" value={requireProductApprovalRule.id} />
+              <p className="font-medium">Require product approval</p>
+              <p className="text-xs text-[var(--muted)] mt-1">
+                {requireProductApprovalRule.is_enabled
+                  ? "Enabled: nieuwe producten vereisen approval."
+                  : "Disabled: auto-approval actief."}
+              </p>
+              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="is_enabled"
+                  defaultChecked={requireProductApprovalRule.is_enabled}
+                />
+                Rule enabled
+              </label>
+              <div className="mt-3">
+                <Button type="submit" size="sm" variant="secondary">
+                  Save rule
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Rule <code>require_product_approval</code> not found.
+            </p>
+          )}
+
+          {productImportEnabledRule ? (
+            <form
+              action={updateMaterialsRuleAction}
+              className="rounded-lg border border-[var(--border)] p-3"
+            >
+              <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
+              <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
+              <input type="hidden" name="rule_id" value={productImportEnabledRule.id} />
+              <p className="font-medium">Product import enabled</p>
+              <p className="text-xs text-[var(--muted)] mt-1">
+                {productImportEnabledRule.is_enabled
+                  ? "Enabled: CSV/feed import toegestaan."
+                  : "Disabled: import route geblokkeerd."}
+              </p>
+              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="is_enabled"
+                  defaultChecked={productImportEnabledRule.is_enabled}
+                />
+                Rule enabled
+              </label>
+              <div className="mt-3">
+                <Button type="submit" size="sm" variant="secondary">
+                  Save rule
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Rule <code>product_import_enabled</code> not found.
+            </p>
+          )}
+        </div>
       </CardShell>
 
       <CardShell variant="default" padding="lg">
@@ -416,6 +567,32 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
             </CardShell>
           </GridLayout>
 
+          {merchantProjectionLinkage && (
+            <div className="mt-4 rounded-lg border border-[var(--border)] p-3">
+              <h3 className="font-medium">Supplier/seller linkage sample</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                sampled Medusa products: {merchantProjectionLinkage.sampledMedusaProducts} ·
+                linked platform supplies: {merchantProjectionLinkage.linkedPlatformProducts} ·
+                missing links: {merchantProjectionLinkage.missingPlatformLinks}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {merchantProjectionLinkage.linkedCreators.slice(0, 10).map((creator) => (
+                  <span
+                    key={creator.id}
+                    className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)]"
+                  >
+                    {creator.display_name || creator.slug || creator.id}
+                  </span>
+                ))}
+                {merchantProjectionLinkage.linkedCreators.length === 0 && (
+                  <span className="text-sm text-[var(--muted)]">
+                    No linked creators found in sampled projected supplies.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-[var(--border)] p-3">
               <h3 className="font-medium">Latest mappings</h3>
@@ -516,6 +693,12 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                 label="Pull interval (min)"
                 defaultValue="60"
               />
+              <Select
+                name="mapping_preset"
+                label="Mapping preset"
+                options={FEED_MAPPING_PRESETS}
+                defaultValue="custom_csv_basic"
+              />
               <div className="lg:col-span-2">
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
                   Headers JSON
@@ -529,12 +712,13 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
               </div>
               <div className="lg:col-span-2">
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-                  Mapping JSON
+                  Mapping JSON (optional override)
                 </label>
                 <textarea
                   name="mapping_json"
                   rows={3}
-                  defaultValue='{"sku":"sku","price_amount":"price","stocked_quantity":"stock"}'
+                  defaultValue=""
+                  placeholder='{"sku":"sku","price_amount":"price"}'
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)]"
                 />
               </div>
@@ -799,6 +983,12 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                   label="Pull interval (min)"
                   defaultValue={String(selectedFeed.pull_interval_minutes ?? 60)}
                 />
+                <Select
+                  name="mapping_preset"
+                  label="Mapping preset"
+                  options={FEED_MAPPING_PRESETS}
+                  defaultValue="none"
+                />
                 <label className="flex items-end gap-2 text-sm">
                   <input type="checkbox" name="active" defaultChecked={selectedFeed.active} />
                   Active
@@ -824,7 +1014,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                 </div>
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-                    Mapping JSON
+                    Mapping JSON (optional override)
                   </label>
                   <textarea
                     name="mapping_json"
