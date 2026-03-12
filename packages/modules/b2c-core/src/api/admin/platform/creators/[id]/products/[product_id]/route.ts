@@ -5,6 +5,7 @@ import {
   toHandle,
 } from '@medusajs/framework/utils'
 import {
+  deleteProductsWorkflow,
   updateProductsWorkflow,
   updateProductVariantsWorkflow,
 } from '@medusajs/medusa/core-flows'
@@ -21,13 +22,20 @@ type ProductTypeRow = {
   id: string
 }
 
+const PRODUCT_CONDITION_VALUES = ['new', 'handmade', 'made_to_order', 'used'] as const
+
 const UpdateCreatorProductPayload = z.object({
   title: z.string().trim().min(1).optional(),
   slug: z.string().trim().optional().nullable(),
   short_description: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   featured_image_url: z.string().trim().optional().nullable(),
+  condition_type: z.enum(PRODUCT_CONDITION_VALUES).optional().nullable(),
+  personalization_available: z.boolean().optional(),
+  estimated_dispatch_days: z.number().int().min(0).optional().nullable(),
   is_active: z.boolean().optional(),
+  manage_inventory: z.boolean().optional(),
+  allow_backorder: z.boolean().optional(),
   price_cents: z.number().int().min(0).optional(),
   currency_code: z.string().trim().optional(),
   platform_creator_id: z.string().uuid().optional(),
@@ -166,6 +174,15 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   if (payload.platform_category_id !== undefined) {
     metadata.platform_category_id = payload.platform_category_id
   }
+  if (payload.condition_type !== undefined) {
+    metadata.platform_condition_type = payload.condition_type
+  }
+  if (payload.personalization_available !== undefined) {
+    metadata.platform_personalization_available = payload.personalization_available
+  }
+  if (payload.estimated_dispatch_days !== undefined) {
+    metadata.platform_estimated_dispatch_days = payload.estimated_dispatch_days
+  }
 
   const update: Record<string, unknown> = {
     type_id: handmadeTypeId,
@@ -205,7 +222,12 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     },
   })
 
-  if (payload.price_cents !== undefined) {
+  const shouldUpdateVariant =
+    payload.price_cents !== undefined ||
+    payload.manage_inventory !== undefined ||
+    payload.allow_backorder !== undefined
+
+  if (shouldUpdateVariant) {
     const firstVariantId = existingProduct.variants?.[0]?.id
     if (!firstVariantId) {
       throw new MedusaError(
@@ -214,20 +236,29 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       )
     }
 
-    const currencyCode =
-      normalizeNullable(payload.currency_code)?.toLowerCase() || 'eur'
+    const variantUpdate: Record<string, unknown> = {}
+    if (payload.price_cents !== undefined) {
+      const currencyCode =
+        normalizeNullable(payload.currency_code)?.toLowerCase() || 'eur'
+      variantUpdate.prices = [
+        {
+          currency_code: currencyCode,
+          amount: payload.price_cents,
+        },
+      ]
+    }
+    if (payload.manage_inventory !== undefined) {
+      variantUpdate.manage_inventory = payload.manage_inventory
+    }
+    if (payload.allow_backorder !== undefined) {
+      variantUpdate.allow_backorder = payload.allow_backorder
+    }
+
     await updateProductVariantsWorkflow.run({
       container: req.scope,
       input: {
         selector: { id: firstVariantId, product_id: productId },
-        update: {
-          prices: [
-            {
-              currency_code: currencyCode,
-              amount: payload.price_cents,
-            },
-          ],
-        },
+        update: variantUpdate,
       },
     })
   }
@@ -239,5 +270,38 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       status: updated?.status ?? (payload.is_active ? 'published' : undefined),
       seller_id: sellerId,
     },
+  })
+}
+
+/**
+ * @oas [delete] /admin/platform/creators/{id}/products/{product_id}
+ * operationId: "AdminDeleteCreatorProduct"
+ * summary: "Delete Creator Product"
+ * description: "Deletes a Medusa product owned by a creator seller."
+ * x-authenticated: true
+ * tags:
+ *   - Admin Platform
+ * security:
+ *   - api_token: []
+ *   - cookie_auth: []
+ */
+export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
+  const sellerId = req.params.id
+  const productId = req.params.product_id
+
+  const knex = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+  await ensureCreatorSeller(knex, sellerId)
+  await ensureSellerOwnsProduct(knex, sellerId, productId)
+
+  await deleteProductsWorkflow(req.scope).run({
+    input: {
+      ids: [productId],
+    },
+  })
+
+  res.json({
+    id: productId,
+    object: 'product',
+    deleted: true,
   })
 }

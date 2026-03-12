@@ -8,9 +8,14 @@ type CreatorProductInput = {
   shortDescription?: string | null;
   description?: string | null;
   featuredImageUrl?: string | null;
+  conditionType?: "new" | "handmade" | "made_to_order" | "used" | null;
+  personalizationAvailable?: boolean;
+  estimatedDispatchDays?: number | null;
   platformDomainId?: string | null;
   platformCategoryId?: string | null;
   isActive: boolean;
+  manageInventory?: boolean;
+  allowBackorder?: boolean;
   priceCents: number;
   currencyCode?: string | null;
 };
@@ -70,9 +75,15 @@ export async function createCreatorMarketplaceProduct(
         short_description: input.shortDescription?.trim() || null,
         description: input.description?.trim() || null,
         featured_image_url: input.featuredImageUrl?.trim() || null,
+        condition_type: input.conditionType ?? null,
+        personalization_available: !!input.personalizationAvailable,
+        estimated_dispatch_days: input.estimatedDispatchDays ?? null,
         platform_domain_id: input.platformDomainId ?? null,
         platform_category_id: input.platformCategoryId ?? null,
         is_active: input.isActive,
+        manage_inventory: !!input.manageInventory,
+        allow_backorder:
+          input.allowBackorder === undefined ? true : !!input.allowBackorder,
         price_cents: input.priceCents,
         currency_code: (input.currencyCode?.trim() || "EUR").toLowerCase(),
         platform_creator_id: input.platformCreatorId,
@@ -111,9 +122,14 @@ export async function updateCreatorMarketplaceProduct(input: {
   shortDescription?: string | null;
   description?: string | null;
   featuredImageUrl?: string | null;
+  conditionType?: "new" | "handmade" | "made_to_order" | "used" | null;
+  personalizationAvailable?: boolean;
+  estimatedDispatchDays?: number | null;
   platformDomainId?: string | null;
   platformCategoryId?: string | null;
   isActive?: boolean;
+  manageInventory?: boolean;
+  allowBackorder?: boolean;
   priceCents?: number;
   currencyCode?: string | null;
 }): Promise<CreatorProductResult> {
@@ -143,9 +159,31 @@ export async function updateCreatorMarketplaceProduct(input: {
         short_description: input.shortDescription?.trim() || null,
         description: input.description?.trim() || null,
         featured_image_url: input.featuredImageUrl?.trim() || null,
-        platform_domain_id: input.platformDomainId ?? null,
-        platform_category_id: input.platformCategoryId ?? null,
+        condition_type:
+          input.conditionType === undefined ? undefined : input.conditionType,
+        personalization_available:
+          typeof input.personalizationAvailable === "boolean"
+            ? input.personalizationAvailable
+            : undefined,
+        estimated_dispatch_days:
+          input.estimatedDispatchDays === undefined
+            ? undefined
+            : input.estimatedDispatchDays,
+        platform_domain_id:
+          input.platformDomainId === undefined ? undefined : input.platformDomainId,
+        platform_category_id:
+          input.platformCategoryId === undefined
+            ? undefined
+            : input.platformCategoryId,
         is_active: input.isActive,
+        manage_inventory:
+          typeof input.manageInventory === "boolean"
+            ? input.manageInventory
+            : undefined,
+        allow_backorder:
+          typeof input.allowBackorder === "boolean"
+            ? input.allowBackorder
+            : undefined,
         price_cents:
           typeof input.priceCents === "number" && Number.isFinite(input.priceCents)
             ? input.priceCents
@@ -179,6 +217,44 @@ export async function updateCreatorMarketplaceProduct(input: {
     ok: !!payload.product?.id,
     productId: payload.product?.id ?? input.medusaProductId,
   };
+}
+
+export async function deleteCreatorMarketplaceProduct(input: {
+  sellerId: string;
+  medusaProductId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const config = getAdminConfig();
+  if (!config) {
+    return {
+      ok: false,
+      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+    };
+  }
+
+  const response = await fetch(
+    `${config.baseUrl}/admin/platform/creators/${encodeURIComponent(
+      input.sellerId
+    )}/products/${encodeURIComponent(input.medusaProductId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${config.adminToken}`,
+        "x-medusa-access-token": config.adminToken,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    return {
+      ok: false,
+      error: `Creator product delete failed (${response.status}): ${body || "unknown error"}`,
+    };
+  }
+
+  await queueProjectionSync(config.baseUrl, config.adminToken, input.sellerId);
+  return { ok: true };
 }
 
 async function queueProjectionSync(

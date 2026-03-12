@@ -6,7 +6,12 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import {
+  cancelCreatorOrder,
+  completeCreatorOrder,
+} from "@/lib/commerce/medusa/creator-orders";
+import {
   createCreatorMarketplaceProduct,
+  deleteCreatorMarketplaceProduct,
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
 
@@ -18,6 +23,13 @@ const PRODUCT_TYPES = new Set([
   "workshop_ticket",
   "workshop_kit",
 ]);
+const PRODUCT_CONDITION_TYPES = new Set([
+  "new",
+  "handmade",
+  "made_to_order",
+  "used",
+]);
+const PRODUCT_STOCK_MODES = new Set(["in_stock", "made_to_order"]);
 
 const WORKSHOP_FORMATS = new Set(["physical", "online", "hybrid"]);
 const WORKSHOP_DIFFICULTY = new Set(["beginner", "intermediate", "advanced"]);
@@ -485,8 +497,15 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const { creator, sellerId } = await getRequiredCreator();
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
+    const stockMode = parseRequiredString(formData, "stock_mode");
     const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
     const currencyCode = parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
+    const conditionType = parseOptionalString(formData, "condition_type");
+    const estimatedDispatchDays = parseOptionalNonNegativeInt(
+      formData,
+      "estimated_dispatch_days"
+    );
+    const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
 
@@ -500,6 +519,12 @@ export async function createProductAction(formData: FormData): Promise<void> {
         "Voor creator P2P-producten is momenteel enkel type 'handmade' toegestaan."
       );
     }
+    if (!PRODUCT_STOCK_MODES.has(stockMode)) {
+      fail("/dashboard/products", "Ongeldige voorraadmodus.");
+    }
+    if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
+      fail("/dashboard/products", "Ongeldige conditie.");
+    }
     if (priceCents === null) {
       fail("/dashboard/products", "Prijs (in cent) is verplicht.");
     }
@@ -512,9 +537,16 @@ export async function createProductAction(formData: FormData): Promise<void> {
       shortDescription: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
       featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+      conditionType:
+        (conditionType as "new" | "handmade" | "made_to_order" | "used" | null) ??
+        null,
+      personalizationAvailable,
+      estimatedDispatchDays,
       platformDomainId: domainId,
       platformCategoryId: categoryId,
       isActive: !!formData.get("is_active"),
+      manageInventory: stockMode === "in_stock",
+      allowBackorder: stockMode !== "in_stock",
       priceCents,
       currencyCode,
     });
@@ -547,13 +579,26 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const productId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
+    const stockMode = parseRequiredString(formData, "stock_mode");
     const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
     const currencyCode = parseOptionalCurrencyCode(formData, "currency_code");
+    const conditionType = parseOptionalString(formData, "condition_type");
+    const estimatedDispatchDays = parseOptionalNonNegativeInt(
+      formData,
+      "estimated_dispatch_days"
+    );
+    const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
+    }
+    if (!PRODUCT_STOCK_MODES.has(stockMode)) {
+      fail("/dashboard/products", "Ongeldige voorraadmodus.");
+    }
+    if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
+      fail("/dashboard/products", "Ongeldige conditie.");
     }
 
     const supabase = createPlatformClient();
@@ -592,9 +637,20 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         shortDescription: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+        conditionType:
+          (conditionType as
+            | "new"
+            | "handmade"
+            | "made_to_order"
+            | "used"
+            | null) ?? null,
+        personalizationAvailable,
+        estimatedDispatchDays,
         platformDomainId: domainId,
         platformCategoryId: categoryId,
         isActive: !!formData.get("is_active"),
+        manageInventory: stockMode === "in_stock",
+        allowBackorder: stockMode !== "in_stock",
         priceCents: priceCents ?? undefined,
         currencyCode: currencyCode ?? undefined,
       });
@@ -627,6 +683,9 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         featured_image_url: parseOptionalString(formData, "featured_image_url"),
         domain_id: domainId,
         category_id: categoryId,
+        condition_type: conditionType,
+        personalization_available: personalizationAvailable,
+        estimated_dispatch_days: estimatedDispatchDays,
         product_type: productType,
         status: formData.get("is_active") ? "active" : "draft",
         is_active: !!formData.get("is_active"),
@@ -645,6 +704,135 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     if (isNextRedirectError(error)) throw error;
     fail(
       "/dashboard/products",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function unpublishProductAction(formData: FormData): Promise<void> {
+  try {
+    const { creator, sellerId } = await getRequiredCreator();
+    const productId = parseRequiredString(formData, "id");
+    const medusaProductId = parseOptionalString(formData, "medusa_product_id");
+    const supabase = createPlatformClient();
+
+    if (medusaProductId) {
+      const result = await updateCreatorMarketplaceProduct({
+        sellerId,
+        medusaProductId,
+        platformCreatorId: creator.id,
+        isActive: false,
+      });
+      if (!result.ok) {
+        fail(
+          "/dashboard/products",
+          result.error ?? "Product depubliceren via Medusa mislukt."
+        );
+      }
+    }
+
+    const { error } = await supabase
+      .from("products")
+      .update({
+        status: "archived",
+        is_active: false,
+      })
+      .eq("id", productId)
+      .eq("creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/products", "Product depubliceren mislukt.");
+    }
+
+    revalidatePath("/dashboard/products");
+    revalidatePath(`/creator/${creator.slug}`);
+    ok("/dashboard/products", "Product gedeactiveerd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/products",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteProductAction(formData: FormData): Promise<void> {
+  try {
+    const { creator, sellerId } = await getRequiredCreator();
+    const productId = parseRequiredString(formData, "id");
+    const medusaProductId = parseOptionalString(formData, "medusa_product_id");
+    const supabase = createPlatformClient();
+
+    if (medusaProductId) {
+      const result = await deleteCreatorMarketplaceProduct({
+        sellerId,
+        medusaProductId,
+      });
+      if (!result.ok) {
+        fail(
+          "/dashboard/products",
+          result.error ?? "Product verwijderen via Medusa mislukt."
+        );
+      }
+    }
+
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", productId)
+      .eq("creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/products", "Product verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/products");
+    revalidatePath(`/creator/${creator.slug}`);
+    ok("/dashboard/products", "Product verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/products",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function completeCreatorOrderAction(formData: FormData): Promise<void> {
+  try {
+    const { sellerId } = await getRequiredCreator();
+    const orderId = parseRequiredString(formData, "order_id");
+    const result = await completeCreatorOrder(sellerId, orderId);
+    if (!result.ok) {
+      fail("/dashboard/orders", result.error ?? "Order afronden mislukt.");
+    }
+
+    revalidatePath("/dashboard/orders");
+    ok("/dashboard/orders", "Order gemarkeerd als voltooid.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/orders",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function cancelCreatorOrderAction(formData: FormData): Promise<void> {
+  try {
+    const { sellerId } = await getRequiredCreator();
+    const orderId = parseRequiredString(formData, "order_id");
+    const result = await cancelCreatorOrder(sellerId, orderId);
+    if (!result.ok) {
+      fail("/dashboard/orders", result.error ?? "Order annuleren mislukt.");
+    }
+
+    revalidatePath("/dashboard/orders");
+    ok("/dashboard/orders", "Order geannuleerd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/orders",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }

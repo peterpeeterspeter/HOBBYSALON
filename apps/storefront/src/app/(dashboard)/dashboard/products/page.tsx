@@ -6,7 +6,12 @@ import {
   listSupplyCategoryOptions,
   type ProductCategoryOption,
 } from "@/lib/platform/queries/products";
-import { createProductAction, updateProductAction } from "@/app/actions/dashboard";
+import {
+  createProductAction,
+  deleteProductAction,
+  unpublishProductAction,
+  updateProductAction,
+} from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -20,6 +25,16 @@ type Props = {
 
 const PRODUCT_TYPE_OPTIONS = [
   { value: "handmade", label: "Handmade" },
+];
+const PRODUCT_CONDITION_OPTIONS = [
+  { value: "handmade", label: "Handmade" },
+  { value: "new", label: "Nieuw" },
+  { value: "made_to_order", label: "Op bestelling gemaakt" },
+  { value: "used", label: "Tweedehands" },
+];
+const PRODUCT_STOCK_MODE_OPTIONS = [
+  { value: "made_to_order", label: "Op bestelling (geen voorraad)" },
+  { value: "in_stock", label: "Voorraadproduct" },
 ];
 
 export default async function DashboardProductsPage({ searchParams }: Props) {
@@ -103,6 +118,13 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   required
                   defaultValue="handmade"
                 />
+                <Select
+                  name="stock_mode"
+                  label="Voorraadmodus *"
+                  options={PRODUCT_STOCK_MODE_OPTIONS}
+                  required
+                  defaultValue="made_to_order"
+                />
                 <Input
                   name="price_cents"
                   label="Prijs (cent) *"
@@ -134,6 +156,18 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   }))}
                   placeholder="Selecteer categorie"
                 />
+                <Select
+                  name="condition_type"
+                  label="Conditie"
+                  options={PRODUCT_CONDITION_OPTIONS}
+                  defaultValue="handmade"
+                />
+                <Input
+                  name="estimated_dispatch_days"
+                  label="Verzending binnen (dagen)"
+                  type="number"
+                  min={0}
+                />
                 <Input name="featured_image_url" label="Afbeelding URL" />
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
                 <div className="sm:col-span-2">
@@ -147,6 +181,10 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 <label className="inline-flex items-center gap-2 sm:col-span-2">
                   <input type="checkbox" name="is_active" />
                   <span className="text-sm">Direct actief publiceren</span>
+                </label>
+                <label className="inline-flex items-center gap-2 sm:col-span-2">
+                  <input type="checkbox" name="personalization_available" />
+                  <span className="text-sm">Personalisatie mogelijk</span>
                 </label>
               </div>
               <Button type="submit" className="mt-4">
@@ -197,6 +235,17 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       required
                       defaultValue={product.product_type}
                     />
+                    <Select
+                      name="stock_mode"
+                      label="Voorraadmodus *"
+                      options={PRODUCT_STOCK_MODE_OPTIONS}
+                      required
+                      defaultValue={
+                        product.condition_type === "made_to_order"
+                          ? "made_to_order"
+                          : "in_stock"
+                      }
+                    />
                     <Input
                       name="price_cents"
                       label="Prijs (cent)"
@@ -231,6 +280,19 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       placeholder="Selecteer categorie"
                       defaultValue={product.category_id ?? ""}
                     />
+                    <Select
+                      name="condition_type"
+                      label="Conditie"
+                      options={PRODUCT_CONDITION_OPTIONS}
+                      defaultValue={product.condition_type ?? "handmade"}
+                    />
+                    <Input
+                      name="estimated_dispatch_days"
+                      label="Verzending binnen (dagen)"
+                      type="number"
+                      min={0}
+                      defaultValue={product.estimated_dispatch_days ?? ""}
+                    />
                     <Input
                       name="featured_image_url"
                       label="Afbeelding URL"
@@ -255,9 +317,33 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       <input type="checkbox" name="is_active" defaultChecked={product.is_active} />
                       <span className="text-sm">Actief</span>
                     </label>
-                    <div className="sm:col-span-2">
+                    <label className="inline-flex items-center gap-2 sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        name="personalization_available"
+                        defaultChecked={product.personalization_available}
+                      />
+                      <span className="text-sm">Personalisatie mogelijk</span>
+                    </label>
+                    <div className="sm:col-span-2 flex flex-wrap gap-2">
                       <Button type="submit" variant="secondary" size="sm">
                         Opslaan
+                      </Button>
+                      <Button
+                        type="submit"
+                        formAction={unpublishProductAction}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Depubliceer
+                      </Button>
+                      <Button
+                        type="submit"
+                        formAction={deleteProductAction}
+                        variant="danger"
+                        size="sm"
+                      >
+                        Verwijder
                       </Button>
                     </div>
                   </form>

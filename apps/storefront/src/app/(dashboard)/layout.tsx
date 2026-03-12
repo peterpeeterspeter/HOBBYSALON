@@ -56,6 +56,9 @@ export default async function DashboardLayout({
                 <Link href="/dashboard/products" className="hover:text-[var(--accent)] transition-colors">
                   Producten
                 </Link>
+                <Link href="/dashboard/orders" className="hover:text-[var(--accent)] transition-colors">
+                  Bestellingen
+                </Link>
                 {hasMerchantRole && (
                   <Link href="/dashboard/materials" className="hover:text-[var(--accent)] transition-colors">
                     Materials Ops

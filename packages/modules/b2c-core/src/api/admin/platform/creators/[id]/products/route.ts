@@ -20,13 +20,20 @@ type ProductTypeRow = {
   id: string
 }
 
+const PRODUCT_CONDITION_VALUES = ['new', 'handmade', 'made_to_order', 'used'] as const
+
 const CreateCreatorProductPayload = z.object({
   title: z.string().trim().min(1),
   slug: z.string().trim().optional().nullable(),
   short_description: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   featured_image_url: z.string().trim().optional().nullable(),
+  condition_type: z.enum(PRODUCT_CONDITION_VALUES).optional().nullable(),
+  personalization_available: z.boolean().optional().default(false),
+  estimated_dispatch_days: z.number().int().min(0).optional().nullable(),
   is_active: z.boolean().optional().default(true),
+  manage_inventory: z.boolean().optional().default(false),
+  allow_backorder: z.boolean().optional().default(true),
   price_cents: z.number().int().min(0).optional().default(0),
   currency_code: z.string().trim().optional().default('EUR'),
   platform_creator_id: z.string().uuid(),
@@ -129,6 +136,13 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   if (payload.platform_category_id) {
     metadata.platform_category_id = payload.platform_category_id
   }
+  if (payload.condition_type !== undefined) {
+    metadata.platform_condition_type = payload.condition_type
+  }
+  metadata.platform_personalization_available = !!payload.personalization_available
+  if (payload.estimated_dispatch_days !== undefined) {
+    metadata.platform_estimated_dispatch_days = payload.estimated_dispatch_days
+  }
 
   const { result } = await createProductsWorkflow.run({
     container: req.scope,
@@ -153,8 +167,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
             {
               title: 'Default',
               sku: handle,
-              allow_backorder: true,
-              manage_inventory: false,
+              allow_backorder: payload.allow_backorder,
+              manage_inventory: payload.manage_inventory,
               options: {
                 Variant: 'Default',
               },

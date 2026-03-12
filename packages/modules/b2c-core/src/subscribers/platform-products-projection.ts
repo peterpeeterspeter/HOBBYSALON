@@ -49,6 +49,9 @@ type PlatformProductUpsertPayload = {
   short_description: string | null
   description: string | null
   product_type: string
+  condition_type: string | null
+  personalization_available: boolean
+  estimated_dispatch_days: number | null
   status: 'active'
   is_active: true
   featured_image_url: string | null
@@ -84,6 +87,7 @@ const PRODUCT_TYPES = new Set([
   'workshop_ticket',
   'workshop_kit',
 ])
+const CONDITION_TYPES = new Set(['new', 'handmade', 'made_to_order', 'used'])
 
 const sanitizeSlug = (value: string, fallback: string) => {
   const normalized = value
@@ -106,6 +110,19 @@ const toNullableString = (value: unknown): string | null => {
 
 const escapePostgrestValue = (value: string) =>
   value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/\)/g, '\\)')
+
+const toNullableInteger = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return value
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.trim(), 10)
+    if (Number.isInteger(parsed)) {
+      return parsed
+    }
+  }
+  return null
+}
 
 const toShortDescription = (subtitle: string | null, description: string | null) => {
   if (subtitle) {
@@ -536,6 +553,20 @@ const buildUpsertRows = async (
     const metadataCategoryId = toNullableString(
       product.metadata?.platform_category_id
     )
+    const metadataConditionType = toNullableString(
+      product.metadata?.platform_condition_type
+    )
+    const conditionType =
+      metadataConditionType && CONDITION_TYPES.has(metadataConditionType)
+        ? metadataConditionType
+        : null
+    const personalizationAvailable =
+      typeof product.metadata?.platform_personalization_available === 'boolean'
+        ? product.metadata.platform_personalization_available
+        : false
+    const estimatedDispatchDays = toNullableInteger(
+      product.metadata?.platform_estimated_dispatch_days
+    )
 
     payloads.push({
       medusa_product_id: product.id,
@@ -548,6 +579,9 @@ const buildUpsertRows = async (
       short_description: toShortDescription(subtitle, description),
       description,
       product_type: productType,
+      condition_type: conditionType,
+      personalization_available: personalizationAvailable,
+      estimated_dispatch_days: estimatedDispatchDays,
       status: 'active',
       is_active: true,
       featured_image_url: featuredImage,
