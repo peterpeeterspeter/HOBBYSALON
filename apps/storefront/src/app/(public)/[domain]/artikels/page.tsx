@@ -3,7 +3,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listArticlesByDomain } from "@/lib/platform/queries/articles";
-import { ArticleCard } from "@/components/shared/ArticleCard";
+import { ArticleCard } from "@/components/cards";
+import { Container } from "@/components/ui/container";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Props = { params: Promise<{ domain: string }> };
 
@@ -25,7 +28,7 @@ export default async function DomainArticlesPage({ params }: Props) {
   const articles = await listArticlesByDomain(domain.id);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <Container className="py-8">
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
         <ol className="flex flex-wrap gap-2">
           <li>
@@ -51,16 +54,18 @@ export default async function DomainArticlesPage({ params }: Props) {
       </header>
 
       {articles.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-12 text-center text-[var(--muted)]">
-          Nog geen artikelen in dit domein.
-        </p>
+        <EmptyState
+          title="Nog geen artikelen"
+          description="Nog geen artikelen in dit domein."
+          action={{ label: "Terug naar domein", href: `/${domain.slug}` }}
+        />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <GridLayout cols={3} gap="lg">
           {articles.map((article) => (
             <ArticleCard key={article.id} article={article} />
           ))}
-        </div>
+        </GridLayout>
       )}
-    </div>
+    </Container>
   );
 }

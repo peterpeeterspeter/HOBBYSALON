@@ -24,7 +24,7 @@ export async function Footer() {
       <div className="mx-auto max-w-6xl px-4">
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
-            <p className="text-sm text-[var(--muted)]">
+            <p className="text-sm text-[var(--muted)]" suppressHydrationWarning>
               © {new Date().getFullYear()} Hobbysalon. Creatief platform voor hobbyisten.
             </p>
             <nav className="mt-3 flex flex-wrap gap-4" aria-label="Footernavigatie">

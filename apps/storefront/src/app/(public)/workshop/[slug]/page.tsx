@@ -1,11 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getWorkshopPageData } from "@/lib/services/workshop-page";
-import { CreatorCard } from "@/components/shared/CreatorCard";
-import { ProductCard } from "@/components/shared/ProductCard";
+import { CreatorCard, ProductCard, EventCard, ArticleCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
-import { EventCard } from "@/components/shared/EventCard";
-import { ArticleCard } from "@/components/shared/ArticleCard";
 import { WorkshopBookingRequestForm } from "@/components/workshop/WorkshopBookingRequestForm";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { getAuthUser } from "@/lib/auth/session";

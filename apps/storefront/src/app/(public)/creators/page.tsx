@@ -1,5 +1,8 @@
 import { listAllCreators } from "@/lib/platform/queries/creators";
-import { CreatorCard } from "@/components/shared/CreatorCard";
+import { CreatorCard } from "@/components/cards";
+import { Container } from "@/components/ui/container";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -11,7 +14,7 @@ export default async function CreatorsPage() {
   const creators = await listAllCreators();
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <Container className="py-8">
       <header className="mb-8">
         <h1 className="text-4xl font-bold text-[var(--foreground)] mb-2">
           Creators
@@ -22,21 +25,22 @@ export default async function CreatorsPage() {
       </header>
 
       {creators.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-12 text-center text-[var(--muted)]">
-          Nog geen creators toegevoegd.
-        </p>
+        <EmptyState
+          title="Nog geen creators"
+          description="Nog geen creators toegevoegd."
+        />
       ) : (
         <>
           <p className="mb-6 text-sm text-[var(--muted)]">
             {creators.length} creator{creators.length !== 1 ? "s" : ""} gevonden
           </p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3} gap="lg">
             {creators.map((creator) => (
               <CreatorCard key={creator.id} creator={creator} />
             ))}
-          </div>
+          </GridLayout>
         </>
       )}
-    </div>
+    </Container>
   );
 }

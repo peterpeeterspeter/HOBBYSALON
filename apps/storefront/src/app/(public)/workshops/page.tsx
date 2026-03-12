@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { listAllWorkshops } from "@/lib/platform/queries/workshops";
 import { createPlatformClient } from "@/lib/platform/client";
-import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { WorkshopCard } from "@/components/cards";
 import { getLocationPreference } from "@/lib/location/preference";
+import { Container } from "@/components/ui/container";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -98,9 +101,8 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
+    <Container className="py-8">
+      <header className="mb-8">
         <h1 className="text-4xl font-bold text-[var(--foreground)] mb-2">
           Workshops
         </h1>
@@ -128,15 +130,16 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
             </Link>
           </div>
         )}
-      </div>
+      </header>
 
-      {/* Filters */}
       <div className="mb-8 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="font-semibold text-[var(--foreground)]">Filters</h2>
         <form method="GET" action="/workshops" className="grid gap-4 sm:grid-cols-6">
-          {/* Domain Filter */}
           <div>
-            <label htmlFor="domain" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label
+              htmlFor="domain"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
               Domein
             </label>
             <select
@@ -153,10 +156,11 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
               ))}
             </select>
           </div>
-
-          {/* Format Filter */}
           <div>
-            <label htmlFor="format" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label
+              htmlFor="format"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
               Format
             </label>
             <select
@@ -173,10 +177,11 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
               ))}
             </select>
           </div>
-
-          {/* Difficulty Filter */}
           <div>
-            <label htmlFor="difficulty" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label
+              htmlFor="difficulty"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
               Niveau
             </label>
             <select
@@ -194,7 +199,10 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
             </select>
           </div>
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
               Stad
             </label>
             <select
@@ -212,7 +220,10 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
             </select>
           </div>
           <div>
-            <label htmlFor="country" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            <label
+              htmlFor="country"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
               Regio (land)
             </label>
             <select
@@ -229,8 +240,6 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
               ))}
             </select>
           </div>
-
-          {/* Submit Button */}
           <div className="flex items-end">
             <button
               type="submit"
@@ -242,32 +251,25 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
         </form>
       </div>
 
-      {/* Results */}
       {workshops.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-[var(--muted)] mb-4">
-            Geen workshops gevonden met deze filters.
-          </p>
-          <Link
-            href="/workshops"
-            className="inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-          >
-            Alle workshops bekijken
-          </Link>
-        </div>
+        <EmptyState
+          title="Geen workshops gevonden"
+          description="Geen workshops gevonden met deze filters."
+          action={{ label: "Alle workshops bekijken", href: "/workshops" }}
+        />
       ) : (
         <>
           <p className="mb-6 text-sm text-[var(--muted)]">
             {workshops.length} workshop{workshops.length !== 1 ? "s" : ""} gevonden
           </p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3} gap="lg">
             {workshops.map((workshop) => (
               <WorkshopCard key={workshop.id} workshop={workshop} />
             ))}
-          </div>
+          </GridLayout>
         </>
       )}
-    </div>
+    </Container>
   );
 }
 
