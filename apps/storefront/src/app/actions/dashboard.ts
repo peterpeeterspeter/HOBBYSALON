@@ -32,6 +32,12 @@ const BOOKING_REQUEST_STATUSES = new Set([
   "confirmed",
   "cancelled",
 ]);
+const ENTITY_LINK_TARGET_TYPES = new Set([
+  "product",
+  "workshop",
+  "event",
+  "article",
+]);
 
 function isNextRedirectError(error: unknown): boolean {
   return (
@@ -78,6 +84,14 @@ function parseUuidValues(formData: FormData, field: string): string[] {
         )
     )
   );
+}
+
+function parseRequiredUuid(formData: FormData, field: string): string {
+  const value = parseRequiredString(formData, field);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error(`${field} is ongeldig.`);
+  }
+  return value;
 }
 
 function toSlug(input: string): string {
@@ -174,6 +188,64 @@ async function syncCreatorDomains(
   return null;
 }
 
+async function creatorOwnsEntityTarget(
+  creatorId: string,
+  targetType: string,
+  targetId: string
+): Promise<boolean> {
+  const supabase = createPlatformClient();
+
+  if (targetType === "product") {
+    const { count } = await supabase
+      .from("products")
+      .select("id", { head: true, count: "exact" })
+      .eq("id", targetId)
+      .eq("creator_id", creatorId)
+      .limit(1);
+    return (count ?? 0) > 0;
+  }
+
+  if (targetType === "workshop") {
+    const { count } = await supabase
+      .from("workshops")
+      .select("id", { head: true, count: "exact" })
+      .eq("id", targetId)
+      .eq("creator_id", creatorId)
+      .limit(1);
+    return (count ?? 0) > 0;
+  }
+
+  if (targetType === "article") {
+    const { count } = await supabase
+      .from("articles")
+      .select("id", { head: true, count: "exact" })
+      .eq("id", targetId)
+      .eq("author_creator_id", creatorId)
+      .limit(1);
+    return (count ?? 0) > 0;
+  }
+
+  if (targetType === "event") {
+    const [organizerResult, participantResult] = await Promise.all([
+      supabase
+        .from("events")
+        .select("id", { head: true, count: "exact" })
+        .eq("id", targetId)
+        .eq("organizer_creator_id", creatorId)
+        .limit(1),
+      supabase
+        .from("event_creators")
+        .select("event_id", { head: true, count: "exact" })
+        .eq("event_id", targetId)
+        .eq("creator_id", creatorId)
+        .limit(1),
+    ]);
+    return (organizerResult.count ?? 0) > 0 || (participantResult.count ?? 0) > 0;
+  }
+
+  return false;
+}
+
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
   try {
     const user = await getAuthUser();
@@ -255,6 +327,100 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
     ok("/dashboard/creator", "Creator-profiel opgeslagen.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createCreatorEntityLinkAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const targetType = parseRequiredString(formData, "target_entity_type");
+    const targetId = parseRequiredUuid(formData, "target_entity_id");
+    const relationType = parseRequiredString(formData, "relation_type").toLowerCase();
+    const weight = parseOptionalInt(formData, "weight") ?? 1;
+    const sortOrder = parseOptionalInt(formData, "sort_order");
+
+    if (!ENTITY_LINK_TARGET_TYPES.has(targetType)) {
+      fail("/dashboard/creator", "Ongeldig target type.");
+    }
+
+    const creatorOwnsTarget = await creatorOwnsEntityTarget(
+      creator.id,
+      targetType,
+      targetId
+    );
+    if (!creatorOwnsTarget) {
+      fail(
+        "/dashboard/creator",
+        "Je kan alleen linken naar je eigen producten, workshops, events of artikels."
+      );
+    }
+
+    const supabase = createPlatformClient();
+    const { data: existingRows } = await supabase
+      .from("entity_links")
+      .select("id")
+      .eq("source_entity_type", "creator")
+      .eq("source_entity_id", creator.id)
+      .eq("target_entity_type", targetType)
+      .eq("target_entity_id", targetId)
+      .eq("relation_type", relationType)
+      .limit(1);
+
+    if (existingRows && existingRows.length > 0) {
+      fail("/dashboard/creator", "Deze link bestaat al.");
+    }
+
+    const { error } = await supabase.from("entity_links").insert({
+      source_entity_type: "creator",
+      source_entity_id: creator.id,
+      target_entity_type: targetType,
+      target_entity_id: targetId,
+      relation_type: relationType,
+      weight: Math.max(1, Math.min(100, weight)),
+      sort_order: sortOrder,
+    });
+
+    if (error) {
+      fail("/dashboard/creator", "Aanmaken van entity link mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    ok("/dashboard/creator", "Entity link toegevoegd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteCreatorEntityLinkAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
+    const supabase = createPlatformClient();
+    const { error } = await supabase
+      .from("entity_links")
+      .delete()
+      .eq("id", entityLinkId)
+      .eq("source_entity_type", "creator")
+      .eq("source_entity_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/creator", "Verwijderen van entity link mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    ok("/dashboard/creator", "Entity link verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
