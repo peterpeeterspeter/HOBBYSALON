@@ -11,6 +11,7 @@ Next.js storefront for the Hobbysalon creative hobby platform.
 2. Copy `.env.local.example` to `.env.local` and fill in:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and optionally `SUPABASE_SERVICE_ROLE_KEY` for the link script)
    - `MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`
+   - `MEDUSA_ADMIN_API_TOKEN` (required for dashboard Materials Ops sync trigger)
    - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (Stripe Connect uses the platform publishable key, e.g. `pk_test_...`; backend needs `STRIPE_SECRET_API_KEY`)
    - `PEXELS_API_KEY` (recommended for placeholders): get free key at https://www.pexels.com/api
   - `npx tsx scripts/seed-placeholder-images.ts` — downloads placeholder images from Pexels to public/landing/
@@ -70,3 +71,17 @@ yarn build
    - http://localhost:3002/cart — cart (after adding items)
 
 Ensure Supabase and Medusa are seeded and linked before verification. Re-run `scripts/seed-platform.sql` to add workshops if they were added after initial setup.
+
+## Materials Ops (P0)
+
+- Dashboard page: `/dashboard/materials`
+- Shows projection stats for Medusa merchant `supply` products mirrored to platform `products`.
+- Sync button triggers backend endpoint:
+  - `POST /admin/platform/products/projection/sync`
+  - Optional inputs: `seller_id`, `limit`
+- Merchant readiness table and merchant detail drilldown included.
+- Merchant detail supports creating category mappings directly from dashboard.
+- Merchant detail supports:
+  - feed source create/update
+  - CSV import dry-run with result snapshot
+  - CSV import submit

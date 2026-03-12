@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
@@ -25,10 +26,16 @@ export default async function DashboardLayout({
         <Container>
           <div className="flex flex-wrap items-center justify-between gap-4 py-4">
             <div>
-              <Link href="/" className="font-semibold text-[var(--foreground)]">
-                Hobbysalon
+              <Link href="/" className="inline-block">
+                <Image
+                  src="/logo.png"
+                  alt="Hobbysalon"
+                  width={140}
+                  height={38}
+                  className="h-8 w-auto object-contain"
+                />
               </Link>
-              <p className="text-xs text-[var(--muted)]">{user.email ?? "Ingelogd"}</p>
+              <p className="text-xs text-[var(--muted)] mt-1">{user.email ?? "Ingelogd"}</p>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <nav className="flex flex-wrap items-center gap-4 text-sm">
@@ -40,6 +47,9 @@ export default async function DashboardLayout({
                 </Link>
                 <Link href="/dashboard/products" className="hover:text-[var(--accent)] transition-colors">
                   Producten
+                </Link>
+                <Link href="/dashboard/materials" className="hover:text-[var(--accent)] transition-colors">
+                  Materials Ops
                 </Link>
                 <Link href="/dashboard/workshops" className="hover:text-[var(--accent)] transition-colors">
                   Workshops
