@@ -4,7 +4,10 @@ import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listProductsByDomain } from "@/lib/platform/queries/products";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import { ProductCard } from "@/components/shared/ProductCard";
+import { ProductCard } from "@/components/cards";
+import { Container } from "@/components/ui/container";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Product } from "@/types/platform";
 
 type Props = { params: Promise<{ domain: string }> };
@@ -47,7 +50,7 @@ export default async function DomainSuppliesPage({ params }: Props) {
   const productsWithPrices = await enrichProductsWithPrices(products);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <Container className="py-8">
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
         <ol className="flex flex-wrap gap-2">
           <li>
@@ -73,16 +76,18 @@ export default async function DomainSuppliesPage({ params }: Props) {
       </header>
 
       {productsWithPrices.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-12 text-center text-[var(--muted)]">
-          Nog geen benodigdheden in dit domein.
-        </p>
+        <EmptyState
+          title="Nog geen benodigdheden"
+          description="Nog geen benodigdheden in dit domein."
+          action={{ label: "Terug naar domein", href: `/${domain.slug}` }}
+        />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <GridLayout cols={4} gap="lg">
           {productsWithPrices.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
-        </div>
+        </GridLayout>
       )}
-    </div>
+    </Container>
   );
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
-import { WorkshopCard } from "@/components/shared/WorkshopCard";
+import { WorkshopCard } from "@/components/cards";
 import { getLocationPreference } from "@/lib/location/preference";
 
 type Props = {

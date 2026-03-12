@@ -1,10 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getArticlePageData } from "@/lib/services/article-page";
-import { ProductCard } from "@/components/shared/ProductCard";
-import { WorkshopCard } from "@/components/shared/WorkshopCard";
-import { CreatorCard } from "@/components/shared/CreatorCard";
-import { EventCard } from "@/components/shared/EventCard";
+import { ProductCard, WorkshopCard, CreatorCard, EventCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { JsonLd } from "@/components/seo/JsonLd";

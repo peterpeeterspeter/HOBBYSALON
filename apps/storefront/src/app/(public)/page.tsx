@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { getHomePageData } from "@/lib/services/home-page";
-import { WorkshopCard } from "@/components/shared/WorkshopCard";
-import { ProductCard } from "@/components/shared/ProductCard";
-import { EventCard } from "@/components/shared/EventCard";
-import { ArticleCard } from "@/components/shared/ArticleCard";
-import { CreatorCard } from "@/components/shared/CreatorCard";
-import { ProjectCard } from "@/components/shared/ProjectCard";
+import { ProductCard, WorkshopCard, EventCard, ArticleCard, CreatorCard, ProjectCard } from "@/components/cards";
+import { Container } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { CardShell } from "@/components/ui/card-shell";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GridLayout } from "@/components/layout/grid-layout";
 import { buildPageMetadata } from "@/lib/seo";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 
@@ -39,7 +39,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
+    <Container className="py-12">
       <TrackOnMount
         event="home_recommendations_viewed"
         payload={{
@@ -57,111 +57,113 @@ export default async function HomePage() {
       </p>
 
       <section className="mb-10">
-        <h2 className="mb-2 text-xl font-semibold text-[var(--foreground)]">
-          {data.recommendationSource === "personalized"
-            ? "Aanbevolen voor jou"
-            : "Populaire projecten om te starten"}
-        </h2>
-        <p className="mb-4 text-sm text-[var(--muted)]">
-          {data.recommendationSource === "personalized"
-            ? "Gebaseerd op je favorieten, domeingedrag en recente interacties."
-            : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."}
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.recommendedProjects.map((item) => (
-            <div key={item.project.id} className="space-y-2">
-              <ProjectCard project={item.project} />
-              <p className="text-xs text-[var(--muted)]">{item.reasons[0] ?? "Aanbevolen project"}</p>
-            </div>
-          ))}
-          {data.recommendedProjects.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen aanbevelingen beschikbaar.
-            </p>
-          )}
-        </div>
+        <SectionHeader
+          title={
+            data.recommendationSource === "personalized"
+              ? "Aanbevolen voor jou"
+              : "Populaire projecten om te starten"
+          }
+          description={
+            data.recommendationSource === "personalized"
+              ? "Gebaseerd op je favorieten, domeingedrag en recente interacties."
+              : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."
+          }
+        />
+        {data.recommendedProjects.length > 0 ? (
+          <GridLayout cols={3}>
+            {data.recommendedProjects.map((item) => (
+              <div key={item.project.id} className="space-y-2">
+                <ProjectCard project={item.project} />
+                <p className="text-xs text-[var(--muted)]">{item.reasons[0] ?? "Aanbevolen project"}</p>
+              </div>
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen aanbevelingen"
+            description="Verken domeinen en markeer je favorieten om persoonlijke aanbevelingen te ontvangen."
+          />
+        )}
       </section>
 
-      <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Populaire domeinen</h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <SectionHeader title="Populaire domeinen" />
+      <GridLayout cols={4}>
         {data.popularDomains.map((domain) => (
-          <Link
-            key={domain.id}
-            href={`/${domain.slug}`}
-            className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm transition hover:border-[var(--accent)]"
-          >
-            <h3 className="font-semibold text-[var(--foreground)]">{domain.name}</h3>
-            {domain.short_description && (
-              <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
-                {domain.short_description}
-              </p>
-            )}
+          <Link key={domain.id} href={`/${domain.slug}`} className="block">
+            <CardShell variant="interactive" padding="md">
+              <h3 className="font-semibold text-[var(--foreground)]">{domain.name}</h3>
+              {domain.short_description && (
+                <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
+                  {domain.short_description}
+                </p>
+              )}
+            </CardShell>
           </Link>
         ))}
-      </div>
+      </GridLayout>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Aankomende workshops</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SectionHeader title="Aankomende workshops" href="/workshops" />
+        <GridLayout cols={3}>
           {data.upcomingWorkshops.map((workshop) => (
             <WorkshopCard key={workshop.id} workshop={workshop} />
           ))}
-        </div>
+        </GridLayout>
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Uitgelicht handgemaakt</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SectionHeader title="Uitgelicht handgemaakt" />
+        <GridLayout cols={4}>
           {data.featuredHandmade.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
-        </div>
+        </GridLayout>
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Uitgelichte benodigdheden</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SectionHeader title="Uitgelichte benodigdheden" />
+        <GridLayout cols={4}>
           {data.featuredSupplies.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
-        </div>
+        </GridLayout>
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Agenda teaser</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SectionHeader title="Agenda teaser" href="/agenda" />
+        <GridLayout cols={3}>
           {data.upcomingEvents.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
-        </div>
+        </GridLayout>
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Inspiratieartikelen</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SectionHeader title="Inspiratieartikelen" />
+        <GridLayout cols={3}>
           {data.latestArticles.map((article) => (
             <ArticleCard key={article.id} article={article} />
           ))}
-        </div>
+        </GridLayout>
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Projecten om direct te starten</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SectionHeader title="Projecten om direct te starten" />
+        <GridLayout cols={4}>
           {data.featuredProjects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
-        </div>
+        </GridLayout>
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Creators van de maand</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SectionHeader title="Creators van de maand" href="/creators" />
+        <GridLayout cols={3}>
           {data.creatorsOfTheMonth.map((creator) => (
             <CreatorCard key={creator.id} creator={creator} />
           ))}
-        </div>
+        </GridLayout>
       </section>
-    </div>
+    </Container>
   );
 }

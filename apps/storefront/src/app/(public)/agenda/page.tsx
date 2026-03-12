@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { listEvents } from "@/lib/platform/queries/events";
 import { createPlatformClient } from "@/lib/platform/client";
-import { EventCard } from "@/components/shared/EventCard";
+import { EventCard } from "@/components/cards";
 import { getLocationPreference } from "@/lib/location/preference";
+import { Container } from "@/components/ui/container";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -94,8 +97,8 @@ async function AgendaContent({ searchParams }: { searchParams: SearchParams }) {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-8">
+    <Container className="py-8">
+      <header className="mb-8">
         <h1 className="text-4xl font-bold text-[var(--foreground)] mb-2">
           Agenda
         </h1>
@@ -123,7 +126,7 @@ async function AgendaContent({ searchParams }: { searchParams: SearchParams }) {
             </Link>
           </div>
         )}
-      </div>
+      </header>
 
       <div className="mb-8 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="font-semibold text-[var(--foreground)]">Filters</h2>
@@ -239,30 +242,24 @@ async function AgendaContent({ searchParams }: { searchParams: SearchParams }) {
       </div>
 
       {events.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-[var(--muted)] mb-4">
-            Geen evenementen gevonden met deze filters.
-          </p>
-          <Link
-            href="/agenda"
-            className="inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-          >
-            Alle evenementen bekijken
-          </Link>
-        </div>
+        <EmptyState
+          title="Geen evenementen gevonden"
+          description="Geen evenementen gevonden met deze filters."
+          action={{ label: "Alle evenementen bekijken", href: "/agenda" }}
+        />
       ) : (
         <>
           <p className="mb-6 text-sm text-[var(--muted)]">
             {events.length} evenement{events.length !== 1 ? "en" : ""} gevonden
           </p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <GridLayout cols={3} gap="lg">
             {events.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
-          </div>
+          </GridLayout>
         </>
       )}
-    </div>
+    </Container>
   );
 }
 

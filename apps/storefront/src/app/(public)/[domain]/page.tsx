@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDomainPageData } from "@/lib/services/domain-page";
-import { ProductCard } from "@/components/shared/ProductCard";
-import { CreatorCard } from "@/components/shared/CreatorCard";
-import { WorkshopCard } from "@/components/shared/WorkshopCard";
-import { EventCard } from "@/components/shared/EventCard";
-import { ArticleCard } from "@/components/shared/ArticleCard";
-import { ProjectCard } from "@/components/shared/ProjectCard";
-import { Section } from "@/components/shared/Section";
+import { ProductCard, CreatorCard, WorkshopCard, EventCard, ArticleCard, ProjectCard } from "@/components/cards";
+import { Container } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CardShell } from "@/components/ui/card-shell";
+import { GridLayout } from "@/components/layout/grid-layout";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
@@ -41,7 +40,7 @@ export default async function DomainPage({ params }: Props) {
     : false;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <Container className="py-8">
       <header className="mb-10">
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
           {domain.name}
@@ -70,194 +69,175 @@ export default async function DomainPage({ params }: Props) {
         </div>
       </header>
 
-      <Section title="Makers & leveranciers">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {creators.map((c) => (
-            <CreatorCard key={c.id} creator={c} />
-          ))}
-          {creators.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen creators in dit domein.
-            </p>
-          )}
-        </div>
-      </Section>
-
-      <Section title="Handgemaakt">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {handmadeProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-          {handmadeProducts.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen handgemaakte producten.
-            </p>
-          )}
-        </div>
-        {handmadeProducts.length > 0 && (
-          <div className="mt-4">
-            <Link
-              href={`/${domain.slug}/handmade`}
-              className="text-sm font-medium text-[var(--accent)] hover:underline"
-            >
-              Alle handgemaakte producten →
-            </Link>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Benodigdheden">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {supplyProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-          {supplyProducts.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen benodigdheden.
-            </p>
-          )}
-        </div>
-        {supplyProducts.length > 0 && (
-          <div className="mt-4">
-            <Link
-              href={`/${domain.slug}/supplies`}
-              className="text-sm font-medium text-[var(--accent)] hover:underline"
-            >
-              Alle benodigdheden →
-            </Link>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Workshops">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.workshops.map((w) => (
-            <WorkshopCard key={w.id} workshop={w} />
-          ))}
-          {data.workshops.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen workshops in dit domein.
-            </p>
-          )}
-        </div>
-        {data.workshops.length > 0 && (
-          <div className="mt-4">
-            <Link
-              href={`/${domain.slug}/workshops`}
-              className="text-sm font-medium text-[var(--accent)] hover:underline"
-            >
-              Alle workshops bekijken →
-            </Link>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Evenementen">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.events.map((e) => (
-            <EventCard key={e.id} event={e} />
-          ))}
-          {data.events.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen evenementen in dit domein.
-            </p>
-          )}
-        </div>
-        {data.events.length > 0 && (
-          <div className="mt-4">
-            <Link
-              href="/agenda"
-              className="text-sm font-medium text-[var(--accent)] hover:underline"
-            >
-              Volledige agenda bekijken →
-            </Link>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Inspiratie & artikelen">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.articles.map((a) => (
-            <ArticleCard key={a.id} article={a} />
-          ))}
-          {data.articles.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen artikelen in dit domein.
-            </p>
-          )}
-        </div>
-        {data.articles.length > 0 && (
-          <div className="mt-4">
-            <Link
-              href={`/${domain.slug}/artikels`}
-              className="text-sm font-medium text-[var(--accent)] hover:underline"
-            >
-              Alle artikelen bekijken →
-            </Link>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Projecten om te starten">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-          {data.projects.length === 0 && (
-            <p className="col-span-full text-[var(--muted)]">
-              Nog geen projecten in dit domein.
-            </p>
-          )}
-        </div>
-      </Section>
-
-      <Section title="Learning paths">
-        {data.learningPathTeasers.length === 0 ? (
-          <p className="text-[var(--muted)]">
-            Nog geen learning paths in dit domein.
-          </p>
+      <section className="mt-10">
+        <SectionHeader title="Makers & leveranciers" />
+        {creators.length > 0 ? (
+          <GridLayout cols={3}>
+            {creators.map((c) => (
+              <CreatorCard key={c.id} creator={c} />
+            ))}
+          </GridLayout>
         ) : (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {data.learningPathTeasers.map((path) => (
-                <article
-                  key={path.id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-                >
-                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--accent)]">
-                    {path.difficulty_level}
-                  </p>
-                  <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-                    {path.title}
-                  </h3>
-                  {path.short_description && (
-                    <p className="mt-2 text-sm text-[var(--muted)]">
-                      {path.short_description}
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-[var(--muted)]">
-                    {path.step_count} stap{path.step_count === 1 ? "" : "pen"}
-                  </p>
-                  <Link
-                    href={`/${domain.slug}/learning-paths/${path.slug}`}
-                    className="mt-3 inline-block text-sm font-medium text-[var(--accent)] hover:underline"
-                  >
-                    Open learning path →
-                  </Link>
-                </article>
-              ))}
-            </div>
-            <div className="mt-4">
-              <Link
-                href={`/${domain.slug}/learning-paths`}
-                className="text-sm font-medium text-[var(--accent)] hover:underline"
-              >
-                Alle learning paths bekijken →
-              </Link>
-            </div>
-          </>
+          <EmptyState
+            title="Nog geen creators"
+            description="Nog geen creators in dit domein."
+          />
         )}
-      </Section>
-    </div>
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Handgemaakt"
+          href={handmadeProducts.length > 0 ? `/${domain.slug}/handmade` : undefined}
+          linkText="Alle producten"
+        />
+        {handmadeProducts.length > 0 ? (
+          <GridLayout cols={4}>
+            {handmadeProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen handgemaakte producten"
+            description="Nog geen handgemaakte producten in dit domein."
+          />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Benodigdheden"
+          href={supplyProducts.length > 0 ? `/${domain.slug}/supplies` : undefined}
+          linkText="Alle benodigdheden"
+        />
+        {supplyProducts.length > 0 ? (
+          <GridLayout cols={4}>
+            {supplyProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen benodigdheden"
+            description="Nog geen benodigdheden in dit domein."
+          />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Workshops"
+          href={data.workshops.length > 0 ? `/${domain.slug}/workshops` : undefined}
+        />
+        {data.workshops.length > 0 ? (
+          <GridLayout cols={3}>
+            {data.workshops.map((w) => (
+              <WorkshopCard key={w.id} workshop={w} />
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen workshops"
+            description="Nog geen workshops in dit domein."
+          />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Evenementen"
+          href={data.events.length > 0 ? "/agenda" : undefined}
+          linkText="Volledige agenda"
+        />
+        {data.events.length > 0 ? (
+          <GridLayout cols={3}>
+            {data.events.map((e) => (
+              <EventCard key={e.id} event={e} />
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen evenementen"
+            description="Nog geen evenementen in dit domein."
+          />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Inspiratie & artikelen"
+          href={data.articles.length > 0 ? `/${domain.slug}/artikels` : undefined}
+        />
+        {data.articles.length > 0 ? (
+          <GridLayout cols={3}>
+            {data.articles.map((a) => (
+              <ArticleCard key={a.id} article={a} />
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen artikelen"
+            description="Nog geen artikelen in dit domein."
+          />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader title="Projecten om te starten" />
+        {data.projects.length > 0 ? (
+          <GridLayout cols={3}>
+            {data.projects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen projecten"
+            description="Nog geen projecten in dit domein."
+          />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <SectionHeader
+          title="Learning paths"
+          href={data.learningPathTeasers.length > 0 ? `/${domain.slug}/learning-paths` : undefined}
+        />
+        {data.learningPathTeasers.length > 0 ? (
+          <GridLayout cols={3}>
+            {data.learningPathTeasers.map((path) => (
+              <CardShell key={path.id} variant="interactive" padding="md">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--accent)]">
+                  {path.difficulty_level}
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                  {path.title}
+                </h3>
+                {path.short_description && (
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    {path.short_description}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  {path.step_count} stap{path.step_count === 1 ? "" : "pen"}
+                </p>
+                <Link
+                  href={`/${domain.slug}/learning-paths/${path.slug}`}
+                  className="mt-3 inline-block text-sm font-medium text-[var(--accent)] hover:underline"
+                >
+                  Open learning path →
+                </Link>
+              </CardShell>
+            ))}
+          </GridLayout>
+        ) : (
+          <EmptyState
+            title="Nog geen learning paths"
+            description="Nog geen learning paths in dit domein."
+          />
+        )}
+      </section>
+    </Container>
   );
 }

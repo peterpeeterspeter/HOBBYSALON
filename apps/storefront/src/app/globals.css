@@ -2,6 +2,7 @@
 
 /* Hobbysalon design tokens: warm palette, senior-friendly base */
 :root {
+  /* Core palette */
   --background: #fdfbf7;
   --foreground: #2d2a26;
   --muted: #6b6560;
@@ -11,6 +12,29 @@
   --border: #e8e2da;
   --card: #ffffff;
   --radius: 0.5rem;
+
+  /* Semantic feedback */
+  --success: #4a8c5c;
+  --warning: #c4903d;
+  --error: #b84a3f;
+  --info: #4a7ab8;
+
+  /* Difficulty scale */
+  --difficulty-beginner: #4a8c5c;
+  --difficulty-intermediate: #c4903d;
+  --difficulty-advanced: #b84a3f;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* Touch targets (55+ accessibility) */
+  --touch-target-min: 48px;
 }
 
 @theme inline {
@@ -20,11 +44,18 @@
   --color-accent: var(--accent);
   --color-border: var(--border);
   --color-card: var(--card);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
   --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
 
 body {
