@@ -115,6 +115,29 @@ export type FeedMetrics = {
   } | null;
 };
 
+export type MerchantImportJobDetail = {
+  job: {
+    id: string;
+    status: string;
+    total_count: number;
+    processed_count: number;
+    accepted_count: number;
+    rejected_count: number;
+    pending_count: number;
+    file_name: string | null;
+    file_size: number | null;
+    error_message: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+  items: Array<{
+    request_id: string;
+    status: string;
+    product_id: string | null;
+    import_row_index: number | null;
+  }>;
+};
+
 function getAdminBackendConfig() {
   const baseUrl =
     process.env.MEDUSA_BACKEND_URL ??
@@ -292,4 +315,34 @@ export async function getMerchantFeedSourceMetrics(
   }
 
   return (await response.json()) as FeedMetrics;
+}
+
+export async function getMerchantImportJobDetail(
+  sellerId: string,
+  jobId: string
+): Promise<MerchantImportJobDetail | null> {
+  const config = getAdminBackendConfig();
+  if (!config || !sellerId || !jobId) {
+    return null;
+  }
+
+  const response = await fetch(
+    `${config.baseUrl}/admin/platform/materials/merchants/${encodeURIComponent(
+      sellerId
+    )}/imports/${encodeURIComponent(jobId)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${config.adminToken}`,
+        "x-medusa-access-token": config.adminToken,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as MerchantImportJobDetail;
 }

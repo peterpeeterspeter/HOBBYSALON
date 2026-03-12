@@ -10,6 +10,7 @@ import {
 import { cookies } from "next/headers";
 import { createPlatformClient } from "@/lib/platform/client";
 import {
+  getMerchantImportJobDetail,
   getMerchantFeedSourceMetrics,
   getMerchantMaterialsDetail,
   listMerchantFeedSourceRuns,
@@ -29,6 +30,7 @@ type Props = {
     merchant_q?: string;
     seller_id?: string;
     feed_id?: string;
+    import_job_id?: string;
   }>;
 };
 
@@ -137,6 +139,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
     merchant_q: merchantQ,
     seller_id: selectedSellerId,
     feed_id: selectedFeedId,
+    import_job_id: selectedImportJobId,
   } = await searchParams;
   const stats = await getProjectionStats();
   const merchantOverview = await listMerchantMaterialsOverview({
@@ -178,6 +181,15 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
       ? merchantDetail.merchant.latest.feed_sources.find(
           (feed) => feed.id === selectedFeedId
         ) || null
+      : null;
+  const selectedImportJob =
+    merchantDetail &&
+    (selectedImportJobId ||
+      merchantDetail.merchant.latest.import_jobs[0]?.id)
+      ? await getMerchantImportJobDetail(
+          merchantDetail.merchant.seller_id,
+          selectedImportJobId || merchantDetail.merchant.latest.import_jobs[0]?.id || ""
+        )
       : null;
   const [selectedFeedRuns, selectedFeedMetrics] =
     selectedFeed && merchantDetail
@@ -427,9 +439,22 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                 {merchantDetail.merchant.latest.import_jobs
                   .slice(0, 5)
                   .map((item) => (
-                    <li key={item.id}>
-                      {item.status} · rows {item.total_count} ·{" "}
-                      {formatDate(item.created_at)}
+                    <li key={item.id} className="flex items-center justify-between gap-2">
+                      <span>
+                        {item.status} · rows {item.total_count} ·{" "}
+                        {formatDate(item.created_at)}
+                      </span>
+                      <Button asChild type="button" size="sm" variant="ghost">
+                        <a
+                          href={`/dashboard/materials?merchant_q=${encodeURIComponent(
+                            merchantQ ?? ""
+                          )}&seller_id=${encodeURIComponent(
+                            merchantDetail.merchant.seller_id
+                          )}&import_job_id=${encodeURIComponent(item.id)}`}
+                        >
+                          Inspect
+                        </a>
+                      </Button>
                     </li>
                   ))}
                 {merchantDetail.merchant.latest.import_jobs.length === 0 && (
@@ -668,6 +693,54 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                       </li>
                     ))}
                   </ul>
+                )}
+              </div>
+            )}
+
+            {selectedImportJob && (
+              <div className="mt-4 rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+                <p className="text-sm font-medium">
+                  Import job: {selectedImportJob.job.id}
+                </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {selectedImportJob.job.status} · processed{" "}
+                  {selectedImportJob.job.processed_count}/{selectedImportJob.job.total_count} ·
+                  accepted {selectedImportJob.job.accepted_count} · rejected{" "}
+                  {selectedImportJob.job.rejected_count} · pending{" "}
+                  {selectedImportJob.job.pending_count}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  file: {selectedImportJob.job.file_name || "-"} · updated{" "}
+                  {formatDate(selectedImportJob.job.updated_at)}
+                </p>
+                {selectedImportJob.job.error_message && (
+                  <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                    {selectedImportJob.job.error_message}
+                  </p>
+                )}
+                {selectedImportJob.items.length > 0 && (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-[var(--border)] text-left text-[var(--muted)]">
+                          <th className="px-2 py-2">Request</th>
+                          <th className="px-2 py-2">Status</th>
+                          <th className="px-2 py-2">Row</th>
+                          <th className="px-2 py-2">Product</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedImportJob.items.map((item) => (
+                          <tr key={item.request_id} className="border-b border-[var(--border)]/60">
+                            <td className="px-2 py-2">{item.request_id}</td>
+                            <td className="px-2 py-2">{item.status}</td>
+                            <td className="px-2 py-2">{item.import_row_index ?? "-"}</td>
+                            <td className="px-2 py-2">{item.product_id ?? "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}
