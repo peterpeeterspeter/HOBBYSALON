@@ -29,6 +29,7 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "Hobbysalon",
     locale: "nl_BE",
+    images: ["/logo.png"],
   },
   twitter: {
     card: "summary",

@@ -94,6 +94,15 @@ const PLACEHOLDERS: Array<{
   { filename: "placeholder-project.jpg", query: "diy craft project materials", orientation: "square" },
   // Domain/hero
   { filename: "domain-hero.jpg", query: "creative studio workspace warm light", orientation: "landscape" },
+  // Populaire domeinen (by slug)
+  { filename: "domain-crochet.jpg", query: "crochet yarn amigurumi handmade wool", orientation: "square" },
+  { filename: "domain-knitting.jpg", query: "knitting wool yarn cozy handmade", orientation: "square" },
+  { filename: "domain-card-making.jpg", query: "handmade greeting cards paper craft", orientation: "square" },
+  { filename: "domain-sewing.jpg", query: "sewing fabric textile craft", orientation: "square" },
+  { filename: "domain-jewelry-making.jpg", query: "handmade jewelry beads crafts", orientation: "square" },
+  { filename: "domain-scrapbooking.jpg", query: "scrapbook photos album paper craft", orientation: "square" },
+  { filename: "domain-pottery.jpg", query: "pottery clay ceramic handmade", orientation: "square" },
+  { filename: "domain-diy.jpg", query: "diy craft tools creative project", orientation: "square" },
   // Generic fallbacks
   { filename: "placeholder-default.jpg", query: "craft hobby creative warm", orientation: "landscape" },
 ];

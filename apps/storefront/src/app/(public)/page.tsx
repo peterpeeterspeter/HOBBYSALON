@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { getHomePageData } from "@/lib/services/home-page";
+import { buildHeroSlides } from "@/lib/services/hero-slides";
+import { HeroSlider } from "@/components/home/hero-slider";
 import { ProductCard, WorkshopCard, EventCard, ArticleCard, CreatorCard, ProjectCard } from "@/components/cards";
 import { Container } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
 import { CardShell } from "@/components/ui/card-shell";
+import { AspectImage } from "@/components/ui/aspect-image";
+import { getDomainPlaceholderImage } from "@/components/ui/ai-generated-image";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { buildPageMetadata } from "@/lib/seo";
@@ -38,26 +42,59 @@ export default async function HomePage() {
     // Platform DB not configured or unavailable
   }
 
-  return (
-    <Container className="py-12">
-      <TrackOnMount
-        event="home_recommendations_viewed"
-        payload={{
-          recommendation_source: data.recommendationSource,
-          item_count: data.recommendedProjects.length,
-          latency_ms: data.recommendationLatencyMs,
-          user_id: data.viewerUserId,
-        }}
-      />
-      <h1 className="text-3xl font-bold text-[var(--foreground)] mb-2">
-        Welkom bij Hobbysalon
-      </h1>
-      <p className="text-lg text-[var(--muted)] mb-8">
-        Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
-      </p>
+  const heroSlides = buildHeroSlides({
+    featuredHandmade: data.featuredHandmade,
+    featuredSupplies: data.featuredSupplies,
+    upcomingWorkshops: data.upcomingWorkshops,
+    upcomingEvents: data.upcomingEvents,
+    latestArticles: data.latestArticles,
+    creatorsOfTheMonth: data.creatorsOfTheMonth,
+    featuredProjects: data.featuredProjects,
+  });
 
-      <section className="mb-10">
+  return (
+    <>
+      <HeroSlider slides={heroSlides} autoplayIntervalMs={6000} />
+      <Container className="py-12">
+        <TrackOnMount
+          event="home_recommendations_viewed"
+          payload={{
+            recommendation_source: data.recommendationSource,
+            item_count: data.recommendedProjects.length,
+            latency_ms: data.recommendationLatencyMs,
+            user_id: data.viewerUserId,
+          }}
+        />
+        <h1 className="sr-only">Welkom bij Hobbysalon</h1>
+        <p className="sr-only">
+          Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
+        </p>
+
+        <SectionHeader title="Populaire domeinen" />
+      <GridLayout cols={4}>
+        {data.popularDomains.map((domain) => (
+          <Link key={domain.id} href={`/${domain.slug}`} className="block">
+            <CardShell variant="interactive" padding="md">
+              <AspectImage
+                ratio="square"
+                src={domain.hero_image_url ?? getDomainPlaceholderImage(domain.slug)}
+                alt={domain.name}
+                className="-mx-4 -mt-4 mb-3 rounded-b-none"
+              />
+              <h3 className="font-semibold text-[var(--foreground)]">{domain.name}</h3>
+              {domain.short_description && (
+                <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
+                  {domain.short_description}
+                </p>
+              )}
+            </CardShell>
+          </Link>
+        ))}
+      </GridLayout>
+
+      <section className="mt-8">
         <SectionHeader
+          subtle
           title={
             data.recommendationSource === "personalized"
               ? "Aanbevolen voor jou"
@@ -80,27 +117,12 @@ export default async function HomePage() {
           </GridLayout>
         ) : (
           <EmptyState
+            compact
             title="Nog geen aanbevelingen"
             description="Verken domeinen en markeer je favorieten om persoonlijke aanbevelingen te ontvangen."
           />
         )}
       </section>
-
-      <SectionHeader title="Populaire domeinen" />
-      <GridLayout cols={4}>
-        {data.popularDomains.map((domain) => (
-          <Link key={domain.id} href={`/${domain.slug}`} className="block">
-            <CardShell variant="interactive" padding="md">
-              <h3 className="font-semibold text-[var(--foreground)]">{domain.name}</h3>
-              {domain.short_description && (
-                <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
-                  {domain.short_description}
-                </p>
-              )}
-            </CardShell>
-          </Link>
-        ))}
-      </GridLayout>
 
       <section className="mt-10">
         <SectionHeader title="Aankomende workshops" href="/workshops" />
@@ -164,6 +186,7 @@ export default async function HomePage() {
           ))}
         </GridLayout>
       </section>
-    </Container>
+      </Container>
+    </>
   );
 }

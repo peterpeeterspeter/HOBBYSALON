@@ -22,9 +22,35 @@ export const LANDING_IMAGES = {
   placeholderProject: "/landing/placeholder-project.jpg",
   domainHero: "/landing/domain-hero.jpg",
   placeholderDefault: "/landing/placeholder-default.jpg",
+  // Populaire domeinen
+  domainCrochet: "/landing/domain-crochet.jpg",
+  domainKnitting: "/landing/domain-knitting.jpg",
+  domainCardMaking: "/landing/domain-card-making.jpg",
+  domainSewing: "/landing/domain-sewing.jpg",
+  domainJewelryMaking: "/landing/domain-jewelry-making.jpg",
+  domainScrapbooking: "/landing/domain-scrapbooking.jpg",
+  domainPottery: "/landing/domain-pottery.jpg",
+  domainDiy: "/landing/domain-diy.jpg",
+} as const;
+
+/** Map domain slug to placeholder image key for Populaire domeinen cards */
+export const DOMAIN_PLACEHOLDER_IMAGES: Record<string, LandingImageKey> = {
+  crochet: "domainCrochet",
+  knitting: "domainKnitting",
+  "card-making": "domainCardMaking",
+  sewing: "domainSewing",
+  "jewelry-making": "domainJewelryMaking",
+  scrapbooking: "domainScrapbooking",
+  pottery: "domainPottery",
+  diy: "domainDiy",
 } as const;
 
 export type LandingImageKey = keyof typeof LANDING_IMAGES;
+
+export function getDomainPlaceholderImage(slug: string): string {
+  const key = DOMAIN_PLACEHOLDER_IMAGES[slug];
+  return key ? LANDING_IMAGES[key] : LANDING_IMAGES.placeholderDefault;
+}
 
 type AIGeneratedImageProps = {
   /** Key of the pre-generated image from the design set */

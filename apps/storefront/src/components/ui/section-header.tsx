@@ -6,6 +6,8 @@ type SectionHeaderProps = {
   description?: string;
   href?: string;
   linkText?: string;
+  /** Quieter styling for secondary/background sections */
+  subtle?: boolean;
   className?: string;
 };
 
@@ -14,14 +16,29 @@ function SectionHeader({
   description,
   href,
   linkText = "Bekijk alles",
+  subtle,
   className,
 }: SectionHeaderProps) {
   return (
     <div className={cn("flex items-end justify-between gap-4 mb-6", className)}>
       <div>
-        <h2 className="text-2xl font-bold text-[var(--foreground)]">{title}</h2>
+        <h2
+          className={cn(
+            "font-semibold text-[var(--foreground)]",
+            subtle ? "text-base text-[var(--muted)]" : "text-2xl font-bold"
+          )}
+        >
+          {title}
+        </h2>
         {description && (
-          <p className="mt-1 text-[var(--muted)]">{description}</p>
+          <p
+            className={cn(
+              "mt-1",
+              subtle ? "text-xs text-[var(--muted)]/80" : "text-[var(--muted)]"
+            )}
+          >
+            {description}
+          </p>
         )}
       </div>
       {href && (

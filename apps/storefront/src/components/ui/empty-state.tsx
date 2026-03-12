@@ -10,6 +10,8 @@ type EmptyStateProps = {
   image?: keyof typeof LANDING_IMAGES;
   title?: string;
   description?: string;
+  /** Smaller, less prominent layout for secondary/background sections */
+  compact?: boolean;
   action?: {
     label: string;
     href?: string;
@@ -23,6 +25,7 @@ function EmptyState({
   image,
   title = "Geen resultaten",
   description = "Probeer andere zoekfilters of bekijk onze aanbevelingen.",
+  compact,
   action,
   className,
 }: EmptyStateProps) {
@@ -32,11 +35,17 @@ function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-12 px-4 text-center",
+        "flex flex-col items-center justify-center px-4 text-center",
+        compact ? "py-6" : "py-12",
         className
       )}
     >
-      <div className="mb-4 text-[var(--muted)] w-24 h-24 flex items-center justify-center shrink-0 overflow-hidden rounded-xl">
+      <div
+        className={cn(
+          "mb-4 text-[var(--muted)] flex items-center justify-center shrink-0 overflow-hidden rounded-xl",
+          compact ? "w-12 h-12" : "w-24 h-24"
+        )}
+      >
         {imageSrc ? (
           <LaoZhangImageFallback
             src={imageSrc}
@@ -45,13 +54,20 @@ function EmptyState({
             fallback={defaultIcon}
           />
         ) : (
-          defaultIcon
+          compact ? (icon ?? <SearchX size={20} aria-hidden="true" />) : defaultIcon
         )}
       </div>
-      <h3 className="text-lg font-semibold text-[var(--foreground)] mb-1">
+      <h3
+        className={cn(
+          "font-semibold text-[var(--foreground)] mb-1",
+          compact ? "text-sm" : "text-lg"
+        )}
+      >
         {title}
       </h3>
-      <p className="text-[var(--muted)] max-w-md mb-6">{description}</p>
+      <p className={cn("text-[var(--muted)] max-w-md", compact ? "text-xs mb-2" : "mb-6")}>
+        {description}
+      </p>
       {action && (
         action.href ? (
           <a href={action.href}>

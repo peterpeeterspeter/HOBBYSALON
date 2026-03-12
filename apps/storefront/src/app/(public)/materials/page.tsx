@@ -157,6 +157,7 @@ export default async function MaterialsMarketplacePage({
     creator_type: params.creator_type,
     sort: params.sort,
   };
+  const activeCategoryLabel = categoryNameFilter ?? null;
 
   return (
     <Container className="py-8">
@@ -248,6 +249,37 @@ export default async function MaterialsMarketplacePage({
             </Button>
           </div>
         </form>
+      </CardShell>
+
+      <CardShell variant="default" padding="md" className="mb-8">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={buildMaterialsHref({ ...baseQuery, category: undefined }, 1)}
+            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+              !activeCategoryLabel
+                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
+                : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            Alle categorieen
+          </Link>
+          {MATERIAL_CATEGORY_FILTERS.map((name) => {
+            const isActive = activeCategoryLabel?.toLowerCase() === name.toLowerCase();
+            return (
+              <Link
+                key={name}
+                href={buildMaterialsHref({ ...baseQuery, category: name }, 1)}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  isActive
+                    ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {name}
+              </Link>
+            );
+          })}
+        </div>
       </CardShell>
 
       {productsWithPrices.length === 0 ? (

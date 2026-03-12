@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 
@@ -6,58 +7,108 @@ export async function Footer() {
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
   try {
     const domains = await listDomainsBySort();
-    domainLinks = domains.slice(0, 3).map((domain) => ({
+    domainLinks = domains.map((domain) => ({
       id: domain.id,
       slug: domain.slug,
       name: domain.name,
     }));
   } catch {
     domainLinks = [
-      { id: "fallback-crochet", slug: "crochet", name: "Crochet" },
-      { id: "fallback-knitting", slug: "knitting", name: "Breien" },
-      { id: "fallback-pottery", slug: "pottery", name: "Keramiek" },
+      { id: "f-crochet", slug: "crochet", name: "Crochet" },
+      { id: "f-knitting", slug: "knitting", name: "Breien" },
+      { id: "f-pottery", slug: "pottery", name: "Keramiek" },
     ];
   }
 
+  const sections = [
+    {
+      title: "Ontdek",
+      links: [
+        { href: "/", label: "Home" },
+        { href: "/materials", label: "Materialen" },
+        { href: "/agenda", label: "Agenda" },
+        { href: "/workshops", label: "Workshops" },
+        { href: "/creators", label: "Creators" },
+        { href: "/favorites", label: "Favorieten" },
+      ],
+    },
+    {
+      title: "Domeinen",
+      links: domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name })),
+    },
+    {
+      title: "Info",
+      links: [
+        { href: "/landing", label: "Over Hobbysalon" },
+        { href: "/register", label: "Account aanmaken" },
+        { href: "/login", label: "Inloggen" },
+      ],
+    },
+  ];
+
   return (
-    <footer className="mt-16 border-t border-[var(--border)] bg-[var(--card)] py-8">
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div>
-            <p className="text-sm text-[var(--muted)]" suppressHydrationWarning>
-              © {new Date().getFullYear()} Hobbysalon. Creatief platform voor hobbyisten.
+    <footer className="mt-auto border-t border-[var(--border)] bg-[var(--card)]">
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        {/* Main footer grid */}
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+          {/* Brand column */}
+          <div className="lg:col-span-1">
+            <Link href="/" className="inline-block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
+              <Image
+                src="/logo.png"
+                alt="Hobbysalon"
+                width={140}
+                height={40}
+                className="h-9 w-auto object-contain opacity-90"
+              />
+            </Link>
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              Creatief platform voor hobbyisten — handmade, workshops en events.
             </p>
-            <nav className="mt-3 flex flex-wrap gap-4" aria-label="Footernavigatie">
-              <Link
-                href="/landing"
-                className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                Over Hobbysalon
-              </Link>
-              <Link
-                href="/favorites"
-                className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                Favorieten
-              </Link>
-              <Link
-                href="/dashboard"
-                className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                Dashboard
-              </Link>
-              {domainLinks.map((domain) => (
-                <Link
-                  key={domain.id}
-                  href={`/${domain.slug}`}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
-                >
-                  {domain.name}
-                </Link>
-              ))}
-            </nav>
           </div>
-          <NewsletterSignupForm />
+
+          {/* Link columns */}
+          {sections.map((section) => (
+            <nav key={section.title} aria-label={section.title}>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--foreground)]">
+                {section.title}
+              </h3>
+              <ul className="mt-3 space-y-2">
+                {section.links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
+        </div>
+
+        {/* Newsletter */}
+        <div className="mt-10 border-t border-[var(--border)] pt-10">
+          <div className="max-w-md">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--foreground)]">
+              Nieuwsbrief
+            </h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Blijf op de hoogte van workshops, events en inspiratie.
+            </p>
+            <div className="mt-3">
+              <NewsletterSignupForm />
+            </div>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-6">
+          <p className="text-xs text-[var(--muted)]" suppressHydrationWarning>
+            © {new Date().getFullYear()} Hobbysalon. Alle rechten voorbehouden.
+          </p>
         </div>
       </div>
     </footer>
