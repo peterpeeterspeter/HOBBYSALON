@@ -1,19 +1,29 @@
 import { createProductCategoriesWorkflow } from '@medusajs/medusa/core-flows'
-import { WorkflowResponse, createWorkflow, transform } from '@medusajs/workflows-sdk'
+import { kebabCase } from '@medusajs/framework/utils'
+import {
+  WorkflowResponse,
+  createWorkflow,
+  transform
+} from '@medusajs/workflows-sdk'
 
 import { AcceptRequestDTO } from '@mercurjs/framework'
 
 import { updateRequestWorkflow } from './update-request'
-import { createHandleFromNameStep } from '../steps/create-handle-from-name'
+import { parseProductCategoryRequestData } from '../utils/request-data-schemas'
 
 export const acceptProductCategoryRequestWorkflow = createWorkflow(
   'accept-product-category-request',
   function (input: AcceptRequestDTO) {
+    const requestData = transform({ input }, ({ input }) =>
+      parseProductCategoryRequestData(input.data)
+    )
 
-    const handle = createHandleFromNameStep(input)
+    const handle = transform({ requestData }, ({ requestData }) =>
+      requestData.handle === '' ? kebabCase(requestData.name) : requestData.handle
+    )
 
-    const categoryData = transform({ input, handle }, ({ input, handle }) => {
-      const { details: _details, ...rest } = input.data
+    const categoryData = transform({ requestData, handle }, ({ requestData, handle }) => {
+      const { details: _details, ...rest } = requestData
       return {
         ...rest,
         handle,
@@ -21,13 +31,13 @@ export const acceptProductCategoryRequestWorkflow = createWorkflow(
       }
     })
 
-    const additionalData = transform({ input }, ({ input }) =>
-      input.data.details ? { details: input.data.details } : undefined
+    const additionalData = transform({ requestData }, ({ requestData }) =>
+      requestData.details ? { details: requestData.details } : undefined
     )
 
     const productCategory = createProductCategoriesWorkflow.runAsStep({
       input: {
-        product_categories: [categoryData as any],
+        product_categories: [categoryData],
         additional_data: additionalData
       }
     })

@@ -1,5 +1,5 @@
 export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'draft'
-export type RequestDataPayload = Record<string, any>
+export type RequestDataPayload = Record<string, unknown>
 
 export type CreateRequestDTO = {
   type: string

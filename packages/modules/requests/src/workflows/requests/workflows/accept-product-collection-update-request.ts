@@ -1,14 +1,22 @@
 import { updateCollectionsWorkflow } from '@medusajs/medusa/core-flows'
-import { WorkflowResponse, createWorkflow } from '@medusajs/workflows-sdk'
+import {
+  WorkflowResponse,
+  createWorkflow,
+  transform
+} from '@medusajs/workflows-sdk'
 
 import { AcceptRequestDTO } from '@mercurjs/framework'
 
 import { updateRequestWorkflow } from './update-request'
+import { parseProductCollectionUpdateRequestData } from '../utils/request-data-schemas'
 
 export const acceptProductCollectionUpdateRequestWorkflow = createWorkflow(
   'accept-product-collection-update-request',
   function (input: AcceptRequestDTO) {
-    const { collection_id, ...updateData } = input.data
+    const requestData = transform({ input }, ({ input }) =>
+      parseProductCollectionUpdateRequestData(input.data)
+    )
+    const { collection_id, ...updateData } = requestData
 
     const collection = updateCollectionsWorkflow.runAsStep({
       input: {
@@ -21,4 +29,3 @@ export const acceptProductCollectionUpdateRequestWorkflow = createWorkflow(
     return new WorkflowResponse(collection[0])
   }
 )
-

@@ -6,6 +6,7 @@ import {
   REQUESTS_MODULE,
   RequestsModuleService
 } from '../../../modules/requests';
+import { parseRequestDataForType } from '../utils/request-data-schemas';
 
 export const createRequestStep = createStep(
   'create-request',
@@ -13,8 +14,12 @@ export const createRequestStep = createStep(
     const service = container.resolve<RequestsModuleService>(REQUESTS_MODULE);
 
     const toCreate = Array.isArray(input) ? input : [input];
+    const validatedRequests = toCreate.map((request) => ({
+      ...request,
+      data: parseRequestDataForType(request.type, request.data)
+    }));
 
-    const requests = await service.createRequests(toCreate);
+    const requests = await service.createRequests(validatedRequests);
 
     const createdIds = requests.map((r) => r.id);
 

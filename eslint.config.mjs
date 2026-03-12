@@ -59,5 +59,12 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
       'prefer-rest-params': 'off'
     }
+  },
+  {
+    files: ['apps/**/scripts/**/*.{ts,tsx}'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-explicit-any': 'off'
+    }
   }
 ]

@@ -6,7 +6,10 @@
         "^build"
       ],
       "outputs": [
-        "dist/**"
+        "dist/**",
+        ".medusa/**",
+        ".next/**",
+        "!.next/cache/**"
       ]
     },
     "dev": {

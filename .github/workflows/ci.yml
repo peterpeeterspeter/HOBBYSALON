@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  lint:
+    name: Lint (Errors Only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run ESLint (errors only)
+        run: yarn eslint . --quiet
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck framework
+        run: yarn workspace @mercurjs/framework tsc --noEmit -p tsconfig.json
+
+      - name: Typecheck storefront
+        run: yarn workspace storefront tsc --noEmit -p tsconfig.json
+
+      - name: Typecheck backend
+        run: yarn workspace api tsc --noEmit -p tsconfig.json
+
+      - name: Typecheck modules
+        run: |
+          yarn workspace @mercurjs/algolia tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/b2c-core tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/commission tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/payment-stripe-connect tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/requests tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/resend tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/reviews tsc --noEmit -p tsconfig.json
+          yarn workspace @mercurjs/stripe-tax-provider tsc --noEmit -p tsconfig.json
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - typecheck
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_ci
+      STORE_CORS: http://localhost:3002
+      ADMIN_CORS: http://localhost:7001
+      AUTH_CORS: http://localhost:3002
+      VENDOR_CORS: http://localhost:3002
+      JWT_SECRET: supersecret
+      COOKIE_SECRET: supersecret
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build monorepo
+        run: yarn build
+
+  seed-smoke:
+    name: Seed Smoke-Test
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: medusa_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d medusa_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_ci
+      STORE_CORS: http://localhost:3002
+      ADMIN_CORS: http://localhost:7001
+      AUTH_CORS: http://localhost:3002
+      VENDOR_CORS: http://localhost:3002
+      JWT_SECRET: supersecret
+      COOKIE_SECRET: supersecret
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run DB migrations
+        run: yarn workspace api db:migrate
+
+      - name: Run seed smoke-test
+        run: yarn workspace api seed

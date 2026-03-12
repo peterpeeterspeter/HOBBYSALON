@@ -1,4 +1,8 @@
-import { WorkflowResponse, createWorkflow } from "@medusajs/workflows-sdk";
+import {
+  WorkflowResponse,
+  createWorkflow,
+  transform,
+} from "@medusajs/workflows-sdk";
 
 import {
   AcceptRequestDTO,
@@ -7,14 +11,19 @@ import {
 
 import { updateRequestWorkflow } from "./update-request";
 import { emitEventStep } from "@medusajs/medusa/core-flows";
+import { parseReviewRemoveRequestData } from "../utils/request-data-schemas";
 
 export const acceptReviewRemoveRequestWorkflow = createWorkflow(
   "accept-review-remove-request",
   function (input: AcceptRequestDTO) {
+    const requestData = transform({ input }, ({ input }) =>
+      parseReviewRemoveRequestData(input.data)
+    );
+
     emitEventStep({
       eventName: RemoveReviewRequestUpdatedEvent.REMOVED,
       data: {
-        id: input.data.review_id,
+        id: requestData.review_id,
       },
     });
     updateRequestWorkflow.runAsStep({ input });

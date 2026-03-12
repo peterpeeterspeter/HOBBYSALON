@@ -5,6 +5,7 @@ import {
   RequestsModuleService,
 } from "../../../modules/requests";
 import { updateProductStatusWorkflow } from "@mercurjs/framework";
+import { parseProductRequestData } from "../utils/request-data-schemas";
 
 export const updateRelatedProductStatusStep = createStep(
   "update-related-product-status",
@@ -17,10 +18,12 @@ export const updateRelatedProductStatusStep = createStep(
       ["product", "product_update"].includes(request.type) &&
       request.status === "rejected"
     ) {
+      const requestData = parseProductRequestData(request.data);
+
       await updateProductStatusWorkflow.run({
         container,
         input: {
-          id: request.data.product_id,
+          id: requestData.product_id,
           status: "rejected",
         },
       });

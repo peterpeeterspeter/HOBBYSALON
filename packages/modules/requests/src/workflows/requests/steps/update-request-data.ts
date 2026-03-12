@@ -6,6 +6,7 @@ import {
   REQUESTS_MODULE,
   RequestsModuleService,
 } from "../../../modules/requests";
+import { parseRequestDataForType } from "../utils/request-data-schemas";
 
 export const updateRequestDataStep = createStep(
   "update-request-data",
@@ -28,12 +29,14 @@ export const updateRequestDataStep = createStep(
       );
     }
 
+    const mergedData = {
+      ...existingRequest.data,
+      ...input.data,
+    };
+
     const request = await service.updateRequests({
       id: input.id,
-      data: {
-        ...existingRequest.data,
-        ...input.data,
-      },
+      data: parseRequestDataForType(input.type, mergedData),
     });
 
     return new StepResponse(request, request.id);

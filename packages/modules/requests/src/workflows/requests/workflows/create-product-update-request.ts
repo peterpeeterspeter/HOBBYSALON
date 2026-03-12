@@ -19,17 +19,22 @@ import {
 import { REQUESTS_MODULE } from "../../../modules/requests";
 
 import { createRequestStep } from "../steps";
+import { parseProductUpdateRequestData } from "../utils/request-data-schemas";
 
 export const createProductUpdateRequestWorkflow = createWorkflow(
   "create-product-update-request",
   function (input: {
     data: CreateRequestDTO;
     seller_id: string;
-    additional_data?: any;
+    additional_data?: unknown;
   }) {
+    const requestData = transform({ input }, ({ input }) =>
+      parseProductUpdateRequestData(input.data.data)
+    );
+
     updateProductStatusStep(
-      transform({ input }, ({ input }) => ({
-        id: input.data.data.product_id,
+      transform({ requestData }, ({ requestData }) => ({
+        id: requestData.product_id,
         status: ProductStatus.PROPOSED,
       }))
     );
@@ -37,8 +42,8 @@ export const createProductUpdateRequestWorkflow = createWorkflow(
     const requestPayload = transform({ input }, ({ input }) => ({
       ...input.data,
       data: {
-        ...input.data.data,
-        product_id: input.data.data.product_id,
+        ...requestData,
+        product_id: requestData.product_id,
       },
       type: "product_update",
       status: "pending" as RequestStatus,
