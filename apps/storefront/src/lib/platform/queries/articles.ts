@@ -91,3 +91,17 @@ export async function listLatestArticles(limit = 8): Promise<Article[]> {
   if (error) return [];
   return (data ?? []) as Article[];
 }
+
+export async function listArticlesByAuthor(creatorId: string): Promise<Article[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .eq("author_creator_id", creatorId)
+    .eq("is_published", true)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return (data ?? []) as Article[];
+}

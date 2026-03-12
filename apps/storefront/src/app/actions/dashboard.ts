@@ -66,6 +66,20 @@ function parseOptionalInt(formData: FormData, field: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseUuidValues(formData: FormData, field: string): string[] {
+  return Array.from(
+    new Set(
+      (formData.getAll(field) ?? [])
+        .map((value) => value.toString().trim())
+        .filter((value) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            value
+          )
+        )
+    )
+  );
+}
+
 function toSlug(input: string): string {
   return input
     .normalize("NFKD")
@@ -127,6 +141,39 @@ function ok(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
 }
 
+async function syncCreatorDomains(
+  creatorId: string,
+  domainIds: string[]
+): Promise<string | null> {
+  const supabase = createPlatformClient();
+  const { error: deleteError } = await supabase
+    .from("creator_domains")
+    .delete()
+    .eq("creator_id", creatorId);
+
+  if (deleteError) {
+    return deleteError.message;
+  }
+
+  if (domainIds.length === 0) {
+    return null;
+  }
+
+  const rows = domainIds.map((domainId) => ({
+    creator_id: creatorId,
+    domain_id: domainId,
+  }));
+  const { error: insertError } = await supabase
+    .from("creator_domains")
+    .insert(rows);
+
+  if (insertError) {
+    return insertError.message;
+  }
+
+  return null;
+}
+
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
   try {
     const user = await getAuthUser();
@@ -137,6 +184,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     const displayName = parseRequiredString(formData, "display_name");
     const preferredSlug = parseOptionalString(formData, "slug") ?? displayName;
     const slug = await ensureUniqueSlug("creators", preferredSlug);
+    const selectedDomainIds = parseUuidValues(formData, "domain_ids");
     const creatorTypes = (formData.getAll("creator_types") ?? [])
       .map((value) => value.toString())
       .filter(Boolean);
@@ -160,11 +208,14 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     const existing = await getCreatorByUserId(user.id);
     const supabase = createPlatformClient();
 
+    let finalCreatorSlug = payload.slug;
+
     if (existing) {
       const slugForUpdate =
         preferredSlug && preferredSlug !== existing.slug
           ? await ensureUniqueSlug("creators", preferredSlug, existing.id)
           : existing.slug;
+      finalCreatorSlug = slugForUpdate;
 
       const { error } = await supabase
         .from("creators")
@@ -175,15 +226,34 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       if (error) {
         fail("/dashboard/creator", "Opslaan van creator-profiel mislukt.");
       }
+
+      const domainSyncError = await syncCreatorDomains(existing.id, selectedDomainIds);
+      if (domainSyncError) {
+        fail("/dashboard/creator", "Opslaan van hobby-domeinen mislukt.");
+      }
     } else {
-      const { error } = await supabase.from("creators").insert(payload);
-      if (error) {
+      const { data: insertedRows, error } = await supabase
+        .from("creators")
+        .insert(payload)
+        .select("id")
+        .limit(1);
+      if (error || !insertedRows?.[0]?.id) {
         fail("/dashboard/creator", "Aanmaken van creator-profiel mislukt.");
+      }
+
+      const domainSyncError = await syncCreatorDomains(
+        insertedRows[0].id as string,
+        selectedDomainIds
+      );
+      if (domainSyncError) {
+        fail("/dashboard/creator", "Opslaan van hobby-domeinen mislukt.");
       }
     }
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/creator");
+    revalidatePath("/creators");
+    revalidatePath(`/creator/${finalCreatorSlug}`);
     ok("/dashboard/creator", "Creator-profiel opgeslagen.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;

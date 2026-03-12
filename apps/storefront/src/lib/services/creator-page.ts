@@ -1,11 +1,24 @@
 import { getCreatorBySlug } from "@/lib/platform/queries/creators";
 import { listProductsByCreator } from "@/lib/platform/queries/products";
-import { getWorkshopById } from "@/lib/platform/queries/workshops";
-import { listEventsByIds } from "@/lib/platform/queries/events";
-import { listArticlesByIds } from "@/lib/platform/queries/articles";
+import {
+  getWorkshopById,
+  listWorkshopsByCreator,
+} from "@/lib/platform/queries/workshops";
+import { listEventsByCreator, listEventsByIds } from "@/lib/platform/queries/events";
+import {
+  listArticlesByAuthor,
+  listArticlesByIds,
+} from "@/lib/platform/queries/articles";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import type { Creator, Product, Domain, Workshop, Event, Article } from "@/types/platform";
+import type {
+  Creator,
+  Product,
+  Domain,
+  Workshop,
+  Event,
+  Article,
+} from "@/types/platform";
 
 export type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
@@ -33,13 +46,16 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     };
   }
 
-  const [products, entityLinks, creatorDomains] = await Promise.all([
-    listProductsByCreator(creator.id),
-    getRelatedEntities("creator", creator.id),
-    getCreatorDomains(creator.id),
-  ]);
+  const [products, entityLinks, creatorDomains, ownWorkshops, ownEvents, ownArticles] =
+    await Promise.all([
+      listProductsByCreator(creator.id),
+      getRelatedEntities("creator", creator.id),
+      getCreatorDomains(creator.id),
+      listWorkshopsByCreator(creator.id),
+      listEventsByCreator(creator.id),
+      listArticlesByAuthor(creator.id),
+    ]);
 
-  const domains = creatorDomains;
   const relatedWorkshopIds = entityLinks
     .filter((l) => l.target_entity_type === "workshop")
     .map((l) => l.target_entity_id);
@@ -63,7 +79,7 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     })
   );
 
-  const [relatedWorkshops, relatedEvents, relatedArticles] = await Promise.all([
+  const [linkedWorkshops, linkedEvents, linkedArticles] = await Promise.all([
     relatedWorkshopIds.length > 0
       ? (
           await Promise.all(relatedWorkshopIds.map((id) => getWorkshopById(id)))
@@ -76,10 +92,10 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
   return {
     creator,
     products: productsWithPrices,
-    domains,
-    relatedWorkshops,
-    relatedEvents,
-    relatedArticles,
+    domains: creatorDomains,
+    relatedWorkshops: mergeById<Workshop>(ownWorkshops, linkedWorkshops),
+    relatedEvents: mergeById<Event>(ownEvents, linkedEvents),
+    relatedArticles: mergeById<Article>(ownArticles, linkedArticles),
   };
 }
 
@@ -99,4 +115,15 @@ async function getCreatorDomains(creatorId: string): Promise<Domain[]> {
     .in("id", domainIds)
     .eq("is_active", true);
   return (domains ?? []) as Domain[];
+}
+
+function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const row of primary) byId.set(row.id, row);
+  for (const row of secondary) {
+    if (!byId.has(row.id)) {
+      byId.set(row.id, row);
+    }
+  }
+  return Array.from(byId.values());
 }

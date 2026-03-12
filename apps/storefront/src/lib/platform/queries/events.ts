@@ -157,3 +157,51 @@ export async function listEventsByIds(ids: string[]): Promise<Event[]> {
     .map((id) => byId.get(id))
     .filter((event): event is Event => !!event);
 }
+
+export async function listEventsByCreator(creatorId: string): Promise<Event[]> {
+  const supabase = createPlatformClient();
+
+  const [organizedResult, participationResult] = await Promise.all([
+    supabase
+      .from("events")
+      .select("*")
+      .eq("organizer_creator_id", creatorId)
+      .eq("is_active", true)
+      .order("starts_at", { ascending: true }),
+    supabase
+      .from("event_creators")
+      .select("event_id")
+      .eq("creator_id", creatorId),
+  ]);
+
+  const organizedEvents = (organizedResult.data ?? []) as Event[];
+  const participationIds = [
+    ...new Set((participationResult.data ?? []).map((row) => row.event_id)),
+  ];
+  if (participationIds.length === 0) {
+    return organizedEvents;
+  }
+
+  const { data: participationEvents, error } = await supabase
+    .from("events")
+    .select("*")
+    .in("id", participationIds)
+    .eq("is_active", true)
+    .order("starts_at", { ascending: true });
+
+  if (error) {
+    return organizedEvents;
+  }
+
+  const mergedById = new Map<string, Event>();
+  for (const event of organizedEvents) {
+    mergedById.set(event.id, event);
+  }
+  for (const event of (participationEvents ?? []) as Event[]) {
+    mergedById.set(event.id, event);
+  }
+
+  return Array.from(mergedById.values()).sort((a, b) =>
+    a.starts_at.localeCompare(b.starts_at)
+  );
+}

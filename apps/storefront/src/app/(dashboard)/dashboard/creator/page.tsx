@@ -1,5 +1,7 @@
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { listDomainsBySort } from "@/lib/platform/queries/domains";
+import { createPlatformClient } from "@/lib/platform/client";
 import { saveCreatorProfileAction } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
@@ -20,6 +22,17 @@ const CREATOR_TYPES: Array<{ value: string; label: string }> = [
 export default async function DashboardCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
+  const domains = await listDomainsBySort();
+  const selectedDomainIds = creator
+    ? await (async () => {
+        const supabase = createPlatformClient();
+        const { data } = await supabase
+          .from("creator_domains")
+          .select("domain_id")
+          .eq("creator_id", creator.id);
+        return new Set((data ?? []).map((row) => row.domain_id as string));
+      })()
+    : new Set<string>();
   const { success, error } = await searchParams;
 
   return (
@@ -73,6 +86,11 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
             defaultValue={creator?.instagram_url ?? ""}
           />
           <Input
+            name="facebook_url"
+            label="Facebook"
+            defaultValue={creator?.facebook_url ?? ""}
+          />
+          <Input
             name="avatar_url"
             label="Avatar URL"
             defaultValue={creator?.avatar_url ?? ""}
@@ -105,6 +123,29 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
                   defaultChecked={creator?.creator_types?.includes(type.value)}
                 />
                 <span className="text-sm">{type.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="mt-4">
+          <legend className="text-sm font-medium">Hobby-domeinen</legend>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Deze domeinen bepalen waar je zichtbaar bent op discovery-pagina&apos;s.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {domains.map((domain) => (
+              <label
+                key={domain.id}
+                className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5"
+              >
+                <input
+                  type="checkbox"
+                  name="domain_ids"
+                  value={domain.id}
+                  defaultChecked={selectedDomainIds.has(domain.id)}
+                />
+                <span className="text-sm">{domain.name}</span>
               </label>
             ))}
           </div>

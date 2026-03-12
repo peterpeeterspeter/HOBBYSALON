@@ -38,7 +38,7 @@ export function NewsletterSignupForm() {
     if (state.success && !trackedSuccess.current) {
       trackedSuccess.current = true;
       trackEvent("newsletter_signup", {
-        signup_source: "footer_form",
+        signup_source: "newsletter_form",
       });
     }
 

@@ -4,6 +4,7 @@ import { getCreatorPageData } from "@/lib/services/creator-page";
 import { ProductCard, WorkshopCard, EventCard, ArticleCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
@@ -89,6 +90,12 @@ export default async function CreatorPage({ params }: Props) {
                 {creator.bio}
               </p>
             )}
+            {(creator.city || creator.country_code) && (
+              <p className="mt-3 text-sm text-[var(--muted)]">
+                {creator.city ?? "Locatie onbekend"}
+                {creator.country_code ? `, ${creator.country_code}` : ""}
+              </p>
+            )}
             <div className="mt-4">
               <FavoriteToggleButton
                 entityType="creator"
@@ -117,6 +124,56 @@ export default async function CreatorPage({ params }: Props) {
         )}
       </CardShell>
 
+      <section className="pb-2">
+        <CardShell variant="default" padding="lg">
+          <h2 className="text-xl font-semibold text-[var(--foreground)]">Contact & volg</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {creator.website_url && (
+              <a
+                href={creator.website_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex rounded-md border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] hover:border-[var(--accent)]"
+              >
+                Website
+              </a>
+            )}
+            {creator.instagram_url && (
+              <a
+                href={creator.instagram_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex rounded-md border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] hover:border-[var(--accent)]"
+              >
+                Instagram
+              </a>
+            )}
+            {creator.facebook_url && (
+              <a
+                href={creator.facebook_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex rounded-md border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] hover:border-[var(--accent)]"
+              >
+                Facebook
+              </a>
+            )}
+            {!creator.website_url && !creator.instagram_url && !creator.facebook_url && (
+              <p className="text-sm text-[var(--muted)]">
+                Nog geen social of website links beschikbaar.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-6 border-t border-[var(--border)] pt-4">
+            <p className="mb-2 text-sm text-[var(--muted)]">
+              Volg updates en tutorials van creators via nieuwsbrief.
+            </p>
+            <NewsletterSignupForm />
+          </div>
+        </CardShell>
+      </section>
+
       <section className="py-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
           Producten
@@ -144,9 +201,9 @@ export default async function CreatorPage({ params }: Props) {
       </EntityLinkBlock>
 
       <EntityLinkBlock
-        title="Evenementen"
+        title="Events"
         isEmpty={relatedEvents.length === 0}
-        emptyMessage="Evenementen binnenkort beschikbaar."
+        emptyMessage="Events binnenkort beschikbaar."
       >
         {relatedEvents.map((event) => (
           <EventCard key={event.id} event={event} />
@@ -154,9 +211,9 @@ export default async function CreatorPage({ params }: Props) {
       </EntityLinkBlock>
 
       <EntityLinkBlock
-        title="Artikelen"
+        title="Artikelen & tutorials"
         isEmpty={relatedArticles.length === 0}
-        emptyMessage="Artikelen binnenkort beschikbaar."
+        emptyMessage="Artikelen en tutorials binnenkort beschikbaar."
       >
         {relatedArticles.map((article) => (
           <ArticleCard key={article.id} article={article} />
