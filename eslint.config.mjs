@@ -9,6 +9,7 @@ export default [
       '**/dist/**',
       '**/.medusa/**',
       '**/.next/**',
+      '**/.claude/**',
       '**/build/**',
       '**/*.js',
       '**/*.mjs',

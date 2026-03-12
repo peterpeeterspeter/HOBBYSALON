@@ -13,7 +13,7 @@ export const acceptProductTypeRequestWorkflow = createWorkflow(
   function (input: AcceptRequestDTO) {
     const result = createProductTypesWorkflow.runAsStep({
       input: {
-        product_types: [input.data]
+        product_types: [input.data as any]
       }
     })
 

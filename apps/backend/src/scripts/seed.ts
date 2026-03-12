@@ -82,7 +82,7 @@ export default async function seedMarketplaceData({ container }: ExecArgs) {
     serviceZone = zone
     let hasShippingOption = false
     try {
-      const sellerShippingOptionLink = (await import('@mercurjs/b2c-core/links/seller-shipping-option')).default
+      const sellerShippingOptionLink = (await import('@mercurjs/b2c-core/links/seller-shipping-option')).default as any
       const { data: sellerShippingOpts } = await query.graph({
         entity: sellerShippingOptionLink.entryPoint,
         fields: ['shipping_option_id'],

@@ -27,7 +27,7 @@ export const acceptProductCategoryRequestWorkflow = createWorkflow(
 
     const productCategory = createProductCategoriesWorkflow.runAsStep({
       input: {
-        product_categories: [categoryData],
+        product_categories: [categoryData as any],
         additional_data: additionalData
       }
     })

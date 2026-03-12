@@ -5,11 +5,13 @@ import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import { listEvents } from "@/lib/platform/queries/events";
 import { listArticlesByDomain } from "@/lib/platform/queries/articles";
 import { listProjectsByDomain } from "@/lib/platform/queries/projects";
-import { listLearningPathsByDomain } from "@/lib/platform/queries/learning-paths";
+import {
+  listLearningPathsByDomain,
+  type LearningPathWithStepCount,
+} from "@/lib/platform/queries/learning-paths";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import type { Domain, Creator, Product, Workshop, Event, Article, Project } from "@/types/platform";
-import type { LearningPathWithStepCount } from "@/lib/platform/queries/learning-paths";
 
 export type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;

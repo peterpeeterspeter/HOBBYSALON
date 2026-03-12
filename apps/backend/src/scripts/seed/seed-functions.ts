@@ -218,7 +218,7 @@ export async function createProductCategories(container: MedusaContainer) {
     { name: 'Tops', is_active: true }
   ]
 
-  const results = []
+  const results: any[] = []
   for (const cat of allCategories) {
     try {
       const { result } = await createProductCategoriesWorkflow(container).run({
@@ -248,7 +248,7 @@ export async function createProductCollections(container: MedusaContainer) {
     { title: 'Y2K' }
   ]
 
-  const results = []
+  const results: any[] = []
   for (const col of allCollections) {
     try {
       const { result } = await createCollectionsWorkflow(container).run({
@@ -276,7 +276,9 @@ export async function createSeller(container: MedusaContainer) {
       provider_identities: { entity_id: 'seller@mercurjs.com', provider: 'emailpass' }
     })
     if (existing) {
-      const sellerModule = container.resolve(SELLER_MODULE)
+      const sellerModule = container.resolve(SELLER_MODULE) as {
+        listSellers: (input: Record<string, unknown>) => Promise<any[]>
+      }
       const [existingSeller] = await sellerModule.listSellers({})
       if (existingSeller) return existingSeller
     }

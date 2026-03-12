@@ -1,8 +1,9 @@
 export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'draft'
+export type RequestDataPayload = Record<string, any>
 
 export type CreateRequestDTO = {
   type: string
-  data: unknown
+  data: RequestDataPayload
   submitter_id: string
   reviewer_id?: string
   reviewer_note?: string
@@ -19,13 +20,13 @@ export type UpdateRequestDTO = {
 export type UpdateRequestDataDTO = {
   id: string
   type: string
-  data: unknown
+  data: RequestDataPayload
 }
 
 export type AcceptRequestDTO = {
   id: string
   reviewer_id: string
   reviewer_note: string
-  data: unknown
+  data: RequestDataPayload
   status: RequestStatus
 }

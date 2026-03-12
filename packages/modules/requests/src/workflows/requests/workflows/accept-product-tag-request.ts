@@ -13,7 +13,7 @@ export const acceptProductTagRequestWorkflow = createWorkflow(
   function (input: AcceptRequestDTO) {
     const result = createProductTagsWorkflow.runAsStep({
       input: {
-        product_tags: [input.data]
+        product_tags: [input.data as any]
       }
     })
 

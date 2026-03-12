@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getProductPageData } from "@/lib/services/product-page";
 import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
