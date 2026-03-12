@@ -227,6 +227,11 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
   },
   {
     method: ["GET"],
+    matcher: "/vendor/products/feed-sources/:id/metrics",
+    middlewares: [],
+  },
+  {
+    method: ["GET"],
     matcher: "/vendor/products/:id",
     middlewares: [
       unlessPath(
