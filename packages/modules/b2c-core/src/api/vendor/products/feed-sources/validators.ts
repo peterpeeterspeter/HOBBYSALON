@@ -55,7 +55,7 @@ const toOptionalBoolean = z.preprocess((value) => {
   return value
 }, z.boolean().optional())
 
-const FeedFieldMapping = z
+export const FeedFieldMapping = z
   .object({
     sku: z.string().min(1).optional(),
     price_amount: z.string().min(1).optional(),
@@ -159,5 +159,33 @@ export type VendorPullFeedSourceType = z.infer<typeof VendorPullFeedSource>
 export const VendorPullFeedSource = z
   .object({
     limit: z.number().int().min(1).max(5000).optional(),
+  })
+  .strict()
+
+export type VendorPreviewFeedSourceType = z.infer<
+  typeof VendorPreviewFeedSource
+>
+export const VendorPreviewFeedSource = z
+  .object({
+    limit: z
+      .preprocess(toOptionalInteger, z.number().int().min(1).max(500))
+      .optional()
+      .default(50),
+    mapping: FeedFieldMapping.optional(),
+    default_currency: z
+      .preprocess(
+        (value) => {
+          const parsed = toOptionalTrimmedString(value)
+          if (typeof parsed === 'string') {
+            return parsed.toLowerCase()
+          }
+          return parsed
+        },
+        z.string().regex(/^[a-z]{3}$/)
+      )
+      .optional(),
+    default_location_id: z
+      .preprocess(toOptionalTrimmedString, z.string().min(1))
+      .optional(),
   })
   .strict()

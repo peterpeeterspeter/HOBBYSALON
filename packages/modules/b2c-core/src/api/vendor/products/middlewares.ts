@@ -45,6 +45,7 @@ import { vendorProductSyncJobsQueryConfig } from "./sync/query-config";
 import {
   VendorCreateFeedSource,
   VendorGetFeedSourcesParams,
+  VendorPreviewFeedSource,
   VendorPullFeedSource,
   VendorUpdateFeedSource,
 } from "./feed-sources/validators";
@@ -208,6 +209,11 @@ export const vendorProductsMiddlewares: MiddlewareRoute[] = [
     method: ["POST"],
     matcher: "/vendor/products/feed-sources/:id/pull",
     middlewares: [validateAndTransformBody(VendorPullFeedSource)],
+  },
+  {
+    method: ["POST"],
+    matcher: "/vendor/products/feed-sources/:id/preview",
+    middlewares: [validateAndTransformBody(VendorPreviewFeedSource)],
   },
   {
     method: ["GET"],
