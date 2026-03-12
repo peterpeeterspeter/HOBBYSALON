@@ -19,6 +19,17 @@ import {
 } from '../../utils'
 
 const MAX_PREVIEW_ERRORS = 50
+const RUN_STALE_AFTER_MS = 2 * 60 * 60 * 1000
+
+const getActiveProcessingRun = async (knex: any, feedSourceId: string) => {
+  return knex('merchant_feed_pull_run')
+    .select('id', 'started_at')
+    .where('feed_source_id', feedSourceId)
+    .where('status', 'processing')
+    .whereNull('deleted_at')
+    .orderBy('started_at', 'desc')
+    .first()
+}
 
 /**
  * @oas [post] /vendor/products/feed-sources/{id}/pull
@@ -76,6 +87,31 @@ export const POST = async (
     ])
   )
   const now = new Date()
+  const currentProcessingRun = await getActiveProcessingRun(knex, source.id)
+  if (currentProcessingRun) {
+    const startedAt = new Date(currentProcessingRun.started_at)
+    const isStale =
+      Number.isNaN(startedAt.getTime()) ||
+      now.getTime() - startedAt.getTime() > RUN_STALE_AFTER_MS
+
+    if (isStale) {
+      await knex('merchant_feed_pull_run')
+        .where('id', currentProcessingRun.id)
+        .whereNull('deleted_at')
+        .update({
+          status: 'failed',
+          error_message: 'Run marked as stale before starting a new manual pull',
+          finished_at: new Date(),
+          updated_at: new Date(),
+        })
+    } else {
+      throw new MedusaError(
+        MedusaError.Types.CONFLICT,
+        `Feed source already has a processing run (${currentProcessingRun.id})`
+      )
+    }
+  }
+
   const runId = `mfr_${randomUUID().replace(/-/g, '').slice(0, 24)}`
 
   await knex('merchant_feed_pull_run').insert({

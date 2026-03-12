@@ -14,6 +14,7 @@ import {
 
 const DEFAULT_PULL_INTERVAL_MINUTES = 60
 const MAX_PREVIEW_ERRORS = 50
+const RUN_STALE_AFTER_MS = 2 * 60 * 60 * 1000
 
 const isDue = (source: FeedSourceRow, now: Date) => {
   if (!source.active || !source.auto_pull_enabled) {
@@ -50,6 +51,16 @@ const resolveSubmitterId = async (knex: any, sellerId: string) => {
   return (member?.id as string | undefined) || sellerId
 }
 
+const getProcessingRun = async (knex: any, feedSourceId: string) => {
+  return knex('merchant_feed_pull_run')
+    .select('id', 'started_at')
+    .where('feed_source_id', feedSourceId)
+    .where('status', 'processing')
+    .whereNull('deleted_at')
+    .orderBy('started_at', 'desc')
+    .first()
+}
+
 export default async function merchantFeedAutoPullJob(container: MedusaContainer) {
   const knex = container.resolve(ContainerRegistrationKeys.PG_CONNECTION)
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
@@ -70,6 +81,32 @@ export default async function merchantFeedAutoPullJob(container: MedusaContainer
   for (const source of sources) {
     if (!isDue(source, now)) {
       continue
+    }
+
+    const processingRun = await getProcessingRun(knex, source.id)
+    if (processingRun) {
+      const startedAt = new Date(processingRun.started_at)
+      const isStale =
+        Number.isNaN(startedAt.getTime()) ||
+        now.getTime() - startedAt.getTime() > RUN_STALE_AFTER_MS
+
+      if (isStale) {
+        await knex('merchant_feed_pull_run')
+          .where('id', processingRun.id)
+          .whereNull('deleted_at')
+          .update({
+            status: 'failed',
+            error_message:
+              'Run marked as stale before scheduled auto-pull execution',
+            finished_at: new Date(),
+            updated_at: new Date(),
+          })
+      } else {
+        logger.warn(
+          `Skipping scheduled pull for source ${source.id}: run ${processingRun.id} is still processing`
+        )
+        continue
+      }
     }
 
     const serialized = serializeFeedSource(source)
