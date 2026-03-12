@@ -244,6 +244,169 @@ const getArrayFromObject = (payload: Record<string, unknown>) => {
   return null
 }
 
+const toRecordArray = (value: unknown): Record<string, unknown>[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter(
+    (entry): entry is Record<string, unknown> =>
+      Boolean(entry && typeof entry === 'object' && !Array.isArray(entry))
+  )
+}
+
+const flattenShopifyRows = (rows: Record<string, unknown>[]) => {
+  const flattened: Record<string, unknown>[] = []
+
+  for (const row of rows) {
+    const variants = toRecordArray(row.variants)
+
+    if (variants.length) {
+      for (const variant of variants) {
+        const sku = normalizeString(variant.sku) || normalizeString(row.sku)
+        const priceAmount =
+          variant.price ??
+          variant.compare_at_price ??
+          row.price ??
+          row.compare_at_price
+        const stockedQuantity =
+          variant.inventory_quantity ?? row.inventory_quantity
+        const incomingQuantity =
+          variant.incoming_quantity ?? row.incoming_quantity
+        const priceCurrency =
+          normalizeString(variant.currency) ||
+          normalizeString(row.currency) ||
+          normalizeString(row.currency_code)
+
+        flattened.push({
+          ...row,
+          ...variant,
+          sku,
+          price_amount: priceAmount,
+          price_currency: priceCurrency,
+          stocked_quantity: stockedQuantity,
+          incoming_quantity: incomingQuantity,
+          location_id:
+            normalizeString(variant.location_id) ||
+            normalizeString(row.location_id),
+          source_product_id:
+            normalizeString(row.id) ||
+            normalizeString(row.product_id) ||
+            null,
+          source_variant_id:
+            normalizeString(variant.id) ||
+            normalizeString(variant.variant_id) ||
+            null,
+        })
+      }
+      continue
+    }
+
+    flattened.push({
+      ...row,
+      sku: normalizeString(row.sku),
+      price_amount: row.price ?? row.compare_at_price,
+      price_currency:
+        normalizeString(row.currency) || normalizeString(row.currency_code),
+      stocked_quantity: row.inventory_quantity,
+      incoming_quantity: row.incoming_quantity,
+      location_id: normalizeString(row.location_id),
+      source_product_id:
+        normalizeString(row.id) || normalizeString(row.product_id) || null,
+      source_variant_id:
+        normalizeString(row.id) || normalizeString(row.variant_id) || null,
+    })
+  }
+
+  return flattened
+}
+
+const flattenWoocommerceRows = (rows: Record<string, unknown>[]) => {
+  const flattened: Record<string, unknown>[] = []
+
+  for (const row of rows) {
+    const variations = toRecordArray(row.variations)
+
+    if (variations.length) {
+      for (const variation of variations) {
+        const sku = normalizeString(variation.sku) || normalizeString(row.sku)
+        const priceAmount =
+          variation.price ??
+          variation.regular_price ??
+          variation.sale_price ??
+          row.price ??
+          row.regular_price ??
+          row.sale_price
+        const stockedQuantity =
+          variation.stock_quantity ??
+          variation.inventory_quantity ??
+          row.stock_quantity ??
+          row.inventory_quantity
+        const incomingQuantity =
+          variation.incoming_quantity ?? row.incoming_quantity
+
+        flattened.push({
+          ...row,
+          ...variation,
+          sku,
+          price_amount: priceAmount,
+          price_currency:
+            normalizeString(variation.currency) ||
+            normalizeString(variation.currency_code) ||
+            normalizeString(row.currency) ||
+            normalizeString(row.currency_code),
+          stocked_quantity: stockedQuantity,
+          incoming_quantity: incomingQuantity,
+          location_id:
+            normalizeString(variation.location_id) ||
+            normalizeString(row.location_id),
+          source_product_id:
+            normalizeString(row.id) ||
+            normalizeString(row.product_id) ||
+            null,
+          source_variant_id:
+            normalizeString(variation.id) ||
+            normalizeString(variation.variant_id) ||
+            null,
+        })
+      }
+      continue
+    }
+
+    flattened.push({
+      ...row,
+      sku: normalizeString(row.sku),
+      price_amount: row.price ?? row.regular_price ?? row.sale_price,
+      price_currency:
+        normalizeString(row.currency) || normalizeString(row.currency_code),
+      stocked_quantity: row.stock_quantity ?? row.inventory_quantity,
+      incoming_quantity: row.incoming_quantity,
+      location_id: normalizeString(row.location_id),
+      source_product_id:
+        normalizeString(row.id) || normalizeString(row.product_id) || null,
+      source_variant_id:
+        normalizeString(row.id) || normalizeString(row.variant_id) || null,
+    })
+  }
+
+  return flattened
+}
+
+const applyProviderNormalization = (
+  rows: Record<string, unknown>[],
+  provider: FeedSourceRow['provider']
+) => {
+  if (provider === 'shopify') {
+    return flattenShopifyRows(rows)
+  }
+
+  if (provider === 'woocommerce') {
+    return flattenWoocommerceRows(rows)
+  }
+
+  return rows
+}
+
 export const parseFeedContent = (
   rawText: string,
   provider: FeedSourceRow['provider'],
@@ -268,19 +431,21 @@ export const parseFeedContent = (
     }
 
     if (Array.isArray(parsedJson)) {
-      return parsedJson.filter(
+      const rows = parsedJson.filter(
         (entry): entry is Record<string, unknown> =>
           Boolean(entry && typeof entry === 'object' && !Array.isArray(entry))
       )
+      return applyProviderNormalization(rows, provider)
     }
 
     if (parsedJson && typeof parsedJson === 'object') {
       const rows = getArrayFromObject(parsedJson as Record<string, unknown>)
       if (rows) {
-        return rows.filter(
+        const normalized = rows.filter(
           (entry): entry is Record<string, unknown> =>
             Boolean(entry && typeof entry === 'object' && !Array.isArray(entry))
         )
+        return applyProviderNormalization(normalized, provider)
       }
     }
 
@@ -303,7 +468,7 @@ export const parseFeedContent = (
     )
   }
 
-  return parsedCsv as Record<string, unknown>[]
+  return applyProviderNormalization(parsedCsv as Record<string, unknown>[], provider)
 }
 
 export const buildSyncUpdatesFromFeed = (
