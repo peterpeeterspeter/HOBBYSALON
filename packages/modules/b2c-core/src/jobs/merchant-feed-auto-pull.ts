@@ -81,6 +81,28 @@ export default async function merchantFeedAutoPullJob(container: MedusaContainer
     )
 
     try {
+      const runId = `mfr_${randomUUID().replace(/-/g, '').slice(0, 24)}`
+      const startedAt = new Date()
+
+      await knex('merchant_feed_pull_run').insert({
+        id: runId,
+        seller_id: source.seller_id,
+        feed_source_id: source.id,
+        trigger_type: 'scheduled',
+        status: 'processing',
+        total_count: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        sync_job_id: null,
+        error_preview: knex.raw('?::jsonb', [JSON.stringify([])]),
+        error_message: null,
+        started_at: startedAt,
+        finished_at: null,
+        created_at: startedAt,
+        updated_at: startedAt,
+        deleted_at: null,
+      })
+
       const response = await fetch(serialized.url, {
         method: serialized.method || 'GET',
         headers,
@@ -151,6 +173,23 @@ export default async function merchantFeedAutoPullJob(container: MedusaContainer
           last_sync_job_id: syncJobId,
           updated_at: new Date(),
         })
+
+      await knex('merchant_feed_pull_run')
+        .where('id', runId)
+        .whereNull('deleted_at')
+        .update({
+          status: buildResult.rejected_count > 0 ? 'partial' : 'success',
+          total_count: buildResult.total_count,
+          accepted_count: buildResult.accepted_count,
+          rejected_count: buildResult.rejected_count,
+          sync_job_id: syncJobId,
+          error_preview: knex.raw('?::jsonb', [
+            JSON.stringify(buildResult.errors.slice(0, MAX_PREVIEW_ERRORS)),
+          ]),
+          error_message: null,
+          finished_at: new Date(),
+          updated_at: new Date(),
+        })
     } catch (error) {
       const message =
         error instanceof Error ? error.message.slice(0, 4000) : 'Unknown error'
@@ -163,6 +202,28 @@ export default async function merchantFeedAutoPullJob(container: MedusaContainer
           last_error: message,
           updated_at: new Date(),
         })
+
+      const existingRun = await knex('merchant_feed_pull_run')
+        .select('id')
+        .where('feed_source_id', source.id)
+        .where('seller_id', source.seller_id)
+        .where('trigger_type', 'scheduled')
+        .where('status', 'processing')
+        .whereNull('deleted_at')
+        .orderBy('started_at', 'desc')
+        .first()
+
+      if (existingRun?.id) {
+        await knex('merchant_feed_pull_run')
+          .where('id', existingRun.id)
+          .whereNull('deleted_at')
+          .update({
+            status: 'failed',
+            error_message: message,
+            finished_at: new Date(),
+            updated_at: new Date(),
+          })
+      }
 
       logger.error(
         `Auto pull for merchant feed source ${source.id} failed: ${message}`

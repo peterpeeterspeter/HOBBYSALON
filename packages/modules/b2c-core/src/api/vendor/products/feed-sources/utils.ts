@@ -48,6 +48,24 @@ export type FeedParseError = {
   reason: string
 }
 
+export type FeedPullRunRow = {
+  id: string
+  seller_id: string
+  feed_source_id: string
+  trigger_type: 'manual' | 'scheduled'
+  status: 'processing' | 'success' | 'partial' | 'failed'
+  total_count: number
+  accepted_count: number
+  rejected_count: number
+  sync_job_id: string | null
+  error_preview: unknown
+  error_message: string | null
+  started_at: Date | string
+  finished_at: Date | string | null
+  created_at: Date | string
+  updated_at: Date | string
+}
+
 type BuildSyncUpdatesOptions = {
   mapping?: FeedFieldMappingType
   defaultCurrency?: string | null
@@ -79,6 +97,32 @@ const toJsonObject = (value: unknown): Record<string, unknown> | null => {
   return typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null
+}
+
+const toJsonArray = (value: unknown): unknown[] => {
+  if (value === null || value === undefined) {
+    return []
+  }
+
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return []
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  return []
 }
 
 const normalizeString = (value: unknown) => {
@@ -366,6 +410,24 @@ export const serializeFeedSource = (row: FeedSourceRow) => ({
   last_pulled_at: row.last_pulled_at,
   last_pull_status: row.last_pull_status,
   last_error: row.last_error,
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+})
+
+export const serializeFeedPullRun = (row: FeedPullRunRow) => ({
+  id: row.id,
+  seller_id: row.seller_id,
+  feed_source_id: row.feed_source_id,
+  trigger_type: row.trigger_type,
+  status: row.status,
+  total_count: row.total_count,
+  accepted_count: row.accepted_count,
+  rejected_count: row.rejected_count,
+  sync_job_id: row.sync_job_id,
+  error_preview: toJsonArray(row.error_preview),
+  error_message: row.error_message,
+  started_at: row.started_at,
+  finished_at: row.finished_at,
   created_at: row.created_at,
   updated_at: row.updated_at,
 })

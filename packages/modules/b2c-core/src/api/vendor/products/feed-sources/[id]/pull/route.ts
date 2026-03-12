@@ -76,6 +76,26 @@ export const POST = async (
     ])
   )
   const now = new Date()
+  const runId = `mfr_${randomUUID().replace(/-/g, '').slice(0, 24)}`
+
+  await knex('merchant_feed_pull_run').insert({
+    id: runId,
+    seller_id: seller.id,
+    feed_source_id: source.id,
+    trigger_type: 'manual',
+    status: 'processing',
+    total_count: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    sync_job_id: null,
+    error_preview: knex.raw('?::jsonb', [JSON.stringify([])]),
+    error_message: null,
+    started_at: now,
+    finished_at: null,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  })
 
   try {
     const response = await fetch(serialized.url, {
@@ -151,6 +171,23 @@ export const POST = async (
         updated_at: new Date(),
       })
 
+    await knex('merchant_feed_pull_run')
+      .where('id', runId)
+      .whereNull('deleted_at')
+      .update({
+        status: buildResult.rejected_count > 0 ? 'partial' : 'success',
+        total_count: buildResult.total_count,
+        accepted_count: buildResult.accepted_count,
+        rejected_count: buildResult.rejected_count,
+        sync_job_id: syncJobId,
+        error_preview: knex.raw('?::jsonb', [
+          JSON.stringify(buildResult.errors.slice(0, MAX_PREVIEW_ERRORS)),
+        ]),
+        error_message: null,
+        finished_at: new Date(),
+        updated_at: new Date(),
+      })
+
     res.status(202).json({
       feed_source_id: source.id,
       sync_job: {
@@ -175,6 +212,16 @@ export const POST = async (
         last_pulled_at: new Date(),
         last_pull_status: 'failed',
         last_error: message,
+        updated_at: new Date(),
+      })
+
+    await knex('merchant_feed_pull_run')
+      .where('id', runId)
+      .whereNull('deleted_at')
+      .update({
+        status: 'failed',
+        error_message: message,
+        finished_at: new Date(),
         updated_at: new Date(),
       })
 
