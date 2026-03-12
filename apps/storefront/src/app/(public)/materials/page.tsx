@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 type SearchParams = Promise<{
   q?: string;
   domain?: string;
+  creator_type?: string;
   city?: string;
   country?: string;
   sort?: string;
@@ -108,6 +109,10 @@ export default async function MaterialsMarketplacePage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  const creatorTypeFilter =
+    params.creator_type && params.creator_type !== "all"
+      ? params.creator_type
+      : undefined;
   const locationPreference = await getLocationPreference();
   const [domains, locationOptions, supplyProducts] = await Promise.all([
     listActiveDomains(),
@@ -115,6 +120,7 @@ export default async function MaterialsMarketplacePage({
     listSupplyMarketplaceProducts({
       q: params.q,
       domain_id: params.domain,
+      creator_type: creatorTypeFilter,
       city: params.city,
       country_code: params.country,
       preferred_city: locationPreference.city ?? undefined,
@@ -162,7 +168,7 @@ export default async function MaterialsMarketplacePage({
 
       <CardShell variant="default" padding="lg" className="mb-8">
         <h2 className="font-semibold text-[var(--foreground)] mb-4">Filters</h2>
-        <form method="GET" action="/materials" className="grid gap-4 sm:grid-cols-6">
+        <form method="GET" action="/materials" className="grid gap-4 sm:grid-cols-7">
           <Input
             id="q"
             name="q"
@@ -180,6 +186,17 @@ export default async function MaterialsMarketplacePage({
               label: domain.name,
             }))}
             defaultValue={params.domain ?? ""}
+          />
+          <Select
+            id="creator_type"
+            name="creator_type"
+            label="Aanbieder"
+            options={[
+              { value: "all", label: "Iedereen" },
+              { value: "supplier", label: "Leveranciers" },
+              { value: "maker", label: "Makers" },
+            ]}
+            defaultValue={params.creator_type ?? "all"}
           />
           <Select
             id="city"

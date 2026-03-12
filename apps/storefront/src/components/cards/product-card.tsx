@@ -9,6 +9,9 @@ import type { Product } from "@/types/platform";
 type ProductCardProps = {
   product: Product & {
     price?: { amount: number; currency_code: string } | null;
+    creator_display_name?: string | null;
+    creator_city?: string | null;
+    creator_country_code?: string | null;
   };
   className?: string;
 };
@@ -36,6 +39,12 @@ function ProductCard({ product, className }: ProductCardProps) {
         <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)] line-clamp-2">
           {product.title}
         </h3>
+        {(product.creator_display_name || product.creator_city) && (
+          <p className="mt-1 text-sm text-[var(--muted)] line-clamp-1">
+            {product.creator_display_name ?? "Aanbieder"}
+            {product.creator_city ? ` · ${product.creator_city}` : ""}
+          </p>
+        )}
         {product.price && product.price.amount > 0 && (
           <PriceDisplay
             amount={product.price.amount}

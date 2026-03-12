@@ -143,6 +143,7 @@ function getSupplyLocalityScore(
 export async function listSupplyMarketplaceProducts(filters?: {
   q?: string;
   domain_id?: string;
+  creator_type?: string;
   city?: string;
   country_code?: string;
   preferred_city?: string;
@@ -151,14 +152,20 @@ export async function listSupplyMarketplaceProducts(filters?: {
 }): Promise<SupplyMarketplaceProduct[]> {
   const supabase = createPlatformClient();
   let creatorIdsFilter: string[] | null = null;
+  const creatorQueryNeedsFilter = Boolean(
+    filters?.city || filters?.country_code || filters?.creator_type
+  );
 
-  if (filters?.city || filters?.country_code) {
+  if (creatorQueryNeedsFilter) {
     let creatorQuery = supabase.from("creators").select("id");
     if (filters.city) {
       creatorQuery = creatorQuery.ilike("city", `%${filters.city}%`);
     }
     if (filters.country_code) {
       creatorQuery = creatorQuery.eq("country_code", filters.country_code.toUpperCase());
+    }
+    if (filters.creator_type) {
+      creatorQuery = creatorQuery.contains("creator_types", [filters.creator_type]);
     }
 
     const { data: creators, error: creatorError } = await creatorQuery.limit(3000);
