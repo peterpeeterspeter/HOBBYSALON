@@ -1,0 +1,62 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { registerMerchantAction } from "@/app/actions/auth";
+import { MerchantRegisterForm } from "@/components/auth/MerchantRegisterForm";
+import { PageLayout } from "@/components/layout/page-layout";
+import { CardShell } from "@/components/ui/card-shell";
+import { getAuthUser } from "@/lib/auth/session";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Merchant Registreren | Hobbysalon",
+  description:
+    "Registreer als hobbymaterialenverkoper en start met je merchant onboarding op Hobbysalon.",
+};
+
+type Props = {
+  searchParams: Promise<{ next?: string }>;
+};
+
+export default async function RegisterMerchantPage({ searchParams }: Props) {
+  const user = await getAuthUser();
+  const { next } = await searchParams;
+  const nextPath = next?.startsWith("/") ? next : "/dashboard/materials";
+
+  if (user) {
+    redirect(nextPath);
+  }
+
+  return (
+    <PageLayout
+      title="Merchant registreren"
+      description="Voor winkels en handelaars met materiaalcatalogi. Na registratie kan je direct je import en mapping setup starten."
+      size="narrow"
+    >
+      <CardShell variant="default" padding="lg">
+        <MerchantRegisterForm action={registerMerchantAction} nextPath={nextPath} />
+      </CardShell>
+
+      <p className="mt-4 text-sm text-[var(--muted)]">
+        Al een account?{" "}
+        <Link
+          href={`/login?next=${encodeURIComponent(nextPath)}`}
+          className="text-[var(--accent)] underline"
+        >
+          Meld je aan
+        </Link>
+        .
+      </p>
+
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        Gewone gebruiker?{" "}
+        <Link
+          href={`/register?next=${encodeURIComponent("/dashboard")}`}
+          className="text-[var(--accent)] underline"
+        >
+          Gebruik standaard registratie
+        </Link>
+        .
+      </p>
+    </PageLayout>
+  );
+}

@@ -54,6 +54,16 @@ export default async function RegisterPage({ searchParams }: Props) {
         </Link>
         .
       </p>
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        Verkoop je hobbymaterialen?{" "}
+        <Link
+          href={`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`}
+          className="text-[var(--accent)] underline"
+        >
+          Registreer als merchant
+        </Link>
+        .
+      </p>
     </PageLayout>
   );
 }

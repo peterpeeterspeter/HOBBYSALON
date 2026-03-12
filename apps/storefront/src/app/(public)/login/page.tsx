@@ -52,6 +52,16 @@ export default async function LoginPage({ searchParams }: Props) {
         </Link>
         .
       </p>
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        Merchant-account nodig?{" "}
+        <Link
+          href={`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`}
+          className="text-[var(--accent)] underline"
+        >
+          Registreer als merchant
+        </Link>
+        .
+      </p>
     </PageLayout>
   );
 }

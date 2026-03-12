@@ -740,7 +740,68 @@ A review must target exactly one of:
 
 ---
 
-# 23. Subscribers
+# 23. User Registration Profile
+
+Registration keeps one account while enabling multiple profile capabilities.
+
+## Table: `user_preferences`
+
+Fields:
+
+- `user_id` (uuid, pk)
+- `postal_code` (text, nullable)
+- `city` (text, nullable)
+- `country_code` (text, default `BE`)
+- `radius_km` (int, default 25)
+- `preferred_domain_ids` (uuid[])
+- `interest_types` (text[])
+- `onboarding_completed` (boolean)
+- `created_at`
+- `updated_at`
+
+Allowed `interest_types`:
+
+- `workshop`
+- `supply`
+- `handmade`
+- `event`
+- `article`
+
+## Table: `user_account_roles`
+
+Fields:
+
+- `id` (uuid, pk)
+- `user_id` (uuid)
+- `role` (text)
+- `created_at`
+
+Allowed `role` values:
+
+- `user`
+- `creator`
+- `merchant`
+- `workshop_host`
+- `organizer`
+
+## Table: `user_seller_links`
+
+Fields:
+
+- `id` (uuid, pk)
+- `user_id` (uuid)
+- `seller_id` (text, Medusa seller id)
+- `seller_type` (text)
+- `created_at`
+
+Allowed `seller_type`:
+
+- `creator`
+- `merchant`
+
+---
+
+# 24. Subscribers
 
 The platform builds on an existing mailing list of approximately 44k contacts.
 
@@ -778,7 +839,7 @@ Allowed `status`:
 
 ---
 
-# 24. Survey Segments
+# 25. Survey Segments
 
 Stores structured interest data from surveys or signup flows.
 
@@ -808,7 +869,7 @@ Examples:
 
 ---
 
-# 25. Workshop Booking Requests
+# 26. Workshop Booking Requests
 
 A lightweight booking request layer for the MVP.
 

@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start --port 3002",
     "lint": "eslint",
-    "seed": "psql \"${DATABASE_URL}\" -f scripts/seed-platform.sql"
+    "seed": "psql \"${DATABASE_URL}\" -f scripts/seed-platform.sql",
+    "migrate:registration-profile": "psql \"${DATABASE_URL}\" -f scripts/migrate-registration-profile.sql"
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.11.3",
