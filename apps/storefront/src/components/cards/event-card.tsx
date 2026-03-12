@@ -30,6 +30,7 @@ function EventCard({ event, className }: EventCardProps) {
           ratio="video"
           src={event.featured_image_url}
           alt={event.title}
+          fallbackImage="placeholderEvent"
           className="-mx-4 -mt-4 mb-3"
         />
         <div className="flex items-center gap-2 flex-wrap">

@@ -77,46 +77,25 @@ const PLACEHOLDERS: Array<{
   query: string;
   orientation: "landscape" | "portrait" | "square";
 }> = [
-  {
-    filename: "hero.jpg",
-    query: "creative crafting workshop people",
-    orientation: "landscape",
-  },
-  {
-    filename: "crafts-grid.jpg",
-    query: "handmade crafts artisan wool ceramic",
-    orientation: "square",
-  },
-  {
-    filename: "workshop.jpg",
-    query: "craft workshop interior pottery",
-    orientation: "landscape",
-  },
-  {
-    filename: "community.jpg",
-    query: "craft market handmade fair people",
-    orientation: "landscape",
-  },
-  {
-    filename: "empty-crafts.jpg",
-    query: "empty wooden table minimal warm",
-    orientation: "square",
-  },
-  {
-    filename: "empty-search.jpg",
-    query: "empty shelf minimalist warm tones",
-    orientation: "landscape",
-  },
-  {
-    filename: "placeholder-product.jpg",
-    query: "neutral cream beige background minimal",
-    orientation: "square",
-  },
-  {
-    filename: "domain-hero.jpg",
-    query: "creative studio workspace warm light",
-    orientation: "landscape",
-  },
+  // Landing page
+  { filename: "hero.jpg", query: "creative crafting workshop people", orientation: "landscape" },
+  { filename: "crafts-grid.jpg", query: "handmade crafts artisan wool ceramic", orientation: "square" },
+  { filename: "workshop.jpg", query: "craft workshop interior pottery", orientation: "landscape" },
+  { filename: "community.jpg", query: "craft market handmade fair people", orientation: "landscape" },
+  // Empty states
+  { filename: "empty-crafts.jpg", query: "empty wooden table minimal warm", orientation: "square" },
+  { filename: "empty-search.jpg", query: "empty shelf minimalist warm tones", orientation: "landscape" },
+  // Card fallbacks
+  { filename: "placeholder-product.jpg", query: "neutral cream beige background minimal", orientation: "square" },
+  { filename: "placeholder-workshop.jpg", query: "craft workshop learning hands", orientation: "landscape" },
+  { filename: "placeholder-event.jpg", query: "craft fair market event people", orientation: "landscape" },
+  { filename: "placeholder-article.jpg", query: "creative writing blog craft inspiration", orientation: "landscape" },
+  { filename: "placeholder-creator.jpg", query: "artist maker creative person studio", orientation: "square" },
+  { filename: "placeholder-project.jpg", query: "diy craft project materials", orientation: "square" },
+  // Domain/hero
+  { filename: "domain-hero.jpg", query: "creative studio workspace warm light", orientation: "landscape" },
+  // Generic fallbacks
+  { filename: "placeholder-default.jpg", query: "craft hobby creative warm", orientation: "landscape" },
 ];
 
 function getBestSrc(photo: PexelsPhoto, orientation: string): string {

@@ -15,7 +15,13 @@ export const LANDING_IMAGES = {
   emptyCrafts: "/landing/empty-crafts.jpg",
   emptySearch: "/landing/empty-search.jpg",
   placeholderProduct: "/landing/placeholder-product.jpg",
+  placeholderWorkshop: "/landing/placeholder-workshop.jpg",
+  placeholderEvent: "/landing/placeholder-event.jpg",
+  placeholderArticle: "/landing/placeholder-article.jpg",
+  placeholderCreator: "/landing/placeholder-creator.jpg",
+  placeholderProject: "/landing/placeholder-project.jpg",
   domainHero: "/landing/domain-hero.jpg",
+  placeholderDefault: "/landing/placeholder-default.jpg",
 } as const;
 
 export type LandingImageKey = keyof typeof LANDING_IMAGES;

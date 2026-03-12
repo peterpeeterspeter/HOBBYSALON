@@ -26,6 +26,7 @@ function WorkshopCard({ workshop, className }: WorkshopCardProps) {
           ratio="video"
           src={workshop.featured_image_url}
           alt={workshop.title}
+          fallbackImage="placeholderWorkshop"
           className="-mx-4 -mt-4 mb-3"
         />
         <div className="flex items-center gap-2 flex-wrap">

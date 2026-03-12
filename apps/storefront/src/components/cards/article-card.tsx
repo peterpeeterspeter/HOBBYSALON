@@ -30,6 +30,7 @@ function ArticleCard({ article, className }: ArticleCardProps) {
           ratio="video"
           src={article.featured_image_url}
           alt={article.title}
+          fallbackImage="placeholderArticle"
           className="-mx-4 -mt-4 mb-3"
         />
         <Badge variant="domain">{typeLabel}</Badge>

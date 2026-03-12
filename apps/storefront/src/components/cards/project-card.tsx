@@ -18,6 +18,7 @@ function ProjectCard({ project, className }: ProjectCardProps) {
           ratio="video"
           src={project.featured_image_url}
           alt={project.title}
+          fallbackImage="placeholderProject"
           className="-mx-4 -mt-4 mb-3"
         />
         <DifficultyIndicator level={project.difficulty_level} />
