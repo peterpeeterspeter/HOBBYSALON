@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { CardShell } from "@/components/ui/card-shell";
 import { Container } from "@/components/ui/container";
 import { getLocationPreference } from "@/lib/location/preference";
-import { createPlatformClient } from "@/lib/platform/client";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import {
+  listSupplyCategoryOptions,
   listSupplyMarketplaceProducts,
   type SupplyMarketplaceProduct,
 } from "@/lib/platform/queries/products";
@@ -25,11 +25,37 @@ export const metadata: Metadata = {
 type SearchParams = Promise<{
   q?: string;
   domain?: string;
+  category?: string;
   creator_type?: string;
-  city?: string;
-  country?: string;
   sort?: string;
 }>;
+
+const MATERIAL_CATEGORY_FILTERS = [
+  "Textiel & Handwerken",
+  "Tekenen & Kleuren",
+  "Stickers & Tapes",
+  "Schilderen",
+  "Knutselpakketten",
+  "Sieraden maken",
+  "Hobbygereedschap",
+  "Home deco",
+  "Modelbouw & Miniaturen",
+  "Papier & Karton",
+  "Diamond Painting & accessoires",
+  "Schrijven & Handlettering",
+  "Stempelen",
+  "Modelspoor",
+  "Boetseren",
+  "Pixelen & Strijkkralen",
+  "Leerbewerking",
+  "Gieten",
+  "Houtbewerking",
+  "Embossing & Plotten",
+  "Inkt",
+  "Slijm",
+  "Speelzand",
+  "Metaalbewerking",
+];
 
 type ProductWithPrice = SupplyMarketplaceProduct & {
   price?: { amount: number; currency_code: string } | null;
@@ -73,36 +99,6 @@ function sortProducts(products: ProductWithPrice[], sort: string | undefined) {
   return products;
 }
 
-async function listCreatorLocationOptions() {
-  const supabase = createPlatformClient();
-  const [{ data: cityRows }, { data: countryRows }] = await Promise.all([
-    supabase.from("creators").select("city").not("city", "is", null).limit(3000),
-    supabase
-      .from("creators")
-      .select("country_code")
-      .not("country_code", "is", null)
-      .limit(3000),
-  ]);
-
-  const cities = [
-    ...new Set(
-      (cityRows ?? [])
-        .map((row) => row.city)
-        .filter((city): city is string => Boolean(city))
-    ),
-  ].sort((a, b) => a.localeCompare(b));
-
-  const countries = [
-    ...new Set(
-      (countryRows ?? [])
-        .map((row) => row.country_code)
-        .filter((country): country is string => Boolean(country))
-    ),
-  ].sort((a, b) => a.localeCompare(b));
-
-  return { cities, countries };
-}
-
 export default async function MaterialsMarketplacePage({
   searchParams,
 }: {
@@ -113,16 +109,25 @@ export default async function MaterialsMarketplacePage({
     params.creator_type && params.creator_type !== "all"
       ? params.creator_type
       : undefined;
+  const categoryFilter = params.category?.trim() ? params.category.trim() : undefined;
+  const categoryIdFilter =
+    categoryFilter &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      categoryFilter
+    )
+      ? categoryFilter
+      : undefined;
+  const categoryNameFilter = categoryIdFilter ? undefined : categoryFilter;
   const locationPreference = await getLocationPreference();
-  const [domains, locationOptions, supplyProducts] = await Promise.all([
+  const [domains, categoryOptions, supplyProducts] = await Promise.all([
     listActiveDomains(),
-    listCreatorLocationOptions(),
+    listSupplyCategoryOptions({ domain_id: params.domain || undefined }),
     listSupplyMarketplaceProducts({
       q: params.q,
       domain_id: params.domain,
+      category_id: categoryIdFilter,
+      category_name: categoryNameFilter,
       creator_type: creatorTypeFilter,
-      city: params.city,
-      country_code: params.country,
       preferred_city: locationPreference.city ?? undefined,
       preferred_country_code: locationPreference.countryCode ?? undefined,
       limit: 72,
@@ -168,7 +173,7 @@ export default async function MaterialsMarketplacePage({
 
       <CardShell variant="default" padding="lg" className="mb-8">
         <h2 className="font-semibold text-[var(--foreground)] mb-4">Filters</h2>
-        <form method="GET" action="/materials" className="grid gap-4 sm:grid-cols-7">
+        <form method="GET" action="/materials" className="grid gap-4 sm:grid-cols-6">
           <Input
             id="q"
             name="q"
@@ -188,6 +193,24 @@ export default async function MaterialsMarketplacePage({
             defaultValue={params.domain ?? ""}
           />
           <Select
+            id="category"
+            name="category"
+            label="Categorie"
+            placeholder="Alle categorieen"
+            options={[
+              ...MATERIAL_CATEGORY_FILTERS.map((name) => ({ value: name, label: name })),
+              ...categoryOptions
+                .filter(
+                  (category) =>
+                    !MATERIAL_CATEGORY_FILTERS.some(
+                      (name) => name.toLowerCase() === category.name.toLowerCase()
+                    )
+                )
+                .map((category) => ({ value: category.id, label: category.name })),
+            ]}
+            defaultValue={params.category ?? ""}
+          />
+          <Select
             id="creator_type"
             name="creator_type"
             label="Aanbieder"
@@ -197,28 +220,6 @@ export default async function MaterialsMarketplacePage({
               { value: "maker", label: "Makers" },
             ]}
             defaultValue={params.creator_type ?? "all"}
-          />
-          <Select
-            id="city"
-            name="city"
-            label="Stad"
-            placeholder="Alle steden"
-            options={locationOptions.cities.map((city) => ({
-              value: city,
-              label: city,
-            }))}
-            defaultValue={params.city ?? ""}
-          />
-          <Select
-            id="country"
-            name="country"
-            label="Land"
-            placeholder="Alle landen"
-            options={locationOptions.countries.map((country) => ({
-              value: country,
-              label: country,
-            }))}
-            defaultValue={params.country ?? ""}
           />
           <Select
             id="sort"

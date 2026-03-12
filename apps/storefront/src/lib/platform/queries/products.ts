@@ -98,12 +98,21 @@ type CreatorLocation = {
   display_name: string | null;
   city: string | null;
   country_code: string | null;
+  creator_types: string[] | null;
 };
 
 export type SupplyMarketplaceProduct = Product & {
   creator_display_name: string | null;
   creator_city: string | null;
   creator_country_code: string | null;
+  creator_types: string[];
+};
+
+export type ProductCategoryOption = {
+  id: string;
+  name: string;
+  slug: string;
+  domain_id: string | null;
 };
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
@@ -143,6 +152,8 @@ function getSupplyLocalityScore(
 export async function listSupplyMarketplaceProducts(filters?: {
   q?: string;
   domain_id?: string;
+  category_id?: string;
+  category_name?: string;
   creator_type?: string;
   city?: string;
   country_code?: string;
@@ -152,6 +163,7 @@ export async function listSupplyMarketplaceProducts(filters?: {
 }): Promise<SupplyMarketplaceProduct[]> {
   const supabase = createPlatformClient();
   let creatorIdsFilter: string[] | null = null;
+  let categoryIdsFilter: string[] | null = null;
   const creatorQueryNeedsFilter = Boolean(
     filters?.city || filters?.country_code || filters?.creator_type
   );
@@ -176,6 +188,19 @@ export async function listSupplyMarketplaceProducts(filters?: {
     }
   }
 
+  if (filters?.category_name && !filters?.category_id) {
+    const { data: categoryRows, error: categoryError } = await supabase
+      .from("product_categories")
+      .select("id")
+      .ilike("name", filters.category_name)
+      .limit(200);
+    if (categoryError) return [];
+    categoryIdsFilter = [...new Set((categoryRows ?? []).map((row) => row.id))];
+    if (categoryIdsFilter.length === 0) {
+      return [];
+    }
+  }
+
   let query = supabase
     .from("products")
     .select("*")
@@ -187,6 +212,12 @@ export async function listSupplyMarketplaceProducts(filters?: {
 
   if (filters?.domain_id) {
     query = query.eq("domain_id", filters.domain_id);
+  }
+  if (filters?.category_id) {
+    query = query.eq("category_id", filters.category_id);
+  }
+  if (categoryIdsFilter) {
+    query = query.in("category_id", categoryIdsFilter);
   }
   if (filters?.q) {
     query = query.or(
@@ -209,7 +240,7 @@ export async function listSupplyMarketplaceProducts(filters?: {
   const creatorIds = [...new Set(products.map((product) => product.creator_id).filter(Boolean))];
   const { data: creatorRows } = await supabase
     .from("creators")
-    .select("id, display_name, city, country_code")
+    .select("id, display_name, city, country_code, creator_types")
     .in("id", creatorIds);
 
   const creatorMap = new Map(
@@ -223,6 +254,9 @@ export async function listSupplyMarketplaceProducts(filters?: {
       creator_display_name: creator?.display_name ?? null,
       creator_city: creator?.city ?? null,
       creator_country_code: creator?.country_code ?? null,
+      creator_types: Array.isArray(creator?.creator_types)
+        ? creator!.creator_types
+        : [],
     } satisfies SupplyMarketplaceProduct;
   });
 
@@ -243,4 +277,23 @@ export async function listSupplyMarketplaceProducts(filters?: {
     if (scoreDelta !== 0) return scoreDelta;
     return b.created_at.localeCompare(a.created_at);
   });
+}
+
+export async function listSupplyCategoryOptions(filters?: {
+  domain_id?: string;
+}): Promise<ProductCategoryOption[]> {
+  const supabase = createPlatformClient();
+  let query = supabase
+    .from("product_categories")
+    .select("id, name, slug, domain_id")
+    .order("sort_order", { ascending: true })
+    .limit(500);
+
+  if (filters?.domain_id) {
+    query = query.eq("domain_id", filters.domain_id);
+  }
+
+  const { data, error } = await query;
+  if (error) return [];
+  return (data ?? []) as ProductCategoryOption[];
 }
