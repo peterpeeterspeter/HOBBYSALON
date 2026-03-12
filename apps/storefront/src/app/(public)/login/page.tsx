@@ -42,6 +42,16 @@ export default async function LoginPage({ searchParams }: Props) {
         </Link>
         .
       </p>
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        Creator-account nodig?{" "}
+        <Link
+          href={`/register/creator?next=${encodeURIComponent("/dashboard/creator")}`}
+          className="text-[var(--accent)] underline"
+        >
+          Registreer als creator
+        </Link>
+        .
+      </p>
     </PageLayout>
   );
 }

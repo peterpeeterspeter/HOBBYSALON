@@ -9,7 +9,8 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Registreren | Hobbysalon",
-  description: "Maak een account aan om favorieten en je dashboard te beheren.",
+  description:
+    "Maak een account aan, kies je interesses en ontvang lokale hobby-aanbevelingen.",
 };
 
 type Props = {
@@ -28,7 +29,7 @@ export default async function RegisterPage({ searchParams }: Props) {
   return (
     <PageLayout
       title="Registreren"
-      description="Maak een account om favorieten op te slaan en je creator-dashboard te gebruiken."
+      description="Maak een account aan, geef je interesses en postcode op, en krijg relevantere workshops, events en materialen."
       size="narrow"
     >
       <CardShell variant="default" padding="lg">
@@ -39,6 +40,17 @@ export default async function RegisterPage({ searchParams }: Props) {
         Al een account?{" "}
         <Link href={`/login?next=${encodeURIComponent(nextPath)}`} className="text-[var(--accent)] underline">
           Meld je aan
+        </Link>
+        .
+      </p>
+
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        Ben je maker, workshopgever of organisator?{" "}
+        <Link
+          href={`/register/creator?next=${encodeURIComponent("/dashboard/creator")}`}
+          className="text-[var(--accent)] underline"
+        >
+          Registreer als creator
         </Link>
         .
       </p>
