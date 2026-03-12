@@ -68,3 +68,20 @@ export async function getLocationPreference(): Promise<LocationPreference> {
     label: label ?? null,
   };
 }
+
+export async function getLocationPreferenceFromCookies(): Promise<LocationPreference> {
+  const cookieStore = await cookies();
+  const city = sanitizeLocationCity(cookieStore.get(LOCATION_CITY_COOKIE)?.value ?? null);
+  const countryCode = sanitizeLocationCountryCode(
+    cookieStore.get(LOCATION_COUNTRY_COOKIE)?.value ?? null
+  );
+  const hasPreference = !!city || !!countryCode;
+  const label = city && countryCode ? `${city}, ${countryCode}` : city ?? countryCode;
+
+  return {
+    city,
+    countryCode,
+    hasPreference,
+    label: label ?? null,
+  };
+}

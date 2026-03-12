@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listFeaturedCreators } from "@/lib/platform/queries/creators";
 import { listFeaturedProducts } from "@/lib/platform/queries/products";
@@ -10,9 +11,8 @@ import {
   type RecommendedProject,
   type RecommendationSource,
 } from "@/lib/platform/queries/recommendations";
-import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import { getAuthUser } from "@/lib/auth/session";
-import { getLocationPreference } from "@/lib/location/preference";
+import { getMedusaProductsByIds } from "@/lib/commerce/medusa/products";
+import { logServerPerf, timeAsync } from "@/lib/perf/server-timing";
 import type {
   Domain,
   Creator,
@@ -45,9 +45,15 @@ export type HomePageData = {
 async function enrichProductsWithPrices(
   products: Product[]
 ): Promise<ProductWithPrice[]> {
-  const enriched = await Promise.all(
-    products.map(async (product) => {
-      const medusa = await getMedusaProduct(product.medusa_product_id);
+  const medusaMap = await getMedusaProductsByIds(
+    products.map((product) => product.medusa_product_id),
+    8
+  );
+
+  return products.map((product) => {
+      const medusa = product.medusa_product_id
+        ? medusaMap.get(product.medusa_product_id) ?? null
+        : null;
       const price = medusa?.calculated_price
         ? {
             amount: medusa.calculated_price.calculated_amount,
@@ -56,53 +62,60 @@ async function enrichProductsWithPrices(
         : null;
 
       return { ...product, price };
-    })
-  );
-
-  return enriched;
+    });
 }
 
-export async function getHomePageData(): Promise<HomePageData> {
+const getHomePageDataCached = unstable_cache(
+  async (): Promise<HomePageData> => {
+  const totalStartMs = Date.now();
   const fromDate = new Date().toISOString();
-  const [authUser, locationPreference] = await Promise.all([
-    getAuthUser(),
-    getLocationPreference(),
-  ]);
 
-  const [
-    popularDomains,
-    upcomingWorkshops,
-    featuredHandmade,
-    featuredSupplies,
-    upcomingEvents,
-    latestArticles,
-    creatorsOfTheMonth,
-    featuredProjects,
-    recommendationResult,
-  ] = await Promise.all([
-    listActiveDomains(),
-    listUpcomingWorkshops(6, {
-      preferred_city: locationPreference.city ?? undefined,
-      preferred_country_code: locationPreference.countryCode ?? undefined,
-    }),
-    listFeaturedProducts({ productType: "handmade", limit: 8 }),
-    listFeaturedProducts({ productType: "supply", limit: 8 }),
-    listEvents({
-      from_date: fromDate,
-      limit: 6,
-      preferred_city: locationPreference.city ?? undefined,
-      preferred_country_code: locationPreference.countryCode ?? undefined,
-    }),
-    listLatestArticles(6),
-    listFeaturedCreators(6),
-    listFeaturedProjects(4),
-    getProjectRecommendations({ userId: authUser?.id ?? null, limit: 6 }),
-  ]);
+  const {
+    result: [
+      popularDomains,
+      upcomingWorkshops,
+      featuredHandmade,
+      featuredSupplies,
+      upcomingEvents,
+      latestArticles,
+      creatorsOfTheMonth,
+      featuredProjects,
+      recommendationResult,
+    ],
+    durationMs: baseQueriesMs,
+  } = await timeAsync(() =>
+    Promise.all([
+      listActiveDomains(),
+      listUpcomingWorkshops(6),
+      listFeaturedProducts({ productType: "handmade", limit: 8 }),
+      listFeaturedProducts({ productType: "supply", limit: 8 }),
+      listEvents({
+        from_date: fromDate,
+        limit: 6,
+      }),
+      listLatestArticles(6),
+      listFeaturedCreators(6),
+      listFeaturedProjects(4),
+      getProjectRecommendations({ userId: null, limit: 6 }),
+    ])
+  );
 
-  const [handmadeWithPrices, suppliesWithPrices] = await Promise.all([
-    enrichProductsWithPrices(featuredHandmade),
-    enrichProductsWithPrices(featuredSupplies),
-  ]);
+  const {
+    result: [handmadeWithPrices, suppliesWithPrices],
+    durationMs: pricingMs,
+  } = await timeAsync(() =>
+    Promise.all([
+      enrichProductsWithPrices(featuredHandmade),
+      enrichProductsWithPrices(featuredSupplies),
+    ])
+  );
+
+  logServerPerf("home-page", {
+    total: Date.now() - totalStartMs,
+    base_queries: baseQueriesMs,
+    pricing: pricingMs,
+    recommendations: recommendationResult.latencyMs,
+  });
 
   return {
     popularDomains: popularDomains.slice(0, 8),
@@ -116,6 +129,16 @@ export async function getHomePageData(): Promise<HomePageData> {
     recommendedProjects: recommendationResult.projects,
     recommendationSource: recommendationResult.source,
     recommendationLatencyMs: recommendationResult.latencyMs,
-    viewerUserId: authUser?.id ?? null,
+    viewerUserId: null,
   };
+  },
+  ["home-page-data-v2"],
+  {
+    revalidate: 60 * 5,
+    tags: ["home-page"],
+  }
+);
+
+export async function getHomePageData(): Promise<HomePageData> {
+  return getHomePageDataCached();
 }

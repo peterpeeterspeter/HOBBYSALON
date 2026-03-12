@@ -108,3 +108,31 @@ export async function getMedusaProductByHandle(
     return null;
   }
 }
+
+export async function getMedusaProductsByIds(
+  medusaProductIds: Array<string | null | undefined>,
+  concurrency = 6
+): Promise<Map<string, MedusaProductData>> {
+  const ids = [...new Set(medusaProductIds.filter((id): id is string => Boolean(id)))];
+  const resultMap = new Map<string, MedusaProductData>();
+
+  if (ids.length === 0) {
+    return resultMap;
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, ids.length));
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < ids.length) {
+      const currentIndex = cursor;
+      cursor += 1;
+      const id = ids[currentIndex];
+      const product = await getMedusaProduct(id);
+      resultMap.set(id, product);
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return resultMap;
+}

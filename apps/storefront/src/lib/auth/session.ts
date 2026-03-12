@@ -47,6 +47,11 @@ export async function getAuthUser(): Promise<User | null> {
   return getUserForAccessToken(accessToken);
 }
 
+export async function hasAuthSessionCookie(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return Boolean(cookieStore.get(AUTH_ACCESS_COOKIE)?.value);
+}
+
 export async function createEmailSession(
   email: string,
   password: string

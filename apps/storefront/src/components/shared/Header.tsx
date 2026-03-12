@@ -2,27 +2,25 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ShoppingCart, Heart, ChevronDown, MapPin } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
-import { listDomainsBySort } from "@/lib/platform/queries/domains";
-import { getAuthUser } from "@/lib/auth/session";
+import { listDomainNavLinks } from "@/lib/platform/queries/domains";
+import { hasAuthSessionCookie } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
 import {
   clearLocationPreferenceAction,
   updateLocationPreferenceAction,
 } from "@/app/actions/location";
-import { getLocationPreference } from "@/lib/location/preference";
+import { getLocationPreferenceFromCookies } from "@/lib/location/preference";
 import { STATIC_LINKS } from "@/config/nav";
 
 export async function Header() {
-  const user = await getAuthUser();
-  const locationPreference = await getLocationPreference();
+  const [hasSession, locationPreference] = await Promise.all([
+    hasAuthSessionCookie(),
+    getLocationPreferenceFromCookies(),
+  ]);
+
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
   try {
-    const domains = await listDomainsBySort();
-    domainLinks = domains.map((domain) => ({
-      id: domain.id,
-      slug: domain.slug,
-      name: domain.name,
-    }));
+    domainLinks = await listDomainNavLinks(24);
   } catch {
     domainLinks = [
       { id: "f-crochet", slug: "crochet", name: "Crochet" },
@@ -30,6 +28,7 @@ export async function Header() {
       { id: "f-pottery", slug: "pottery", name: "Keramiek" },
     ];
   }
+  const mobileDomainLinks = domainLinks.slice(0, 12);
 
   const navLinkClass =
     "inline-flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-[15px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
@@ -86,7 +85,7 @@ export async function Header() {
           <Link href="/favorites" className={`${iconBtnClass} hidden sm:inline-flex`} aria-label="Favorieten">
             <Heart size={20} aria-hidden />
           </Link>
-          {user ? (
+          {hasSession ? (
             <>
               <Link href="/profile" className={`${navLinkClass} hidden md:inline-flex`}>
                 Profiel
@@ -108,9 +107,9 @@ export async function Header() {
           <MobileMenu
             mainLinks={[
               ...STATIC_LINKS.discover,
-              ...domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name })),
+              ...mobileDomainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name })),
             ]}
-            user={!!user}
+            user={hasSession}
             logoutAction={logoutAction}
             mobileLinkClass={mobileLinkClass}
             iconBtnClass={iconBtnClass}
