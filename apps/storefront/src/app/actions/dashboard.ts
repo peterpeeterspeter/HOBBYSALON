@@ -76,6 +76,34 @@ function parseOptionalInt(formData: FormData, field: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseOptionalNonNegativeInt(formData: FormData, field: string): number | null {
+  const raw = formData.get(field)?.toString().trim();
+  if (!raw) return null;
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`${field} is ongeldig.`);
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalUuid(formData: FormData, field: string): string | null {
+  const raw = formData.get(field)?.toString().trim();
+  if (!raw) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)) {
+    throw new Error(`${field} is ongeldig.`);
+  }
+  return raw;
+}
+
+function parseOptionalCurrencyCode(formData: FormData, field: string): string | null {
+  const raw = formData.get(field)?.toString().trim().toUpperCase();
+  if (!raw) return null;
+  if (!/^[A-Z]{3}$/.test(raw)) {
+    throw new Error(`${field} is ongeldig.`);
+  }
+  return raw;
+}
+
 function parseUuidValues(formData: FormData, field: string): string[] {
   return Array.from(
     new Set(
@@ -457,6 +485,10 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const { creator, sellerId } = await getRequiredCreator();
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
+    const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
+    const currencyCode = parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
+    const domainId = parseOptionalUuid(formData, "domain_id");
+    const categoryId = parseOptionalUuid(formData, "category_id");
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
@@ -468,6 +500,9 @@ export async function createProductAction(formData: FormData): Promise<void> {
         "Voor creator P2P-producten is momenteel enkel type 'handmade' toegestaan."
       );
     }
+    if (priceCents === null) {
+      fail("/dashboard/products", "Prijs (in cent) is verplicht.");
+    }
 
     const result = await createCreatorMarketplaceProduct({
       sellerId,
@@ -477,7 +512,11 @@ export async function createProductAction(formData: FormData): Promise<void> {
       shortDescription: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
       featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+      platformDomainId: domainId,
+      platformCategoryId: categoryId,
       isActive: !!formData.get("is_active"),
+      priceCents,
+      currencyCode,
     });
 
     if (!result.ok) {
@@ -508,6 +547,10 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const productId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
+    const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
+    const currencyCode = parseOptionalCurrencyCode(formData, "currency_code");
+    const domainId = parseOptionalUuid(formData, "domain_id");
+    const categoryId = parseOptionalUuid(formData, "category_id");
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
@@ -549,7 +592,11 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         shortDescription: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+        platformDomainId: domainId,
+        platformCategoryId: categoryId,
         isActive: !!formData.get("is_active"),
+        priceCents: priceCents ?? undefined,
+        currencyCode: currencyCode ?? undefined,
       });
 
       if (!result.ok) {
@@ -578,6 +625,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featured_image_url: parseOptionalString(formData, "featured_image_url"),
+        domain_id: domainId,
+        category_id: categoryId,
         product_type: productType,
         status: formData.get("is_active") ? "active" : "draft",
         is_active: !!formData.get("is_active"),

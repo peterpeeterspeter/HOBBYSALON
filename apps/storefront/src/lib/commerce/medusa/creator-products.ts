@@ -8,7 +8,11 @@ type CreatorProductInput = {
   shortDescription?: string | null;
   description?: string | null;
   featuredImageUrl?: string | null;
+  platformDomainId?: string | null;
+  platformCategoryId?: string | null;
   isActive: boolean;
+  priceCents: number;
+  currencyCode?: string | null;
 };
 
 type CreatorProductResult = {
@@ -66,7 +70,11 @@ export async function createCreatorMarketplaceProduct(
         short_description: input.shortDescription?.trim() || null,
         description: input.description?.trim() || null,
         featured_image_url: input.featuredImageUrl?.trim() || null,
+        platform_domain_id: input.platformDomainId ?? null,
+        platform_category_id: input.platformCategoryId ?? null,
         is_active: input.isActive,
+        price_cents: input.priceCents,
+        currency_code: (input.currencyCode?.trim() || "EUR").toLowerCase(),
         platform_creator_id: input.platformCreatorId,
       }),
       cache: "no-store",
@@ -81,6 +89,8 @@ export async function createCreatorMarketplaceProduct(
       error: `Creator product create failed (${response.status}): ${body || "unknown error"}`,
     };
   }
+
+  await queueProjectionSync(config.baseUrl, config.adminToken, input.sellerId);
 
   const payload = (await response.json()) as {
     product?: { id?: string };
@@ -101,7 +111,11 @@ export async function updateCreatorMarketplaceProduct(input: {
   shortDescription?: string | null;
   description?: string | null;
   featuredImageUrl?: string | null;
+  platformDomainId?: string | null;
+  platformCategoryId?: string | null;
   isActive?: boolean;
+  priceCents?: number;
+  currencyCode?: string | null;
 }): Promise<CreatorProductResult> {
   const config = getAdminConfig();
   if (!config) {
@@ -129,7 +143,17 @@ export async function updateCreatorMarketplaceProduct(input: {
         short_description: input.shortDescription?.trim() || null,
         description: input.description?.trim() || null,
         featured_image_url: input.featuredImageUrl?.trim() || null,
+        platform_domain_id: input.platformDomainId ?? null,
+        platform_category_id: input.platformCategoryId ?? null,
         is_active: input.isActive,
+        price_cents:
+          typeof input.priceCents === "number" && Number.isFinite(input.priceCents)
+            ? input.priceCents
+            : undefined,
+        currency_code:
+          typeof input.currencyCode === "string" && input.currencyCode.trim()
+            ? input.currencyCode.trim().toLowerCase()
+            : undefined,
         platform_creator_id: input.platformCreatorId,
       }),
       cache: "no-store",
@@ -145,6 +169,8 @@ export async function updateCreatorMarketplaceProduct(input: {
     };
   }
 
+  await queueProjectionSync(config.baseUrl, config.adminToken, input.sellerId);
+
   const payload = (await response.json()) as {
     product?: { id?: string };
   };
@@ -153,4 +179,28 @@ export async function updateCreatorMarketplaceProduct(input: {
     ok: !!payload.product?.id,
     productId: payload.product?.id ?? input.medusaProductId,
   };
+}
+
+async function queueProjectionSync(
+  baseUrl: string,
+  adminToken: string,
+  sellerId: string
+): Promise<void> {
+  try {
+    await fetch(`${baseUrl}/admin/platform/products/projection/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+        "x-medusa-access-token": adminToken,
+      },
+      body: JSON.stringify({
+        seller_id: sellerId,
+        limit: 250,
+      }),
+      cache: "no-store",
+    });
+  } catch {
+    // Best-effort only; projection still happens via event subscribers.
+  }
 }

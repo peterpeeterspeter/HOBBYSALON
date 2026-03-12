@@ -1,6 +1,11 @@
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
+import { listDomainsBySort } from "@/lib/platform/queries/domains";
+import {
+  listSupplyCategoryOptions,
+  type ProductCategoryOption,
+} from "@/lib/platform/queries/products";
 import { createProductAction, updateProductAction } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
@@ -15,28 +20,53 @@ type Props = {
 
 const PRODUCT_TYPE_OPTIONS = [
   { value: "handmade", label: "Handmade" },
-  { value: "supply", label: "Supply" },
-  { value: "workshop_kit", label: "Workshop kit" },
-  { value: "event_ticket", label: "Event ticket" },
-  { value: "workshop_ticket", label: "Workshop ticket" },
-  { value: "event_listing", label: "Event listing" },
 ];
 
 export default async function DashboardProductsPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
   const { success, error } = await searchParams;
+  const [domains, categoryOptions] = await Promise.all([
+    listDomainsBySort(),
+    listSupplyCategoryOptions(),
+  ]);
 
   let products: Product[] = [];
+  let creatorDomainIds: string[] = [];
   if (creator) {
     const supabase = createPlatformClient();
-    const { data } = await supabase
-      .from("products")
-      .select("*")
-      .eq("creator_id", creator.id)
-      .order("created_at", { ascending: false });
-    products = (data ?? []) as Product[];
+    const [{ data: productData }, { data: creatorDomainLinks }] = await Promise.all([
+      supabase
+        .from("products")
+        .select("*")
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("creator_domains")
+        .select("domain_id")
+        .eq("creator_id", creator.id),
+    ]);
+    products = (productData ?? []) as Product[];
+    creatorDomainIds = Array.from(
+      new Set((creatorDomainLinks ?? []).map((row) => row.domain_id).filter(Boolean))
+    );
   }
+
+  const domainOptions = domains.map((domain) => ({
+    value: domain.id,
+    label: domain.name,
+  }));
+  const categoryOptionsByDomain = new Map<string, ProductCategoryOption[]>();
+  for (const category of categoryOptions) {
+    if (!category.domain_id) continue;
+    const existing = categoryOptionsByDomain.get(category.domain_id) ?? [];
+    existing.push(category);
+    categoryOptionsByDomain.set(category.domain_id, existing);
+  }
+  const primaryDomainId = creatorDomainIds[0] ?? "";
+  const createCategoryOptions =
+    (primaryDomainId ? categoryOptionsByDomain.get(primaryDomainId) : null) ??
+    categoryOptions;
 
   return (
     <section className="space-y-6">
@@ -71,6 +101,38 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   label="Type *"
                   options={PRODUCT_TYPE_OPTIONS}
                   required
+                  defaultValue="handmade"
+                />
+                <Input
+                  name="price_cents"
+                  label="Prijs (cent) *"
+                  type="number"
+                  min={0}
+                  required
+                  defaultValue="0"
+                />
+                <Input
+                  name="currency_code"
+                  label="Valuta *"
+                  defaultValue="EUR"
+                  maxLength={3}
+                  required
+                />
+                <Select
+                  name="domain_id"
+                  label="Domein"
+                  options={domainOptions}
+                  placeholder="Selecteer domein"
+                  defaultValue={primaryDomainId}
+                />
+                <Select
+                  name="category_id"
+                  label="Categorie"
+                  options={createCategoryOptions.map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  }))}
+                  placeholder="Selecteer categorie"
                 />
                 <Input name="featured_image_url" label="Afbeelding URL" />
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
@@ -134,6 +196,40 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       options={PRODUCT_TYPE_OPTIONS}
                       required
                       defaultValue={product.product_type}
+                    />
+                    <Input
+                      name="price_cents"
+                      label="Prijs (cent)"
+                      type="number"
+                      min={0}
+                      defaultValue=""
+                    />
+                    <Input
+                      name="currency_code"
+                      label="Valuta"
+                      defaultValue="EUR"
+                      maxLength={3}
+                    />
+                    <Select
+                      name="domain_id"
+                      label="Domein"
+                      options={domainOptions}
+                      placeholder="Selecteer domein"
+                      defaultValue={product.domain_id ?? primaryDomainId}
+                    />
+                    <Select
+                      name="category_id"
+                      label="Categorie"
+                      options={(
+                        product.domain_id
+                          ? categoryOptionsByDomain.get(product.domain_id)
+                          : createCategoryOptions
+                      )?.map((category) => ({
+                        value: category.id,
+                        label: category.name,
+                      })) ?? []}
+                      placeholder="Selecteer categorie"
+                      defaultValue={product.category_id ?? ""}
                     />
                     <Input
                       name="featured_image_url"

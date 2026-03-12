@@ -4,7 +4,10 @@ import {
   MedusaError,
   toHandle,
 } from '@medusajs/framework/utils'
-import { updateProductsWorkflow } from '@medusajs/medusa/core-flows'
+import {
+  updateProductsWorkflow,
+  updateProductVariantsWorkflow,
+} from '@medusajs/medusa/core-flows'
 import { z } from 'zod'
 
 import { SellerType } from '@mercurjs/framework'
@@ -25,6 +28,8 @@ const UpdateCreatorProductPayload = z.object({
   description: z.string().trim().optional().nullable(),
   featured_image_url: z.string().trim().optional().nullable(),
   is_active: z.boolean().optional(),
+  price_cents: z.number().int().min(0).optional(),
+  currency_code: z.string().trim().optional(),
   platform_creator_id: z.string().uuid().optional(),
   platform_domain_id: z.string().uuid().optional().nullable(),
   platform_category_id: z.string().uuid().optional().nullable(),
@@ -129,7 +134,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     data: [existingProduct],
   } = await query.graph({
     entity: 'product',
-    fields: ['id', 'metadata'],
+    fields: ['id', 'metadata', 'variants.id'],
     filters: { id: productId },
   })
 
@@ -199,6 +204,33 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       selector: { id: productId },
     },
   })
+
+  if (payload.price_cents !== undefined) {
+    const firstVariantId = existingProduct.variants?.[0]?.id
+    if (!firstVariantId) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        `No variant found for product ${productId}`
+      )
+    }
+
+    const currencyCode =
+      normalizeNullable(payload.currency_code)?.toLowerCase() || 'eur'
+    await updateProductVariantsWorkflow.run({
+      container: req.scope,
+      input: {
+        selector: { id: firstVariantId, product_id: productId },
+        update: {
+          prices: [
+            {
+              currency_code: currencyCode,
+              amount: payload.price_cents,
+            },
+          ],
+        },
+      },
+    })
+  }
 
   const updated = result?.[0]
   res.json({
