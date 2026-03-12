@@ -10,6 +10,7 @@ const avatarVariants = cva(
         sm: "h-8 w-8 text-xs",
         md: "h-10 w-10 text-sm",
         lg: "h-14 w-14 text-base",
+        xl: "h-20 w-20 text-lg",
       },
     },
     defaultVariants: {
@@ -25,7 +26,7 @@ type AvatarProps = VariantProps<typeof avatarVariants> & {
 };
 
 function Avatar({ src, alt, size, className }: AvatarProps) {
-  const iconSize = size === "sm" ? 14 : size === "lg" ? 24 : 18;
+  const iconSize = size === "sm" ? 14 : size === "xl" ? 32 : size === "lg" ? 24 : 18;
 
   if (src) {
     return (

@@ -1,4 +1,5 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { ImageOff } from "lucide-react";
@@ -13,6 +14,7 @@ const aspectImageVariants = cva(
         square: "aspect-square",
         video: "aspect-video",
         portrait: "aspect-[3/4]",
+        banner: "aspect-[21/9]",
       },
     },
     defaultVariants: {
@@ -31,9 +33,14 @@ type AspectImageProps = VariantProps<typeof aspectImageVariants> & {
 };
 
 function AspectImage({ src, alt, ratio, className, fill = true, fallbackImage }: AspectImageProps) {
+  const [failed, setFailed] = useState(false);
   const placeholderSrc = fallbackImage ? LANDING_IMAGES[fallbackImage] : null;
 
-  if (!src) {
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
     if (placeholderSrc) {
       return (
         <AspectImagePlaceholder
@@ -57,6 +64,8 @@ function AspectImage({ src, alt, ratio, className, fill = true, fallbackImage }:
         src={src}
         alt={alt}
         loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
         className={cn(
           "object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:group-hover:transform-none",
           fill && "absolute inset-0 h-full w-full"

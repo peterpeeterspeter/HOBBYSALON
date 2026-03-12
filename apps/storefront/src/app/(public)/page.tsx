@@ -2,12 +2,14 @@ import Link from "next/link";
 import { getHomePageData } from "@/lib/services/home-page";
 import { buildHeroSlides } from "@/lib/services/hero-slides";
 import { HeroSlider } from "@/components/home/hero-slider";
-import { ProductCard, WorkshopCard, EventCard, ArticleCard, CreatorCard, ProjectCard } from "@/components/cards";
+import { FeaturedBanner } from "@/components/home/featured-banner";
+import { CTABanner } from "@/components/home/cta-banner";
+import { DomainPills } from "@/components/home/domain-pills";
+import { CreatorSpotlight } from "@/components/home/creator-spotlight";
+import { ArticleFeature } from "@/components/home/article-feature";
+import { ProductCard, WorkshopCard, EventCard, ProjectCard } from "@/components/cards";
 import { Container } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
-import { CardShell } from "@/components/ui/card-shell";
-import { AspectImage } from "@/components/ui/aspect-image";
-import { getDomainPlaceholderImage } from "@/components/ui/ai-generated-image";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { Section } from "@/components/layout/section";
@@ -20,6 +22,7 @@ export const metadata = buildPageMetadata({
     "Ontdek handgemaakte producten, benodigdheden, workshops, events en inspiratie op Hobbysalon.",
   path: "/",
 });
+export const revalidate = 300;
 
 export default async function HomePage() {
   let data: Awaited<ReturnType<typeof getHomePageData>> = {
@@ -53,6 +56,13 @@ export default async function HomePage() {
     featuredProjects: data.featuredProjects,
   });
 
+  // Split featured handmade into hero card + rest
+  const [heroHandmade, ...restHandmade] = data.featuredHandmade;
+  // Split workshops into hero banner + rest
+  const [heroWorkshop, ...restWorkshops] = data.upcomingWorkshops;
+  // Split events into hero banner + rest
+  const [heroEvent, ...restEvents] = data.upcomingEvents;
+
   return (
     <>
       <HeroSlider slides={heroSlides} autoplayIntervalMs={6000} />
@@ -71,7 +81,7 @@ export default async function HomePage() {
         Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
       </p>
 
-      {/* Marketplace — default background */}
+      {/* ─── Marketplace — featured hero + grid ─── */}
       <Section spacing="lg">
         <Container>
           <SectionHeader
@@ -79,15 +89,29 @@ export default async function HomePage() {
             description="Ontdek handgemaakt werk van creators en materiaal van hobbywinkels."
           />
 
+          {/* Handmade: 1 featured large + 3 regular */}
           <div className="mt-6">
             <SectionHeader subtle title="Uitgelicht handgemaakt" />
-            <GridLayout cols={4}>
-              {data.featuredHandmade.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </GridLayout>
+            {heroHandmade ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* Featured large card spanning 2 cols */}
+                <div className="md:col-span-2 md:row-span-2">
+                  <ProductCard product={heroHandmade} className="h-full" />
+                </div>
+                {restHandmade.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <GridLayout cols={4}>
+                {data.featuredHandmade.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </GridLayout>
+            )}
           </div>
 
+          {/* Supplies: standard grid */}
           <div className="mt-10">
             <SectionHeader
               subtle
@@ -104,34 +128,28 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* Populaire domeinen — alt background */}
+      {/* ─── Populaire domeinen — horizontal pills ─── */}
       <Section variant="alt" spacing="md">
         <Container>
           <SectionHeader title="Populaire domeinen" />
-          <GridLayout cols={4}>
-            {data.popularDomains.map((domain) => (
-              <Link key={domain.id} href={`/${domain.slug}`} className="block">
-                <CardShell variant="interactive" padding="md">
-                  <AspectImage
-                    ratio="square"
-                    src={domain.hero_image_url ?? getDomainPlaceholderImage(domain.slug)}
-                    alt={domain.name}
-                    className="-mx-4 -mt-4 mb-3 rounded-b-none"
-                  />
-                  <h3 className="font-semibold text-[var(--foreground)]">{domain.name}</h3>
-                  {domain.short_description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
-                      {domain.short_description}
-                    </p>
-                  )}
-                </CardShell>
-              </Link>
-            ))}
-          </GridLayout>
+          <DomainPills domains={data.popularDomains} />
         </Container>
       </Section>
 
-      {/* Aanbevelingen — highlight (warm terracotta tint) */}
+      {/* ─── CTA Banner — Word creator ─── */}
+      <Section spacing="sm">
+        <Container>
+          <CTABanner
+            title="Word creator op Hobbysalon"
+            description="Verkoop je handgemaakt werk, geef workshops of deel je inspiratie met duizenden hobbyisten."
+            href="/register"
+            ctaText="Start als creator"
+            variant="warm"
+          />
+        </Container>
+      </Section>
+
+      {/* ─── Aanbevelingen — warm highlight ─── */}
       <Section variant="highlight" spacing="md">
         <Container>
           <SectionHeader
@@ -165,43 +183,104 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* Workshops — default, with divider */}
+      {/* ─── Workshops — featured banner + cards ─── */}
       <Section spacing="md" divider>
         <Container>
           <SectionHeader title="Aankomende workshops" href="/workshops" />
-          <GridLayout cols={3}>
-            {data.upcomingWorkshops.map((workshop) => (
-              <WorkshopCard key={workshop.id} workshop={workshop} />
-            ))}
-          </GridLayout>
+
+          {heroWorkshop ? (
+            <div className="space-y-6">
+              {/* Full-width featured workshop banner */}
+              <FeaturedBanner
+                title={heroWorkshop.title}
+                description={heroWorkshop.short_description ?? undefined}
+                imageUrl={heroWorkshop.featured_image_url}
+                imageFallback="placeholderWorkshop"
+                href={`/workshop/${heroWorkshop.slug}`}
+                badge={heroWorkshop.format_type === "online" ? "Online" : "Fysiek"}
+                ctaText="Bekijk workshop"
+                variant="warm"
+              />
+
+              {/* Remaining workshops in compact row */}
+              {restWorkshops.length > 0 && (
+                <GridLayout cols={3}>
+                  {restWorkshops.map((workshop) => (
+                    <WorkshopCard key={workshop.id} workshop={workshop} />
+                  ))}
+                </GridLayout>
+              )}
+            </div>
+          ) : (
+            <GridLayout cols={3}>
+              {data.upcomingWorkshops.map((workshop) => (
+                <WorkshopCard key={workshop.id} workshop={workshop} />
+              ))}
+            </GridLayout>
+          )}
         </Container>
       </Section>
 
-      {/* Agenda — alt background */}
+      {/* ─── Agenda — featured banner + cards ─── */}
       <Section variant="alt" spacing="md">
         <Container>
-          <SectionHeader title="Agenda teaser" href="/agenda" />
-          <GridLayout cols={3}>
-            {data.upcomingEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </GridLayout>
+          <SectionHeader title="Agenda" href="/agenda" />
+
+          {heroEvent ? (
+            <div className="space-y-6">
+              {/* Full-width featured event banner */}
+              <FeaturedBanner
+                title={heroEvent.title}
+                description={heroEvent.short_description ?? undefined}
+                imageUrl={heroEvent.featured_image_url}
+                imageFallback="placeholderEvent"
+                href={`/agenda/${heroEvent.slug}`}
+                badge={heroEvent.city ?? undefined}
+                ctaText="Bekijk event"
+                variant="sage"
+              />
+
+              {/* Remaining events */}
+              {restEvents.length > 0 && (
+                <GridLayout cols={3}>
+                  {restEvents.map((event) => (
+                    <EventCard key={event.id} event={event} />
+                  ))}
+                </GridLayout>
+              )}
+            </div>
+          ) : (
+            <GridLayout cols={3}>
+              {data.upcomingEvents.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </GridLayout>
+          )}
         </Container>
       </Section>
 
-      {/* Artikelen — default */}
+      {/* ─── Artikelen — magazine layout ─── */}
       <Section spacing="md">
         <Container>
           <SectionHeader title="Inspiratieartikelen" />
-          <GridLayout cols={3}>
-            {data.latestArticles.map((article) => (
-              <ArticleCard key={article.id} article={article} />
-            ))}
-          </GridLayout>
+          <ArticleFeature articles={data.latestArticles} />
         </Container>
       </Section>
 
-      {/* Projecten — alt background */}
+      {/* ─── CTA Banner — Start je hobby ─── */}
+      <Section spacing="sm">
+        <Container>
+          <CTABanner
+            title="Klaar om te starten?"
+            description="Ontdek stap-voor-stap projecten, van beginners tot gevorderden. Alles wat je nodig hebt op één plek."
+            href="/materials"
+            ctaText="Bekijk projecten"
+            variant="sage"
+          />
+        </Container>
+      </Section>
+
+      {/* ─── Projecten — standard grid ─── */}
       <Section variant="alt" spacing="md">
         <Container>
           <SectionHeader title="Projecten om direct te starten" />
@@ -213,15 +292,11 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* Creators — default, with divider */}
+      {/* ─── Creators — spotlight row ─── */}
       <Section spacing="lg" divider>
         <Container>
           <SectionHeader title="Creators van de maand" href="/creators" />
-          <GridLayout cols={3}>
-            {data.creatorsOfTheMonth.map((creator) => (
-              <CreatorCard key={creator.id} creator={creator} />
-            ))}
-          </GridLayout>
+          <CreatorSpotlight creators={data.creatorsOfTheMonth} />
         </Container>
       </Section>
     </>
