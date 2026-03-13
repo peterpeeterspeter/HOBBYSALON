@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freubelweb Pattern Archive - Complete Index</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .hero h1 {
+            color: white;
+            border: none;
+            margin: 0 0 10px 0;
+        }
+        .hero p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        .archive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        .archive-card {
+            border: 2px solid #ecf0f1;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .archive-card:hover {
+            border-color: #3498db;
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.2);
+        }
+        .archive-card h3 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        .archive-card p {
+            color: #7f8c8d;
+            margin: 0 0 15px 0;
+            font-size: 0.95em;
+        }
+        .archive-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            color: #95a5a6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn-secondary {
+            background: #95a5a6;
+        }
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        .top-domains {
+            margin-top: 20px;
+        }
+        .domain-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .domain-name {
+            flex: 1;
+            font-weight: 500;
+        }
+        .domain-count {
+            background: #3498db;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 30px;
+            color: #7f8c8d;
+            border-top: 2px solid #ecf0f1;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>🧶 Freubelweb Pattern Archive</h1>
+        <p>Complete Dutch crochet pattern collection with 77 downloaded patterns and 64 curated links</p>
+        <p><small>Generated 2026-03-13</small></p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">77</div>
+            <div class="stat-label">Downloaded Patterns</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">46</div>
+            <div class="stat-label">Unique Domains</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">64</div>
+            <div class="stat-label">Dutch Pattern Links</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">141</div>
+            <div class="stat-label">Total Patterns</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📦 Browse Archive</h2>
+        <div class="archive-grid">
+            <div class="archive-card" onclick="window.location.href='downloaded-patterns/'">
+                <h3>🧶 Downloaded Patterns</h3>
+                <p>77 patterns from Freubelweb, fully downloaded and ready to use offline.</p>
+                <div class="archive-meta">
+                    <span>💾 20.9 MB</span>
+                    <span>🌐 46 domains</span>
+                </div>
+            </div>
+            
+            <div class="archive-card" onclick="window.location.href='dutch-pattern-index/'">
+                <h3>🇳🇱 Dutch Pattern Directory</h3>
+                <p>64 curated links to Dutch crochet patterns from professional designers & community blogs.</p>
+                <div class="archive-meta">
+                    <span>🔗 64 links</span>
+                    <span>🎨 9 sources</span>
+                </div>
+            </div>
+            
+            <div class="archive-card" onclick="window.location.href='dutch-crochet-patterns/'">
+                <h3>📄 Dutch Source Pages</h3>
+                <p>9 downloaded Dutch pattern source pages for offline browsing and reference.</p>
+                <div class="archive-meta">
+                    <span>📁 9 pages</span>
+                    <span>💾 2.37 MB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🏆 Top Pattern Sources (Downloaded)</h2>
+        <div class="top-domains">
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 ravelry.com</span>
+                <span class="domain-count">7 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 dekselsepotjes.blogspot.nl</span>
+                <span class="domain-count">5 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 ingescreaties.blogspot.nl</span>
+                <span class="domain-count">4 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 troetelsenzo.blogspot.nl</span>
+                <span class="domain-count">3 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 blog-amourfou-crochetenglish.blogspot.nl</span>
+                <span class="domain-count">2 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 haakhooked.blogspot.nl</span>
+                <span class="domain-count">2 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 haakkamer7.blogspot.nl</span>
+                <span class="domain-count">2 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 handmadehandsome.blogspot.nl</span>
+                <span class="domain-count">2 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 lekkerbekkenmaar.blogspot.be</span>
+                <span class="domain-count">2 patterns</span>
+            </div>
+
+            <div class="domain-bar">
+                <span class="domain-name">🌐 maaikoe.blogspot.nl</span>
+                <span class="domain-count">2 patterns</span>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🎨 Pattern Categories</h2>
+        <div class="archive-grid">
+
+            <div class="archive-card">
+                <h3>🧸 Amigurumi</h3>
+                <p>Toys, dolls, stuffed animals</p>
+                <div class="archive-meta">
+                    <span>~35% of archive</span>
+                </div>
+            </div>
+
+            <div class="archive-card">
+                <h3>👶 Baby & Children</h3>
+                <p>Baby blankets, clothes, toys</p>
+                <div class="archive-meta">
+                    <span>~20% of archive</span>
+                </div>
+            </div>
+
+            <div class="archive-card">
+                <h3>🧶 Wearables</h3>
+                <p>Sweaters, shawls, scarves</p>
+                <div class="archive-meta">
+                    <span>~25% of archive</span>
+                </div>
+            </div>
+
+            <div class="archive-card">
+                <h3>🏠 Home Decor</h3>
+                <p>Blankets, pillows, decor</p>
+                <div class="archive-meta">
+                    <span>~15% of archive</span>
+                </div>
+            </div>
+
+            <div class="archive-card">
+                <h3>🎨 Other</h3>
+                <p>Bags, accessories, seasonal</p>
+                <div class="archive-meta">
+                    <span>~5% of archive</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Archive Contents</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <div>
+                <h3>Downloaded Patterns</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li>✅ 77 pattern files</li>
+                    <li>✅ 46 unique domains</li>
+                    <li>✅ 20.9 MB total</li>
+                    <li>✅ Organized by domain</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Dutch Patterns</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li>✅ 64 curated links</li>
+                    <li>✅ 9 professional sources</li>
+                    <li>✅ 9 source pages downloaded</li>
+                    <li>✅ HTML index included</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Documentation</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li>✅ COMPLETE-REPORT.md</li>
+                    <li>✅ DUTCH-PATTERNS-REPORT.md</li>
+                    <li>✅ Pattern metadata (JSON)</li>
+                    <li>✅ Download results</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><strong>Freubelweb Pattern Archive</strong></p>
+        <p>Dutch crochet pattern collection with 77 downloaded patterns + 64 curated links</p>
+        <p><small>Generated 2026-03-13 10:55:03 by Carlottta 🎭</small></p>
+    </div>
+</body>
+</html>

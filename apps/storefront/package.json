@@ -8,7 +8,13 @@
     "start": "next start --port 3002",
     "lint": "eslint",
     "seed": "psql \"${DATABASE_URL}\" -f scripts/seed-platform.sql",
-    "migrate:registration-profile": "psql \"${DATABASE_URL}\" -f scripts/migrate-registration-profile.sql"
+    "seed:extended": "npx tsx scripts/seed-extended.ts",
+    "seed:product-images": "tsx scripts/seed-product-images.ts",
+    "seed:product-images:sql": "psql \"${DATABASE_URL}\" -f scripts/update-product-image-urls.sql",
+    "migrate:registration-profile": "psql \"${DATABASE_URL}\" -f scripts/migrate-registration-profile.sql",
+    "import:wordpress:articles": "node --experimental-strip-types scripts/import-wordpress-articles.ts",
+    "auto-link:articles": "node --experimental-strip-types scripts/auto-link-articles.ts",
+    "import:free-crochet:articles": "node --experimental-strip-types scripts/import-free-crochet-patterns.ts"
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.11.3",

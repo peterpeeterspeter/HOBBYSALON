@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getHomePageData } from "@/lib/services/home-page";
 import { buildHeroSlides } from "@/lib/services/hero-slides";
 import { HeroSlider } from "@/components/home/hero-slider";
@@ -262,7 +261,11 @@ export default async function HomePage() {
       {/* ─── Artikelen — magazine layout ─── */}
       <Section spacing="md">
         <Container>
-          <SectionHeader title="Inspiratieartikelen" />
+          <SectionHeader
+            title="Inspiratieartikelen"
+            href="/gratis-haakpatronen"
+            linkText="Gratis NL haakpatronen"
+          />
           <ArticleFeature articles={data.latestArticles} />
         </Container>
       </Section>

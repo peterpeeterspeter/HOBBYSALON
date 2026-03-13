@@ -6,6 +6,7 @@
 export const STATIC_LINKS = {
   discover: [
     { href: "/materials", label: "Materialen" },
+    { href: "/gratis-haakpatronen", label: "Gratis haakpatronen" },
     { href: "/agenda", label: "Agenda" },
     { href: "/workshops", label: "Workshops" },
     { href: "/creators", label: "Creators" },
@@ -24,6 +25,7 @@ export const STATIC_LINKS = {
 export const FOOTER_SECTIONS = {
   ontdek: [
     { href: "/", label: "Home" },
+    { href: "/gratis-haakpatronen", label: "Gratis haakpatronen" },
     { href: "/agenda", label: "Agenda" },
     { href: "/workshops", label: "Workshops" },
     { href: "/creators", label: "Creators" },
