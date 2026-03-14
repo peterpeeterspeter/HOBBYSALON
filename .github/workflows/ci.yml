@@ -185,6 +185,7 @@ jobs:
           JWT_SECRET=supersecret
           COOKIE_SECRET=supersecret
           DISABLE_ALGOLIA=true
+          ENABLE_ALGOLIA=false
           ALGOLIA_APP_ID=CI_DUMMY_APP_ID
           ALGOLIA_API_KEY=CI_DUMMY_API_KEY
           EOF

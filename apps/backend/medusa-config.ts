@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from '@medusajs/framework/utils'
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 const shouldEnableAlgolia =
+  process.env.ENABLE_ALGOLIA === 'true' &&
   process.env.DISABLE_ALGOLIA !== 'true' &&
   Boolean(process.env.ALGOLIA_APP_ID) &&
   Boolean(process.env.ALGOLIA_API_KEY)
