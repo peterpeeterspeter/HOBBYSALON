@@ -8,6 +8,7 @@ on:
 
 env:
   NODE_VERSION: "20"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   lint:
@@ -48,6 +49,12 @@ jobs:
 
       - name: Typecheck storefront
         run: yarn workspace storefront tsc --noEmit -p tsconfig.json
+
+      - name: Build local Mercur packages required by backend typecheck
+        run: |
+          yarn workspace @mercurjs/framework build
+          yarn workspace @mercurjs/b2c-core build
+          yarn workspace @mercurjs/commission build
 
       - name: Typecheck backend
         run: yarn workspace api tsc --noEmit -p tsconfig.json
