@@ -140,6 +140,8 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_ci
       REDIS_URL: redis://localhost:6379
+      ALGOLIA_APP_ID: CI_DUMMY_APP_ID
+      ALGOLIA_API_KEY: CI_DUMMY_API_KEY
       STORE_CORS: http://localhost:3002
       ADMIN_CORS: http://localhost:7001
       AUTH_CORS: http://localhost:3002
