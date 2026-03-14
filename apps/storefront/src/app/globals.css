@@ -24,6 +24,8 @@
 
   /* Decorative */
   --divider-accent: var(--accent);
+  --font-heading: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Source Sans 3", "Segoe UI", Arial, sans-serif;
 
   /* Semantic feedback */
   --success: #4a8c5c;
