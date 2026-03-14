@@ -38,7 +38,6 @@ function DomainPills({ domains, className }: DomainPillsProps) {
         >
           {/* Circular thumbnail */}
           <div className="relative h-20 w-20 md:h-24 md:w-24 overflow-hidden rounded-full border-2 border-[var(--border)] transition-all duration-[var(--transition-normal)] group-hover/pill:border-[var(--accent)] group-hover/pill:shadow-[var(--shadow-lg)] group-hover/pill:scale-105 motion-reduce:group-hover/pill:scale-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={domain.hero_image_url ?? getDomainPlaceholderImage(domain.slug)}
               alt=""
