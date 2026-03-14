@@ -13,6 +13,7 @@ module.exports = defineConfig({
   },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    redisUrl: process.env.REDIS_URL,
     databaseDriverOptions: process.env.NODE_ENV === 'production' ? {
       connection: { 
         ssl: {
