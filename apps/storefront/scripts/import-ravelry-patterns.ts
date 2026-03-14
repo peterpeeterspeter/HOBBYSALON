@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 
-import { RavelryClient, type RavelryPatternDetail } from "../src/lib/integrations/ravelry/client.ts";
+import { RavelryClient, type RavelryPatternDetail } from "../src/lib/integrations/ravelry/client";
 
 type Args = {
   apply: boolean;
