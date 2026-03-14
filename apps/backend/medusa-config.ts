@@ -2,6 +2,11 @@ import { defineConfig, loadEnv } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
+const shouldEnableAlgolia =
+  process.env.DISABLE_ALGOLIA !== 'true' &&
+  Boolean(process.env.ALGOLIA_APP_ID) &&
+  Boolean(process.env.ALGOLIA_API_KEY)
+
 module.exports = defineConfig({
   admin: {
     disable: true // Disable built-in admin - using separate admin-panel container
@@ -34,7 +39,7 @@ module.exports = defineConfig({
       resolve: '@mercurjs/commission',
       options: {}
     },
-    ...(process.env.ALGOLIA_APP_ID && process.env.ALGOLIA_API_KEY
+    ...(shouldEnableAlgolia
       ? [
           {
             resolve: '@mercurjs/algolia',

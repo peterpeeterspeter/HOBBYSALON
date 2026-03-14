@@ -140,6 +140,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_ci
       REDIS_URL: redis://localhost:6379
+      DISABLE_ALGOLIA: "true"
       ALGOLIA_APP_ID: CI_DUMMY_APP_ID
       ALGOLIA_API_KEY: CI_DUMMY_API_KEY
       STORE_CORS: http://localhost:3002
@@ -176,4 +177,4 @@ jobs:
         run: yarn workspace api db:migrate
 
       - name: Run seed smoke-test
-        run: yarn workspace api seed
+        run: DISABLE_ALGOLIA=true ALGOLIA_APP_ID=CI_DUMMY_APP_ID ALGOLIA_API_KEY=CI_DUMMY_API_KEY REDIS_URL=redis://localhost:6379 yarn workspace api seed
