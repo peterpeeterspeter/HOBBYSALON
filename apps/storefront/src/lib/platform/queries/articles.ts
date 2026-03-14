@@ -101,7 +101,7 @@ export async function listFreeDutchCrochetPatternArticles(
     .select("*")
     .eq("is_published", true)
     .eq("article_type", "pattern")
-    .like("slug", "gratis-haakpatronen-%")
+    .or("slug.like.gratis-haakpatronen-%,slug.like.ravelry-pattern-%")
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);

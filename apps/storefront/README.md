@@ -15,9 +15,12 @@ Next.js storefront for the Hobbysalon creative hobby platform.
    - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (Stripe Connect uses the platform publishable key, e.g. `pk_test_...`; backend needs `STRIPE_SECRET_API_KEY`)
    - `PEXELS_API_KEY` (recommended for placeholders): get free key at https://www.pexels.com/api
   - `npx tsx scripts/seed-placeholder-images.ts` — downloads placeholder images from Pexels to public/landing/
-- `LAOZHANG_API_KEY` (optional, for AI-generated images):
+  - `LAOZHANG_API_KEY` (optional, for AI-generated images):
   - `npx tsx scripts/generate-landing-images.ts` — generates images via Nano Banana Pro (LaoZhang)
   - Design integration: EmptyState `image` prop, AspectImage `fallbackImage`, AIGeneratedImage component
+  - `RAVELRY_API_USERNAME` + `RAVELRY_API_PASSWORD` (read-only API credentials):
+    - `yarn import:ravelry:patterns -- --query \"amigurumi\" --language nl` (dry-run)
+    - `yarn import:ravelry:patterns -- --query \"amigurumi\" --language nl --apply` (upsert to `articles`)
 
 3. Apply the platform schema in Supabase (see `docs/SQL.md` in the repo root).
 

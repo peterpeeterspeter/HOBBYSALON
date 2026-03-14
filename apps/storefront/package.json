@@ -14,7 +14,8 @@
     "migrate:registration-profile": "psql \"${DATABASE_URL}\" -f scripts/migrate-registration-profile.sql",
     "import:wordpress:articles": "node --experimental-strip-types scripts/import-wordpress-articles.ts",
     "auto-link:articles": "node --experimental-strip-types scripts/auto-link-articles.ts",
-    "import:free-crochet:articles": "node --experimental-strip-types scripts/import-free-crochet-patterns.ts"
+    "import:free-crochet:articles": "node --experimental-strip-types scripts/import-free-crochet-patterns.ts",
+    "import:ravelry:patterns": "node --experimental-strip-types scripts/import-ravelry-patterns.ts"
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.11.3",
