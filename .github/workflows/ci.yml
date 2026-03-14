@@ -127,9 +127,19 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_ci
+      REDIS_URL: redis://localhost:6379
       STORE_CORS: http://localhost:3002
       ADMIN_CORS: http://localhost:7001
       AUTH_CORS: http://localhost:3002
