@@ -173,6 +173,22 @@ jobs:
           yarn workspace @mercurjs/reviews build
           yarn workspace @mercurjs/stripe-tax-provider build
 
+      - name: Prepare backend .env for seed smoke
+        run: |
+          cat > apps/backend/.env <<'EOF'
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/medusa_ci
+          REDIS_URL=redis://localhost:6379
+          STORE_CORS=http://localhost:3002
+          ADMIN_CORS=http://localhost:7001
+          AUTH_CORS=http://localhost:3002
+          VENDOR_CORS=http://localhost:3002
+          JWT_SECRET=supersecret
+          COOKIE_SECRET=supersecret
+          DISABLE_ALGOLIA=true
+          ALGOLIA_APP_ID=CI_DUMMY_APP_ID
+          ALGOLIA_API_KEY=CI_DUMMY_API_KEY
+          EOF
+
       - name: Run DB migrations
         run: yarn workspace api db:migrate
 
