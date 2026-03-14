@@ -17,10 +17,10 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: yarn
@@ -37,10 +37,10 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: yarn
@@ -94,10 +94,10 @@ jobs:
       MEDUSA_BACKEND_URL: http://localhost:9000
       NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ci_placeholder_publishable_key
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: yarn
@@ -137,16 +137,28 @@ jobs:
       JWT_SECRET: supersecret
       COOKIE_SECRET: supersecret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: yarn
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Build local Mercur packages required by seed
+        run: |
+          yarn workspace @mercurjs/framework build
+          yarn workspace @mercurjs/algolia build
+          yarn workspace @mercurjs/b2c-core build
+          yarn workspace @mercurjs/commission build
+          yarn workspace @mercurjs/payment-stripe-connect build
+          yarn workspace @mercurjs/requests build
+          yarn workspace @mercurjs/resend build
+          yarn workspace @mercurjs/reviews build
+          yarn workspace @mercurjs/stripe-tax-provider build
 
       - name: Run DB migrations
         run: yarn workspace api db:migrate
