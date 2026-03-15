@@ -9,6 +9,16 @@ import { PriceDisplay } from "@/components/domain/price-display";
 
 export const dynamic = "force-dynamic";
 
+type CartItem = {
+  id?: string;
+  variant?: { id?: string; title?: string; product?: { title?: string } };
+  unit_price?: number;
+  quantity?: number;
+  total?: number;
+  title?: string;
+  metadata?: Record<string, unknown>;
+};
+
 export default async function CartPage() {
   const cookieStore = await cookies();
   const cartId = cookieStore.get(CART_COOKIE_NAME)?.value;
@@ -36,26 +46,18 @@ export default async function CartPage() {
   }
 
   const currencyCode = (cart as { currency_code?: string }).currency_code ?? "eur";
+  const items = (cart.items ?? []) as CartItem[];
   const subtotal =
-    cart.items?.reduce((sum: number, item) => {
-      const unitPrice = (item as { unit_price?: number }).unit_price ?? 0;
-      const qty = (item as { quantity?: number }).quantity ?? 1;
+    items.reduce((sum: number, item: CartItem) => {
+      const unitPrice = item.unit_price ?? 0;
+      const qty = item.quantity ?? 1;
       return sum + unitPrice * qty;
-    }, 0) ?? 0;
+    }, 0);
 
   return (
     <PageLayout title="Winkelwagen" size="narrow">
       <div className="space-y-6">
-        {(cart.items ?? []).map((item) => {
-          const i = item as {
-            id?: string;
-            variant?: { id?: string; title?: string; product?: { title?: string } };
-            unit_price?: number;
-            quantity?: number;
-            total?: number;
-            title?: string;
-            metadata?: Record<string, unknown>;
-          };
+        {items.map((i: CartItem) => {
           const variant = i.variant as {
             id: string;
             title?: string;
