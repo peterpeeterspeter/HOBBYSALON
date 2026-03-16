@@ -3,6 +3,10 @@ import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { listWorkshopsByCreator } from "@/lib/platform/queries/workshops";
 import { listEventsByCreator } from "@/lib/platform/queries/events";
+import {
+  listProjectSoughtMaterials,
+} from "@/lib/platform/queries/projects";
+import { listMaterialProductsForSelection } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
 import {
   approveArticleSuggestionAction,
@@ -10,9 +14,11 @@ import {
   createCreatorEntityLinkAction,
   createProjectGalleryImageAction,
   createProjectProductLinkAction,
+  createProjectSoughtMaterialAction,
   dismissArticleSuggestionAction,
   deleteProjectGalleryImageAction,
   deleteProjectProductLinkAction,
+  deleteProjectSoughtMaterialAction,
   deleteCreatorEntityLinkAction,
   saveCreatorProfileAction,
   updateArticleAction,
@@ -100,6 +106,14 @@ type ProjectProductLink = {
   project_id: string;
   product_id: string;
   link_type: string;
+  sort_order: number;
+};
+
+type ProjectSoughtMaterial = {
+  id: string;
+  project_id: string;
+  title: string;
+  notes: string | null;
   sort_order: number;
 };
 
@@ -211,6 +225,8 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
   let creatorProjects: CreatorProject[] = [];
   let projectGalleryImages: ProjectGalleryImage[] = [];
   let projectProductLinks: ProjectProductLink[] = [];
+  let projectSoughtMaterials: ProjectSoughtMaterial[] = [];
+  let materialProductOptions: LinkTargetOption[] = [];
 
   if (creator) {
     const supabase = createPlatformClient();
@@ -307,28 +323,42 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
       ),
     ];
     if (creatorProjectIds.length > 0) {
-      const [projectRowsResult, projectImagesResult, projectProductLinksResult] =
-        await Promise.all([
-          supabase
-            .from("projects")
-            .select("id,slug,title,short_description,featured_image_url")
-            .in("id", creatorProjectIds)
-            .eq("is_active", true),
-          supabase
-            .from("project_gallery_images")
-            .select("id,project_id,image_url,alt_text,sort_order")
-            .in("project_id", creatorProjectIds)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("project_product_links")
-            .select("id,project_id,product_id,link_type,sort_order")
-            .in("project_id", creatorProjectIds)
-            .order("sort_order", { ascending: true }),
-        ]);
+      const [
+        projectRowsResult,
+        projectImagesResult,
+        projectProductLinksResult,
+        projectSoughtMaterialsResult,
+        materialOptionsData,
+      ] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id,slug,title,short_description,featured_image_url")
+          .in("id", creatorProjectIds)
+          .eq("is_active", true),
+        supabase
+          .from("project_gallery_images")
+          .select("id,project_id,image_url,alt_text,sort_order")
+          .in("project_id", creatorProjectIds)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("project_product_links")
+          .select("id,project_id,product_id,link_type,sort_order")
+          .in("project_id", creatorProjectIds)
+          .order("sort_order", { ascending: true }),
+        Promise.all(
+          creatorProjectIds.map((pid) => listProjectSoughtMaterials(pid))
+        ).then((arrays) => arrays.flat()),
+        listMaterialProductsForSelection({ limit: 200 }),
+      ]);
 
       creatorProjects = (projectRowsResult.data ?? []) as CreatorProject[];
       projectGalleryImages = (projectImagesResult.data ?? []) as ProjectGalleryImage[];
       projectProductLinks = (projectProductLinksResult.data ?? []) as ProjectProductLink[];
+      projectSoughtMaterials = projectSoughtMaterialsResult as ProjectSoughtMaterial[];
+      materialProductOptions = materialOptionsData.map((p) => ({
+        id: p.id,
+        label: p.title,
+      }));
     }
 
     const articleIds = dashboardArticles.map((article) => article.id);
@@ -387,6 +417,16 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     existing.push(link);
     projectLinksByProject.set(link.project_id, existing);
   }
+  const projectSoughtMaterialsByProject = new Map<string, ProjectSoughtMaterial[]>();
+  for (const m of projectSoughtMaterials) {
+    const existing = projectSoughtMaterialsByProject.get(m.project_id) ?? [];
+    existing.push(m);
+    projectSoughtMaterialsByProject.set(m.project_id, existing);
+  }
+  const projectProductLabelMap = new Map([
+    ...productOptions.map((o) => [o.id, o.label] as const),
+    ...materialProductOptions.map((o) => [o.id, o.label] as const),
+  ]);
 
   return (
     <section className="space-y-6">
@@ -828,7 +868,8 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
             Afgewerkte creaties galerij
           </h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Beheer projectfoto&apos;s en koppel materialen uit je marktplaatsproducten.
+            Beheer projectfoto&apos;s en koppel materialen uit je eigen producten, de webshop of
+            voeg toe als gezocht.
           </p>
 
           {creatorProjects.length === 0 ? (
@@ -840,6 +881,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               {creatorProjects.map((project) => {
                 const gallery = projectImagesByProject.get(project.id) ?? [];
                 const linkedProducts = projectLinksByProject.get(project.id) ?? [];
+                const soughtMaterials = projectSoughtMaterialsByProject.get(project.id) ?? [];
                 return (
                   <details key={project.id} className="rounded-lg border border-[var(--border)] p-3">
                     <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
@@ -849,7 +891,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
                       /project/{project.slug}
                     </p>
 
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                       <form
                         action={createProjectGalleryImageAction}
                         className="rounded-lg border border-[var(--border)] p-3"
@@ -872,7 +914,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
                       >
                         <input type="hidden" name="project_id" value={project.id} />
                         <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                          Materiaal koppelen
+                          Materiaal uit webshop
                         </h3>
                         <label className="mt-2 block text-xs font-medium text-[var(--muted)]">
                           Product
@@ -883,16 +925,35 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
                           className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
                         >
                           <option value="">Kies product...</option>
-                          {productOptions.map((option) => (
+                          {materialProductOptions.map((option) => (
                             <option key={option.id} value={option.id}>
                               {option.label}
                             </option>
                           ))}
                         </select>
-                        <Input name="link_type" label="Link type" defaultValue="material" />
-                        <Input name="sort_order" label="Sort order" type="number" defaultValue={0} />
+                        <input type="hidden" name="link_type" value="material" />
+                        <input type="hidden" name="sort_order" value={linkedProducts.length} />
                         <Button type="submit" variant="secondary" size="sm" className="mt-2">
-                          Product koppelen
+                          Koppelen
+                        </Button>
+                      </form>
+
+                      <form
+                        action={createProjectSoughtMaterialAction}
+                        className="rounded-lg border border-[var(--border)] p-3"
+                      >
+                        <input type="hidden" name="project_id" value={project.id} />
+                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                          Product gezocht
+                        </h3>
+                        <p className="mt-1 text-xs text-[var(--muted)]">
+                          Niet in webshop? Voeg toe als gezocht.
+                        </p>
+                        <Input name="title" label="Naam materiaal *" required />
+                        <Input name="notes" label="Opmerkingen" />
+                        <input type="hidden" name="sort_order" value={soughtMaterials.length} />
+                        <Button type="submit" variant="secondary" size="sm" className="mt-2">
+                          Toevoegen als gezocht
                         </Button>
                       </form>
                     </div>
@@ -930,40 +991,72 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
                       )}
                     </div>
 
-                    <div className="mt-4">
-                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                        Gelinkte materialen ({linkedProducts.length})
-                      </h3>
-                      {linkedProducts.length === 0 ? (
-                        <p className="mt-1 text-sm text-[var(--muted)]">
-                          Nog geen gekoppelde producten.
-                        </p>
-                      ) : (
-                        <div className="mt-2 space-y-2">
-                          {linkedProducts.map((link) => (
-                            <div
-                              key={link.id}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                            >
-                              <p className="text-[var(--foreground)]">
-                                {labelByType.product.get(link.product_id) ?? link.product_id}
-                                {" · "}
-                                {link.link_type}
-                              </p>
-                              <form action={deleteProjectProductLinkAction}>
-                                <input
-                                  type="hidden"
-                                  name="project_product_link_id"
-                                  value={link.id}
-                                />
-                                <Button type="submit" size="sm" variant="ghost">
-                                  Verwijderen
-                                </Button>
-                              </form>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div>
+                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                          Gelinkte materialen ({linkedProducts.length})
+                        </h3>
+                        {linkedProducts.length === 0 ? (
+                          <p className="mt-1 text-sm text-[var(--muted)]">
+                            Nog geen gekoppelde producten.
+                          </p>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {linkedProducts.map((link) => (
+                              <div
+                                key={link.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                              >
+                                <p className="text-[var(--foreground)]">
+                                  {projectProductLabelMap.get(link.product_id) ?? link.product_id}
+                                  {" · "}
+                                  {link.link_type}
+                                </p>
+                                <form action={deleteProjectProductLinkAction}>
+                                  <input
+                                    type="hidden"
+                                    name="project_product_link_id"
+                                    value={link.id}
+                                  />
+                                  <Button type="submit" size="sm" variant="ghost">
+                                    Verwijderen
+                                  </Button>
+                                </form>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                          Materialen gezocht ({soughtMaterials.length})
+                        </h3>
+                        {soughtMaterials.length === 0 ? (
+                          <p className="mt-1 text-sm text-[var(--muted)]">
+                            Nog geen gezochte materialen.
+                          </p>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {soughtMaterials.map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                              >
+                                <p className="text-[var(--foreground)]">
+                                  {m.title}
+                                  {m.notes ? ` (${m.notes})` : ""}
+                                </p>
+                                <form action={deleteProjectSoughtMaterialAction}>
+                                  <input type="hidden" name="sought_material_id" value={m.id} />
+                                  <Button type="submit" size="sm" variant="ghost">
+                                    Verwijderen
+                                  </Button>
+                                </form>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </details>
                 );

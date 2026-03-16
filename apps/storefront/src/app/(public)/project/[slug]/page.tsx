@@ -72,7 +72,7 @@ export default async function ProjectPage({ params }: Props) {
 
   if (!data.project) notFound();
 
-  const { project, domains, steps, galleryImages, bundleItems, relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators } =
+  const { project, domains, steps, galleryImages, bundleItems, soughtMaterials, relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators } =
     data;
   const durationLabel = formatDuration(project.estimated_duration_minutes);
   const budgetMinLabel = formatBudget(project.budget_min_cents, project.currency_code);
@@ -151,21 +151,48 @@ export default async function ProjectPage({ params }: Props) {
         )}
       </CardShell>
 
-      {bundleItems.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">
-            Startbundel materialen
-          </h2>
+      {(bundleItems.length > 0 || soughtMaterials.length > 0) && (
+        <section className="mt-8 space-y-6">
+          {bundleItems.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">
+                Startbundel materialen
+              </h2>
           {bundleTotalCents > 0 && (
             <p className="mb-3 text-sm text-[var(--muted)]">
               Indicatief totaal: {formatPrice(bundleTotalCents, bundleCurrencyCode)}
             </p>
           )}
-          <AddBundleToCartButton
-            bundleId={`project:${project.id}`}
-            bundleLabel={project.title}
-            items={bundleItems}
-          />
+              <AddBundleToCartButton
+                bundleId={`project:${project.id}`}
+                bundleLabel={project.title}
+                items={bundleItems}
+              />
+            </div>
+          )}
+          {soughtMaterials.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">
+                Materialen gezocht
+              </h2>
+              <p className="mb-3 text-sm text-[var(--muted)]">
+                Dit project gebruikt onderstaande materialen die niet (meer) in de webshop staan.
+              </p>
+              <ul className="space-y-2">
+                {soughtMaterials.map((m) => (
+                  <li
+                    key={m.id}
+                    className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm"
+                  >
+                    <span className="font-medium text-[var(--foreground)]">{m.title}</span>
+                    {m.notes && (
+                      <span className="ml-2 text-[var(--muted)]">– {m.notes}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 

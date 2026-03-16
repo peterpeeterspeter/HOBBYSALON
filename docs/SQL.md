@@ -487,6 +487,7 @@ create index if not exists idx_article_domains_domain_id on public.article_domai
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
+  created_by_user_id uuid,
   title text not null,
   short_description text,
   description text,
@@ -515,6 +516,7 @@ create table if not exists public.projects (
 create index if not exists idx_projects_is_featured on public.projects(is_featured);
 create index if not exists idx_projects_is_active on public.projects(is_active);
 create index if not exists idx_projects_difficulty_level on public.projects(difficulty_level);
+create index if not exists idx_projects_created_by_user on public.projects(created_by_user_id);
 
 create trigger trg_projects_updated_at
 before update on public.projects
@@ -604,6 +606,24 @@ create index if not exists idx_project_product_links_project_id
   on public.project_product_links(project_id);
 create index if not exists idx_project_product_links_product_id
   on public.project_product_links(product_id);
+
+-- =========================================================
+-- PROJECT SOUGHT MATERIALS
+-- Materials users want but not in product catalog (producten gezocht)
+-- =========================================================
+
+create table if not exists public.project_sought_materials (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  title text not null,
+  notes text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (project_id, title)
+);
+
+create index if not exists idx_project_sought_materials_project_id
+  on public.project_sought_materials(project_id);
 
 -- =========================================================
 -- LEARNING PATHS

@@ -779,11 +779,25 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
     }
 
     const ownsProduct = await creatorOwnsEntityTarget(creator.id, "product", productId);
-    if (!ownsProduct) {
-      fail("/dashboard/creator", "Je kan enkel je eigen producten koppelen.");
+    const supabase = createPlatformClient();
+    const { data: productRow } = await supabase
+      .from("products")
+      .select("product_type")
+      .eq("id", productId)
+      .maybeSingle();
+    const isMaterialProduct =
+      productRow &&
+      (productRow as { product_type?: string }).product_type &&
+      ["supply", "workshop_kit", "supplies"].includes(
+        (productRow as { product_type: string }).product_type
+      );
+    if (!ownsProduct && !isMaterialProduct) {
+      fail(
+        "/dashboard/creator",
+        "Je kan alleen je eigen producten of materialen (supply/workshop_kit) uit de webshop koppelen."
+      );
     }
 
-    const supabase = createPlatformClient();
     const { error } = await supabase.from("project_product_links").upsert(
       {
         project_id: projectId,
@@ -842,6 +856,84 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
     ok("/dashboard/creator", "Project-productlink verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createProjectSoughtMaterialAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const projectId = parseRequiredUuid(formData, "project_id");
+    const title = parseRequiredString(formData, "title");
+    const notes = parseOptionalString(formData, "notes");
+    const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
+    const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
+
+    if (!linkedProject) {
+      fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
+    }
+
+    const { insertProjectSoughtMaterial } = await import("@/lib/platform/queries/projects");
+    const material = await insertProjectSoughtMaterial(projectId, title, {
+      notes,
+      sort_order: sortOrder,
+    });
+
+    if (!material) {
+      fail(
+        "/dashboard/creator",
+        "Gezocht materiaal toevoegen mislukt. Mogelijk bestaat het al."
+      );
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    revalidatePath(`/project/${linkedProject.slug}`);
+    ok("/dashboard/creator", "Materiaal gezocht toegevoegd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteProjectSoughtMaterialAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const soughtMaterialId = parseRequiredUuid(formData, "sought_material_id");
+    const supabase = createPlatformClient();
+    const { data: row } = await supabase
+      .from("project_sought_materials")
+      .select("id, project_id")
+      .eq("id", soughtMaterialId)
+      .maybeSingle();
+
+    if (!row?.project_id) {
+      fail("/dashboard/creator", "Gezocht materiaal niet gevonden.");
+    }
+
+    const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id);
+    if (!linkedProject) {
+      fail("/dashboard/creator", "Geen rechten op dit project.");
+    }
+
+    const { deleteProjectSoughtMaterial } = await import("@/lib/platform/queries/projects");
+    const okDel = await deleteProjectSoughtMaterial(soughtMaterialId);
+    if (!okDel) {
+      fail("/dashboard/creator", "Verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    revalidatePath(`/project/${linkedProject.slug}`);
+    ok("/dashboard/creator", "Gezocht materiaal verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

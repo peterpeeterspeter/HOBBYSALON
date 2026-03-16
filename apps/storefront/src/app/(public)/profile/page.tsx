@@ -166,6 +166,19 @@ export default async function ProfilePage() {
         )}
       </CardShell>
 
+      <CardShell variant="default" padding="lg" className="mt-8">
+        <h2 className="text-xl font-semibold text-[var(--foreground)]">Mijn projecten</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Upload je eigen hobbyprojecten en koppel materialen uit de webshop of voeg gezochte producten toe.
+        </p>
+        <Link
+          href="/profile/projects"
+          className="mt-4 inline-block text-sm font-medium text-[var(--accent)] underline"
+        >
+          Naar mijn projecten
+        </Link>
+      </CardShell>
+
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <CardShell variant="default" padding="lg">
           <h2 className="text-xl font-semibold text-[var(--foreground)]">Favorieten overzicht</h2>

@@ -140,6 +140,7 @@ export type Article = {
 export type Project = {
   id: string;
   slug: string;
+  created_by_user_id?: string | null;
   title: string;
   short_description: string | null;
   description: string | null;
@@ -183,6 +184,15 @@ export type ProjectProductLink = {
   project_id: string;
   product_id: string;
   link_type: string;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ProjectSoughtMaterial = {
+  id: string;
+  project_id: string;
+  title: string;
+  notes: string | null;
   sort_order: number;
   created_at: string;
 };

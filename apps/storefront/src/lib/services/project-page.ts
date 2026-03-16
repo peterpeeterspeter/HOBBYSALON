@@ -11,6 +11,7 @@ import {
   listDomainsByProject,
   listProjectGalleryImages,
   listProjectSteps,
+  listProjectSoughtMaterials,
 } from "@/lib/platform/queries/projects";
 import type {
   Article,
@@ -20,6 +21,7 @@ import type {
   Product,
   Project,
   ProjectGalleryImage,
+  ProjectSoughtMaterial,
   ProjectStep,
   Workshop,
 } from "@/types/platform";
@@ -30,6 +32,7 @@ export type ProjectPageData = {
   steps: ProjectStep[];
   galleryImages: ProjectGalleryImage[];
   bundleItems: ProjectBundleItem[];
+  soughtMaterials: ProjectSoughtMaterial[];
   relatedProducts: Product[];
   relatedWorkshops: Workshop[];
   relatedEvents: Event[];
@@ -57,6 +60,7 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
       steps: [],
       galleryImages: [],
       bundleItems: [],
+      soughtMaterials: [],
       relatedProducts: [],
       relatedWorkshops: [],
       relatedEvents: [],
@@ -65,12 +69,14 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
     };
   }
 
-  const [domains, steps, entityLinks, galleryImages, linkedProjectProducts] = await Promise.all([
+  const [domains, steps, entityLinks, galleryImages, linkedProjectProducts, soughtMaterials] =
+    await Promise.all([
     listDomainsByProject(project.id),
     listProjectSteps(project.id),
     getRelatedEntities("project", project.id),
     listProjectGalleryImages(project.id),
     listLinkedProductsByProject(project.id),
+    listProjectSoughtMaterials(project.id),
   ]);
 
   const productIds = entityLinks
@@ -110,6 +116,7 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
     steps,
     galleryImages,
     bundleItems,
+    soughtMaterials,
     relatedProducts,
     relatedWorkshops,
     relatedEvents,

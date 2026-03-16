@@ -288,6 +288,42 @@ export async function listSupplyMarketplaceProducts(filters?: {
   });
 }
 
+export type MaterialProductOption = {
+  id: string;
+  title: string;
+  slug: string;
+};
+
+export async function listMaterialProductsForSelection(options?: {
+  q?: string;
+  limit?: number;
+}): Promise<MaterialProductOption[]> {
+  const supabase = createPlatformClient();
+  let query = supabase
+    .from("products")
+    .select("id, title, slug")
+    .eq("is_active", true)
+    .eq("status", "active")
+    .in("product_type", ["supply", "workshop_kit", "supplies"])
+    .order("title", { ascending: true })
+    .limit(options?.limit ?? 100);
+
+  if (options?.q && options.q.trim().length > 0) {
+    query = query.or(
+      `title.ilike.%${options.q.trim()}%,short_description.ilike.%${options.q.trim()}%,description.ilike.%${options.q.trim()}%`
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) return [];
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+  }));
+}
+
 export async function listSupplyCategoryOptions(filters?: {
   domain_id?: string;
 }): Promise<ProductCategoryOption[]> {

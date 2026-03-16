@@ -64,6 +64,11 @@ export default async function DashboardLayout({
                     Materials Ops
                   </Link>
                 )}
+                {hasMerchantRole && (
+                  <Link href="/dashboard/sought-materials" className="hover:text-[var(--accent)] transition-colors">
+                    Producten gezocht
+                  </Link>
+                )}
                 <Link href="/dashboard/workshops" className="hover:text-[var(--accent)] transition-colors">
                   Workshops
                 </Link>
