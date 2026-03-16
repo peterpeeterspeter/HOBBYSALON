@@ -103,20 +103,16 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const selectedShippingId = c.shipping_methods?.[0]?.shipping_option_id;
   const hasShipping = !!selectedShippingId;
 
-  const subtotal =
-    cart.items?.reduce((sum: number, item) => {
-      const unitPrice = (item as { unit_price?: number }).unit_price ?? 0;
-      const qty = (item as { quantity?: number }).quantity ?? 1;
-      return sum + unitPrice * qty;
-    }, 0) ?? 0;
+  const items = (c.items ?? []) as CheckoutPageCartItem[];
+  const subtotal = items.reduce((sum, item) => {
+    const unitPrice = item.unit_price ?? 0;
+    const qty = item.quantity ?? 1;
+    return sum + unitPrice * qty;
+  }, 0);
 
   const shippingTotal = (cart as { shipping_total?: number }).shipping_total ?? 0;
   const total = (cart as { total?: number }).total ?? subtotal + shippingTotal;
-  const itemCount =
-    cart.items?.reduce((sum: number, item) => {
-      const qty = (item as { quantity?: number }).quantity ?? 1;
-      return sum + qty;
-    }, 0) ?? 0;
+  const itemCount = items.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
   const bundleGroups = getBundleGroups(c.items);
   const bundleIds = bundleGroups.map((group) => group.bundleId);
   const bundleValue = bundleGroups.reduce((sum, group) => sum + group.total, 0);
@@ -142,8 +138,8 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         <p className="font-medium text-[var(--foreground)] mb-2">
           Overzicht
         </p>
-        {(cart.items ?? []).map((item) => {
-          const i = item as CheckoutPageCartItem;
+        {items.map((item) => {
+          const i = item;
           const variant = i.variant;
           const title =
             variant?.product?.title ?? variant?.title ?? "Product";

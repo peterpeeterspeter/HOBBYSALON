@@ -141,6 +141,7 @@ mercur-cli dev
 - [Node.js v20+](https://nodejs.org/en/download)
 - [Yarn](https://yarnpkg.com/getting-started/install)
 - [PostgreSQL](https://www.postgresql.org/download/)
+- [Redis](https://redis.io/) (for Medusa backend: cache, event bus, workflows)
 - [Git CLI](https://git-scm.com/downloads)
 
 # Resources

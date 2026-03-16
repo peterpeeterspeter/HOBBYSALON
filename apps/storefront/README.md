@@ -61,10 +61,23 @@ Runs on port 3002.
 yarn build
 ```
 
+## Vercel Deployment
+
+Storefront deploys to Vercel. Configure environment variables in Project Settings → Environment Variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase
+- `MEDUSA_BACKEND_URL` — deployed Medusa API (e.g. `https://api.yoursite.com`)
+- `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` — from Medusa seed
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — for checkout
+- `SUPABASE_SERVICE_ROLE_KEY`, `MEDUSA_ADMIN_API_TOKEN` — for dashboard/server actions (add in Vercel dashboard if you use Materials Ops or admin features)
+
+Ensure the Medusa backend CORS includes your Vercel domain (e.g. `STORE_CORS=...,https://your-site.vercel.app`).
+
 ## End-to-End Verification
 
-1. Start Medusa backend: `cd apps/backend && yarn dev`
-2. Start storefront: `cd apps/storefront && yarn dev`
+1. Start Redis: `redis-server` (or `brew services start redis`)
+2. Start Medusa backend: `cd apps/backend && yarn dev`
+3. Start storefront: `cd apps/storefront && yarn dev`
 3. Visit:
    - http://localhost:3002/ — home with domain links
    - http://localhost:3002/crochet — domain hub (creators, products, workshops)

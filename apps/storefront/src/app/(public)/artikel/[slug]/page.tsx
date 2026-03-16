@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
+import { MarkdownContent } from "@/components/content/markdown-content";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -91,9 +92,7 @@ export default async function ArticlePage({ params }: Props) {
             </div>
           )}
           {article.body_markdown && (
-            <div className="mt-8 whitespace-pre-wrap text-[var(--foreground)]">
-              {article.body_markdown}
-            </div>
+            <MarkdownContent markdown={article.body_markdown} className="mt-8" />
           )}
         </CardShell>
       </article>

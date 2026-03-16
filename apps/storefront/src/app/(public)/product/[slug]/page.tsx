@@ -117,7 +117,11 @@ export default async function ProductPage({ params }: Props) {
             </p>
           )}
           <div className="mt-6">
-            <ProductPurchaseControls variants={variants} />
+            <ProductPurchaseControls
+              variants={variants}
+              productType={product.product_type}
+              creatorSlug={creator?.slug ?? null}
+            />
           </div>
         </CardShell>
       </SplitLayout>

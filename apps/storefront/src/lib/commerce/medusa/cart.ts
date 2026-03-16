@@ -25,7 +25,7 @@ export async function getDefaultRegionId(): Promise<string | null> {
   if (cachedRegionId) return cachedRegionId;
   try {
     const { regions } = await sdk.store.region.list({ limit: 50 });
-    const europe = regions?.find((r) => r.name === "Europe");
+    const europe = regions?.find((r: { id?: string; name?: string }) => r.name === "Europe");
     if (europe?.id) {
       cachedRegionId = europe.id;
       return europe.id;

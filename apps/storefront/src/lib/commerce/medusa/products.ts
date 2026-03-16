@@ -11,6 +11,10 @@ export type MedusaProductVariant = {
   id: string;
   title: string;
   prices?: MedusaProductPrice[];
+  calculated_price?: {
+    calculated_amount: number;
+    currency_code: string;
+  };
 };
 
 export type MedusaProductData = {
@@ -70,7 +74,7 @@ export async function getMedusaProduct(
 
   try {
     const { product } = await sdk.store.product.retrieve(medusaProductId, {
-      fields: "*variants.calculated_price",
+      fields: "id,title,handle,*variants,*variants.calculated_price",
       country_code: process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be",
     });
 
@@ -79,7 +83,7 @@ export async function getMedusaProduct(
   } catch {
     try {
       const { product } = await sdk.store.product.retrieve(medusaProductId, {
-        fields: "*variants.calculated_price",
+        fields: "id,title,handle,*variants,*variants.calculated_price",
       });
       if (!product) return null;
       return toMedusaProductData(product as Parameters<typeof toMedusaProductData>[0]);
@@ -97,7 +101,7 @@ export async function getMedusaProductByHandle(
   try {
     const { products } = await sdk.store.product.list({
       handle,
-      fields: "*variants.calculated_price",
+      fields: "id,title,handle,*variants,*variants.calculated_price",
       country_code: process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be",
       limit: 1,
     });

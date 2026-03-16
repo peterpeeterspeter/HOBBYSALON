@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 
 type Variant = {
@@ -10,11 +11,15 @@ type Variant = {
 
 type ProductPurchaseControlsProps = {
   variants: Variant[];
+  productType?: string;
+  creatorSlug?: string | null;
   className?: string;
 };
 
 export function ProductPurchaseControls({
   variants,
+  productType,
+  creatorSlug,
   className,
 }: ProductPurchaseControlsProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
@@ -27,10 +32,24 @@ export function ProductPurchaseControls({
   );
 
   if (!variants.length || !selectedVariantId) {
+    const isHandmade = productType === "handmade";
+
     return (
-      <p className="text-sm text-[var(--muted)]">
-        Toevoegen aan winkelwagen binnenkort beschikbaar
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-[var(--muted)]">
+          {isHandmade
+            ? "Direct afrekenen is voor dit handgemaakte item nog niet beschikbaar."
+            : "Toevoegen aan winkelwagen is voor dit product nog niet beschikbaar."}
+        </p>
+        {isHandmade && creatorSlug && (
+          <Link
+            href={`/creator/${creatorSlug}`}
+            className="inline-flex rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--background)]"
+          >
+            Bekijk makerprofiel
+          </Link>
+        )}
+      </div>
     );
   }
 

@@ -3,12 +3,15 @@ import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { listWorkshopsByCreator } from "@/lib/platform/queries/workshops";
 import { listEventsByCreator } from "@/lib/platform/queries/events";
-import { listArticlesByAuthor } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import {
+  approveArticleSuggestionAction,
+  createArticleAction,
   createCreatorEntityLinkAction,
+  dismissArticleSuggestionAction,
   deleteCreatorEntityLinkAction,
   saveCreatorProfileAction,
+  updateArticleAction,
 } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
@@ -32,6 +35,12 @@ const RELATION_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "recommended", label: "Aanbevolen" },
   { value: "tutorial", label: "Tutorial-link" },
 ];
+const ARTICLE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "tutorial", label: "Tutorial" },
+  { value: "inspiration", label: "Inspiratie" },
+  { value: "guide", label: "Gids" },
+  { value: "news", label: "Nieuws" },
+];
 
 type LinkTargetType = "product" | "workshop" | "event" | "article";
 type LinkTargetOption = { id: string; label: string };
@@ -39,6 +48,27 @@ type LinkTargetOption = { id: string; label: string };
 type CreatorEntityLink = {
   id: string;
   target_entity_type: LinkTargetType;
+  target_entity_id: string;
+  relation_type: string;
+  weight: number;
+  sort_order: number | null;
+};
+
+type DashboardArticle = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  body_markdown: string | null;
+  article_type: string;
+  domain_id: string | null;
+  is_published: boolean;
+};
+
+type ArticleEntityLink = {
+  id: string;
+  source_entity_id: string;
+  target_entity_type: "product" | "workshop" | "event";
   target_entity_id: string;
   relation_type: string;
   weight: number;
@@ -146,10 +176,13 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
   let eventOptions: LinkTargetOption[] = [];
   let articleOptions: LinkTargetOption[] = [];
   let entityLinks: CreatorEntityLink[] = [];
+  let dashboardArticles: DashboardArticle[] = [];
+  let articleSuggestionLinks: ArticleEntityLink[] = [];
+  let articleConfirmedLinks: ArticleEntityLink[] = [];
 
   if (creator) {
     const supabase = createPlatformClient();
-    const [domainLinksResult, productsResult, workshops, events, articles, linksResult] =
+    const [domainLinksResult, productsResult, workshops, events, articlesResult, linksResult] =
       await Promise.all([
         supabase
           .from("creator_domains")
@@ -163,7 +196,12 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
           .limit(100),
         listWorkshopsByCreator(creator.id),
         listEventsByCreator(creator.id),
-        listArticlesByAuthor(creator.id),
+        supabase
+          .from("articles")
+          .select("id,title,slug,excerpt,body_markdown,article_type,domain_id,is_published,updated_at")
+          .eq("author_creator_id", creator.id)
+          .order("updated_at", { ascending: false })
+          .limit(100),
         supabase
           .from("entity_links")
           .select("id,target_entity_type,target_entity_id,relation_type,weight,sort_order")
@@ -193,11 +231,33 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
       id: event.id,
       label: event.title,
     }));
-    articleOptions = articles.map((article) => ({
+    dashboardArticles = (articlesResult.data ?? []) as DashboardArticle[];
+    articleOptions = dashboardArticles.map((article) => ({
       id: article.id,
       label: article.title,
     }));
     entityLinks = (linksResult.data ?? []) as CreatorEntityLink[];
+
+    const articleIds = dashboardArticles.map((article) => article.id);
+    if (articleIds.length > 0) {
+      const { data: articleLinks } = await supabase
+        .from("entity_links")
+        .select(
+          "id,source_entity_id,target_entity_type,target_entity_id,relation_type,weight,sort_order"
+        )
+        .eq("source_entity_type", "article")
+        .in("source_entity_id", articleIds)
+        .in("target_entity_type", ["product", "workshop", "event"])
+        .order("sort_order", { ascending: true, nullsFirst: false });
+
+      const allArticleLinks = (articleLinks ?? []) as ArticleEntityLink[];
+      articleSuggestionLinks = allArticleLinks.filter(
+        (link) => link.relation_type === "suggested_auto"
+      );
+      articleConfirmedLinks = allArticleLinks.filter(
+        (link) => link.relation_type !== "suggested_auto"
+      );
+    }
   }
 
   const labelByType: Record<LinkTargetType, Map<string, string>> = {
@@ -206,6 +266,21 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     event: new Map(eventOptions.map((option) => [option.id, option.label])),
     article: new Map(articleOptions.map((option) => [option.id, option.label])),
   };
+  const relationLabel = new Map(
+    RELATION_TYPE_OPTIONS.map((relation) => [relation.value, relation.label])
+  );
+  const articleSuggestionsByArticle = new Map<string, ArticleEntityLink[]>();
+  const articleConfirmedByArticle = new Map<string, ArticleEntityLink[]>();
+  for (const link of articleSuggestionLinks) {
+    const existing = articleSuggestionsByArticle.get(link.source_entity_id) ?? [];
+    existing.push(link);
+    articleSuggestionsByArticle.set(link.source_entity_id, existing);
+  }
+  for (const link of articleConfirmedLinks) {
+    const existing = articleConfirmedByArticle.get(link.source_entity_id) ?? [];
+    existing.push(link);
+    articleConfirmedByArticle.set(link.source_entity_id, existing);
+  }
 
   return (
     <section className="space-y-6">
@@ -333,6 +408,236 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
           </Button>
         </form>
       </CardShell>
+
+      {creator && (
+        <CardShell variant="default" padding="lg">
+          <h2 className="text-xl font-semibold text-[var(--foreground)]">Artikels</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Sla artikels op en bevestig auto-suggest links naar je producten, workshops en events.
+          </p>
+
+          <form
+            action={createArticleAction}
+            className="mt-4 grid gap-3 rounded-lg border border-[var(--border)] p-4 sm:grid-cols-2"
+          >
+            <Input name="title" label="Titel *" required />
+            <Input name="slug" label="Slug" />
+            <label className="text-sm font-medium text-[var(--foreground)]">
+              Type
+              <select
+                name="article_type"
+                defaultValue="tutorial"
+                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+              >
+                {ARTICLE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium text-[var(--foreground)]">
+              Domein
+              <select
+                name="domain_id"
+                defaultValue=""
+                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+              >
+                <option value="">Geen domein</option>
+                {domains.map((domain) => (
+                  <option key={domain.id} value={domain.id}>
+                    {domain.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Input name="excerpt" label="Korte intro" className="sm:col-span-2" />
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-[var(--foreground)]">
+                Inhoud (markdown)
+              </label>
+              <textarea
+                name="body_markdown"
+                rows={6}
+                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)]"
+              />
+            </div>
+            <label className="inline-flex items-center gap-2 sm:col-span-2">
+              <input type="checkbox" name="is_published" defaultChecked />
+              <span className="text-sm">Publiceren</span>
+            </label>
+            <div className="sm:col-span-2">
+              <Button type="submit" size="sm">
+                Artikel opslaan + suggesties
+              </Button>
+            </div>
+          </form>
+
+          <div className="mt-4 space-y-3">
+            {dashboardArticles.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">Nog geen artikels.</p>
+            ) : (
+              dashboardArticles.map((article) => {
+                const suggestions = articleSuggestionsByArticle.get(article.id) ?? [];
+                const confirmed = articleConfirmedByArticle.get(article.id) ?? [];
+                return (
+                  <details
+                    key={article.id}
+                    className="rounded-lg border border-[var(--border)] p-3"
+                  >
+                    <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
+                      {article.title}{" "}
+                      <span className="text-xs text-[var(--muted)]">
+                        ({article.is_published ? "gepubliceerd" : "draft"})
+                      </span>
+                    </summary>
+
+                    <form action={updateArticleAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <input type="hidden" name="id" value={article.id} />
+                      <Input name="title" label="Titel *" required defaultValue={article.title} />
+                      <Input name="slug" label="Slug" defaultValue={article.slug} />
+                      <label className="text-sm font-medium text-[var(--foreground)]">
+                        Type
+                        <select
+                          name="article_type"
+                          defaultValue={article.article_type}
+                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                        >
+                          {ARTICLE_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-sm font-medium text-[var(--foreground)]">
+                        Domein
+                        <select
+                          name="domain_id"
+                          defaultValue={article.domain_id ?? ""}
+                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                        >
+                          <option value="">Geen domein</option>
+                          {domains.map((domain) => (
+                            <option key={domain.id} value={domain.id}>
+                              {domain.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <Input
+                        name="excerpt"
+                        label="Korte intro"
+                        defaultValue={article.excerpt ?? ""}
+                        className="sm:col-span-2"
+                      />
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-[var(--foreground)]">
+                          Inhoud (markdown)
+                        </label>
+                        <textarea
+                          name="body_markdown"
+                          rows={6}
+                          defaultValue={article.body_markdown ?? ""}
+                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)]"
+                        />
+                      </div>
+                      <label className="inline-flex items-center gap-2 sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          name="is_published"
+                          defaultChecked={article.is_published}
+                        />
+                        <span className="text-sm">Publiceren</span>
+                      </label>
+                      <div className="sm:col-span-2">
+                        <Button type="submit" variant="secondary" size="sm">
+                          Artikel bijwerken + suggesties vernieuwen
+                        </Button>
+                      </div>
+                    </form>
+
+                    <div className="mt-4">
+                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                        Auto-suggest links ({suggestions.length})
+                      </h3>
+                      {suggestions.length === 0 ? (
+                        <p className="mt-1 text-sm text-[var(--muted)]">Geen open suggesties.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {suggestions.map((link) => {
+                            const targetLabel =
+                              (link.target_entity_type === "product"
+                                ? labelByType.product
+                                : link.target_entity_type === "workshop"
+                                  ? labelByType.workshop
+                                  : labelByType.event
+                              ).get(link.target_entity_id) ?? link.target_entity_id;
+                            return (
+                              <div
+                                key={link.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                              >
+                                <p className="text-[var(--foreground)]">
+                                  {link.target_entity_type} {"->"} {targetLabel}
+                                </p>
+                                <div className="flex gap-2">
+                                  <form action={approveArticleSuggestionAction}>
+                                    <input type="hidden" name="entity_link_id" value={link.id} />
+                                    <input type="hidden" name="relation_type" value="related" />
+                                    <Button type="submit" size="sm" variant="secondary">
+                                      Bevestigen
+                                    </Button>
+                                  </form>
+                                  <form action={dismissArticleSuggestionAction}>
+                                    <input type="hidden" name="entity_link_id" value={link.id} />
+                                    <Button type="submit" size="sm" variant="ghost">
+                                      Negeren
+                                    </Button>
+                                  </form>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4">
+                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                        Bevestigde links ({confirmed.length})
+                      </h3>
+                      {confirmed.length === 0 ? (
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          Nog geen bevestigde links.
+                        </p>
+                      ) : (
+                        <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
+                          {confirmed.map((link) => {
+                            const targetLabel =
+                              (link.target_entity_type === "product"
+                                ? labelByType.product
+                                : link.target_entity_type === "workshop"
+                                  ? labelByType.workshop
+                                  : labelByType.event
+                              ).get(link.target_entity_id) ?? link.target_entity_id;
+                            return (
+                              <p key={link.id}>
+                                {link.target_entity_type} {"->"} {targetLabel} {" · "}
+                                {relationLabel.get(link.relation_type) ?? link.relation_type}
+                              </p>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                );
+              })
+            )}
+          </div>
+        </CardShell>
+      )}
 
       {creator && (
         <CardShell variant="default" padding="lg">

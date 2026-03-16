@@ -54,6 +54,12 @@ const ENTITY_LINK_TARGET_TYPES = new Set([
   "event",
   "article",
 ]);
+const ARTICLE_TYPES = new Set([
+  "tutorial",
+  "inspiration",
+  "guide",
+  "news",
+]);
 
 function isNextRedirectError(error: unknown): boolean {
   return (
@@ -181,7 +187,7 @@ async function getRequiredCreator() {
 }
 
 async function ensureUniqueSlug(
-  table: "creators" | "products" | "workshops" | "events",
+  table: "creators" | "products" | "workshops" | "events" | "articles",
   preferredSlug: string,
   ignoreId?: string
 ): Promise<string> {
@@ -306,6 +312,153 @@ async function creatorOwnsEntityTarget(
   }
 
   return false;
+}
+
+type SuggestionCandidate = {
+  targetType: "product" | "workshop" | "event";
+  targetId: string;
+  title: string;
+  domainId: string | null;
+};
+
+function tokenizeForSuggestion(text: string): string[] {
+  return Array.from(
+    new Set(
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/gi, " ")
+        .split(/\s+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 4)
+    )
+  );
+}
+
+function scoreSuggestion(
+  articleDomainId: string | null,
+  articleTokens: string[],
+  candidate: SuggestionCandidate
+): number {
+  const titleTokens = tokenizeForSuggestion(candidate.title);
+  let score = 0;
+
+  if (articleDomainId && candidate.domainId && articleDomainId === candidate.domainId) {
+    score += 60;
+  }
+
+  for (const token of titleTokens) {
+    if (articleTokens.includes(token)) {
+      score += 20;
+    }
+  }
+
+  return Math.min(score, 100);
+}
+
+async function generateArticleLinkSuggestions(input: {
+  creatorId: string;
+  articleId: string;
+  articleDomainId: string | null;
+  sourceText: string;
+}): Promise<void> {
+  const supabase = createPlatformClient();
+  const articleTokens = tokenizeForSuggestion(input.sourceText);
+  if (articleTokens.length === 0 && !input.articleDomainId) {
+    return;
+  }
+
+  const [productsResult, workshopsResult, eventsResult, existingLinksResult] =
+    await Promise.all([
+      supabase
+        .from("products")
+        .select("id,title,domain_id")
+        .eq("creator_id", input.creatorId)
+        .limit(200),
+      supabase
+        .from("workshops")
+        .select("id,title,domain_id")
+        .eq("creator_id", input.creatorId)
+        .limit(200),
+      supabase
+        .from("events")
+        .select("id,title,domain_id")
+        .eq("organizer_creator_id", input.creatorId)
+        .limit(200),
+      supabase
+        .from("entity_links")
+        .select("target_entity_type,target_entity_id")
+        .eq("source_entity_type", "article")
+        .eq("source_entity_id", input.articleId)
+        .in("target_entity_type", ["product", "workshop", "event"]),
+    ]);
+
+  const existingKeySet = new Set(
+    (existingLinksResult.data ?? []).map(
+      (row) => `${row.target_entity_type}:${row.target_entity_id}`
+    )
+  );
+
+  const candidates: SuggestionCandidate[] = [
+    ...((productsResult.data ?? []) as Array<{
+      id: string;
+      title: string | null;
+      domain_id: string | null;
+    }>).map((row) => ({
+      targetType: "product" as const,
+      targetId: row.id,
+      title: row.title ?? "",
+      domainId: row.domain_id,
+    })),
+    ...((workshopsResult.data ?? []) as Array<{
+      id: string;
+      title: string | null;
+      domain_id: string | null;
+    }>).map((row) => ({
+      targetType: "workshop" as const,
+      targetId: row.id,
+      title: row.title ?? "",
+      domainId: row.domain_id,
+    })),
+    ...((eventsResult.data ?? []) as Array<{
+      id: string;
+      title: string | null;
+      domain_id?: string | null;
+    }>).map((row) => ({
+      targetType: "event" as const,
+      targetId: row.id,
+      title: row.title ?? "",
+      domainId: row.domain_id ?? null,
+    })),
+  ];
+
+  const scored = candidates
+    .map((candidate) => ({
+      candidate,
+      score: scoreSuggestion(input.articleDomainId, articleTokens, candidate),
+    }))
+    .filter(
+      (row) =>
+        row.score >= 40 &&
+        !existingKeySet.has(`${row.candidate.targetType}:${row.candidate.targetId}`)
+    )
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  if (scored.length === 0) {
+    return;
+  }
+
+  const rows = scored.map(({ candidate, score }, index) => ({
+    source_entity_type: "article",
+    source_entity_id: input.articleId,
+    target_entity_type: candidate.targetType,
+    target_entity_id: candidate.targetId,
+    relation_type: "suggested_auto",
+    weight: Math.max(1, Math.min(score, 100)),
+    sort_order: index + 1,
+  }));
+
+  await supabase.from("entity_links").insert(rows);
 }
 
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
@@ -483,6 +636,222 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
     revalidatePath("/dashboard/creator");
     revalidatePath(`/creator/${creator.slug}`);
     ok("/dashboard/creator", "Entity link verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createArticleAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const title = parseRequiredString(formData, "title");
+    const articleType = parseRequiredString(formData, "article_type");
+    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
+    const slug = await ensureUniqueSlug("articles", preferredSlug);
+    const excerpt = parseOptionalString(formData, "excerpt");
+    const bodyMarkdown = parseOptionalString(formData, "body_markdown");
+    const domainId = parseOptionalUuid(formData, "domain_id");
+
+    if (!ARTICLE_TYPES.has(articleType)) {
+      fail("/dashboard/creator", "Ongeldig artikeltype.");
+    }
+
+    const supabase = createPlatformClient();
+    const { data: article, error } = await supabase
+      .from("articles")
+      .insert({
+        slug,
+        title,
+        excerpt,
+        body_markdown: bodyMarkdown,
+        article_type: articleType,
+        author_creator_id: creator.id,
+        domain_id: domainId,
+        is_published: !!formData.get("is_published"),
+        published_at: formData.get("is_published") ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
+
+    if (error || !article?.id) {
+      fail("/dashboard/creator", "Aanmaken van artikel mislukt.");
+    }
+
+    await generateArticleLinkSuggestions({
+      creatorId: creator.id,
+      articleId: article.id,
+      articleDomainId: domainId,
+      sourceText: [title, excerpt ?? "", bodyMarkdown ?? ""].join(" "),
+    });
+
+    revalidatePath("/dashboard/creator");
+    ok("/dashboard/creator", "Artikel opgeslagen met link-suggesties.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function updateArticleAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const articleId = parseRequiredUuid(formData, "id");
+    const title = parseRequiredString(formData, "title");
+    const articleType = parseRequiredString(formData, "article_type");
+    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
+    const slug = await ensureUniqueSlug("articles", preferredSlug, articleId);
+    const excerpt = parseOptionalString(formData, "excerpt");
+    const bodyMarkdown = parseOptionalString(formData, "body_markdown");
+    const domainId = parseOptionalUuid(formData, "domain_id");
+
+    if (!ARTICLE_TYPES.has(articleType)) {
+      fail("/dashboard/creator", "Ongeldig artikeltype.");
+    }
+
+    const supabase = createPlatformClient();
+    const { error } = await supabase
+      .from("articles")
+      .update({
+        slug,
+        title,
+        excerpt,
+        body_markdown: bodyMarkdown,
+        article_type: articleType,
+        domain_id: domainId,
+        is_published: !!formData.get("is_published"),
+        published_at: formData.get("is_published") ? new Date().toISOString() : null,
+      })
+      .eq("id", articleId)
+      .eq("author_creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/creator", "Bijwerken van artikel mislukt.");
+    }
+
+    await supabase
+      .from("entity_links")
+      .delete()
+      .eq("source_entity_type", "article")
+      .eq("source_entity_id", articleId)
+      .eq("relation_type", "suggested_auto");
+
+    await generateArticleLinkSuggestions({
+      creatorId: creator.id,
+      articleId,
+      articleDomainId: domainId,
+      sourceText: [title, excerpt ?? "", bodyMarkdown ?? ""].join(" "),
+    });
+
+    revalidatePath("/dashboard/creator");
+    ok("/dashboard/creator", "Artikel bijgewerkt. Suggesties vernieuwd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function approveArticleSuggestionAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
+    const relationType = parseOptionalString(formData, "relation_type") ?? "related";
+    const supabase = createPlatformClient();
+
+    const { data: linkRow, error: linkError } = await supabase
+      .from("entity_links")
+      .select("id,source_entity_id,relation_type")
+      .eq("id", entityLinkId)
+      .eq("source_entity_type", "article")
+      .eq("relation_type", "suggested_auto")
+      .maybeSingle();
+
+    if (linkError || !linkRow) {
+      fail("/dashboard/creator", "Suggestie niet gevonden.");
+    }
+
+    const { data: articleRow } = await supabase
+      .from("articles")
+      .select("id")
+      .eq("id", linkRow.source_entity_id)
+      .eq("author_creator_id", creator.id)
+      .maybeSingle();
+
+    if (!articleRow?.id) {
+      fail("/dashboard/creator", "Geen rechten op deze suggestie.");
+    }
+
+    const { error } = await supabase
+      .from("entity_links")
+      .update({
+        relation_type: relationType,
+      })
+      .eq("id", entityLinkId);
+
+    if (error) {
+      fail("/dashboard/creator", "Bevestigen van suggestie mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    ok("/dashboard/creator", "Suggestie bevestigd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function dismissArticleSuggestionAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
+    const supabase = createPlatformClient();
+
+    const { data: linkRow, error: linkError } = await supabase
+      .from("entity_links")
+      .select("id,source_entity_id")
+      .eq("id", entityLinkId)
+      .eq("source_entity_type", "article")
+      .eq("relation_type", "suggested_auto")
+      .maybeSingle();
+
+    if (linkError || !linkRow) {
+      fail("/dashboard/creator", "Suggestie niet gevonden.");
+    }
+
+    const { data: articleRow } = await supabase
+      .from("articles")
+      .select("id")
+      .eq("id", linkRow.source_entity_id)
+      .eq("author_creator_id", creator.id)
+      .maybeSingle();
+
+    if (!articleRow?.id) {
+      fail("/dashboard/creator", "Geen rechten op deze suggestie.");
+    }
+
+    const { error } = await supabase
+      .from("entity_links")
+      .delete()
+      .eq("id", entityLinkId);
+
+    if (error) {
+      fail("/dashboard/creator", "Verwijderen van suggestie mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    ok("/dashboard/creator", "Suggestie verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
