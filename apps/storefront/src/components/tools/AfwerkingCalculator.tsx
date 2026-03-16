@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 
 const TYPES = [
   { id: "icord", name: "I-cord", stPerCm: 2.5 },
-  { id: "picot", name: "Picot edge", stPerCm: 3 },
+  { id: "picot", name: "Picotrand", stPerCm: 3 },
   { id: "rib1x1", name: "1×1 ribboord", stPerCm: 2 },
   { id: "rib2x2", name: "2×2 ribboord", stPerCm: 1.8 },
   { id: "garter", name: "Ribbelrand", stPerCm: 2 },

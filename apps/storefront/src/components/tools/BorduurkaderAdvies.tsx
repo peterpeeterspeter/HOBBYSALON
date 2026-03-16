@@ -48,7 +48,7 @@ export function BorduurkaderAdvies() {
           <Input
             type="text"
             inputMode="decimal"
-            label="Stof count"
+            label="Steekdichtheid (count)"
             placeholder="14"
             value={count}
             onChange={(e) => setCount(e.target.value)}

@@ -52,6 +52,7 @@ export function Kleurenmixer() {
                 value={colorA}
                 onChange={(e) => setColorA(e.target.value)}
                 className="h-14 w-20 rounded border border-[var(--border)] cursor-pointer"
+                aria-label="Kleur garen A"
               />
               <input
                 type="text"
@@ -71,6 +72,7 @@ export function Kleurenmixer() {
                 value={colorB}
                 onChange={(e) => setColorB(e.target.value)}
                 className="h-14 w-20 rounded border border-[var(--border)] cursor-pointer"
+                aria-label="Kleur garen B"
               />
               <input
                 type="text"

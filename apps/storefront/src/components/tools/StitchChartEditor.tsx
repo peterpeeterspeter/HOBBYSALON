@@ -44,11 +44,11 @@ export function StitchChartEditor() {
   };
 
   return (
-    <CalculatorCard title="Stitch chart editor">
+    <CalculatorCard title="Stekenpatroon tekenen">
       <div className="space-y-6">
         <p className="text-sm text-[var(--muted)]">
-          Teken je eigen stekenpatroon. Klik op een vakje om het symbool te
-          plaatsen.
+          Teken je eigen stekenpatroon in een rooster. Klik op een vakje om een
+          symbool te plaatsen.
         </p>
 
         <div className="flex flex-wrap gap-4 items-end">
@@ -67,7 +67,7 @@ export function StitchChartEditor() {
             onChange={(e) => setRows(Math.max(4, parseInt(e.target.value) || 10))}
           />
           <Button type="button" variant="secondary" onClick={handleResize}>
-            Aanpassen
+            Afmeting aanpassen
           </Button>
         </div>
 

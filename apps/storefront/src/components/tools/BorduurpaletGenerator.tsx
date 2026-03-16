@@ -79,6 +79,7 @@ export function BorduurpaletGenerator() {
                 value={hex}
                 onChange={(e) => setHex(e.target.value)}
                 className="h-12 w-16 rounded border border-[var(--border)] cursor-pointer"
+                aria-label="Kies basiskleur"
               />
               <Input
                 type="text"

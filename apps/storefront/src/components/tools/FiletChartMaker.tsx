@@ -39,7 +39,7 @@ export function FiletChartMaker() {
   };
 
   return (
-    <CalculatorCard title="Filet chart maker">
+    <CalculatorCard title="Filetpatroon maken">
       <div className="space-y-6">
         <p className="text-sm text-[var(--muted)]">
           Filethaakwerk: open vakjes = leeg, gevulde vakjes = blok. Klik om te

@@ -39,7 +39,7 @@ export function DraadlengteCalculator() {
           <Input
             type="text"
             inputMode="numeric"
-            label="Stof count (aida)"
+            label="Steekdichtheid (bv. 14 voor Aida 14)"
             placeholder="14"
             value={count}
             onChange={(e) => setCount(e.target.value)}

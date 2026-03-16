@@ -266,7 +266,7 @@ const TOOLS: ToolEntry[] = [
   },
   {
     slug: "stitch-chart-editor",
-    title: "Stitch chart editor",
+    title: "Stekenpatroon tekenen",
     description:
       "Teken je eigen stekenpatroon in een grid met kleur of symbool.",
     category: "patroon",
@@ -275,7 +275,7 @@ const TOOLS: ToolEntry[] = [
   },
   {
     slug: "filet-chart-maker",
-    title: "Filet chart maker",
+    title: "Filetpatroon maken",
     description:
       "Raster met open of gevulde vakken voor filethaakwerk.",
     category: "patroon",
