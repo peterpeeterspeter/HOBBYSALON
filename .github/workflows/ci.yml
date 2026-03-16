@@ -143,6 +143,7 @@ jobs:
       DISABLE_ALGOLIA: "true"
       ALGOLIA_APP_ID: CI_DUMMY_APP_ID
       ALGOLIA_API_KEY: CI_DUMMY_API_KEY
+      STRIPE_SECRET_API_KEY: "sk_test_CI_DUMMY_KEY"
       STORE_CORS: http://localhost:3002
       ADMIN_CORS: http://localhost:7001
       AUTH_CORS: http://localhost:3002
@@ -188,6 +189,7 @@ jobs:
           ENABLE_ALGOLIA=false
           ALGOLIA_APP_ID=CI_DUMMY_APP_ID
           ALGOLIA_API_KEY=CI_DUMMY_API_KEY
+          STRIPE_SECRET_API_KEY=sk_test_CI_DUMMY_KEY
           EOF
 
       - name: Run DB migrations

@@ -33,15 +33,26 @@ export class PayoutProvider implements IPayoutProvider {
   protected readonly logger_: Logger;
   protected readonly client_: Stripe;
 
+  /** Dummy Stripe key for CI/seed when STRIPE_SECRET_API_KEY is not set. Allows module to load but API calls will fail. */
+  private static readonly DUMMY_STRIPE_KEY = "sk_test_CI_DUMMY_NO_REAL_CALLS";
+
   constructor({ logger, configModule }: InjectedDependencies) {
     this.logger_ = logger;
 
     const moduleDef = configModule.modules?.[PAYOUT_MODULE];
     if (typeof moduleDef !== "boolean" && moduleDef?.options) {
       this.config_ = {
-        apiKey: process.env.STRIPE_SECRET_API_KEY as string,
-        webhookSecret: process.env
-          .STRIPE_CONNECTED_ACCOUNTS_WEBHOOK_SECRET as string,
+        apiKey:
+          (process.env.STRIPE_SECRET_API_KEY as string) ||
+          PayoutProvider.DUMMY_STRIPE_KEY,
+        webhookSecret:
+          (process.env
+            .STRIPE_CONNECTED_ACCOUNTS_WEBHOOK_SECRET as string) || "",
+      };
+    } else {
+      this.config_ = {
+        apiKey: PayoutProvider.DUMMY_STRIPE_KEY,
+        webhookSecret: "",
       };
     }
 
