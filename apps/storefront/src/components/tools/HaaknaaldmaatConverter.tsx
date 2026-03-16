@@ -15,7 +15,7 @@ export function HaaknaaldmaatConverter() {
   const num = parseFloat(value.replace(",", "."));
   const letter = value.trim().toUpperCase();
 
-  let results: Array<{ label: string; value: string }> = [];
+  const results: Array<{ label: string; value: string }> = [];
 
   if (value) {
     if (unit === "mm" && !Number.isNaN(num)) {

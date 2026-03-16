@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { nearestDmcColor } from "@/lib/tools/dmc-colors";
 
 export function DmcKleurpalet() {
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [, setImageDataUrl] = useState<string | null>(null);
   const [colors, setColors] = useState<Array<{ code: string; name: string; hex: string }>>([]);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);

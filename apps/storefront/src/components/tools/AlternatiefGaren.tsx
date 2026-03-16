@@ -19,9 +19,6 @@ export function AlternatiefGaren() {
 
   let result = "";
   if (mA > 0 && gA > 0 && mB > 0 && gB > 0 && project > 0) {
-    const metersPerBallA = (mA / 100) * gA;
-    const ballsNeededFromA = project / metersPerBallA;
-    const totalGramsA = ballsNeededFromA * gA;
     const metersPerBallB = (mB / 100) * gB;
     const ballsNeededFromB = project / metersPerBallB;
     result = `Voor ${project} m heb je ${ballsNeededFromB.toFixed(1)} bolletje(s) van garen B nodig.`;

@@ -13,7 +13,7 @@ export function NaaldmaatConverter() {
   const [unit, setUnit] = useState<InputUnit>("mm");
 
   const num = parseFloat(value.replace(",", "."));
-  let results: Array<{ label: string; value: string }> = [];
+  const results: Array<{ label: string; value: string }> = [];
 
   if (value && !Number.isNaN(num)) {
     const found =

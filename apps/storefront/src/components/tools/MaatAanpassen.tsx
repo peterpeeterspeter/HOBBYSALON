@@ -24,8 +24,6 @@ export function MaatAanpassen() {
 
   const st = parseFloat(stitches.replace(",", ".")) || 0;
   const r = parseFloat(rows.replace(",", ".")) || 0;
-  const spc = parseFloat(stPerCm.replace(",", ".")) || 0;
-  const rpc = parseFloat(rowsPerCm.replace(",", ".")) || 0;
 
   const from = SIZES.find((s) => s.id === fromSize);
   const to = SIZES.find((s) => s.id === toSize);

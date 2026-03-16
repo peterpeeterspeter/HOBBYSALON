@@ -18,7 +18,8 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s = 0, l = (max + min) / 2;
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -27,10 +28,6 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
     else h = ((r - g) / d + 4) / 6;
   }
   return { h: h * 360, s: s * 100, l: l * 100 };
-}
-
-function colorDistance(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
-  return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
 }
 
 export function BorduurpaletGenerator() {

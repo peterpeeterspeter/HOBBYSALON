@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { CalculatorCard } from "./CalculatorCard";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { dmcToAnchor, anchorToDmc } from "@/lib/tools/dmc-anchor";
 import { DMC_COLORS } from "@/lib/tools/dmc-colors";
 
