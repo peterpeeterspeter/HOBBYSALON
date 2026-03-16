@@ -4,21 +4,20 @@
  */
 
 export const STATIC_LINKS = {
-  discover: [
-    { href: "/tools", label: "Tools" },
-    { href: "/materials", label: "Materialen" },
-    { href: "/gratis-haakpatronen", label: "Gratis haakpatronen" },
-    { href: "/agenda", label: "Agenda" },
+  main: [
+    { href: "/materials", label: "Hobbymaterialen" },
     { href: "/workshops", label: "Workshops" },
-    { href: "/creators", label: "Creators" },
+    { href: "/agenda", label: "Agenda" },
   ],
-  shop: [
-    { href: "/cart", label: "Winkelwagen" },
-    // Domains injected as { href: `/${slug}`, label: name }
+  inspiratie: [
+    { href: "/tools", label: "Tools" },
+    { href: "/crochet/artikels", label: "Artikelen" },
+    { href: "/gratis-haakpatronen", label: "Patronen" },
   ],
   account: [
     { href: "/profile", label: "Profiel" },
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/register", label: "Registreer" },
     { href: "/login", label: "Inloggen" },
   ],
 } as const;
@@ -26,14 +25,12 @@ export const STATIC_LINKS = {
 export const FOOTER_SECTIONS = {
   ontdek: [
     { href: "/", label: "Home" },
-    { href: "/gratis-haakpatronen", label: "Gratis haakpatronen" },
-    { href: "/agenda", label: "Agenda" },
+    { href: "/materials", label: "Hobbymaterialen" },
     { href: "/workshops", label: "Workshops" },
-    { href: "/creators", label: "Creators" },
+    { href: "/agenda", label: "Agenda" },
+    { href: "/tools", label: "Tools" },
+    { href: "/gratis-haakpatronen", label: "Patronen" },
     { href: "/favorites", label: "Favorieten" },
-  ],
-  shop: [
-    // Domains injected
   ],
   info: [
     { href: "/landing", label: "Over Hobbysalon" },

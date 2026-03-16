@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
+import { FOOTER_SECTIONS } from "@/config/nav";
 
 export async function Footer() {
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
@@ -21,30 +22,9 @@ export async function Footer() {
   }
 
   const sections = [
-    {
-      title: "Ontdek",
-      links: [
-        { href: "/", label: "Home" },
-        { href: "/tools", label: "Tools" },
-        { href: "/materials", label: "Materialen" },
-        { href: "/agenda", label: "Agenda" },
-        { href: "/workshops", label: "Workshops" },
-        { href: "/creators", label: "Creators" },
-        { href: "/favorites", label: "Favorieten" },
-      ],
-    },
-    {
-      title: "Domeinen",
-      links: domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name })),
-    },
-    {
-      title: "Info",
-      links: [
-        { href: "/landing", label: "Over Hobbysalon" },
-        { href: "/register", label: "Account aanmaken" },
-        { href: "/login", label: "Inloggen" },
-      ],
-    },
+    { title: "Ontdek", links: FOOTER_SECTIONS.ontdek },
+    { title: "Per Hobby", links: domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name })) },
+    { title: "Info", links: FOOTER_SECTIONS.info },
   ];
 
   return (

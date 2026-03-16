@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthUser } from "@/lib/auth/session";
 import { getHobbyPassportData } from "@/lib/platform/queries/hobby-passport";
+import { getLocationPreferenceFromCookies } from "@/lib/location/preference";
+import {
+  clearLocationPreferenceAction,
+  updateLocationPreferenceAction,
+} from "@/app/actions/location";
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
@@ -55,7 +60,10 @@ export default async function ProfilePage() {
     redirect("/login?next=/profile");
   }
 
-  const passport = await getHobbyPassportData(user.id);
+  const [passport, locationPreference] = await Promise.all([
+    getHobbyPassportData(user.id),
+    getLocationPreferenceFromCookies(),
+  ]);
 
   return (
     <PageLayout title="Mijn profiel" description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}>
@@ -91,6 +99,61 @@ export default async function ProfilePage() {
             </p>
           </CardShell>
         </GridLayout>
+      </CardShell>
+
+      <CardShell variant="default" padding="lg" className="mt-8">
+        <h2 className="text-xl font-semibold text-[var(--foreground)]">Locatie</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          {locationPreference.label ?? "niet ingesteld"} — gebruikt voor aanbevelingen en evenementen bij jou in de buurt.
+        </p>
+        <form
+          action={updateLocationPreferenceAction}
+          className="mt-4 flex flex-wrap items-end gap-2"
+        >
+          <input
+            type="text"
+            name="city"
+            defaultValue={locationPreference.city ?? ""}
+            placeholder="Stad (bv. Antwerpen)"
+            className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] w-40"
+          />
+          <input
+            type="text"
+            name="country_code"
+            defaultValue={locationPreference.countryCode ?? ""}
+            placeholder="Landcode (BE)"
+            className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] w-24"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+          >
+            Opslaan
+          </button>
+        </form>
+        {locationPreference.hasPreference && (
+          <form action={clearLocationPreferenceAction} className="mt-2">
+            <button
+              type="submit"
+              className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline"
+            >
+              Wissen
+            </button>
+          </form>
+        )}
+      </CardShell>
+
+      <CardShell variant="default" padding="lg" className="mt-8">
+        <h2 className="text-xl font-semibold text-[var(--foreground)]">Mijn projecten</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Upload je eigen hobbyprojecten en koppel materialen uit de webshop of voeg gezochte producten toe.
+        </p>
+        <Link
+          href="/profile/projects"
+          className="mt-4 inline-block text-sm font-medium text-[var(--accent)] underline"
+        >
+          Naar mijn projecten
+        </Link>
       </CardShell>
 
       <CardShell variant="default" padding="lg" className="mt-8">
@@ -164,19 +227,6 @@ export default async function ProfilePage() {
             })}
           </div>
         )}
-      </CardShell>
-
-      <CardShell variant="default" padding="lg" className="mt-8">
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">Mijn projecten</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Upload je eigen hobbyprojecten en koppel materialen uit de webshop of voeg gezochte producten toe.
-        </p>
-        <Link
-          href="/profile/projects"
-          className="mt-4 inline-block text-sm font-medium text-[var(--accent)] underline"
-        >
-          Naar mijn projecten
-        </Link>
       </CardShell>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">

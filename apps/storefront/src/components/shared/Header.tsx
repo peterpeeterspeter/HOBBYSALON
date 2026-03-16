@@ -1,22 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, ShoppingCart, Heart, ChevronDown, MapPin } from "lucide-react";
+import { Menu, X, ShoppingCart, Heart, ChevronDown } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
 import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { hasAuthSessionCookie } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
-import {
-  clearLocationPreferenceAction,
-  updateLocationPreferenceAction,
-} from "@/app/actions/location";
-import { getLocationPreferenceFromCookies } from "@/lib/location/preference";
 import { STATIC_LINKS } from "@/config/nav";
 
 export async function Header() {
-  const [hasSession, locationPreference] = await Promise.all([
-    hasAuthSessionCookie(),
-    getLocationPreferenceFromCookies(),
-  ]);
+  const hasSession = await hasAuthSessionCookie();
 
   let domainLinks: Array<{ id: string; slug: string; name: string }> = [];
   try {
@@ -61,23 +53,32 @@ export async function Header() {
           />
         </Link>
 
-        {/* Desktop nav: Agenda, Workshops, Creators, Domeinen dropdown */}
+        {/* Main nav (left): Hobbymaterialen, Workshops, Agenda, Per Hobby, Inspiratie - permanent visible from md up */}
         <nav
-          className="hidden items-center gap-0.5 lg:flex"
+          className="hidden items-center gap-0.5 md:flex"
           aria-label="Hoofdnavigatie"
         >
-          {STATIC_LINKS.discover.map((link) => (
+          {STATIC_LINKS.main.map((link) => (
             <NavLink key={link.href} href={link.href} className={navLinkClass}>
               {link.label}
             </NavLink>
           ))}
-          <DomainsDropdown domainLinks={domainLinks} navLinkClass={navLinkClass} />
+          <Dropdown
+            label="Per Hobby"
+            links={domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name }))}
+            navLinkClass={navLinkClass}
+          />
+          <Dropdown
+            label="Inspiratie"
+            links={[...STATIC_LINKS.inspiratie]}
+            navLinkClass={navLinkClass}
+          />
         </nav>
 
         {/* Spacer */}
         <div className="min-w-0 flex-1" />
 
-        {/* Right: cart, favorites, account */}
+        {/* Right: cart, favorites, account (guests: Registreer/Log in | logged-in: Profiel dropdown) */}
         <div className="flex items-center gap-0.5">
           <Link href="/cart" className={iconBtnClass} aria-label="Winkelwagen">
             <ShoppingCart size={20} aria-hidden />
@@ -86,29 +87,21 @@ export async function Header() {
             <Heart size={20} aria-hidden />
           </Link>
           {hasSession ? (
-            <>
-              <Link href="/profile" className={`${navLinkClass} hidden md:inline-flex`}>
-                Profiel
-              </Link>
-              <Link href="/dashboard" className={`${navLinkClass} hidden md:inline-flex`}>
-                Dashboard
-              </Link>
-              <form action={logoutAction} className="hidden md:block">
-                <button type="submit" className={navLinkClass}>
-                  Uitloggen
-                </button>
-              </form>
-            </>
+            <ProfileDropdown navLinkClass={navLinkClass} logoutAction={logoutAction} />
           ) : (
-            <Link href="/login" className={`${navLinkClass} hidden md:inline-flex`}>
-              Inloggen
-            </Link>
+            <>
+              <Link href="/register" className={`${navLinkClass} hidden md:inline-flex`}>
+                Registreer
+              </Link>
+              <Link href="/login" className={`${navLinkClass} hidden md:inline-flex`}>
+                Inloggen
+              </Link>
+            </>
           )}
           <MobileMenu
-            mainLinks={[
-              ...STATIC_LINKS.discover,
-              ...mobileDomainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name })),
-            ]}
+            mainLinks={[...STATIC_LINKS.main]}
+            domainLinks={mobileDomainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name }))}
+            inspiratieLinks={[...STATIC_LINKS.inspiratie]}
             user={hasSession}
             logoutAction={logoutAction}
             mobileLinkClass={mobileLinkClass}
@@ -116,78 +109,35 @@ export async function Header() {
           />
         </div>
       </div>
-
-      {/* Location panel - collapsible, below main bar */}
-      <details className="group border-t border-[var(--border)]">
-        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-xs text-[var(--muted)] transition-colors hover:text-[var(--foreground)] [&::-webkit-details-marker]:hidden">
-          <MapPin size={14} aria-hidden />
-          Locatie: {locationPreference.label ?? "niet ingesteld"}
-        </summary>
-        <div className="flex flex-wrap items-end gap-2 border-t border-[var(--border)] bg-[var(--background)]/60 px-4 py-3">
-          <form
-            action={updateLocationPreferenceAction}
-            className="flex flex-wrap items-end gap-2"
-          >
-            <input
-              type="text"
-              name="city"
-              defaultValue={locationPreference.city ?? ""}
-              placeholder="Stad (bv. Antwerpen)"
-              className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] w-40"
-            />
-            <input
-              type="text"
-              name="country_code"
-              defaultValue={locationPreference.countryCode ?? ""}
-              placeholder="Landcode (BE)"
-              className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] w-24"
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
-            >
-              Opslaan
-            </button>
-          </form>
-          {locationPreference.hasPreference && (
-            <form action={clearLocationPreferenceAction}>
-              <button
-                type="submit"
-                className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline"
-              >
-                Wissen
-              </button>
-            </form>
-          )}
-        </div>
-      </details>
     </header>
   );
 }
 
-function DomainsDropdown({
-  domainLinks,
+function Dropdown({
+  label,
+  links,
   navLinkClass,
 }: {
-  domainLinks: Array<{ id: string; slug: string; name: string }>;
+  label: string;
+  links: Array<{ href: string; label: string }>;
   navLinkClass: string;
 }) {
-  if (domainLinks.length === 0) return null;
+  if (links.length === 0) return null;
   return (
     <details className="group relative">
       <summary className={`${navLinkClass} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}>
-        Domeinen
+        {label}
         <ChevronDown size={16} aria-hidden className="ml-0.5 transition-transform group-open:rotate-180" />
       </summary>
       <div className="absolute left-0 top-full z-50 mt-0.5 min-w-[200px] rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 shadow-lg">
         <div className="grid grid-cols-2 gap-0.5 px-1 sm:grid-cols-3">
-          {domainLinks.map((d) => (
+          {links.map((link) => (
             <Link
-              key={d.id}
-              href={`/${d.slug}`}
+              key={link.href}
+              href={link.href}
               className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
             >
-              {d.name}
+              {link.label}
             </Link>
           ))}
         </div>
@@ -196,14 +146,59 @@ function DomainsDropdown({
   );
 }
 
+function ProfileDropdown({
+  navLinkClass,
+  logoutAction,
+}: {
+  navLinkClass: string;
+  logoutAction: typeof import("@/app/actions/auth").logoutAction;
+}) {
+  return (
+    <details className="group relative hidden md:block">
+      <summary className={`${navLinkClass} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}>
+        Profiel
+        <ChevronDown size={16} aria-hidden className="ml-0.5 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="absolute right-0 top-full z-50 mt-0.5 min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 shadow-lg">
+        <div className="flex flex-col gap-0.5">
+          <Link
+            href="/profile"
+            className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
+          >
+            Profiel
+          </Link>
+          <Link
+            href="/dashboard"
+            className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
+          >
+            Dashboard
+          </Link>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="w-full rounded-md px-3 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
+            >
+              Uitloggen
+            </button>
+          </form>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function MobileMenu({
   mainLinks,
+  domainLinks,
+  inspiratieLinks,
   user,
   logoutAction,
   mobileLinkClass,
   iconBtnClass,
 }: {
   mainLinks: Array<{ href: string; label: string }>;
+  domainLinks: Array<{ href: string; label: string }>;
+  inspiratieLinks: Array<{ href: string; label: string }>;
   user: boolean;
   logoutAction: typeof import("@/app/actions/auth").logoutAction;
   mobileLinkClass: string;
@@ -226,6 +221,30 @@ function MobileMenu({
             </Link>
           ))}
         </div>
+        {domainLinks.length > 0 && (
+          <>
+            <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Per Hobby</p>
+            <div className="mt-1 space-y-0.5">
+              {domainLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={mobileLinkClass}>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+        {inspiratieLinks.length > 0 && (
+          <>
+            <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Inspiratie</p>
+            <div className="mt-1 space-y-0.5">
+              {inspiratieLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={mobileLinkClass}>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
         <div className="my-2 border-t border-[var(--border)]" />
         <div className="space-y-0.5">
           <Link href="/cart" className={mobileLinkClass}>
@@ -237,22 +256,27 @@ function MobileMenu({
         </div>
         {user ? (
           <>
-            <div className="my-2 border-t border-[var(--border)]" />
-            <Link href="/profile" className={mobileLinkClass}>
-              Profiel
-            </Link>
-            <Link href="/dashboard" className={mobileLinkClass}>
-              Dashboard
-            </Link>
-            <form action={logoutAction}>
-              <button type="submit" className={`${mobileLinkClass} w-full text-left`}>
-                Uitloggen
-              </button>
-            </form>
+            <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Account</p>
+            <div className="mt-1 space-y-0.5">
+              <Link href="/profile" className={mobileLinkClass}>
+                Profiel
+              </Link>
+              <Link href="/dashboard" className={mobileLinkClass}>
+                Dashboard
+              </Link>
+              <form action={logoutAction}>
+                <button type="submit" className={`${mobileLinkClass} w-full text-left`}>
+                  Uitloggen
+                </button>
+              </form>
+            </div>
           </>
         ) : (
           <>
             <div className="my-2 border-t border-[var(--border)]" />
+            <Link href="/register" className={mobileLinkClass}>
+              Registreer
+            </Link>
             <Link href="/login" className={mobileLinkClass}>
               Inloggen
             </Link>
