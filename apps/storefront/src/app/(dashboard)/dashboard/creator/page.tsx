@@ -8,7 +8,11 @@ import {
   approveArticleSuggestionAction,
   createArticleAction,
   createCreatorEntityLinkAction,
+  createProjectGalleryImageAction,
+  createProjectProductLinkAction,
   dismissArticleSuggestionAction,
+  deleteProjectGalleryImageAction,
+  deleteProjectProductLinkAction,
   deleteCreatorEntityLinkAction,
   saveCreatorProfileAction,
   updateArticleAction,
@@ -42,7 +46,7 @@ const ARTICLE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "news", label: "Nieuws" },
 ];
 
-type LinkTargetType = "product" | "workshop" | "event" | "article";
+type LinkTargetType = "product" | "workshop" | "event" | "article" | "project";
 type LinkTargetOption = { id: string; label: string };
 
 type CreatorEntityLink = {
@@ -73,6 +77,30 @@ type ArticleEntityLink = {
   relation_type: string;
   weight: number;
   sort_order: number | null;
+};
+
+type CreatorProject = {
+  id: string;
+  slug: string;
+  title: string;
+  short_description: string | null;
+  featured_image_url: string | null;
+};
+
+type ProjectGalleryImage = {
+  id: string;
+  project_id: string;
+  image_url: string;
+  alt_text: string | null;
+  sort_order: number;
+};
+
+type ProjectProductLink = {
+  id: string;
+  project_id: string;
+  product_id: string;
+  link_type: string;
+  sort_order: number;
 };
 
 function EntityLinkCreateForm({
@@ -175,14 +203,27 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
   let workshopOptions: LinkTargetOption[] = [];
   let eventOptions: LinkTargetOption[] = [];
   let articleOptions: LinkTargetOption[] = [];
+  let projectOptions: LinkTargetOption[] = [];
   let entityLinks: CreatorEntityLink[] = [];
   let dashboardArticles: DashboardArticle[] = [];
   let articleSuggestionLinks: ArticleEntityLink[] = [];
   let articleConfirmedLinks: ArticleEntityLink[] = [];
+  let creatorProjects: CreatorProject[] = [];
+  let projectGalleryImages: ProjectGalleryImage[] = [];
+  let projectProductLinks: ProjectProductLink[] = [];
 
   if (creator) {
     const supabase = createPlatformClient();
-    const [domainLinksResult, productsResult, workshops, events, articlesResult, linksResult] =
+    const [
+      domainLinksResult,
+      productsResult,
+      workshops,
+      events,
+      articlesResult,
+      linksResult,
+      creatorProjectLinksResult,
+      allProjectsResult,
+    ] =
       await Promise.all([
         supabase
           .from("creator_domains")
@@ -207,8 +248,20 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
           .select("id,target_entity_type,target_entity_id,relation_type,weight,sort_order")
           .eq("source_entity_type", "creator")
           .eq("source_entity_id", creator.id)
-          .in("target_entity_type", ["product", "workshop", "event", "article"])
+          .in("target_entity_type", ["product", "workshop", "event", "article", "project"])
           .order("sort_order", { ascending: true, nullsFirst: false }),
+        supabase
+          .from("entity_links")
+          .select("target_entity_id")
+          .eq("source_entity_type", "creator")
+          .eq("source_entity_id", creator.id)
+          .eq("target_entity_type", "project"),
+        supabase
+          .from("projects")
+          .select("id,title,is_active")
+          .eq("is_active", true)
+          .order("title", { ascending: true })
+          .limit(300),
       ]);
 
     selectedDomainIds = new Set(
@@ -236,7 +289,47 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
       id: article.id,
       label: article.title,
     }));
+    projectOptions = ((allProjectsResult.data ?? []) as Array<{
+      id: string;
+      title: string;
+      is_active: boolean;
+    }>).map((project) => ({
+      id: project.id,
+      label: project.title,
+    }));
     entityLinks = (linksResult.data ?? []) as CreatorEntityLink[];
+
+    const creatorProjectIds = [
+      ...new Set(
+        (creatorProjectLinksResult.data ?? []).map(
+          (row) => row.target_entity_id as string
+        )
+      ),
+    ];
+    if (creatorProjectIds.length > 0) {
+      const [projectRowsResult, projectImagesResult, projectProductLinksResult] =
+        await Promise.all([
+          supabase
+            .from("projects")
+            .select("id,slug,title,short_description,featured_image_url")
+            .in("id", creatorProjectIds)
+            .eq("is_active", true),
+          supabase
+            .from("project_gallery_images")
+            .select("id,project_id,image_url,alt_text,sort_order")
+            .in("project_id", creatorProjectIds)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("project_product_links")
+            .select("id,project_id,product_id,link_type,sort_order")
+            .in("project_id", creatorProjectIds)
+            .order("sort_order", { ascending: true }),
+        ]);
+
+      creatorProjects = (projectRowsResult.data ?? []) as CreatorProject[];
+      projectGalleryImages = (projectImagesResult.data ?? []) as ProjectGalleryImage[];
+      projectProductLinks = (projectProductLinksResult.data ?? []) as ProjectProductLink[];
+    }
 
     const articleIds = dashboardArticles.map((article) => article.id);
     if (articleIds.length > 0) {
@@ -265,6 +358,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     workshop: new Map(workshopOptions.map((option) => [option.id, option.label])),
     event: new Map(eventOptions.map((option) => [option.id, option.label])),
     article: new Map(articleOptions.map((option) => [option.id, option.label])),
+    project: new Map(projectOptions.map((option) => [option.id, option.label])),
   };
   const relationLabel = new Map(
     RELATION_TYPE_OPTIONS.map((relation) => [relation.value, relation.label])
@@ -280,6 +374,18 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     const existing = articleConfirmedByArticle.get(link.source_entity_id) ?? [];
     existing.push(link);
     articleConfirmedByArticle.set(link.source_entity_id, existing);
+  }
+  const projectImagesByProject = new Map<string, ProjectGalleryImage[]>();
+  for (const image of projectGalleryImages) {
+    const existing = projectImagesByProject.get(image.project_id) ?? [];
+    existing.push(image);
+    projectImagesByProject.set(image.project_id, existing);
+  }
+  const projectLinksByProject = new Map<string, ProjectProductLink[]>();
+  for (const link of projectProductLinks) {
+    const existing = projectLinksByProject.get(link.project_id) ?? [];
+    existing.push(link);
+    projectLinksByProject.set(link.project_id, existing);
   }
 
   return (
@@ -669,6 +775,11 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               title="Creator -> Artikel"
               options={articleOptions}
             />
+            <EntityLinkCreateForm
+              targetType="project"
+              title="Creator -> Project"
+              options={projectOptions}
+            />
           </div>
 
           <div className="mt-6">
@@ -708,6 +819,157 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               </div>
             )}
           </div>
+        </CardShell>
+      )}
+
+      {creator && (
+        <CardShell variant="default" padding="lg">
+          <h2 className="text-xl font-semibold text-[var(--foreground)]">
+            Afgewerkte creaties galerij
+          </h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Beheer projectfoto&apos;s en koppel materialen uit je marktplaatsproducten.
+          </p>
+
+          {creatorProjects.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Link eerst een project via &quot;Creator -&gt; Project&quot; bij Entity links.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {creatorProjects.map((project) => {
+                const gallery = projectImagesByProject.get(project.id) ?? [];
+                const linkedProducts = projectLinksByProject.get(project.id) ?? [];
+                return (
+                  <details key={project.id} className="rounded-lg border border-[var(--border)] p-3">
+                    <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
+                      {project.title}
+                    </summary>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      /project/{project.slug}
+                    </p>
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <form
+                        action={createProjectGalleryImageAction}
+                        className="rounded-lg border border-[var(--border)] p-3"
+                      >
+                        <input type="hidden" name="project_id" value={project.id} />
+                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                          Foto toevoegen
+                        </h3>
+                        <Input name="image_url" label="Image URL *" required />
+                        <Input name="alt_text" label="Alt tekst" />
+                        <Input name="sort_order" label="Sort order" type="number" defaultValue={0} />
+                        <Button type="submit" variant="secondary" size="sm" className="mt-2">
+                          Foto toevoegen
+                        </Button>
+                      </form>
+
+                      <form
+                        action={createProjectProductLinkAction}
+                        className="rounded-lg border border-[var(--border)] p-3"
+                      >
+                        <input type="hidden" name="project_id" value={project.id} />
+                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                          Materiaal koppelen
+                        </h3>
+                        <label className="mt-2 block text-xs font-medium text-[var(--muted)]">
+                          Product
+                        </label>
+                        <select
+                          name="product_id"
+                          required
+                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                        >
+                          <option value="">Kies product...</option>
+                          {productOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Input name="link_type" label="Link type" defaultValue="material" />
+                        <Input name="sort_order" label="Sort order" type="number" defaultValue={0} />
+                        <Button type="submit" variant="secondary" size="sm" className="mt-2">
+                          Product koppelen
+                        </Button>
+                      </form>
+                    </div>
+
+                    <div className="mt-4">
+                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                        Galerijfoto&apos;s ({gallery.length})
+                      </h3>
+                      {gallery.length === 0 ? (
+                        <p className="mt-1 text-sm text-[var(--muted)]">Nog geen foto&apos;s.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {gallery.map((image) => (
+                            <div
+                              key={image.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                            >
+                              <a
+                                href={image.image_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="truncate text-[var(--foreground)] hover:underline"
+                              >
+                                {image.alt_text ?? image.image_url}
+                              </a>
+                              <form action={deleteProjectGalleryImageAction}>
+                                <input type="hidden" name="gallery_image_id" value={image.id} />
+                                <Button type="submit" size="sm" variant="ghost">
+                                  Verwijderen
+                                </Button>
+                              </form>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4">
+                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                        Gelinkte materialen ({linkedProducts.length})
+                      </h3>
+                      {linkedProducts.length === 0 ? (
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          Nog geen gekoppelde producten.
+                        </p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {linkedProducts.map((link) => (
+                            <div
+                              key={link.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                            >
+                              <p className="text-[var(--foreground)]">
+                                {labelByType.product.get(link.product_id) ?? link.product_id}
+                                {" · "}
+                                {link.link_type}
+                              </p>
+                              <form action={deleteProjectProductLinkAction}>
+                                <input
+                                  type="hidden"
+                                  name="project_product_link_id"
+                                  value={link.id}
+                                />
+                                <Button type="submit" size="sm" variant="ghost">
+                                  Verwijderen
+                                </Button>
+                              </form>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
         </CardShell>
       )}
     </section>

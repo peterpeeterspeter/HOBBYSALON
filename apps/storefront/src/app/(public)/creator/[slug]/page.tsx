@@ -36,7 +36,8 @@ export default async function CreatorPage({ params }: Props) {
 
   if (!data.creator) notFound();
 
-  const { creator, products, domains, relatedWorkshops, relatedEvents, relatedArticles } = data;
+  const { creator, products, projects, domains, relatedWorkshops, relatedEvents, relatedArticles } =
+    data;
   const user = await getAuthUser();
   const creatorIsFavorite = user
     ? await isFavorite(user.id, "creator", creator.id)
@@ -185,6 +186,47 @@ export default async function CreatorPage({ params }: Props) {
           {products.length === 0 && (
             <p className="col-span-full text-[var(--muted)]">
               Nog geen producten van deze creator.
+            </p>
+          )}
+        </GridLayout>
+      </section>
+
+      <section className="pb-2">
+        <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+          Afgewerkte creaties
+        </h2>
+        <GridLayout cols={3}>
+          {projects.map(({ project, galleryPreviewUrl, linkedProductCount }) => (
+            <CardShell key={project.id} variant="default" padding="sm">
+              <Link href={`/project/${project.slug}`} className="block">
+                <div className="aspect-[4/3] overflow-hidden rounded-md bg-[var(--border)]">
+                  {galleryPreviewUrl ? (
+                    <img
+                      src={galleryPreviewUrl}
+                      alt={project.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">
+                      Geen foto
+                    </div>
+                  )}
+                </div>
+                <h3 className="mt-3 font-semibold text-[var(--foreground)]">{project.title}</h3>
+                {project.short_description && (
+                  <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
+                    {project.short_description}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  {linkedProductCount} gelinkte materialen
+                </p>
+              </Link>
+            </CardShell>
+          ))}
+          {projects.length === 0 && (
+            <p className="col-span-full text-[var(--muted)]">
+              Nog geen afgewerkte creaties toegevoegd.
             </p>
           )}
         </GridLayout>

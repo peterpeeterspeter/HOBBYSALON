@@ -4,6 +4,11 @@ import {
   getWorkshopById,
   listWorkshopsByCreator,
 } from "@/lib/platform/queries/workshops";
+import {
+  listProjectGalleryImages,
+  listProjectProductLinks,
+  listProjectsByCreator,
+} from "@/lib/platform/queries/projects";
 import { listEventsByCreator, listEventsByIds } from "@/lib/platform/queries/events";
 import {
   listArticlesByAuthor,
@@ -14,6 +19,7 @@ import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import type {
   Creator,
   Product,
+  Project,
   Domain,
   Workshop,
   Event,
@@ -28,9 +34,16 @@ export type CreatorPageData = {
   creator: Creator | null;
   products: ProductWithPrice[];
   domains: Domain[];
+  projects: CreatorProjectTeaser[];
   relatedWorkshops: Workshop[];
   relatedEvents: Event[];
   relatedArticles: Article[];
+};
+
+export type CreatorProjectTeaser = {
+  project: Project;
+  galleryPreviewUrl: string | null;
+  linkedProductCount: number;
 };
 
 export async function getCreatorPageData(slug: string): Promise<CreatorPageData> {
@@ -40,17 +53,27 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
       creator: null,
       products: [],
       domains: [],
+      projects: [],
       relatedWorkshops: [],
       relatedEvents: [],
       relatedArticles: [],
     };
   }
 
-  const [products, entityLinks, creatorDomains, ownWorkshops, ownEvents, ownArticles] =
+  const [
+    products,
+    entityLinks,
+    creatorDomains,
+    ownProjects,
+    ownWorkshops,
+    ownEvents,
+    ownArticles,
+  ] =
     await Promise.all([
       listProductsByCreator(creator.id),
       getRelatedEntities("creator", creator.id),
       getCreatorDomains(creator.id),
+      listProjectsByCreator(creator.id),
       listWorkshopsByCreator(creator.id),
       listEventsByCreator(creator.id),
       listArticlesByAuthor(creator.id),
@@ -79,7 +102,7 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     })
   );
 
-  const [linkedWorkshops, linkedEvents, linkedArticles] = await Promise.all([
+  const [linkedWorkshops, linkedEvents, linkedArticles, projects] = await Promise.all([
     relatedWorkshopIds.length > 0
       ? (
           await Promise.all(relatedWorkshopIds.map((id) => getWorkshopById(id)))
@@ -87,12 +110,14 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
       : [],
     listEventsByIds(relatedEventIds),
     listArticlesByIds(relatedArticleIds),
+    buildCreatorProjects(ownProjects),
   ]);
 
   return {
     creator,
     products: productsWithPrices,
     domains: creatorDomains,
+    projects,
     relatedWorkshops: mergeById<Workshop>(ownWorkshops, linkedWorkshops),
     relatedEvents: mergeById<Event>(ownEvents, linkedEvents),
     relatedArticles: mergeById<Article>(ownArticles, linkedArticles),
@@ -126,4 +151,22 @@ function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] 
     }
   }
   return Array.from(byId.values());
+}
+
+async function buildCreatorProjects(projects: Project[]): Promise<CreatorProjectTeaser[]> {
+  const rows = await Promise.all(
+    projects.map(async (project) => {
+      const [galleryImages, productLinks] = await Promise.all([
+        listProjectGalleryImages(project.id),
+        listProjectProductLinks(project.id),
+      ]);
+      return {
+        project,
+        galleryPreviewUrl: galleryImages[0]?.image_url ?? project.featured_image_url,
+        linkedProductCount: productLinks.length,
+      } satisfies CreatorProjectTeaser;
+    })
+  );
+
+  return rows;
 }

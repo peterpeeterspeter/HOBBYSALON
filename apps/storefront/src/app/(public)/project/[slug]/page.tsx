@@ -72,7 +72,7 @@ export default async function ProjectPage({ params }: Props) {
 
   if (!data.project) notFound();
 
-  const { project, domains, steps, bundleItems, relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators } =
+  const { project, domains, steps, galleryImages, bundleItems, relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators } =
     data;
   const durationLabel = formatDuration(project.estimated_duration_minutes);
   const budgetMinLabel = formatBudget(project.budget_min_cents, project.currency_code);
@@ -185,6 +185,30 @@ export default async function ProjectPage({ params }: Props) {
               </li>
             ))}
           </ol>
+        </section>
+      )}
+
+      {galleryImages.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">
+            Afgewerkte creaties
+          </h2>
+          <GridLayout cols={3}>
+            {galleryImages.map((image) => (
+              <CardShell key={image.id} variant="default" padding="sm">
+                <div className="aspect-square overflow-hidden rounded-md bg-[var(--border)]">
+                  <img
+                    src={image.image_url}
+                    alt={image.alt_text ?? project.title}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                {image.alt_text && (
+                  <p className="mt-2 text-sm text-[var(--muted)]">{image.alt_text}</p>
+                )}
+              </CardShell>
+            ))}
+          </GridLayout>
         </section>
       )}
 

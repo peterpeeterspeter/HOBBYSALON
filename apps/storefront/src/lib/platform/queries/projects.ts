@@ -1,5 +1,13 @@
 import { createPlatformClient } from "../client";
-import type { Domain, Project, ProjectStep } from "@/types/platform";
+import { listProductsByIds } from "./products";
+import type {
+  Domain,
+  Product,
+  Project,
+  ProjectGalleryImage,
+  ProjectProductLink,
+  ProjectStep,
+} from "@/types/platform";
 
 export async function getProjectBySlug(slug: string): Promise<Project | null> {
   const supabase = createPlatformClient();
@@ -110,4 +118,56 @@ export async function listProjectSteps(projectId: string): Promise<ProjectStep[]
 
   if (error) return [];
   return (data ?? []) as ProjectStep[];
+}
+
+export async function listProjectsByCreator(creatorId: string): Promise<Project[]> {
+  const supabase = createPlatformClient();
+  const { data: links, error: linksError } = await supabase
+    .from("entity_links")
+    .select("target_entity_id")
+    .eq("source_entity_type", "creator")
+    .eq("source_entity_id", creatorId)
+    .eq("target_entity_type", "project")
+    .order("sort_order", { ascending: true, nullsFirst: false });
+
+  if (linksError || !links?.length) return [];
+
+  const projectIds = [...new Set((links ?? []).map((row) => row.target_entity_id))];
+  return listProjectsByIds(projectIds);
+}
+
+export async function listProjectGalleryImages(
+  projectId: string
+): Promise<ProjectGalleryImage[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("project_gallery_images")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) return [];
+  return (data ?? []) as ProjectGalleryImage[];
+}
+
+export async function listProjectProductLinks(
+  projectId: string
+): Promise<ProjectProductLink[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("project_product_links")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) return [];
+  return (data ?? []) as ProjectProductLink[];
+}
+
+export async function listLinkedProductsByProject(projectId: string): Promise<Product[]> {
+  const links = await listProjectProductLinks(projectId);
+  const productIds = links.map((link) => link.product_id);
+  return listProductsByIds(productIds);
 }

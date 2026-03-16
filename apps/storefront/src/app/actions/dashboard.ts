@@ -53,6 +53,7 @@ const ENTITY_LINK_TARGET_TYPES = new Set([
   "workshop",
   "event",
   "article",
+  "project",
 ]);
 const ARTICLE_TYPES = new Set([
   "tutorial",
@@ -311,7 +312,45 @@ async function creatorOwnsEntityTarget(
     return (organizerResult.count ?? 0) > 0 || (participantResult.count ?? 0) > 0;
   }
 
+  if (targetType === "project") {
+    const { count } = await supabase
+      .from("entity_links")
+      .select("id", { head: true, count: "exact" })
+      .eq("source_entity_type", "creator")
+      .eq("source_entity_id", creatorId)
+      .eq("target_entity_type", "project")
+      .eq("target_entity_id", targetId)
+      .limit(1);
+    return (count ?? 0) > 0;
+  }
+
   return false;
+}
+
+async function getCreatorLinkedProject(
+  creatorId: string,
+  projectId: string
+): Promise<{ id: string; slug: string } | null> {
+  const supabase = createPlatformClient();
+  const { data: creatorProjectLink } = await supabase
+    .from("entity_links")
+    .select("id")
+    .eq("source_entity_type", "creator")
+    .eq("source_entity_id", creatorId)
+    .eq("target_entity_type", "project")
+    .eq("target_entity_id", projectId)
+    .maybeSingle();
+
+  if (!creatorProjectLink?.id) return null;
+
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("id,slug")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (!projectRow?.id || !projectRow.slug) return null;
+  return { id: projectRow.id as string, slug: projectRow.slug as string };
 }
 
 type SuggestionCandidate = {
@@ -564,16 +603,18 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
       fail("/dashboard/creator", "Ongeldig target type.");
     }
 
-    const creatorOwnsTarget = await creatorOwnsEntityTarget(
-      creator.id,
-      targetType,
-      targetId
-    );
-    if (!creatorOwnsTarget) {
-      fail(
-        "/dashboard/creator",
-        "Je kan alleen linken naar je eigen producten, workshops, events of artikels."
+    if (targetType !== "project") {
+      const creatorOwnsTarget = await creatorOwnsEntityTarget(
+        creator.id,
+        targetType,
+        targetId
       );
+      if (!creatorOwnsTarget) {
+        fail(
+          "/dashboard/creator",
+          "Je kan alleen linken naar je eigen producten, workshops, events, artikels of projecten."
+        );
+      }
     }
 
     const supabase = createPlatformClient();
@@ -636,6 +677,171 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
     revalidatePath("/dashboard/creator");
     revalidatePath(`/creator/${creator.slug}`);
     ok("/dashboard/creator", "Entity link verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createProjectGalleryImageAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const projectId = parseRequiredUuid(formData, "project_id");
+    const imageUrl = parseRequiredString(formData, "image_url");
+    const altText = parseOptionalString(formData, "alt_text");
+    const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
+    const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
+
+    if (!linkedProject) {
+      fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
+    }
+
+    const supabase = createPlatformClient();
+    const { error } = await supabase.from("project_gallery_images").insert({
+      project_id: projectId,
+      image_url: imageUrl,
+      alt_text: altText,
+      sort_order: sortOrder,
+    });
+
+    if (error) {
+      fail("/dashboard/creator", "Galerijafbeelding toevoegen mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    revalidatePath(`/project/${linkedProject.slug}`);
+    ok("/dashboard/creator", "Galerijafbeelding toegevoegd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteProjectGalleryImageAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+    const { data: row } = await supabase
+      .from("project_gallery_images")
+      .select("id,project_id")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    if (!row?.project_id) {
+      fail("/dashboard/creator", "Galerijafbeelding niet gevonden.");
+    }
+
+    const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id as string);
+    if (!linkedProject) {
+      fail("/dashboard/creator", "Geen rechten op dit project.");
+    }
+
+    const { error } = await supabase
+      .from("project_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+    if (error) {
+      fail("/dashboard/creator", "Verwijderen van galerijafbeelding mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    revalidatePath(`/project/${linkedProject.slug}`);
+    ok("/dashboard/creator", "Galerijafbeelding verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createProjectProductLinkAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const projectId = parseRequiredUuid(formData, "project_id");
+    const productId = parseRequiredUuid(formData, "product_id");
+    const linkType = parseOptionalString(formData, "link_type") ?? "material";
+    const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
+    const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
+
+    if (!linkedProject) {
+      fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
+    }
+
+    const ownsProduct = await creatorOwnsEntityTarget(creator.id, "product", productId);
+    if (!ownsProduct) {
+      fail("/dashboard/creator", "Je kan enkel je eigen producten koppelen.");
+    }
+
+    const supabase = createPlatformClient();
+    const { error } = await supabase.from("project_product_links").upsert(
+      {
+        project_id: projectId,
+        product_id: productId,
+        link_type: linkType,
+        sort_order: sortOrder,
+      },
+      { onConflict: "project_id,product_id" }
+    );
+    if (error) {
+      fail("/dashboard/creator", "Product koppelen aan project mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    revalidatePath(`/project/${linkedProject.slug}`);
+    ok("/dashboard/creator", "Product gekoppeld aan project.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteProjectProductLinkAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const projectProductLinkId = parseRequiredUuid(formData, "project_product_link_id");
+    const supabase = createPlatformClient();
+    const { data: row } = await supabase
+      .from("project_product_links")
+      .select("id,project_id")
+      .eq("id", projectProductLinkId)
+      .maybeSingle();
+
+    if (!row?.project_id) {
+      fail("/dashboard/creator", "Project-productlink niet gevonden.");
+    }
+
+    const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id as string);
+    if (!linkedProject) {
+      fail("/dashboard/creator", "Geen rechten op dit project.");
+    }
+
+    const { error } = await supabase
+      .from("project_product_links")
+      .delete()
+      .eq("id", projectProductLinkId);
+    if (error) {
+      fail("/dashboard/creator", "Verwijderen van project-productlink mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    revalidatePath(`/creator/${creator.slug}`);
+    revalidatePath(`/project/${linkedProject.slug}`);
+    ok("/dashboard/creator", "Project-productlink verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

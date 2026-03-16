@@ -7,7 +7,9 @@ import { listWorkshopsByIds } from "@/lib/platform/queries/workshops";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import {
   getProjectBySlug,
+  listLinkedProductsByProject,
   listDomainsByProject,
+  listProjectGalleryImages,
   listProjectSteps,
 } from "@/lib/platform/queries/projects";
 import type {
@@ -17,6 +19,7 @@ import type {
   Event,
   Product,
   Project,
+  ProjectGalleryImage,
   ProjectStep,
   Workshop,
 } from "@/types/platform";
@@ -25,6 +28,7 @@ export type ProjectPageData = {
   project: Project | null;
   domains: Domain[];
   steps: ProjectStep[];
+  galleryImages: ProjectGalleryImage[];
   bundleItems: ProjectBundleItem[];
   relatedProducts: Product[];
   relatedWorkshops: Workshop[];
@@ -51,6 +55,7 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
       project: null,
       domains: [],
       steps: [],
+      galleryImages: [],
       bundleItems: [],
       relatedProducts: [],
       relatedWorkshops: [],
@@ -60,10 +65,12 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
     };
   }
 
-  const [domains, steps, entityLinks] = await Promise.all([
+  const [domains, steps, entityLinks, galleryImages, linkedProjectProducts] = await Promise.all([
     listDomainsByProject(project.id),
     listProjectSteps(project.id),
     getRelatedEntities("project", project.id),
+    listProjectGalleryImages(project.id),
+    listLinkedProductsByProject(project.id),
   ]);
 
   const productIds = entityLinks
@@ -82,7 +89,7 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
     .filter((link) => link.target_entity_type === "creator")
     .map((link) => link.target_entity_id);
 
-  const [relatedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators] =
+  const [entityLinkedProducts, relatedWorkshops, relatedEvents, relatedArticles, relatedCreators] =
     await Promise.all([
       listProductsByIds(productIds),
       listWorkshopsByIds(workshopIds),
@@ -91,12 +98,17 @@ export async function getProjectPageData(slug: string): Promise<ProjectPageData>
       listCreatorsByIds(creatorIds),
     ]);
 
+  const relatedProducts = mergeById<Product>(
+    linkedProjectProducts,
+    entityLinkedProducts
+  );
   const bundleItems = await buildProjectBundleItems(relatedProducts);
 
   return {
     project,
     domains,
     steps,
+    galleryImages,
     bundleItems,
     relatedProducts,
     relatedWorkshops,
@@ -112,6 +124,15 @@ async function listCreatorsByIds(ids: string[]): Promise<Creator[]> {
   const uniqueIds = [...new Set(ids)];
   const creators = await Promise.all(uniqueIds.map((id) => getCreatorById(id)));
   return creators.filter((creator): creator is Creator => !!creator);
+}
+
+function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const row of primary) byId.set(row.id, row);
+  for (const row of secondary) {
+    if (!byId.has(row.id)) byId.set(row.id, row);
+  }
+  return Array.from(byId.values());
 }
 
 async function buildProjectBundleItems(

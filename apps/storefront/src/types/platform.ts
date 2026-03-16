@@ -169,6 +169,24 @@ export type ProjectStep = {
   updated_at: string;
 };
 
+export type ProjectGalleryImage = {
+  id: string;
+  project_id: string;
+  image_url: string;
+  alt_text: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ProjectProductLink = {
+  id: string;
+  project_id: string;
+  product_id: string;
+  link_type: string;
+  sort_order: number;
+  created_at: string;
+};
+
 export type LearningPath = {
   id: string;
   domain_id: string;
