@@ -192,6 +192,9 @@ jobs:
           STRIPE_SECRET_API_KEY=sk_test_CI_DUMMY_KEY
           EOF
 
+      - name: Build backend for migration discovery
+        run: yarn workspace api build
+
       - name: Run DB migrations
         run: yarn workspace api db:migrate
 
