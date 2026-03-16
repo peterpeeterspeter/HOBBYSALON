@@ -5,6 +5,7 @@
 
 export const STATIC_LINKS = {
   discover: [
+    { href: "/tools", label: "Tools" },
     { href: "/materials", label: "Materialen" },
     { href: "/gratis-haakpatronen", label: "Gratis haakpatronen" },
     { href: "/agenda", label: "Agenda" },

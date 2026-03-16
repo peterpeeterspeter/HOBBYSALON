@@ -25,6 +25,7 @@ export async function Footer() {
       title: "Ontdek",
       links: [
         { href: "/", label: "Home" },
+        { href: "/tools", label: "Tools" },
         { href: "/materials", label: "Materialen" },
         { href: "/agenda", label: "Agenda" },
         { href: "/workshops", label: "Workshops" },
