@@ -22,6 +22,7 @@ WORKDIR /app
 # First install dependencies (as they change less often)
 COPY --from=builder /app/out/json/ .
 RUN yarn install --production=false --frozen-lockfile
+RUN yarn add --ignore-workspace-root-check --dev ts-node@10.9.2 typescript@5.6.2
 
 # Build the project and its dependencies
 COPY --from=builder /app/out/full/ .
