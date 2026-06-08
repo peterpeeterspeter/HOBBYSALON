@@ -47,6 +47,11 @@ export async function getAuthUser(): Promise<User | null> {
   return getUserForAccessToken(accessToken);
 }
 
+export async function getAuthAccessToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(AUTH_ACCESS_COOKIE)?.value ?? null;
+}
+
 export async function hasAuthSessionCookie(): Promise<boolean> {
   const cookieStore = await cookies();
   return Boolean(cookieStore.get(AUTH_ACCESS_COOKIE)?.value);
@@ -71,12 +76,26 @@ export async function createEmailSession(
 
 export async function registerEmailUser(
   email: string,
-  password: string
+  password: string,
+  nextPath?: string | null,
+  metadata?: Record<string, unknown>
 ): Promise<{ user: User | null; session: Session | null; error: string | null }> {
   const supabase = getSupabaseAuthClient();
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.hobbysalon.be"
+  ).replace(/\/$/, "");
+  const confirmationUrl = new URL("/auth/confirm", siteUrl);
+  if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {
+    confirmationUrl.searchParams.set("next", nextPath);
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: confirmationUrl.toString(),
+      data: metadata,
+    },
   });
 
   return {
@@ -84,6 +103,20 @@ export async function registerEmailUser(
     session: data.session ?? null,
     error: error?.message ?? null,
   };
+}
+
+export async function validateAuthSession(
+  accessToken: string,
+  refreshToken: string
+): Promise<Session | null> {
+  const supabase = getSupabaseAuthClient();
+  const { data, error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  if (error) return null;
+  return data.session;
 }
 
 export async function persistAuthSession(session: Session): Promise<void> {

@@ -8,6 +8,7 @@ import {
 } from "@/lib/platform/queries/projects";
 import { listMaterialProductsForSelection } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import {
   approveArticleSuggestionAction,
   createArticleAction,
@@ -209,6 +210,15 @@ function EntityLinkCreateForm({
 export default async function DashboardCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
+  const registrationContext = user
+    ? await getUserRegistrationContext(user.id)
+    : null;
+  const onboarding =
+    user?.user_metadata?.account_type === "creator" ? user.user_metadata : null;
+  const accountDisplayName =
+    typeof user?.user_metadata?.display_name === "string"
+      ? user.user_metadata.display_name
+      : user?.email?.split("@")[0] ?? "";
   const domains = await listDomainsBySort();
   const { success, error } = await searchParams;
 
@@ -451,22 +461,31 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               name="display_name"
               label="Naam *"
               required
-              defaultValue={creator?.display_name ?? ""}
+              defaultValue={
+                creator?.display_name ??
+                onboarding?.display_name ??
+                accountDisplayName
+              }
             />
             <Input
               name="slug"
               label="Slug"
-              defaultValue={creator?.slug ?? ""}
+              defaultValue={creator?.slug ?? onboarding?.preferred_slug ?? ""}
             />
             <Input
               name="business_name"
               label="Bedrijfsnaam"
-              defaultValue={creator?.business_name ?? ""}
+              defaultValue={creator?.business_name ?? onboarding?.business_name ?? ""}
             />
             <Input
               name="city"
               label="Stad"
-              defaultValue={creator?.city ?? ""}
+              defaultValue={
+                creator?.city ??
+                onboarding?.city ??
+                registrationContext?.preference?.city ??
+                ""
+              }
             />
             <Input
               name="website_url"
@@ -505,6 +524,16 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               />
             </div>
           </div>
+          <input
+            type="hidden"
+            name="country_code"
+            value={
+              creator?.country_code ??
+              onboarding?.country_code ??
+              registrationContext?.preference?.countryCode ??
+              "BE"
+            }
+          />
 
           <fieldset className="mt-4">
             <legend className="text-sm font-medium">Rollen</legend>
@@ -518,7 +547,12 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
                     type="checkbox"
                     name="creator_types"
                     value={type.value}
-                    defaultChecked={creator?.creator_types?.includes(type.value)}
+                    defaultChecked={
+                      creator?.creator_types?.includes(type.value) ??
+                      (Array.isArray(onboarding?.creator_types)
+                        ? onboarding.creator_types.includes(type.value)
+                        : type.value === "maker")
+                    }
                   />
                   <span className="text-sm">{type.label}</span>
                 </label>

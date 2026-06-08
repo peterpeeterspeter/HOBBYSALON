@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createPlatformClient } from "@/lib/platform/client";
-import { getAuthUser } from "@/lib/auth/session";
+import {
+  createAuthenticatedPlatformClient,
+  createPlatformClient,
+} from "@/lib/platform/client";
+import { getAuthAccessToken, getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import {
   cancelCreatorOrder,
@@ -226,9 +229,9 @@ function ok(path: string, message: string): never {
 
 async function syncCreatorDomains(
   creatorId: string,
-  domainIds: string[]
+  domainIds: string[],
+  supabase: ReturnType<typeof createPlatformClient>
 ): Promise<string | null> {
-  const supabase = createPlatformClient();
   const { error: deleteError } = await supabase
     .from("creator_domains")
     .delete()
@@ -532,7 +535,11 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     };
 
     const existing = await getCreatorByUserId(user.id);
-    const supabase = createPlatformClient();
+    const accessToken = await getAuthAccessToken();
+    if (!accessToken) {
+      fail("/login?next=/dashboard/creator", "Je sessie is verlopen. Meld je opnieuw aan.");
+    }
+    const supabase = createAuthenticatedPlatformClient(accessToken);
 
     let finalCreatorSlug = payload.slug;
 
@@ -550,10 +557,19 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         .eq("user_id", user.id);
 
       if (error) {
+        console.error("Failed to update creator profile", {
+          userId: user.id,
+          code: error.code,
+          message: error.message,
+        });
         fail("/dashboard/creator", "Opslaan van creator-profiel mislukt.");
       }
 
-      const domainSyncError = await syncCreatorDomains(existing.id, selectedDomainIds);
+      const domainSyncError = await syncCreatorDomains(
+        existing.id,
+        selectedDomainIds,
+        supabase
+      );
       if (domainSyncError) {
         fail("/dashboard/creator", "Opslaan van hobby-domeinen mislukt.");
       }
@@ -564,16 +580,38 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         .select("id")
         .limit(1);
       if (error || !insertedRows?.[0]?.id) {
+        console.error("Failed to create creator profile", {
+          userId: user.id,
+          code: error?.code,
+          message: error?.message,
+        });
         fail("/dashboard/creator", "Aanmaken van creator-profiel mislukt.");
       }
 
       const domainSyncError = await syncCreatorDomains(
         insertedRows[0].id as string,
-        selectedDomainIds
+        selectedDomainIds,
+        supabase
       );
       if (domainSyncError) {
         fail("/dashboard/creator", "Opslaan van hobby-domeinen mislukt.");
       }
+    }
+
+    const { error: roleError } = await supabase.from("user_account_roles").upsert(
+      {
+        user_id: user.id,
+        role: "creator",
+      },
+      { onConflict: "user_id,role" }
+    );
+    if (roleError) {
+      console.error("Failed to assign creator role", {
+        userId: user.id,
+        code: roleError.code,
+        message: roleError.message,
+      });
+      fail("/dashboard/creator", "Creator-rol kon niet worden opgeslagen.");
     }
 
     revalidatePath("/dashboard");

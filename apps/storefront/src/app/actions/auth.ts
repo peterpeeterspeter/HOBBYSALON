@@ -136,7 +136,11 @@ export async function registerAction(
     };
   }
 
-  const { session, user, error } = await registerEmailUser(email, password);
+  const { session, user, error } = await registerEmailUser(
+    email,
+    password,
+    requestedNextPath
+  );
 
   if (error) {
     return {
@@ -229,7 +233,22 @@ export async function registerCreatorAction(
     };
   }
 
-  const { session, user, error } = await registerEmailUser(email, password);
+  const { session, user, error } = await registerEmailUser(
+    email,
+    password,
+    requestedNextPath,
+    {
+      account_type: "creator",
+      display_name: displayName,
+      business_name: businessName,
+      preferred_slug: preferredSlug,
+      city,
+      postal_code: postalCode,
+      country_code: countryCode,
+      interest_types: interestTypes,
+      creator_types: creatorTypes,
+    }
+  );
 
   if (error) {
     return {
@@ -358,7 +377,11 @@ export async function registerMerchantAction(
     };
   }
 
-  const { session, user, error } = await registerEmailUser(email, password);
+  const { session, user, error } = await registerEmailUser(
+    email,
+    password,
+    requestedNextPath
+  );
 
   if (error) {
     return {
