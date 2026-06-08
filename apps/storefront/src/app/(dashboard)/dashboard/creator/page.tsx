@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
@@ -12,10 +11,8 @@ import { listMaterialProductsForSelection } from "@/lib/platform/queries/product
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
-import {
-  CreatorDashboardTabs,
-  resolveCreatorTab,
-} from "@/components/dashboard/creator/CreatorDashboardTabs";
+import { CreatorDashboardTabs } from "@/components/dashboard/creator/CreatorDashboardTabs";
+import { resolveCreatorTab } from "@/components/dashboard/creator/types";
 import { CreatorDashboardHeader } from "@/components/dashboard/creator/CreatorDashboardHeader";
 import { CreatorProfileTab } from "@/components/dashboard/creator/CreatorProfileTab";
 import { CreatorArticlesTab } from "@/components/dashboard/creator/CreatorArticlesTab";
@@ -242,8 +239,10 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
         </p>
       )}
 
-      <Suspense fallback={<div className="h-10" />}>
-        <CreatorDashboardTabs activeTab={activeTab}>
+      <CreatorDashboardTabs
+        activeTab={activeTab}
+        preserveQuery={{ success, error }}
+      >
           {activeTab === "profiel" && (
             <CreatorProfileTab
               creator={creator}
@@ -291,8 +290,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               Sla eerst je profiel op in het tabblad Profiel voordat je je portfolio kunt beheren.
             </p>
           )}
-        </CreatorDashboardTabs>
-      </Suspense>
+      </CreatorDashboardTabs>
     </section>
   );
 }

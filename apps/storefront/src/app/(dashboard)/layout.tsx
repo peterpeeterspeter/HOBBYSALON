@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
@@ -116,10 +117,12 @@ export default async function DashboardLayout({
             </CardShell>
           )}
 
-          <MerchantUpsellBanner
-            hasMerchantRole={hasMerchantRole}
-            creatorHasSupplierRole={creatorHasSupplierRole}
-          />
+          <Suspense fallback={null}>
+            <MerchantUpsellBanner
+              hasMerchantRole={hasMerchantRole}
+              creatorHasSupplierRole={creatorHasSupplierRole}
+            />
+          </Suspense>
           {children}
         </Container>
       </main>

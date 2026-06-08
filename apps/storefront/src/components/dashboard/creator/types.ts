@@ -8,6 +8,14 @@ export const CREATOR_TABS: Array<{ id: CreatorTab; label: string }> = [
   { id: "portfolio", label: "Portfolio" },
 ];
 
+export function resolveCreatorTab(tab: string | undefined): CreatorTab {
+  const value = tab ?? null;
+  if (value === "profiel" || value === "artikels" || value === "portfolio") {
+    return value;
+  }
+  return "profiel";
+}
+
 export const CREATOR_TYPES: Array<{
   value: string;
   label: string;

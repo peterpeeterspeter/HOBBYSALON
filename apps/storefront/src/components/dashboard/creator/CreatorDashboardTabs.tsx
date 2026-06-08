@@ -1,25 +1,36 @@
-"use client";
-
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CREATOR_TABS, type CreatorTab } from "./types";
 
 type CreatorDashboardTabsProps = {
   activeTab: CreatorTab;
+  preserveQuery?: {
+    success?: string;
+    error?: string;
+  };
   children: React.ReactNode;
 };
 
-export function CreatorDashboardTabs({ activeTab, children }: CreatorDashboardTabsProps) {
-  const searchParams = useSearchParams();
-
-  function buildTabHref(tab: CreatorTab) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", tab);
-    const query = params.toString();
-    return query ? `/dashboard/creator?${query}` : `/dashboard/creator?tab=${tab}`;
+function buildTabHref(
+  tab: CreatorTab,
+  preserveQuery?: CreatorDashboardTabsProps["preserveQuery"]
+) {
+  const params = new URLSearchParams();
+  params.set("tab", tab);
+  if (preserveQuery?.success) {
+    params.set("success", preserveQuery.success);
   }
+  if (preserveQuery?.error) {
+    params.set("error", preserveQuery.error);
+  }
+  return `/dashboard/creator?${params.toString()}`;
+}
 
+export function CreatorDashboardTabs({
+  activeTab,
+  preserveQuery,
+  children,
+}: CreatorDashboardTabsProps) {
   return (
     <div className="space-y-6">
       <nav
@@ -29,7 +40,7 @@ export function CreatorDashboardTabs({ activeTab, children }: CreatorDashboardTa
         {CREATOR_TABS.map((tab) => (
           <Link
             key={tab.id}
-            href={buildTabHref(tab.id)}
+            href={buildTabHref(tab.id, preserveQuery)}
             aria-current={activeTab === tab.id ? "page" : undefined}
             className={cn(
               "rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors",
@@ -45,12 +56,4 @@ export function CreatorDashboardTabs({ activeTab, children }: CreatorDashboardTa
       {children}
     </div>
   );
-}
-
-export function resolveCreatorTab(tab: string | undefined): CreatorTab {
-  const value = tab ?? null;
-  if (value === "profiel" || value === "artikels" || value === "portfolio") {
-    return value;
-  }
-  return "profiel";
 }
