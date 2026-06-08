@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
@@ -5,207 +6,32 @@ import { listWorkshopsByCreator } from "@/lib/platform/queries/workshops";
 import { listEventsByCreator } from "@/lib/platform/queries/events";
 import {
   listProjectSoughtMaterials,
+  listProjectsByUserId,
 } from "@/lib/platform/queries/projects";
 import { listMaterialProductsForSelection } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
 import {
-  approveArticleSuggestionAction,
-  createArticleAction,
-  createCreatorEntityLinkAction,
-  createProjectGalleryImageAction,
-  createProjectProductLinkAction,
-  createProjectSoughtMaterialAction,
-  dismissArticleSuggestionAction,
-  deleteProjectGalleryImageAction,
-  deleteProjectProductLinkAction,
-  deleteProjectSoughtMaterialAction,
-  deleteCreatorEntityLinkAction,
-  saveCreatorProfileAction,
-  updateArticleAction,
-} from "@/app/actions/dashboard";
-import { CardShell } from "@/components/ui/card-shell";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+  CreatorDashboardTabs,
+  resolveCreatorTab,
+} from "@/components/dashboard/creator/CreatorDashboardTabs";
+import { CreatorDashboardHeader } from "@/components/dashboard/creator/CreatorDashboardHeader";
+import { CreatorProfileTab } from "@/components/dashboard/creator/CreatorProfileTab";
+import { CreatorArticlesTab } from "@/components/dashboard/creator/CreatorArticlesTab";
+import { CreatorPortfolioTab } from "@/components/dashboard/creator/CreatorPortfolioTab";
+import type {
+  ArticleEntityLink,
+  CreatorProject,
+  DashboardArticle,
+  ProjectGalleryImage,
+  ProjectProductLink,
+  ProjectSoughtMaterial,
+} from "@/components/dashboard/creator/types";
 
 type Props = {
-  searchParams: Promise<{ success?: string; error?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; tab?: string }>;
 };
-
-const CREATOR_TYPES: Array<{ value: string; label: string }> = [
-  { value: "maker", label: "Maker" },
-  { value: "workshopgever", label: "Workshopgever" },
-  { value: "supplier", label: "Leverancier" },
-  { value: "content_creator", label: "Content maker" },
-  { value: "organizer", label: "Organisator" },
-];
-
-const RELATION_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "related", label: "Gerelateerd" },
-  { value: "featured", label: "Featured" },
-  { value: "recommended", label: "Aanbevolen" },
-  { value: "tutorial", label: "Tutorial-link" },
-];
-const ARTICLE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "tutorial", label: "Tutorial" },
-  { value: "inspiration", label: "Inspiratie" },
-  { value: "guide", label: "Gids" },
-  { value: "news", label: "Nieuws" },
-];
-
-type LinkTargetType = "product" | "workshop" | "event" | "article" | "project";
-type LinkTargetOption = { id: string; label: string };
-
-type CreatorEntityLink = {
-  id: string;
-  target_entity_type: LinkTargetType;
-  target_entity_id: string;
-  relation_type: string;
-  weight: number;
-  sort_order: number | null;
-};
-
-type DashboardArticle = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  body_markdown: string | null;
-  article_type: string;
-  domain_id: string | null;
-  is_published: boolean;
-};
-
-type ArticleEntityLink = {
-  id: string;
-  source_entity_id: string;
-  target_entity_type: "product" | "workshop" | "event";
-  target_entity_id: string;
-  relation_type: string;
-  weight: number;
-  sort_order: number | null;
-};
-
-type CreatorProject = {
-  id: string;
-  slug: string;
-  title: string;
-  short_description: string | null;
-  featured_image_url: string | null;
-};
-
-type ProjectGalleryImage = {
-  id: string;
-  project_id: string;
-  image_url: string;
-  alt_text: string | null;
-  sort_order: number;
-};
-
-type ProjectProductLink = {
-  id: string;
-  project_id: string;
-  product_id: string;
-  link_type: string;
-  sort_order: number;
-};
-
-type ProjectSoughtMaterial = {
-  id: string;
-  project_id: string;
-  title: string;
-  notes: string | null;
-  sort_order: number;
-};
-
-function EntityLinkCreateForm({
-  targetType,
-  title,
-  options,
-}: {
-  targetType: LinkTargetType;
-  title: string;
-  options: LinkTargetOption[];
-}) {
-  return (
-    <form
-      action={createCreatorEntityLinkAction}
-      className="rounded-lg border border-[var(--border)] p-3"
-    >
-      <input type="hidden" name="target_entity_type" value={targetType} />
-      <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
-      {options.length === 0 ? (
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Nog geen items beschikbaar om te linken.
-        </p>
-      ) : (
-        <>
-          <label className="mt-2 block text-xs font-medium text-[var(--muted)]">
-            Selecteer item
-          </label>
-          <select
-            name="target_entity_id"
-            required
-            className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-          >
-            <option value="">Kies...</option>
-            {options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)]">
-                Relatie
-              </label>
-              <select
-                name="relation_type"
-                defaultValue="related"
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-              >
-                {RELATION_TYPE_OPTIONS.map((relation) => (
-                  <option key={relation.value} value={relation.value}>
-                    {relation.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)]">
-                Weight
-              </label>
-              <input
-                type="number"
-                name="weight"
-                min={1}
-                max={100}
-                defaultValue={1}
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)]">
-                Sort order
-              </label>
-              <input
-                type="number"
-                name="sort_order"
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <Button type="submit" variant="secondary" size="sm" className="mt-3">
-            Link toevoegen
-          </Button>
-        </>
-      )}
-    </form>
-  );
-}
 
 export default async function DashboardCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
@@ -213,6 +39,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
   const registrationContext = user
     ? await getUserRegistrationContext(user.id)
     : null;
+  const hasMerchantRole = registrationContext?.roles.includes("merchant") ?? false;
   const onboarding =
     user?.user_metadata?.account_type === "creator" ? user.user_metadata : null;
   const accountDisplayName =
@@ -220,15 +47,13 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
       ? user.user_metadata.display_name
       : user?.email?.split("@")[0] ?? "";
   const domains = await listDomainsBySort();
-  const { success, error } = await searchParams;
+  const { success, error, tab: tabParam } = await searchParams;
+  const activeTab = resolveCreatorTab(tabParam);
 
   let selectedDomainIds = new Set<string>();
-  let productOptions: LinkTargetOption[] = [];
-  let workshopOptions: LinkTargetOption[] = [];
-  let eventOptions: LinkTargetOption[] = [];
-  let articleOptions: LinkTargetOption[] = [];
-  let projectOptions: LinkTargetOption[] = [];
-  let entityLinks: CreatorEntityLink[] = [];
+  let productCount = 0;
+  let workshopCount = 0;
+  let eventCount = 0;
   let dashboardArticles: DashboardArticle[] = [];
   let articleSuggestionLinks: ArticleEntityLink[] = [];
   let articleConfirmedLinks: ArticleEntityLink[] = [];
@@ -236,9 +61,12 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
   let projectGalleryImages: ProjectGalleryImage[] = [];
   let projectProductLinks: ProjectProductLink[] = [];
   let projectSoughtMaterials: ProjectSoughtMaterial[] = [];
-  let materialProductOptions: LinkTargetOption[] = [];
+  let productLabels = new Map<string, string>();
+  let workshopLabels = new Map<string, string>();
+  let eventLabels = new Map<string, string>();
+  let materialProductOptions: Array<{ id: string; label: string }> = [];
 
-  if (creator) {
+  if (creator && user) {
     const supabase = createPlatformClient();
     const [
       domainLinksResult,
@@ -246,122 +74,83 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
       workshops,
       events,
       articlesResult,
-      linksResult,
-      creatorProjectLinksResult,
-      allProjectsResult,
-    ] =
-      await Promise.all([
-        supabase
-          .from("creator_domains")
-          .select("domain_id")
-          .eq("creator_id", creator.id),
-        supabase
-          .from("products")
-          .select("id,title,status")
-          .eq("creator_id", creator.id)
-          .order("updated_at", { ascending: false })
-          .limit(100),
-        listWorkshopsByCreator(creator.id),
-        listEventsByCreator(creator.id),
-        supabase
-          .from("articles")
-          .select("id,title,slug,excerpt,body_markdown,article_type,domain_id,is_published,updated_at")
-          .eq("author_creator_id", creator.id)
-          .order("updated_at", { ascending: false })
-          .limit(100),
-        supabase
-          .from("entity_links")
-          .select("id,target_entity_type,target_entity_id,relation_type,weight,sort_order")
-          .eq("source_entity_type", "creator")
-          .eq("source_entity_id", creator.id)
-          .in("target_entity_type", ["product", "workshop", "event", "article", "project"])
-          .order("sort_order", { ascending: true, nullsFirst: false }),
-        supabase
-          .from("entity_links")
-          .select("target_entity_id")
-          .eq("source_entity_type", "creator")
-          .eq("source_entity_id", creator.id)
-          .eq("target_entity_type", "project"),
-        supabase
-          .from("projects")
-          .select("id,title,is_active")
-          .eq("is_active", true)
-          .order("title", { ascending: true })
-          .limit(300),
-      ]);
+      userProjects,
+    ] = await Promise.all([
+      supabase
+        .from("creator_domains")
+        .select("domain_id")
+        .eq("creator_id", creator.id),
+      supabase
+        .from("products")
+        .select("id,title,status")
+        .eq("creator_id", creator.id)
+        .order("updated_at", { ascending: false })
+        .limit(100),
+      listWorkshopsByCreator(creator.id),
+      listEventsByCreator(creator.id),
+      supabase
+        .from("articles")
+        .select(
+          "id,title,slug,excerpt,body_markdown,article_type,domain_id,is_published,updated_at"
+        )
+        .eq("author_creator_id", creator.id)
+        .order("updated_at", { ascending: false })
+        .limit(100),
+      listProjectsByUserId(user.id),
+    ]);
 
     selectedDomainIds = new Set(
       (domainLinksResult.data ?? []).map((row) => row.domain_id as string)
     );
 
-    productOptions = ((productsResult.data ?? []) as Array<{
+    const products = (productsResult.data ?? []) as Array<{
       id: string;
       title: string;
       status: string;
-    }>).map((product) => ({
-      id: product.id,
-      label: `${product.title} (${product.status})`,
-    }));
-    workshopOptions = workshops.map((workshop) => ({
-      id: workshop.id,
-      label: workshop.title,
-    }));
-    eventOptions = events.map((event) => ({
-      id: event.id,
-      label: event.title,
-    }));
-    dashboardArticles = (articlesResult.data ?? []) as DashboardArticle[];
-    articleOptions = dashboardArticles.map((article) => ({
-      id: article.id,
-      label: article.title,
-    }));
-    projectOptions = ((allProjectsResult.data ?? []) as Array<{
-      id: string;
-      title: string;
-      is_active: boolean;
-    }>).map((project) => ({
-      id: project.id,
-      label: project.title,
-    }));
-    entityLinks = (linksResult.data ?? []) as CreatorEntityLink[];
+    }>;
+    productCount = products.length;
+    productLabels = new Map(
+      products.map((product) => [product.id, `${product.title} (${product.status})`])
+    );
+    workshopCount = workshops.length;
+    workshopLabels = new Map(workshops.map((w) => [w.id, w.title]));
+    eventCount = events.length;
+    eventLabels = new Map(events.map((e) => [e.id, e.title]));
 
-    const creatorProjectIds = [
-      ...new Set(
-        (creatorProjectLinksResult.data ?? []).map(
-          (row) => row.target_entity_id as string
-        )
-      ),
-    ];
-    if (creatorProjectIds.length > 0) {
+    dashboardArticles = (articlesResult.data ?? []) as DashboardArticle[];
+
+    creatorProjects = userProjects.map((project) => ({
+      id: project.id,
+      slug: project.slug,
+      title: project.title,
+      short_description: project.short_description,
+      featured_image_url: project.featured_image_url,
+    }));
+
+    const projectIds = creatorProjects.map((p) => p.id);
+    if (projectIds.length > 0) {
       const [
-        projectRowsResult,
         projectImagesResult,
         projectProductLinksResult,
         projectSoughtMaterialsResult,
         materialOptionsData,
       ] = await Promise.all([
         supabase
-          .from("projects")
-          .select("id,slug,title,short_description,featured_image_url")
-          .in("id", creatorProjectIds)
-          .eq("is_active", true),
-        supabase
           .from("project_gallery_images")
           .select("id,project_id,image_url,alt_text,sort_order")
-          .in("project_id", creatorProjectIds)
+          .in("project_id", projectIds)
           .order("sort_order", { ascending: true }),
         supabase
           .from("project_product_links")
           .select("id,project_id,product_id,link_type,sort_order")
-          .in("project_id", creatorProjectIds)
+          .in("project_id", projectIds)
           .order("sort_order", { ascending: true }),
-        Promise.all(
-          creatorProjectIds.map((pid) => listProjectSoughtMaterials(pid))
-        ).then((arrays) => arrays.flat()),
+        Promise.all(projectIds.map((pid) => listProjectSoughtMaterials(pid))).then(
+          (arrays) => arrays.flat()
+        ),
         listMaterialProductsForSelection({ limit: 200 }),
       ]);
 
-      creatorProjects = (projectRowsResult.data ?? []) as CreatorProject[];
       projectGalleryImages = (projectImagesResult.data ?? []) as ProjectGalleryImage[];
       projectProductLinks = (projectProductLinksResult.data ?? []) as ProjectProductLink[];
       projectSoughtMaterials = projectSoughtMaterialsResult as ProjectSoughtMaterial[];
@@ -393,16 +182,6 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     }
   }
 
-  const labelByType: Record<LinkTargetType, Map<string, string>> = {
-    product: new Map(productOptions.map((option) => [option.id, option.label])),
-    workshop: new Map(workshopOptions.map((option) => [option.id, option.label])),
-    event: new Map(eventOptions.map((option) => [option.id, option.label])),
-    article: new Map(articleOptions.map((option) => [option.id, option.label])),
-    project: new Map(projectOptions.map((option) => [option.id, option.label])),
-  };
-  const relationLabel = new Map(
-    RELATION_TYPE_OPTIONS.map((relation) => [relation.value, relation.label])
-  );
   const articleSuggestionsByArticle = new Map<string, ArticleEntityLink[]>();
   const articleConfirmedByArticle = new Map<string, ArticleEntityLink[]>();
   for (const link of articleSuggestionLinks) {
@@ -415,6 +194,7 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     existing.push(link);
     articleConfirmedByArticle.set(link.source_entity_id, existing);
   }
+
   const projectImagesByProject = new Map<string, ProjectGalleryImage[]>();
   for (const image of projectGalleryImages) {
     const existing = projectImagesByProject.get(image.project_id) ?? [];
@@ -433,15 +213,23 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
     existing.push(m);
     projectSoughtMaterialsByProject.set(m.project_id, existing);
   }
-  const projectProductLabelMap = new Map([
-    ...productOptions.map((o) => [o.id, o.label] as const),
-    ...materialProductOptions.map((o) => [o.id, o.label] as const),
-  ]);
+
+  const progressSteps = getCreatorProgressSteps({
+    creator,
+    domainCount: selectedDomainIds.size,
+    productCount,
+    workshopCount,
+    eventCount,
+    articleCount: dashboardArticles.length,
+    projectCount: creatorProjects.length,
+  });
 
   return (
     <section className="space-y-6">
-      <h1 className="text-3xl font-bold text-[var(--foreground)]">Creator dashboard</h1>
-      <p className="text-[var(--muted)]">Beheer je creator-profiel en publieke info.</p>
+      <CreatorDashboardHeader
+        creatorSlug={creator?.slug ?? null}
+        progressSteps={progressSteps}
+      />
 
       {success && (
         <p className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
@@ -454,651 +242,57 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
         </p>
       )}
 
-      <CardShell variant="default" padding="lg">
-        <form action={saveCreatorProfileAction} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              name="display_name"
-              label="Naam *"
-              required
-              defaultValue={
-                creator?.display_name ??
-                onboarding?.display_name ??
-                accountDisplayName
-              }
+      <Suspense fallback={<div className="h-10" />}>
+        <CreatorDashboardTabs activeTab={activeTab}>
+          {activeTab === "profiel" && (
+            <CreatorProfileTab
+              creator={creator}
+              onboarding={onboarding}
+              accountDisplayName={accountDisplayName}
+              registrationCity={registrationContext?.preference?.city ?? null}
+              registrationCountryCode={registrationContext?.preference?.countryCode ?? null}
+              domains={domains}
+              selectedDomainIds={selectedDomainIds}
+              hasMerchantRole={hasMerchantRole}
             />
-            <Input
-              name="slug"
-              label="Slug"
-              defaultValue={creator?.slug ?? onboarding?.preferred_slug ?? ""}
-            />
-            <Input
-              name="business_name"
-              label="Bedrijfsnaam"
-              defaultValue={creator?.business_name ?? onboarding?.business_name ?? ""}
-            />
-            <Input
-              name="city"
-              label="Stad"
-              defaultValue={
-                creator?.city ??
-                onboarding?.city ??
-                registrationContext?.preference?.city ??
-                ""
-              }
-            />
-            <Input
-              name="website_url"
-              label="Website"
-              defaultValue={creator?.website_url ?? ""}
-            />
-            <Input
-              name="instagram_url"
-              label="Instagram"
-              defaultValue={creator?.instagram_url ?? ""}
-            />
-            <Input
-              name="facebook_url"
-              label="Facebook"
-              defaultValue={creator?.facebook_url ?? ""}
-            />
-            <Input
-              name="avatar_url"
-              label="Avatar URL"
-              defaultValue={creator?.avatar_url ?? ""}
-            />
-            <Input
-              name="banner_url"
-              label="Banner URL"
-              defaultValue={creator?.banner_url ?? ""}
-            />
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
-                Bio
-              </label>
-              <textarea
-                name="bio"
-                rows={4}
-                defaultValue={creator?.bio ?? ""}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-              />
-            </div>
-          </div>
-          <input
-            type="hidden"
-            name="country_code"
-            value={
-              creator?.country_code ??
-              onboarding?.country_code ??
-              registrationContext?.preference?.countryCode ??
-              "BE"
-            }
-          />
-
-          <fieldset className="mt-4">
-            <legend className="text-sm font-medium">Rollen</legend>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {CREATOR_TYPES.map((type) => (
-                <label
-                  key={type.value}
-                  className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5"
-                >
-                  <input
-                    type="checkbox"
-                    name="creator_types"
-                    value={type.value}
-                    defaultChecked={
-                      creator?.creator_types?.includes(type.value) ??
-                      (Array.isArray(onboarding?.creator_types)
-                        ? onboarding.creator_types.includes(type.value)
-                        : type.value === "maker")
-                    }
-                  />
-                  <span className="text-sm">{type.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset className="mt-4">
-            <legend className="text-sm font-medium">Hobby-domeinen</legend>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Deze domeinen bepalen waar je zichtbaar bent op discovery-pagina&apos;s.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {domains.map((domain) => (
-                <label
-                  key={domain.id}
-                  className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5"
-                >
-                  <input
-                    type="checkbox"
-                    name="domain_ids"
-                    value={domain.id}
-                    defaultChecked={selectedDomainIds.has(domain.id)}
-                  />
-                  <span className="text-sm">{domain.name}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <Button type="submit" className="mt-6">
-            Profiel opslaan
-          </Button>
-        </form>
-      </CardShell>
-
-      {creator && (
-        <CardShell variant="default" padding="lg">
-          <h2 className="text-xl font-semibold text-[var(--foreground)]">Artikels</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Sla artikels op en bevestig auto-suggest links naar je producten, workshops en events.
-          </p>
-
-          <form
-            action={createArticleAction}
-            className="mt-4 grid gap-3 rounded-lg border border-[var(--border)] p-4 sm:grid-cols-2"
-          >
-            <Input name="title" label="Titel *" required />
-            <Input name="slug" label="Slug" />
-            <label className="text-sm font-medium text-[var(--foreground)]">
-              Type
-              <select
-                name="article_type"
-                defaultValue="tutorial"
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-              >
-                {ARTICLE_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm font-medium text-[var(--foreground)]">
-              Domein
-              <select
-                name="domain_id"
-                defaultValue=""
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-              >
-                <option value="">Geen domein</option>
-                {domains.map((domain) => (
-                  <option key={domain.id} value={domain.id}>
-                    {domain.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Input name="excerpt" label="Korte intro" className="sm:col-span-2" />
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-[var(--foreground)]">
-                Inhoud (markdown)
-              </label>
-              <textarea
-                name="body_markdown"
-                rows={6}
-                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)]"
-              />
-            </div>
-            <label className="inline-flex items-center gap-2 sm:col-span-2">
-              <input type="checkbox" name="is_published" defaultChecked />
-              <span className="text-sm">Publiceren</span>
-            </label>
-            <div className="sm:col-span-2">
-              <Button type="submit" size="sm">
-                Artikel opslaan + suggesties
-              </Button>
-            </div>
-          </form>
-
-          <div className="mt-4 space-y-3">
-            {dashboardArticles.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">Nog geen artikels.</p>
-            ) : (
-              dashboardArticles.map((article) => {
-                const suggestions = articleSuggestionsByArticle.get(article.id) ?? [];
-                const confirmed = articleConfirmedByArticle.get(article.id) ?? [];
-                return (
-                  <details
-                    key={article.id}
-                    className="rounded-lg border border-[var(--border)] p-3"
-                  >
-                    <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
-                      {article.title}{" "}
-                      <span className="text-xs text-[var(--muted)]">
-                        ({article.is_published ? "gepubliceerd" : "draft"})
-                      </span>
-                    </summary>
-
-                    <form action={updateArticleAction} className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <input type="hidden" name="id" value={article.id} />
-                      <Input name="title" label="Titel *" required defaultValue={article.title} />
-                      <Input name="slug" label="Slug" defaultValue={article.slug} />
-                      <label className="text-sm font-medium text-[var(--foreground)]">
-                        Type
-                        <select
-                          name="article_type"
-                          defaultValue={article.article_type}
-                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                        >
-                          {ARTICLE_TYPE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-sm font-medium text-[var(--foreground)]">
-                        Domein
-                        <select
-                          name="domain_id"
-                          defaultValue={article.domain_id ?? ""}
-                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                        >
-                          <option value="">Geen domein</option>
-                          {domains.map((domain) => (
-                            <option key={domain.id} value={domain.id}>
-                              {domain.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <Input
-                        name="excerpt"
-                        label="Korte intro"
-                        defaultValue={article.excerpt ?? ""}
-                        className="sm:col-span-2"
-                      />
-                      <div className="sm:col-span-2">
-                        <label className="block text-sm font-medium text-[var(--foreground)]">
-                          Inhoud (markdown)
-                        </label>
-                        <textarea
-                          name="body_markdown"
-                          rows={6}
-                          defaultValue={article.body_markdown ?? ""}
-                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)]"
-                        />
-                      </div>
-                      <label className="inline-flex items-center gap-2 sm:col-span-2">
-                        <input
-                          type="checkbox"
-                          name="is_published"
-                          defaultChecked={article.is_published}
-                        />
-                        <span className="text-sm">Publiceren</span>
-                      </label>
-                      <div className="sm:col-span-2">
-                        <Button type="submit" variant="secondary" size="sm">
-                          Artikel bijwerken + suggesties vernieuwen
-                        </Button>
-                      </div>
-                    </form>
-
-                    <div className="mt-4">
-                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                        Auto-suggest links ({suggestions.length})
-                      </h3>
-                      {suggestions.length === 0 ? (
-                        <p className="mt-1 text-sm text-[var(--muted)]">Geen open suggesties.</p>
-                      ) : (
-                        <div className="mt-2 space-y-2">
-                          {suggestions.map((link) => {
-                            const targetLabel =
-                              (link.target_entity_type === "product"
-                                ? labelByType.product
-                                : link.target_entity_type === "workshop"
-                                  ? labelByType.workshop
-                                  : labelByType.event
-                              ).get(link.target_entity_id) ?? link.target_entity_id;
-                            return (
-                              <div
-                                key={link.id}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                              >
-                                <p className="text-[var(--foreground)]">
-                                  {link.target_entity_type} {"->"} {targetLabel}
-                                </p>
-                                <div className="flex gap-2">
-                                  <form action={approveArticleSuggestionAction}>
-                                    <input type="hidden" name="entity_link_id" value={link.id} />
-                                    <input type="hidden" name="relation_type" value="related" />
-                                    <Button type="submit" size="sm" variant="secondary">
-                                      Bevestigen
-                                    </Button>
-                                  </form>
-                                  <form action={dismissArticleSuggestionAction}>
-                                    <input type="hidden" name="entity_link_id" value={link.id} />
-                                    <Button type="submit" size="sm" variant="ghost">
-                                      Negeren
-                                    </Button>
-                                  </form>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4">
-                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                        Bevestigde links ({confirmed.length})
-                      </h3>
-                      {confirmed.length === 0 ? (
-                        <p className="mt-1 text-sm text-[var(--muted)]">
-                          Nog geen bevestigde links.
-                        </p>
-                      ) : (
-                        <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
-                          {confirmed.map((link) => {
-                            const targetLabel =
-                              (link.target_entity_type === "product"
-                                ? labelByType.product
-                                : link.target_entity_type === "workshop"
-                                  ? labelByType.workshop
-                                  : labelByType.event
-                              ).get(link.target_entity_id) ?? link.target_entity_id;
-                            return (
-                              <p key={link.id}>
-                                {link.target_entity_type} {"->"} {targetLabel} {" · "}
-                                {relationLabel.get(link.relation_type) ?? link.relation_type}
-                              </p>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </details>
-                );
-              })
-            )}
-          </div>
-        </CardShell>
-      )}
-
-      {creator && (
-        <CardShell variant="default" padding="lg">
-          <h2 className="text-xl font-semibold text-[var(--foreground)]">
-            Entity links
-          </h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Koppel je eigen content zodat je creator-pagina als discovery-hub werkt.
-          </p>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <EntityLinkCreateForm
-              targetType="product"
-              title="Creator -> Product"
-              options={productOptions}
-            />
-            <EntityLinkCreateForm
-              targetType="workshop"
-              title="Creator -> Workshop"
-              options={workshopOptions}
-            />
-            <EntityLinkCreateForm
-              targetType="event"
-              title="Creator -> Event"
-              options={eventOptions}
-            />
-            <EntityLinkCreateForm
-              targetType="article"
-              title="Creator -> Artikel"
-              options={articleOptions}
-            />
-            <EntityLinkCreateForm
-              targetType="project"
-              title="Creator -> Project"
-              options={projectOptions}
-            />
-          </div>
-
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">
-              Bestaande links
-            </h3>
-            {entityLinks.length === 0 ? (
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Nog geen entity links voor deze creator.
-              </p>
-            ) : (
-              <div className="mt-2 space-y-2">
-                {entityLinks.map((link) => (
-                  <div
-                    key={link.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {link.target_entity_type} {"->"}{" "}
-                        {labelByType[link.target_entity_type].get(link.target_entity_id) ??
-                          link.target_entity_id}
-                      </p>
-                      <p className="text-[var(--muted)]">
-                        relatie: {link.relation_type} · weight: {link.weight}
-                        {link.sort_order !== null ? ` · sort: ${link.sort_order}` : ""}
-                      </p>
-                    </div>
-                    <form action={deleteCreatorEntityLinkAction}>
-                      <input type="hidden" name="entity_link_id" value={link.id} />
-                      <Button type="submit" variant="ghost" size="sm">
-                        Verwijderen
-                      </Button>
-                    </form>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </CardShell>
-      )}
-
-      {creator && (
-        <CardShell variant="default" padding="lg">
-          <h2 className="text-xl font-semibold text-[var(--foreground)]">
-            Afgewerkte creaties galerij
-          </h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Beheer projectfoto&apos;s en koppel materialen uit je eigen producten, de webshop of
-            voeg toe als gezocht.
-          </p>
-
-          {creatorProjects.length === 0 ? (
-            <p className="mt-4 text-sm text-[var(--muted)]">
-              Link eerst een project via &quot;Creator -&gt; Project&quot; bij Entity links.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-4">
-              {creatorProjects.map((project) => {
-                const gallery = projectImagesByProject.get(project.id) ?? [];
-                const linkedProducts = projectLinksByProject.get(project.id) ?? [];
-                const soughtMaterials = projectSoughtMaterialsByProject.get(project.id) ?? [];
-                return (
-                  <details key={project.id} className="rounded-lg border border-[var(--border)] p-3">
-                    <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
-                      {project.title}
-                    </summary>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      /project/{project.slug}
-                    </p>
-
-                    <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                      <form
-                        action={createProjectGalleryImageAction}
-                        className="rounded-lg border border-[var(--border)] p-3"
-                      >
-                        <input type="hidden" name="project_id" value={project.id} />
-                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                          Foto toevoegen
-                        </h3>
-                        <Input name="image_url" label="Image URL *" required />
-                        <Input name="alt_text" label="Alt tekst" />
-                        <Input name="sort_order" label="Sort order" type="number" defaultValue={0} />
-                        <Button type="submit" variant="secondary" size="sm" className="mt-2">
-                          Foto toevoegen
-                        </Button>
-                      </form>
-
-                      <form
-                        action={createProjectProductLinkAction}
-                        className="rounded-lg border border-[var(--border)] p-3"
-                      >
-                        <input type="hidden" name="project_id" value={project.id} />
-                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                          Materiaal uit webshop
-                        </h3>
-                        <label className="mt-2 block text-xs font-medium text-[var(--muted)]">
-                          Product
-                        </label>
-                        <select
-                          name="product_id"
-                          required
-                          className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                        >
-                          <option value="">Kies product...</option>
-                          {materialProductOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <input type="hidden" name="link_type" value="material" />
-                        <input type="hidden" name="sort_order" value={linkedProducts.length} />
-                        <Button type="submit" variant="secondary" size="sm" className="mt-2">
-                          Koppelen
-                        </Button>
-                      </form>
-
-                      <form
-                        action={createProjectSoughtMaterialAction}
-                        className="rounded-lg border border-[var(--border)] p-3"
-                      >
-                        <input type="hidden" name="project_id" value={project.id} />
-                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                          Product gezocht
-                        </h3>
-                        <p className="mt-1 text-xs text-[var(--muted)]">
-                          Niet in webshop? Voeg toe als gezocht.
-                        </p>
-                        <Input name="title" label="Naam materiaal *" required />
-                        <Input name="notes" label="Opmerkingen" />
-                        <input type="hidden" name="sort_order" value={soughtMaterials.length} />
-                        <Button type="submit" variant="secondary" size="sm" className="mt-2">
-                          Toevoegen als gezocht
-                        </Button>
-                      </form>
-                    </div>
-
-                    <div className="mt-4">
-                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                        Galerijfoto&apos;s ({gallery.length})
-                      </h3>
-                      {gallery.length === 0 ? (
-                        <p className="mt-1 text-sm text-[var(--muted)]">Nog geen foto&apos;s.</p>
-                      ) : (
-                        <div className="mt-2 space-y-2">
-                          {gallery.map((image) => (
-                            <div
-                              key={image.id}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                            >
-                              <a
-                                href={image.image_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="truncate text-[var(--foreground)] hover:underline"
-                              >
-                                {image.alt_text ?? image.image_url}
-                              </a>
-                              <form action={deleteProjectGalleryImageAction}>
-                                <input type="hidden" name="gallery_image_id" value={image.id} />
-                                <Button type="submit" size="sm" variant="ghost">
-                                  Verwijderen
-                                </Button>
-                              </form>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <div>
-                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                          Gelinkte materialen ({linkedProducts.length})
-                        </h3>
-                        {linkedProducts.length === 0 ? (
-                          <p className="mt-1 text-sm text-[var(--muted)]">
-                            Nog geen gekoppelde producten.
-                          </p>
-                        ) : (
-                          <div className="mt-2 space-y-2">
-                            {linkedProducts.map((link) => (
-                              <div
-                                key={link.id}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                              >
-                                <p className="text-[var(--foreground)]">
-                                  {projectProductLabelMap.get(link.product_id) ?? link.product_id}
-                                  {" · "}
-                                  {link.link_type}
-                                </p>
-                                <form action={deleteProjectProductLinkAction}>
-                                  <input
-                                    type="hidden"
-                                    name="project_product_link_id"
-                                    value={link.id}
-                                  />
-                                  <Button type="submit" size="sm" variant="ghost">
-                                    Verwijderen
-                                  </Button>
-                                </form>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                          Materialen gezocht ({soughtMaterials.length})
-                        </h3>
-                        {soughtMaterials.length === 0 ? (
-                          <p className="mt-1 text-sm text-[var(--muted)]">
-                            Nog geen gezochte materialen.
-                          </p>
-                        ) : (
-                          <div className="mt-2 space-y-2">
-                            {soughtMaterials.map((m) => (
-                              <div
-                                key={m.id}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                              >
-                                <p className="text-[var(--foreground)]">
-                                  {m.title}
-                                  {m.notes ? ` (${m.notes})` : ""}
-                                </p>
-                                <form action={deleteProjectSoughtMaterialAction}>
-                                  <input type="hidden" name="sought_material_id" value={m.id} />
-                                  <Button type="submit" size="sm" variant="ghost">
-                                    Verwijderen
-                                  </Button>
-                                </form>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </details>
-                );
-              })}
-            </div>
           )}
-        </CardShell>
-      )}
+
+          {activeTab === "artikels" && creator && (
+            <CreatorArticlesTab
+              domains={domains}
+              articles={dashboardArticles}
+              articleSuggestionsByArticle={articleSuggestionsByArticle}
+              articleConfirmedByArticle={articleConfirmedByArticle}
+              productLabels={productLabels}
+              workshopLabels={workshopLabels}
+              eventLabels={eventLabels}
+            />
+          )}
+
+          {activeTab === "artikels" && !creator && (
+            <p className="text-sm text-[var(--muted)]">
+              Sla eerst je profiel op in het tabblad Profiel voordat je artikels kunt schrijven.
+            </p>
+          )}
+
+          {activeTab === "portfolio" && creator && (
+            <CreatorPortfolioTab
+              projects={creatorProjects}
+              projectImagesByProject={projectImagesByProject}
+              projectLinksByProject={projectLinksByProject}
+              projectSoughtMaterialsByProject={projectSoughtMaterialsByProject}
+              materialProductOptions={materialProductOptions}
+              ownProductLabels={productLabels}
+            />
+          )}
+
+          {activeTab === "portfolio" && !creator && (
+            <p className="text-sm text-[var(--muted)]">
+              Sla eerst je profiel op in het tabblad Profiel voordat je je portfolio kunt beheren.
+            </p>
+          )}
+        </CreatorDashboardTabs>
+      </Suspense>
     </section>
   );
 }

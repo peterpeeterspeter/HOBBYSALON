@@ -139,18 +139,15 @@ export async function listProjectSteps(projectId: string): Promise<ProjectStep[]
 
 export async function listProjectsByCreator(creatorId: string): Promise<Project[]> {
   const supabase = createPlatformClient();
-  const { data: links, error: linksError } = await supabase
-    .from("entity_links")
-    .select("target_entity_id")
-    .eq("source_entity_type", "creator")
-    .eq("source_entity_id", creatorId)
-    .eq("target_entity_type", "project")
-    .order("sort_order", { ascending: true, nullsFirst: false });
+  const { data: creator, error: creatorError } = await supabase
+    .from("creators")
+    .select("user_id")
+    .eq("id", creatorId)
+    .single();
 
-  if (linksError || !links?.length) return [];
+  if (creatorError || !creator?.user_id) return [];
 
-  const projectIds = [...new Set((links ?? []).map((row) => row.target_entity_id))];
-  return listProjectsByIds(projectIds);
+  return listProjectsByUserId(creator.user_id as string);
 }
 
 export async function listProjectGalleryImages(

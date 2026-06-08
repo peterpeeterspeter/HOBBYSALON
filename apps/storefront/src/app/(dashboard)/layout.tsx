@@ -5,6 +5,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { MerchantUpsellBanner } from "@/components/dashboard/MerchantUpsellBanner";
 import { Container } from "@/components/ui/container";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export default async function DashboardLayout({
     ["creator", "workshop_host", "organizer"].includes(role)
   );
   const hasMerchantRole = registrationContext.roles.includes("merchant");
+  const creatorHasSupplierRole = creator?.creator_types?.includes("supplier") ?? false;
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -51,7 +53,7 @@ export default async function DashboardLayout({
                   Dashboard
                 </Link>
                 <Link href="/dashboard/creator" className="hover:text-[var(--accent)] transition-colors">
-                  Creator
+                  Mijn profiel
                 </Link>
                 <Link href="/dashboard/products" className="hover:text-[var(--accent)] transition-colors">
                   Producten
@@ -61,7 +63,7 @@ export default async function DashboardLayout({
                 </Link>
                 {hasMerchantRole && (
                   <Link href="/dashboard/materials" className="hover:text-[var(--accent)] transition-colors">
-                    Materials Ops
+                    Mijn voorraad
                   </Link>
                 )}
                 {hasMerchantRole && (
@@ -114,21 +116,10 @@ export default async function DashboardLayout({
             </CardShell>
           )}
 
-          {!hasMerchantRole && (
-            <CardShell variant="featured" padding="md" className="mb-6 border-violet-300 bg-violet-50">
-              <p className="text-sm text-violet-900">
-                Verkoop je materialen? Maak een merchant-profiel om catalogus import en Materials Ops te
-                gebruiken.{" "}
-                <Link
-                  href={`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`}
-                  className="underline font-medium"
-                >
-                  Registreer als merchant
-                </Link>
-                .
-              </p>
-            </CardShell>
-          )}
+          <MerchantUpsellBanner
+            hasMerchantRole={hasMerchantRole}
+            creatorHasSupplierRole={creatorHasSupplierRole}
+          />
           {children}
         </Container>
       </main>
