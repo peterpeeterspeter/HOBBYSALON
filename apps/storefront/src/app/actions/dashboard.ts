@@ -64,6 +64,8 @@ const ARTICLE_TYPES = new Set([
   "guide",
   "news",
 ]);
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isNextRedirectError(error: unknown): boolean {
   return (
@@ -111,7 +113,7 @@ function parseOptionalNonNegativeInt(formData: FormData, field: string): number 
 function parseOptionalUuid(formData: FormData, field: string): string | null {
   const raw = formData.get(field)?.toString().trim();
   if (!raw) return null;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)) {
+  if (!UUID_PATTERN.test(raw)) {
     throw new Error(`${field} is ongeldig.`);
   }
   return raw;
@@ -131,18 +133,14 @@ function parseUuidValues(formData: FormData, field: string): string[] {
     new Set(
       (formData.getAll(field) ?? [])
         .map((value) => value.toString().trim())
-        .filter((value) =>
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-            value
-          )
-        )
+        .filter((value) => UUID_PATTERN.test(value))
     )
   );
 }
 
 function parseRequiredUuid(formData: FormData, field: string): string {
   const value = parseRequiredString(formData, field);
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+  if (!UUID_PATTERN.test(value)) {
     throw new Error(`${field} is ongeldig.`);
   }
   return value;

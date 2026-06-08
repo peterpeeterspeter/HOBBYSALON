@@ -4,6 +4,7 @@
 alter table public.creators enable row level security;
 alter table public.creator_domains enable row level security;
 alter table public.user_account_roles enable row level security;
+alter table public.user_preferences enable row level security;
 
 drop policy if exists creator_owner_insert on public.creators;
 create policy creator_owner_insert
@@ -58,6 +59,13 @@ create policy account_role_owner_insert
     and role in ('user', 'creator', 'workshop_host', 'organizer')
   );
 
+drop policy if exists account_role_owner_select on public.user_account_roles;
+create policy account_role_owner_select
+  on public.user_account_roles
+  for select
+  to authenticated
+  using (user_id = auth.uid());
+
 drop policy if exists account_role_owner_update on public.user_account_roles;
 create policy account_role_owner_update
   on public.user_account_roles
@@ -68,3 +76,25 @@ create policy account_role_owner_update
     user_id = auth.uid()
     and role in ('user', 'creator', 'workshop_host', 'organizer')
   );
+
+drop policy if exists user_preferences_owner_select on public.user_preferences;
+create policy user_preferences_owner_select
+  on public.user_preferences
+  for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists user_preferences_owner_insert on public.user_preferences;
+create policy user_preferences_owner_insert
+  on public.user_preferences
+  for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists user_preferences_owner_update on public.user_preferences;
+create policy user_preferences_owner_update
+  on public.user_preferences
+  for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
