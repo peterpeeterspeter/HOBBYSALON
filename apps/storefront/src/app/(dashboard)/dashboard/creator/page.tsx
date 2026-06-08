@@ -12,18 +12,18 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
 import { CreatorDashboardTabs } from "@/components/dashboard/creator/CreatorDashboardTabs";
-import { resolveCreatorTab } from "@/components/dashboard/creator/types";
 import { CreatorDashboardHeader } from "@/components/dashboard/creator/CreatorDashboardHeader";
 import { CreatorProfileTab } from "@/components/dashboard/creator/CreatorProfileTab";
 import { CreatorArticlesTab } from "@/components/dashboard/creator/CreatorArticlesTab";
 import { CreatorPortfolioTab } from "@/components/dashboard/creator/CreatorPortfolioTab";
-import type {
-  ArticleEntityLink,
-  CreatorProject,
-  DashboardArticle,
-  ProjectGalleryImage,
-  ProjectProductLink,
-  ProjectSoughtMaterial,
+import {
+  resolveCreatorTab,
+  type ArticleEntityLink,
+  type CreatorProject,
+  type DashboardArticle,
+  type ProjectGalleryImage,
+  type ProjectProductLink,
+  type ProjectSoughtMaterial,
 } from "@/components/dashboard/creator/types";
 
 type Props = {

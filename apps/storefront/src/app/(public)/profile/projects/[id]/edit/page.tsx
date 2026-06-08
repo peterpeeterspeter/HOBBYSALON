@@ -8,8 +8,10 @@ import {
   listProjectSoughtMaterials,
   listProjectGalleryImages,
 } from "@/lib/platform/queries/projects";
-import { listProductsByIds } from "@/lib/platform/queries/products";
-import { listMaterialProductsForSelection } from "@/lib/platform/queries/products";
+import {
+  listMaterialProductsForSelection,
+  listProductsByIds,
+} from "@/lib/platform/queries/products";
 import {
   updateProjectAction,
   createProfileProjectProductLinkAction,
