@@ -25,6 +25,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -85,7 +86,7 @@ export default async function ProfileProjectEditPage({ params, searchParams }: P
 
         <CardShell variant="default" padding="lg">
           <h2 className="text-xl font-semibold text-[var(--foreground)]">Projectgegevens</h2>
-          <form action={updateProjectAction} className="mt-4 space-y-4">
+          <form action={updateProjectAction} encType="multipart/form-data" className="mt-4 space-y-4">
             <input type="hidden" name="project_id" value={project.id} />
             <Input name="title" label="Titel *" required defaultValue={project.title} />
             <Input name="slug" label="Slug" defaultValue={project.slug} />
@@ -150,10 +151,11 @@ export default async function ProfileProjectEditPage({ params, searchParams }: P
                 defaultValue={project.budget_max_cents ?? ""}
               />
             </div>
-            <Input
-              name="featured_image_url"
-              label="Featured afbeelding URL"
-              defaultValue={project.featured_image_url ?? ""}
+            <ImageUploadField
+              name="featured_image_file"
+              label="Hoofdafbeelding"
+              hint="Upload een nieuwe foto om de huidige te vervangen."
+              currentUrl={project.featured_image_url}
             />
             <input type="hidden" name="currency_code" value={project.currency_code} />
             <Button type="submit">Opslaan</Button>
@@ -287,9 +289,13 @@ export default async function ProfileProjectEditPage({ params, searchParams }: P
             Voeg foto&apos;s toe van je afgewerkte creatie.
           </p>
 
-          <form action={createProfileProjectGalleryImageAction} className="mt-4 max-w-md">
+          <form
+            action={createProfileProjectGalleryImageAction}
+            encType="multipart/form-data"
+            className="mt-4 max-w-md"
+          >
             <input type="hidden" name="project_id" value={project.id} />
-            <Input name="image_url" label="Afbeelding URL *" required placeholder="https://..." />
+            <ImageUploadField name="image_file" label="Foto *" required />
             <Input name="alt_text" label="Alt tekst" />
             <input type="hidden" name="sort_order" value={galleryImages.length} />
             <Button type="submit" variant="secondary" size="sm" className="mt-2">

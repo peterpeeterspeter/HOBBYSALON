@@ -10,6 +10,7 @@ import {
   insertProjectSoughtMaterial,
   deleteProjectSoughtMaterial,
 } from "@/lib/platform/queries/projects";
+import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
 
 const DIFFICULTY_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 
@@ -110,7 +111,12 @@ export async function createProjectAction(formData: FormData): Promise<void> {
     const budgetMin = parseOptionalInt(formData, "budget_min_cents");
     const budgetMax = parseOptionalInt(formData, "budget_max_cents");
     const currencyCode = parseOptionalString(formData, "currency_code") ?? "EUR";
-    const featuredImageUrl = parseOptionalString(formData, "featured_image_url");
+    const featuredImageUrl = await resolveUploadedOrExistingUrl(
+      formData,
+      "featured_image_file",
+      null,
+      `projects/${user.id}/featured`
+    );
 
     if (!DIFFICULTY_LEVELS.has(difficultyLevel)) {
       fail("/profile/projects/new", "Ongeldige moeilijkheidsgraad.");
@@ -184,7 +190,12 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
     const budgetMin = parseOptionalInt(formData, "budget_min_cents");
     const budgetMax = parseOptionalInt(formData, "budget_max_cents");
     const currencyCode = parseOptionalString(formData, "currency_code") ?? "EUR";
-    const featuredImageUrl = parseOptionalString(formData, "featured_image_url");
+    const featuredImageUrl = await resolveUploadedOrExistingUrl(
+      formData,
+      "featured_image_file",
+      project.featured_image_url,
+      `projects/${user.id}/${projectId}/featured`
+    );
 
     if (!DIFFICULTY_LEVELS.has(difficultyLevel)) {
       fail(`/profile/projects/${projectId}/edit`, "Ongeldige moeilijkheidsgraad.");
@@ -430,7 +441,6 @@ export async function createProfileProjectGalleryImageAction(
     }
 
     const projectId = parseRequiredUuid(formData, "project_id");
-    const imageUrl = parseRequiredString(formData, "image_url");
     const altText = parseOptionalString(formData, "alt_text");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
 
@@ -438,6 +448,12 @@ export async function createProfileProjectGalleryImageAction(
     if (!project) {
       fail("/profile/projects", "Project niet gevonden of geen rechten.");
     }
+
+    const imageUrl = await requireUploadedImageUrl(
+      formData,
+      "image_file",
+      `projects/${user.id}/${projectId}/gallery`
+    );
 
     const supabase = createPlatformClient();
     const { error } = await supabase.from("project_gallery_images").insert({

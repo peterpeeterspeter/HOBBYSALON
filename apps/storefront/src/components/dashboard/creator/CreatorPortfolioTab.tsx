@@ -9,6 +9,7 @@ import {
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { CreatorPortfolioTabProps } from "./types";
 
@@ -58,17 +59,17 @@ export function CreatorPortfolioTab({
                 <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   <form
                     action={createProjectGalleryImageAction}
+                    encType="multipart/form-data"
                     className="rounded-lg border border-[var(--border)] p-3"
                   >
                     <input type="hidden" name="project_id" value={project.id} />
                     <h3 className="text-sm font-semibold text-[var(--foreground)]">
                       Foto toevoegen
                     </h3>
-                    <Input
-                      name="image_url"
-                      label="Foto-URL *"
+                    <ImageUploadField
+                      name="image_file"
+                      label="Foto *"
                       required
-                      placeholder="Plak een link naar je foto"
                     />
                     <Input name="alt_text" label="Beschrijving (optioneel)" />
                     <input type="hidden" name="sort_order" value={0} />

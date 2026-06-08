@@ -17,6 +17,7 @@ import {
   deleteCreatorMarketplaceProduct,
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
+import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
 
 const PRODUCT_TYPES = new Set([
   "supply",
@@ -516,14 +517,28 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       .map((value) => value.toString())
       .filter(Boolean);
 
+    const existing = await getCreatorByUserId(user.id);
+    const avatarUrl = await resolveUploadedOrExistingUrl(
+      formData,
+      "avatar_file",
+      existing?.avatar_url,
+      `creators/${user.id}/avatar`
+    );
+    const bannerUrl = await resolveUploadedOrExistingUrl(
+      formData,
+      "banner_file",
+      existing?.banner_url,
+      `creators/${user.id}/banner`
+    );
+
     const payload = {
       user_id: user.id,
       slug,
       display_name: displayName,
       business_name: parseOptionalString(formData, "business_name"),
       bio: parseOptionalString(formData, "bio"),
-      avatar_url: parseOptionalString(formData, "avatar_url"),
-      banner_url: parseOptionalString(formData, "banner_url"),
+      avatar_url: avatarUrl,
+      banner_url: bannerUrl,
       website_url: parseOptionalString(formData, "website_url"),
       instagram_url: parseOptionalString(formData, "instagram_url"),
       facebook_url: parseOptionalString(formData, "facebook_url"),
@@ -532,7 +547,6 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       creator_types: creatorTypes.length > 0 ? creatorTypes : ["maker"],
     };
 
-    const existing = await getCreatorByUserId(user.id);
     const accessToken = await getAuthAccessToken();
     if (!accessToken) {
       fail("/login?next=/dashboard/creator", "Je sessie is verlopen. Meld je opnieuw aan.");
@@ -726,7 +740,6 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
   try {
     const { creator } = await getRequiredCreator();
     const projectId = parseRequiredUuid(formData, "project_id");
-    const imageUrl = parseRequiredString(formData, "image_url");
     const altText = parseOptionalString(formData, "alt_text");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
     const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
@@ -734,6 +747,17 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
     if (!linkedProject) {
       fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
     }
+
+    const user = await getAuthUser();
+    if (!user) {
+      fail("/login?next=/dashboard/creator", "Meld je eerst aan.");
+    }
+
+    const imageUrl = await requireUploadedImageUrl(
+      formData,
+      "image_file",
+      `projects/${user.id}/${projectId}/gallery`
+    );
 
     const supabase = createPlatformClient();
     const { error } = await supabase.from("project_gallery_images").insert({

@@ -3,6 +3,7 @@ import { saveCreatorProfileAction } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { CREATOR_TYPES, type CreatorProfileTabProps } from "./types";
 
 export function CreatorProfileTab({
@@ -26,7 +27,7 @@ export function CreatorProfileTab({
 
   return (
     <CardShell variant="default" padding="lg">
-      <form action={saveCreatorProfileAction} className="space-y-4">
+      <form action={saveCreatorProfileAction} encType="multipart/form-data" className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             name="display_name"
@@ -88,28 +89,19 @@ export function CreatorProfileTab({
             placeholder="https://facebook.com/..."
             defaultValue={creator?.facebook_url ?? ""}
           />
-          <div>
-            <Input
-              name="avatar_url"
-              label="Profielfoto-URL"
-              placeholder="Link naar je profielfoto"
-              defaultValue={creator?.avatar_url ?? ""}
-            />
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Plak een link naar een foto die je online hebt staan.
-            </p>
-          </div>
-          <div>
-            <Input
-              name="banner_url"
-              label="Omslagfoto-URL"
-              placeholder="Link naar je omslagfoto"
-              defaultValue={creator?.banner_url ?? ""}
-            />
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Grote foto bovenaan je maker-pagina (optioneel).
-            </p>
-          </div>
+          <ImageUploadField
+            name="avatar_file"
+            label="Profielfoto"
+            hint="Je profielfoto op je maker-pagina en in overzichten."
+            currentUrl={creator?.avatar_url}
+          />
+          <ImageUploadField
+            name="banner_file"
+            label="Omslagfoto"
+            hint="Grote foto bovenaan je maker-pagina (optioneel)."
+            currentUrl={creator?.banner_url}
+            previewClassName="h-20 w-full max-w-sm rounded-lg object-cover"
+          />
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
               Over jou

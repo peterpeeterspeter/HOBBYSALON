@@ -7,6 +7,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 
 export const metadata: Metadata = {
   title: "Nieuw project | Hobbysalon",
@@ -25,7 +26,7 @@ export default async function ProfileProjectsNewPage() {
       description="Maak een nieuw hobbyproject aan. Je kunt daarna materialen en foto's toevoegen."
     >
       <CardShell variant="default" padding="lg">
-        <form action={createProjectAction} className="space-y-4">
+        <form action={createProjectAction} encType="multipart/form-data" className="space-y-4">
           <Input name="title" label="Titel *" required placeholder="Bijv. Gebreide sjaal voor beginners" />
           <Input name="slug" label="Slug (optioneel)" placeholder="Wordt automatisch gegenereerd uit titel" />
           <div>
@@ -89,10 +90,10 @@ export default async function ProfileProjectsNewPage() {
               placeholder="Bijv. 2500"
             />
           </div>
-          <Input
-            name="featured_image_url"
-            label="Featured afbeelding URL"
-            placeholder="https://..."
+          <ImageUploadField
+            name="featured_image_file"
+            label="Hoofdafbeelding"
+            hint="De afbeelding die bij je project in overzichten verschijnt (optioneel)."
           />
           <input type="hidden" name="currency_code" value="EUR" />
           <div className="flex flex-wrap gap-3 pt-4">
