@@ -2,6 +2,29 @@
 
 Marketplace backend for Mercur.
 
+## Production deployment
+
+The backend is a persistent Medusa server and should not be deployed as a
+Vercel serverless project. The repository root contains a production Docker
+Compose stack for an Ubuntu VPS:
+
+- Medusa backend
+- PostgreSQL
+- Redis
+- Caddy with automatic HTTPS
+
+See [`deploy/vps/README.md`](../../deploy/vps/README.md) for installation and
+DNS instructions. After the backend is healthy, set the storefront Vercel
+environment variables:
+
+```env
+MEDUSA_BACKEND_URL=https://api.hobbysalon.be
+NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://api.hobbysalon.be
+```
+
+Then redeploy the storefront. The backend health check is available at
+`/health`.
+
 ## Prerequisites
 
 - Node.js v20+

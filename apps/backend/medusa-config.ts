@@ -16,7 +16,12 @@ module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
-    databaseDriverOptions: process.env.NODE_ENV === 'production' ? {
+    workerMode:
+      (process.env.WORKER_MODE as "shared" | "server" | "worker" | undefined) ??
+      "shared",
+    databaseDriverOptions:
+      process.env.NODE_ENV === 'production' &&
+      process.env.DATABASE_SSL !== 'false' ? {
       connection: { 
         ssl: {
           rejectUnauthorized: false
