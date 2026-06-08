@@ -20,13 +20,11 @@ module.exports = defineConfig({
       (process.env.WORKER_MODE as "shared" | "server" | "worker" | undefined) ??
       "shared",
     databaseDriverOptions:
-      process.env.NODE_ENV === 'production'
+      process.env.NODE_ENV === 'production' &&
+      process.env.DATABASE_SSL !== 'false'
         ? {
             connection: {
-              ssl:
-                process.env.DATABASE_SSL === 'false'
-                  ? false
-                  : { rejectUnauthorized: false }
+              ssl: { rejectUnauthorized: false }
             }
           }
         : undefined,
