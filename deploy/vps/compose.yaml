@@ -51,8 +51,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    expose:
-      - "9000"
+    ports:
+      - "127.0.0.1:9000:9000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/health"]
       interval: 30s
@@ -62,30 +62,9 @@ services:
     networks:
       - internal
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    environment:
-      BACKEND_DOMAIN: ${BACKEND_DOMAIN}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - internal
-
 networks:
   internal:
 
 volumes:
   postgres_data:
   redis_data:
-  caddy_data:
-  caddy_config:

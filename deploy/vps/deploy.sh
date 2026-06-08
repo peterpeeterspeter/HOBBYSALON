@@ -17,3 +17,12 @@ cd "$compose_dir"
 docker compose build backend
 docker compose up -d
 docker compose ps
+
+install -m 644 \
+  "$compose_dir/nginx-api.hobbysalon.be.conf" \
+  /etc/nginx/sites-available/api.hobbysalon.be
+ln -sfn \
+  /etc/nginx/sites-available/api.hobbysalon.be \
+  /etc/nginx/sites-enabled/api.hobbysalon.be
+nginx -t
+systemctl reload nginx

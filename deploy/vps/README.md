@@ -1,7 +1,7 @@
 # Hobbysalon Backend on Ubuntu VPS
 
 This stack runs Medusa permanently on the RackNerd Ubuntu 24.04 VPS using
-Docker Compose. Caddy obtains and renews HTTPS certificates automatically.
+Docker Compose. It integrates with the server's existing Nginx installation.
 
 ## 1. Configure DNS
 
@@ -57,6 +57,12 @@ Monitor startup:
 
 ```bash
 docker compose logs -f backend
+```
+
+After DNS resolves, obtain the TLS certificate:
+
+```bash
+sudo certbot --nginx -d api.hobbysalon.be
 ```
 
 Verify:
