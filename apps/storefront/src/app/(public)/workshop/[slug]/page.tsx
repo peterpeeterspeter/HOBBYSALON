@@ -9,9 +9,10 @@ import { SplitLayout } from "@/components/layout/split-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
 import { PriceDisplay } from "@/components/domain/price-display";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
-import { buildPageMetadata } from "@/lib/seo";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -58,6 +59,90 @@ export default async function WorkshopPage({ params }: Props) {
   const workshopIsFavorite = user
     ? await isFavorite(user.id, "workshop", workshop.id)
     : false;
+  const workshopUrl = absoluteUrl(`/workshop/${workshop.slug}`);
+  const courseMode =
+    workshop.format_type === "physical"
+      ? "onsite"
+      : workshop.format_type === "online"
+        ? "online"
+        : "blended";
+  const workshopJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    "@id": `${workshopUrl}#course`,
+    url: workshopUrl,
+    name: workshop.title,
+    description:
+      workshop.description ?? workshop.short_description ?? undefined,
+    image: workshop.featured_image_url
+      ? absoluteUrl(workshop.featured_image_url)
+      : undefined,
+    courseMode,
+    educationalLevel:
+      DIFFICULTY_LABELS[workshop.difficulty_level] ??
+      workshop.difficulty_level,
+    timeRequired: workshop.duration_minutes
+      ? `PT${workshop.duration_minutes}M`
+      : undefined,
+    about: domain
+      ? {
+          "@type": "Thing",
+          name: domain.name,
+        }
+      : undefined,
+    provider: creator
+      ? {
+          "@type": creator.business_name ? "Organization" : "Person",
+          name: creator.business_name ?? creator.display_name,
+          url: absoluteUrl(`/creator/${creator.slug}`),
+        }
+      : {
+          "@type": "Organization",
+          name: "Hobbysalon",
+          url: absoluteUrl("/"),
+        },
+    offers: {
+      "@type": "Offer",
+      url: workshop.booking_url ?? workshopUrl,
+      price: workshop.price_cents / 100,
+      priceCurrency: workshop.currency_code.toUpperCase(),
+      availability: "https://schema.org/InStock",
+    },
+    hasCourseInstance: sessions.map((session) => ({
+      "@type": "CourseInstance",
+      courseMode,
+      startDate: session.starts_at,
+      endDate: session.ends_at,
+      eventStatus: "https://schema.org/EventScheduled",
+      location:
+        workshop.format_type === "online"
+          ? {
+              "@type": "VirtualLocation",
+              url: workshop.booking_url ?? workshopUrl,
+            }
+          : workshop.location_name || workshop.city || workshop.country_code
+            ? {
+                "@type": "Place",
+                name: workshop.location_name ?? undefined,
+                address: {
+                  "@type": "PostalAddress",
+                  addressLocality: workshop.city ?? undefined,
+                  addressCountry: workshop.country_code ?? undefined,
+                },
+              }
+            : undefined,
+      offers: {
+        "@type": "Offer",
+        url: workshop.booking_url ?? workshopUrl,
+        price: workshop.price_cents / 100,
+        priceCurrency: workshop.currency_code.toUpperCase(),
+        availability:
+          session.remaining_spots === 0
+            ? "https://schema.org/SoldOut"
+            : "https://schema.org/InStock",
+      },
+    })),
+  };
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
@@ -71,6 +156,7 @@ export default async function WorkshopPage({ params }: Props) {
       title={workshop.title}
       description={workshop.short_description ?? undefined}
     >
+      <JsonLd data={workshopJsonLd} />
       <SplitLayout
         sidebar={
           <div className="space-y-4">

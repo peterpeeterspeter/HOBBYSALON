@@ -9,9 +9,10 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Badge } from "@/components/ui/badge";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
-import { buildPageMetadata } from "@/lib/seo";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -53,6 +54,47 @@ export default async function CreatorPage({ params }: Props) {
   const types = (creator.creator_types ?? []).map(
     (t) => CREATOR_TYPE_LABELS[t] ?? t
   );
+  const creatorUrl = absoluteUrl(`/creator/${creator.slug}`);
+  const sameAs = [
+    creator.website_url,
+    creator.instagram_url,
+    creator.facebook_url,
+  ].filter((url): url is string => Boolean(url));
+  const creatorJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": `${creatorUrl}#profile`,
+    url: creatorUrl,
+    name: `${creator.display_name} | Hobbysalon`,
+    dateCreated: creator.created_at,
+    dateModified: creator.updated_at,
+    mainEntity: {
+      "@type": creator.business_name ? "Organization" : "Person",
+      "@id": `${creatorUrl}#creator`,
+      name: creator.business_name ?? creator.display_name,
+      alternateName: creator.business_name
+        ? creator.display_name
+        : undefined,
+      description: creator.bio ?? undefined,
+      image: creator.avatar_url
+        ? absoluteUrl(creator.avatar_url)
+        : undefined,
+      url: creatorUrl,
+      sameAs: sameAs.length > 0 ? sameAs : undefined,
+      address:
+        creator.city || creator.country_code
+          ? {
+              "@type": "PostalAddress",
+              addressLocality: creator.city ?? undefined,
+              addressCountry: creator.country_code ?? undefined,
+            }
+          : undefined,
+      knowsAbout:
+        domains.length > 0
+          ? domains.map((domain) => domain.name)
+          : undefined,
+    },
+  };
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
@@ -61,6 +103,7 @@ export default async function CreatorPage({ params }: Props) {
 
   return (
     <PageLayout breadcrumbs={breadcrumbs} title={creator.display_name} description={creator.business_name ?? undefined}>
+      <JsonLd data={creatorJsonLd} />
       <CardShell variant="default" padding="lg" className="mb-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-[var(--border)]">

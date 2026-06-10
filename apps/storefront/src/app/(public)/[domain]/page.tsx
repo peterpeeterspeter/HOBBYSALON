@@ -8,9 +8,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CardShell } from "@/components/ui/card-shell";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
-import { buildPageMetadata } from "@/lib/seo";
+import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ domain: string }> };
@@ -38,9 +39,59 @@ export default async function DomainPage({ params }: Props) {
   const domainIsFavorite = user
     ? await isFavorite(user.id, "domain", domain.id)
     : false;
+  const domainJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": absoluteUrl(`/${domain.slug}#collection`),
+    url: absoluteUrl(`/${domain.slug}`),
+    name: domain.name,
+    description:
+      domain.seo_description ??
+      domain.short_description ??
+      domain.long_description ??
+      undefined,
+    image: domain.hero_image_url
+      ? absoluteUrl(domain.hero_image_url)
+      : undefined,
+    isPartOf: {
+      "@type": "WebSite",
+      name: "Hobbysalon",
+      url: absoluteUrl("/"),
+    },
+    about: {
+      "@type": "Thing",
+      name: domain.name,
+    },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems:
+        creators.length + data.articles.length + data.workshops.length,
+      itemListElement: [
+        ...creators.map((creator, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: absoluteUrl(`/creator/${creator.slug}`),
+          name: creator.display_name,
+        })),
+        ...data.articles.map((article, index) => ({
+          "@type": "ListItem",
+          position: creators.length + index + 1,
+          url: absoluteUrl(`/artikel/${article.slug}`),
+          name: article.title,
+        })),
+        ...data.workshops.map((workshop, index) => ({
+          "@type": "ListItem",
+          position: creators.length + data.articles.length + index + 1,
+          url: absoluteUrl(`/workshop/${workshop.slug}`),
+          name: workshop.title,
+        })),
+      ],
+    },
+  };
 
   return (
     <Container className="py-8">
+      <JsonLd data={domainJsonLd} />
       <header className="mb-10">
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
           {domain.name}
