@@ -1,6 +1,7 @@
 import { createPlatformClient } from "@/lib/platform/client";
 import { absoluteUrl } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 300;
 
 const NEWS_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
