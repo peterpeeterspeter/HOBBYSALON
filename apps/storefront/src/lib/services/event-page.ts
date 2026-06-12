@@ -1,4 +1,4 @@
-import { getEventBySlug } from "@/lib/platform/queries/events";
+import { getEventBySlug, listEvents } from "@/lib/platform/queries/events";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
@@ -20,6 +20,7 @@ export type EventPageData = {
   workshops: Workshop[];
   relatedProducts: Product[];
   relatedArticles: Article[];
+  relatedEvents: Event[];
 };
 
 export async function getEventPageData(
@@ -35,6 +36,7 @@ export async function getEventPageData(
       workshops: [],
       relatedProducts: [],
       relatedArticles: [],
+      relatedEvents: [],
     };
   }
 
@@ -108,6 +110,19 @@ export async function getEventPageData(
   }
   const relatedArticles = await listArticlesByIds(relatedArticleIds);
 
+  // Other upcoming events — prefer the same domain, fall back to any upcoming.
+  const nowIso = new Date().toISOString();
+  const upcoming = await listEvents({
+    domain_id: domainIds[0],
+    from_date: nowIso,
+    limit: 7,
+  });
+  let relatedEvents = upcoming.filter((e) => e.id !== event.id).slice(0, 3);
+  if (relatedEvents.length === 0) {
+    const anyUpcoming = await listEvents({ from_date: nowIso, limit: 7 });
+    relatedEvents = anyUpcoming.filter((e) => e.id !== event.id).slice(0, 3);
+  }
+
   return {
     event,
     organizer: organizer ?? null,
@@ -116,5 +131,6 @@ export async function getEventPageData(
     workshops,
     relatedProducts,
     relatedArticles,
+    relatedEvents,
   };
 }

@@ -65,6 +65,25 @@ export type ToolEntry = {
   component: () => ReactNode;
 };
 
+/**
+ * Serializable view of a tool — no `component` closure — safe to pass from
+ * server components into client components (e.g. the tools browser).
+ */
+export type ToolSummary = Pick<
+  ToolEntry,
+  "slug" | "title" | "description" | "category" | "categoryLabel"
+>;
+
+function toSummary(t: ToolEntry): ToolSummary {
+  return {
+    slug: t.slug,
+    title: t.title,
+    description: t.description,
+    category: t.category,
+    categoryLabel: t.categoryLabel,
+  };
+}
+
 const TOOLS: ToolEntry[] = [
   {
     slug: "garencalculator",
@@ -439,6 +458,22 @@ export function getToolBySlug(slug: string): ToolEntry | undefined {
 
 export function getAllTools(): ToolEntry[] {
   return [...TOOLS];
+}
+
+/** All tools as serializable summaries (safe for client components). */
+export function getToolSummaries(): ToolSummary[] {
+  return TOOLS.map(toSummary);
+}
+
+/** Other tools in the same category, for "related tools" navigation. */
+export function getRelatedTools(slug: string, limit = 6): ToolSummary[] {
+  const current = BY_SLUG.get(slug);
+  if (!current) return [];
+  return TOOLS.filter(
+    (t) => t.category === current.category && t.slug !== slug
+  )
+    .slice(0, limit)
+    .map(toSummary);
 }
 
 export function getToolsByCategory(): Map<ToolCategory, ToolEntry[]> {

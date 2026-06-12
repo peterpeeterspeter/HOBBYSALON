@@ -48,16 +48,24 @@ export default async function DomainArticlesPage({ params }: Props) {
       </nav>
 
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          {domain.name} artikelen
+        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-[var(--accent)]">
+          {domain.name}
+        </p>
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
+          Artikelen &amp; tutorials
         </h1>
+        {articles.length > 0 && (
+          <p className="mt-1 text-[var(--muted)]">
+            {articles.length} artikel{articles.length !== 1 ? "en" : ""}
+          </p>
+        )}
       </header>
 
       {articles.length === 0 ? (
         <EmptyState
           title="Nog geen artikelen"
           description="Nog geen artikelen in dit domein."
-          action={{ label: "Terug naar domein", href: `/${domain.slug}` }}
+          action={{ label: `Terug naar ${domain.name}`, href: `/${domain.slug}` }}
         />
       ) : (
         <GridLayout cols={3} gap="lg">

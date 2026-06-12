@@ -13,6 +13,7 @@ export type ProductWithPrice = Product & {
 
 export type ArticlePageData = {
   article: Article | null;
+  author: Creator | null;
   relatedProducts: ProductWithPrice[];
   relatedWorkshops: Workshop[];
   relatedCreators: Creator[];
@@ -24,6 +25,7 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
   if (!article) {
     return {
       article: null,
+      author: null,
       relatedProducts: [],
       relatedWorkshops: [],
       relatedCreators: [],
@@ -88,8 +90,13 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     listEventsByIds(relatedEventIds),
   ]);
 
+  const author = article.author_creator_id
+    ? await getCreatorById(article.author_creator_id)
+    : null;
+
   return {
     article,
+    author: author ?? null,
     relatedProducts: relatedProductsWithPrices,
     relatedWorkshops,
     relatedCreators,

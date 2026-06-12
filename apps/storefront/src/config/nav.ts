@@ -23,17 +23,23 @@ export const STATIC_LINKS = {
 } as const;
 
 export const FOOTER_SECTIONS = {
-  ontdek: [
-    { href: "/", label: "Home" },
-    { href: "/materials", label: "Hobbymaterialen" },
+  ontdekken: [
     { href: "/workshops", label: "Workshops" },
-    { href: "/agenda", label: "Agenda" },
-    { href: "/tools", label: "Tools" },
+    { href: "/agenda", label: "Evenementen" },
+    { href: "/materials", label: "Materialen" },
+    { href: "/creators", label: "Creators" },
     { href: "/gratis-haakpatronen", label: "Patronen" },
-    { href: "/favorites", label: "Favorieten" },
+    { href: "/tools", label: "Tools" },
+  ],
+  meedoen: [
+    { href: "/register", label: "Creator worden" },
+    { href: "/register", label: "Workshop geven" },
+    { href: "/register", label: "Verkopen" },
   ],
   info: [
-    { href: "/landing", label: "Over Hobbysalon" },
-    { href: "/register", label: "Account aanmaken" },
+    { href: "/landing", label: "Over ons" },
+    { href: "/landing", label: "Contact" },
+    { href: "/privacy", label: "Privacy" },
+    { href: "/terms", label: "Algemene voorwaarden" },
   ],
 } as const;
