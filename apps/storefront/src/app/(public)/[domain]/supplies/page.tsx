@@ -16,7 +16,9 @@ type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
 };
 
-async function enrichProductsWithPrices(products: Product[]): Promise<ProductWithPrice[]> {
+async function enrichProductsWithPrices(
+  products: Product[]
+): Promise<ProductWithPrice[]> {
   return Promise.all(
     products.map(async (product) => {
       const medusa = await getMedusaProduct(product.medusa_product_id);
@@ -70,16 +72,24 @@ export default async function DomainSuppliesPage({ params }: Props) {
       </nav>
 
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          {domain.name} benodigdheden
+        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-[var(--accent)]">
+          {domain.name}
+        </p>
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
+          Benodigdheden &amp; materialen
         </h1>
+        {productsWithPrices.length > 0 && (
+          <p className="mt-1 text-[var(--muted)]">
+            {productsWithPrices.length} product{productsWithPrices.length !== 1 ? "en" : ""}
+          </p>
+        )}
       </header>
 
       {productsWithPrices.length === 0 ? (
         <EmptyState
           title="Nog geen benodigdheden"
           description="Nog geen benodigdheden in dit domein."
-          action={{ label: "Terug naar domein", href: `/${domain.slug}` }}
+          action={{ label: `Terug naar ${domain.name}`, href: `/${domain.slug}` }}
         />
       ) : (
         <GridLayout cols={4} gap="lg">
