@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import {
+  Search,
+  Layers,
+  ShoppingBag,
+  CalendarDays,
+  Users,
+  Newspaper,
+  Scissors,
+} from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   WorkshopCard,
   ProductCard,
@@ -32,6 +38,15 @@ const TABS = [
   { id: "articles", label: "Artikelen" },
 ] as const;
 
+const QUICK_LINKS = [
+  { href: "/workshops", label: "Workshops", icon: Layers },
+  { href: "/materials", label: "Materialen", icon: ShoppingBag },
+  { href: "/agenda", label: "Evenementen", icon: CalendarDays },
+  { href: "/creators", label: "Creators", icon: Users },
+  { href: "/gratis-haakpatronen", label: "Patronen", icon: Scissors },
+  { href: "/artikel", label: "Artikelen", icon: Newspaper },
+] as const;
+
 export default async function SearchPage({
   searchParams,
 }: {
@@ -39,6 +54,7 @@ export default async function SearchPage({
 }) {
   const { q = "", type = "all" } = await searchParams;
   const query = q.trim();
+  const hasQuery = query.length >= 2;
   const results = await searchAll(query);
 
   const counts = {
@@ -51,153 +67,225 @@ export default async function SearchPage({
   };
 
   const activeType = TABS.some((t) => t.id === type) ? type : "all";
-  const show = (section: string) => activeType === "all" || activeType === section;
+  const show = (section: string) =>
+    activeType === "all" || activeType === section;
 
   return (
-    <Container className="py-8">
-      <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-        Zoeken
-      </h1>
+    <>
+      {/* Search hero */}
+      <div className="border-b border-[var(--border)] bg-gradient-to-br from-[var(--section-highlight)] to-[var(--card)]">
+        <Container className="py-10 sm:py-12">
+          <h1 className="mb-5 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+            {hasQuery ? `Zoekresultaten voor "${query}"` : "Zoeken"}
+          </h1>
 
-      <form method="GET" action="/zoeken" role="search" className="mt-4 flex max-w-2xl gap-2">
-        <div className="relative flex-1">
-          <Search
-            size={18}
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[var(--muted)]"
-          />
-          <Input
-            name="q"
-            type="search"
-            defaultValue={query}
-            placeholder="Zoek workshops, materialen, creators..."
-            aria-label="Zoekterm"
-            className="pl-10"
-          />
-        </div>
-        <Button type="submit">Zoeken</Button>
-      </form>
+          <form
+            method="GET"
+            action="/zoeken"
+            role="search"
+            className="mx-auto max-w-2xl"
+          >
+            <div className="relative">
+              <Search
+                size={20}
+                aria-hidden
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+              />
+              <input
+                name="q"
+                type="search"
+                defaultValue={query}
+                placeholder="Zoek workshops, materialen, creators, evenementen..."
+                aria-label="Zoekterm"
+                autoFocus={!hasQuery}
+                className="min-h-[52px] w-full rounded-xl border-[1.5px] border-[var(--border)] bg-[var(--card)] py-3.5 pl-12 pr-4 text-[17px] text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
+              />
+            </div>
+          </form>
+        </Container>
+      </div>
 
-      {query.length < 2 ? (
-        <p className="mt-8 text-[var(--muted)]">
-          Typ minstens twee letters om te zoeken.
-        </p>
-      ) : results.total === 0 ? (
-        <div className="mt-8">
+      <Container className="py-8">
+        {/* No query state — category discovery */}
+        {!hasQuery && (
+          <div>
+            <p className="mb-6 text-[var(--muted)]">
+              Typ minstens twee letters om te zoeken, of blader direct door een categorie:
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {QUICK_LINKS.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex flex-col items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 text-center transition-all hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 motion-reduce:hover:transform-none"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent)]/10 text-[var(--accent)]">
+                    <Icon size={20} aria-hidden />
+                  </span>
+                  <span className="text-sm font-semibold text-[var(--foreground)]">
+                    {label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No results */}
+        {hasQuery && results.total === 0 && (
           <EmptyState
             title={`Geen resultaten voor "${query}"`}
-            description="Probeer een andere zoekterm of bekijk alle workshops."
+            description="Probeer een andere zoekterm of blader door de categorieën hieronder."
             action={{ label: "Alle workshops", href: "/workshops" }}
           />
-        </div>
-      ) : (
-        <>
-          <p className="mt-6 text-[var(--muted)]">
-            <strong className="text-[var(--foreground)]">{results.total}</strong>{" "}
-            resultaten voor{" "}
-            <strong className="text-[var(--foreground)]">&ldquo;{query}&rdquo;</strong>
-          </p>
+        )}
 
-          <div className="mt-4 flex flex-wrap gap-1 border-b border-[var(--border)]">
-            {TABS.map((tab) => {
-              const count = counts[tab.id];
-              if (tab.id !== "all" && count === 0) return null;
-              const active = activeType === tab.id;
-              const qs = new URLSearchParams({ q: query });
-              if (tab.id !== "all") qs.set("type", tab.id);
-              return (
-                <Link
-                  key={tab.id}
-                  href={`/zoeken?${qs.toString()}`}
-                  className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
-                    active
-                      ? "border-[var(--accent)] text-[var(--accent)]"
-                      : "border-transparent text-[var(--muted)] hover:text-[var(--foreground)]"
-                  }`}
+        {/* Results */}
+        {hasQuery && results.total > 0 && (
+          <>
+            {/* Type filter chips */}
+            <div className="scrollbar-hide -mx-1 mb-8 flex gap-2 overflow-x-auto px-1 pb-1">
+              {TABS.map((tab) => {
+                const count = counts[tab.id];
+                if (tab.id !== "all" && count === 0) return null;
+                const active = activeType === tab.id;
+                const qs = new URLSearchParams({ q: query });
+                if (tab.id !== "all") qs.set("type", tab.id);
+                return (
+                  <Link
+                    key={tab.id}
+                    href={`/zoeken?${qs.toString()}`}
+                    aria-current={active ? "page" : undefined}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                      active
+                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    }`}
+                  >
+                    {tab.label}
+                    <span
+                      className={`text-xs font-normal ${
+                        active ? "opacity-80" : "text-[var(--muted)]"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="space-y-12">
+              {show("workshops") && results.workshops.length > 0 && (
+                <ResultSection
+                  tag="Workshops"
+                  title="Workshops"
+                  count={results.workshops.length}
+                  href="/workshops"
                 >
-                  {tab.label}{" "}
-                  <span className="text-xs font-normal">({count})</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 space-y-12">
-            {show("workshops") && results.workshops.length > 0 && (
-              <ResultSection title="Workshops" href="/workshops">
-                <GridLayout cols={3} gap="md">
-                  {results.workshops.map((w) => (
-                    <WorkshopCard key={w.id} workshop={w} />
-                  ))}
-                </GridLayout>
-              </ResultSection>
-            )}
-            {show("materials") && results.products.length > 0 && (
-              <ResultSection title="Materialen" href="/materials">
-                <GridLayout cols={4} gap="md">
-                  {results.products.map((p) => (
-                    <ProductCard key={p.id} product={p} />
-                  ))}
-                </GridLayout>
-              </ResultSection>
-            )}
-            {show("creators") && results.creators.length > 0 && (
-              <ResultSection title="Creators" href="/creators">
-                <GridLayout cols={4} gap="md">
-                  {results.creators.map((c) => (
-                    <CreatorCard key={c.id} creator={c} />
-                  ))}
-                </GridLayout>
-              </ResultSection>
-            )}
-            {show("events") && results.events.length > 0 && (
-              <ResultSection title="Evenementen" href="/agenda">
-                <GridLayout cols={3} gap="md">
-                  {results.events.map((e) => (
-                    <EventCard key={e.id} event={e} />
-                  ))}
-                </GridLayout>
-              </ResultSection>
-            )}
-            {show("articles") && results.articles.length > 0 && (
-              <ResultSection title="Artikelen" href="/gratis-haakpatronen">
-                <GridLayout cols={3} gap="md">
-                  {results.articles.map((a) => (
-                    <ArticleCard key={a.id} article={a} />
-                  ))}
-                </GridLayout>
-              </ResultSection>
-            )}
-          </div>
-        </>
-      )}
-    </Container>
+                  <GridLayout cols={3} gap="md">
+                    {results.workshops.map((w) => (
+                      <WorkshopCard key={w.id} workshop={w} />
+                    ))}
+                  </GridLayout>
+                </ResultSection>
+              )}
+              {show("materials") && results.products.length > 0 && (
+                <ResultSection
+                  tag="Marktplaats"
+                  title="Materialen"
+                  count={results.products.length}
+                  href="/materials"
+                >
+                  <GridLayout cols={4} gap="md">
+                    {results.products.map((p) => (
+                      <ProductCard key={p.id} product={p} />
+                    ))}
+                  </GridLayout>
+                </ResultSection>
+              )}
+              {show("creators") && results.creators.length > 0 && (
+                <ResultSection
+                  tag="Makers"
+                  title="Creators"
+                  count={results.creators.length}
+                  href="/creators"
+                >
+                  <GridLayout cols={4} gap="md">
+                    {results.creators.map((c) => (
+                      <CreatorCard key={c.id} creator={c} />
+                    ))}
+                  </GridLayout>
+                </ResultSection>
+              )}
+              {show("events") && results.events.length > 0 && (
+                <ResultSection
+                  tag="Agenda"
+                  title="Evenementen"
+                  count={results.events.length}
+                  href="/agenda"
+                >
+                  <GridLayout cols={3} gap="md">
+                    {results.events.map((e) => (
+                      <EventCard key={e.id} event={e} />
+                    ))}
+                  </GridLayout>
+                </ResultSection>
+              )}
+              {show("articles") && results.articles.length > 0 && (
+                <ResultSection
+                  tag="Inspiratie"
+                  title="Artikelen"
+                  count={results.articles.length}
+                  href="/gratis-haakpatronen"
+                >
+                  <GridLayout cols={3} gap="md">
+                    {results.articles.map((a) => (
+                      <ArticleCard key={a.id} article={a} />
+                    ))}
+                  </GridLayout>
+                </ResultSection>
+              )}
+            </div>
+          </>
+        )}
+      </Container>
+    </>
   );
 }
 
 function ResultSection({
+  tag,
   title,
+  count,
   href,
   children,
 }: {
+  tag: string;
   title: string;
+  count: number;
   href: string;
   children: React.ReactNode;
 }) {
   return (
     <section>
-      <div className="mb-4 flex items-center gap-3">
-        <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--foreground)]">
+      <div className="mb-1.5 flex items-center gap-3">
+        <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
+          {tag}
+        </span>
+        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
           {title}
         </h2>
-        <span className="h-px flex-1 bg-[var(--border)]" />
+        <span className="text-sm text-[var(--muted)]">{count}</span>
+        <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
         <Link
           href={href}
           className="shrink-0 text-sm font-semibold text-[var(--accent)] hover:underline"
         >
-          Bekijk alle →
+          Bekijk alles →
         </Link>
       </div>
+      <div className="mb-5" />
       {children}
     </section>
   );
