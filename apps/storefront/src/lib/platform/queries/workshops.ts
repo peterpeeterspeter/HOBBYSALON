@@ -133,6 +133,7 @@ export async function listWorkshopsByCreator(creatorId: string): Promise<Worksho
 }
 
 export async function listAllWorkshops(filters?: {
+  q?: string;
   domain_id?: string;
   difficulty_level?: string;
   format_type?: string;
@@ -148,6 +149,12 @@ export async function listAllWorkshops(filters?: {
     .select("*")
     .eq("is_active", true);
 
+  const term = filters?.q?.trim();
+  if (term && term.length >= 2) {
+    // Neutralise characters that would break PostgREST `or(...)` filters.
+    const like = `%${term.replace(/[%,()]/g, " ")}%`;
+    query = query.or(`title.ilike.${like},short_description.ilike.${like}`);
+  }
   if (filters?.domain_id) {
     query = query.eq("domain_id", filters.domain_id);
   }
