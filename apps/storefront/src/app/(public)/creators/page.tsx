@@ -1,127 +1,153 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { listAllCreators } from "@/lib/platform/queries/creators";
-import { listDomainsBySort } from "@/lib/platform/queries/domains";
+import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { CreatorCard } from "@/components/cards";
 import { Container } from "@/components/ui/container";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CardShell } from "@/components/ui/card-shell";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import type { Metadata } from "next";
+import { CategoryCircles } from "@/components/materials/CategoryCircles";
+import {
+  ActiveFilterChips,
+  type FilterChip,
+} from "@/components/materials/ActiveFilterChips";
+import { CreatorsSidebar } from "@/components/creators/CreatorsSidebar";
 
 export const metadata: Metadata = {
   title: "Creators | Hobbysalon",
   description: "Ontdek makers, leveranciers en workshopleiders",
 };
 
-const CREATOR_TYPE_OPTIONS = [
-  { value: "all", label: "Alle types" },
-  { value: "maker", label: "Maker" },
-  { value: "workshopgever", label: "Workshopgever" },
-  { value: "supplier", label: "Leverancier" },
-  { value: "content_creator", label: "Content maker" },
-  { value: "organizer", label: "Organisator" },
-];
+type SearchParams = Promise<{
+  q?: string;
+  domain?: string;
+  creator_type?: string;
+}>;
 
-type Props = {
-  searchParams: Promise<{
-    domain?: string;
-    creator_type?: string;
-    q?: string;
-  }>;
+const TYPE_LABELS: Record<string, string> = {
+  maker: "Maker",
+  workshopgever: "Workshopgever",
+  supplier: "Leverancier",
+  content_creator: "Content maker",
+  organizer: "Organisator",
 };
 
-export default async function CreatorsPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const selectedDomain = params.domain ?? "all";
-  const selectedCreatorType = params.creator_type ?? "all";
-  const searchQuery = params.q?.trim() ?? "";
-
-  const domains = await listDomainsBySort();
-  const domainOptions = [
-    { value: "all", label: "Alle domeinen" },
-    ...domains.map((domain) => ({
-      value: domain.id,
-      label: domain.name,
-    })),
-  ];
-
-  const creators = await listAllCreators({
-    domainId: selectedDomain !== "all" ? selectedDomain : undefined,
-    creatorType:
-      selectedCreatorType !== "all" ? selectedCreatorType : undefined,
-    q: searchQuery || undefined,
+function buildCreatorsHref(
+  current: Record<string, string | undefined>,
+  overrides: Record<string, string | undefined> = {}
+) {
+  const merged = { ...current, ...overrides };
+  const query = new URLSearchParams();
+  Object.entries(merged).forEach(([key, value]) => {
+    if (value && value.trim() && value !== "all") {
+      query.set(key, value);
+    }
   });
+  const serialized = query.toString();
+  return serialized ? `/creators?${serialized}` : "/creators";
+}
+
+export default async function CreatorsPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const domainFilter = params.domain?.trim() || undefined;
+  const typeFilter =
+    params.creator_type && params.creator_type !== "all"
+      ? params.creator_type
+      : undefined;
+
+  const [domains, creators] = await Promise.all([
+    listActiveDomains(),
+    listAllCreators({
+      domainId: domainFilter,
+      creatorType: typeFilter,
+      q: params.q?.trim() || undefined,
+    }),
+  ]);
+
+  const current = {
+    q: params.q,
+    domain: params.domain,
+    creator_type: params.creator_type,
+  };
+
+  const hrefForDomain = (domainId?: string) =>
+    buildCreatorsHref(current, { domain: domainId });
+
+  const chips: FilterChip[] = [];
+  if (params.q) {
+    chips.push({
+      label: `"${params.q}"`,
+      removeHref: buildCreatorsHref(current, { q: undefined }),
+    });
+  }
+  if (domainFilter) {
+    chips.push({
+      label: domains.find((d) => d.id === domainFilter)?.name ?? "Domein",
+      removeHref: buildCreatorsHref(current, { domain: undefined }),
+    });
+  }
+  if (typeFilter) {
+    chips.push({
+      label: TYPE_LABELS[typeFilter] ?? typeFilter,
+      removeHref: buildCreatorsHref(current, { creator_type: undefined }),
+    });
+  }
 
   return (
     <Container className="py-8">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-[var(--foreground)] mb-2">
+      <header className="mb-6">
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
           Creators
         </h1>
-        <p className="text-lg text-[var(--muted)]">
-          Makers, leveranciers en workshopleiders op Hobbysalon
+        <p className="mt-1 text-lg text-[var(--muted)]">
+          Makers, leveranciers en workshopgevers van de Hobbysalon community.
         </p>
       </header>
 
-      <CardShell variant="default" padding="md" className="mb-6">
-        <form method="get" className="grid gap-3 md:grid-cols-4">
-          <Select
-            id="domain"
-            name="domain"
-            label="Domein"
-            options={domainOptions}
-            defaultValue={selectedDomain}
-          />
-          <Select
-            id="creator_type"
-            name="creator_type"
-            label="Type creator"
-            options={CREATOR_TYPE_OPTIONS}
-            defaultValue={selectedCreatorType}
-          />
-          <Input
-            id="q"
-            name="q"
-            label="Zoekterm"
-            defaultValue={searchQuery}
-            placeholder="Naam, stad, expertise..."
-          />
-          <div className="flex items-end gap-2">
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-            >
-              Filter
-            </button>
-            <Link
-              href="/creators"
-              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)]"
-            >
-              Reset
-            </Link>
-          </div>
-        </form>
-      </CardShell>
-
-      {creators.length === 0 ? (
-        <EmptyState
-          title="Nog geen creators"
-          description="Geen creators gevonden voor deze filters."
+      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
+        <CreatorsSidebar
+          domains={domains}
+          params={{
+            q: params.q,
+            domain: params.domain,
+            creator_type: params.creator_type,
+          }}
         />
-      ) : (
-        <>
-          <p className="mb-6 text-sm text-[var(--muted)]">
-            {creators.length} creator{creators.length !== 1 ? "s" : ""} gevonden
-          </p>
-          <GridLayout cols={3} gap="lg">
-            {creators.map((creator) => (
-              <CreatorCard key={creator.id} creator={creator} />
-            ))}
-          </GridLayout>
-        </>
-      )}
+
+        <div className="min-w-0 flex-1">
+          <CategoryCircles
+            domains={domains}
+            activeDomain={domainFilter}
+            hrefForDomain={hrefForDomain}
+          />
+
+          <ActiveFilterChips chips={chips} clearHref="/creators" />
+
+          <div className="mb-5 flex items-center justify-between rounded-[10px] border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <p className="text-[15px] text-[var(--muted)]">
+              <strong className="font-bold text-[var(--foreground)]">{creators.length}</strong>{" "}
+              creator{creators.length === 1 ? "" : "s"} gevonden
+            </p>
+          </div>
+
+          {creators.length === 0 ? (
+            <EmptyState
+              title="Geen creators gevonden"
+              description="Pas je filters aan of wis alle filters."
+              action={{ label: "Alle creators", href: "/creators" }}
+            />
+          ) : (
+            <GridLayout cols={3} gap="lg">
+              {creators.map((creator) => (
+                <CreatorCard key={creator.id} creator={creator} />
+              ))}
+            </GridLayout>
+          )}
+        </div>
+      </div>
     </Container>
   );
 }
