@@ -9,11 +9,11 @@ import { ArticleFeature } from "@/components/home/article-feature";
 import { ProductCard, WorkshopCard, EventCard, ProjectCard } from "@/components/cards";
 import { Container } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
-import { EmptyState } from "@/components/ui/empty-state";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { Section } from "@/components/layout/section";
 import { buildPageMetadata } from "@/lib/seo";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+import Link from "next/link";
 
 export const metadata = buildPageMetadata({
   title: "Hobbysalon | Creatieve hobby community",
@@ -55,11 +55,7 @@ export default async function HomePage() {
     featuredProjects: data.featuredProjects,
   });
 
-  // Split featured handmade into hero card + rest
-  const [heroHandmade, ...restHandmade] = data.featuredHandmade;
-  // Split workshops into hero banner + rest
   const [heroWorkshop, ...restWorkshops] = data.upcomingWorkshops;
-  // Split events into hero banner + rest
   const [heroEvent, ...restEvents] = data.upcomingEvents;
 
   return (
@@ -80,62 +76,67 @@ export default async function HomePage() {
         Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
       </p>
 
-      {/* ─── Marketplace — featured hero + grid ─── */}
-      <Section spacing="lg">
-        <Container>
-          <SectionHeader
-            title="Marketplace"
-            description="Ontdek handgemaakt werk van creators en materiaal van hobbywinkels."
-          />
-
-          {/* Handmade: 1 featured large + 3 regular */}
-          <div className="mt-6">
-            <SectionHeader subtle title="Uitgelicht handgemaakt" />
-            {heroHandmade ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {/* Featured large card spanning 2 cols */}
-                <div className="md:col-span-2 md:row-span-2">
-                  <ProductCard product={heroHandmade} className="h-full" />
-                </div>
-                {restHandmade.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <GridLayout cols={4}>
-                {data.featuredHandmade.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </GridLayout>
-            )}
-          </div>
-
-          {/* Supplies: standard grid */}
-          <div className="mt-10">
+      {/* ─── Marketplace ─── */}
+      {(data.featuredHandmade.length > 0 || data.featuredSupplies.length > 0) && (
+        <Section spacing="lg">
+          <Container>
             <SectionHeader
-              subtle
-              title="Uitgelichte benodigdheden"
+              title="Marketplace"
+              description="Ontdek handgemaakt werk van creators en materiaal van hobbywinkels."
               href="/materials"
-              linkText="Naar materials marketplace"
+              linkText="Naar de marketplace"
             />
-            <GridLayout cols={4}>
-              {data.featuredSupplies.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </GridLayout>
-          </div>
-        </Container>
-      </Section>
 
-      {/* ─── Populaire domeinen — horizontal pills ─── */}
-      <Section variant="alt" spacing="md">
-        <Container>
-          <SectionHeader title="Populaire domeinen" />
-          <DomainPills domains={data.popularDomains} />
-        </Container>
-      </Section>
+            {data.featuredHandmade.length > 0 && (
+              <div className="mt-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-[family-name:var(--font-heading)] text-lg font-semibold text-[var(--muted)]">
+                    Uitgelicht handgemaakt
+                  </h3>
+                </div>
+                <GridLayout cols={4} gap="md">
+                  {data.featuredHandmade.slice(0, 4).map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </GridLayout>
+              </div>
+            )}
 
-      {/* ─── CTA Banner — Word creator ─── */}
+            {data.featuredSupplies.length > 0 && (
+              <div className="mt-10">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-[family-name:var(--font-heading)] text-lg font-semibold text-[var(--muted)]">
+                    Uitgelichte benodigdheden
+                  </h3>
+                  <Link
+                    href="/materials"
+                    className="text-sm font-semibold text-[var(--accent)] hover:underline"
+                  >
+                    Naar materials marketplace →
+                  </Link>
+                </div>
+                <GridLayout cols={4} gap="md">
+                  {data.featuredSupplies.slice(0, 4).map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </GridLayout>
+              </div>
+            )}
+          </Container>
+        </Section>
+      )}
+
+      {/* ─── Populaire domeinen ─── */}
+      {data.popularDomains.length > 0 && (
+        <Section variant="alt" spacing="md">
+          <Container>
+            <SectionHeader title="Populaire domeinen" />
+            <DomainPills domains={data.popularDomains} />
+          </Container>
+        </Section>
+      )}
+
+      {/* ─── CTA — Word creator ─── */}
       <Section spacing="sm">
         <Container>
           <CTABanner
@@ -148,129 +149,123 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* ─── Aanbevelingen — warm highlight ─── */}
-      <Section variant="highlight" spacing="md">
-        <Container>
-          <SectionHeader
-            title={
-              data.recommendationSource === "personalized"
-                ? "Aanbevolen voor jou"
-                : "Populaire projecten om te starten"
-            }
-            description={
-              data.recommendationSource === "personalized"
-                ? "Gebaseerd op je profielinteresses, favorieten, domeingedrag en recente interacties."
-                : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."
-            }
-          />
-          {data.recommendedProjects.length > 0 ? (
+      {/* ─── Aanbevelingen — only when personalised or cold-start has data ─── */}
+      {data.recommendedProjects.length > 0 && (
+        <Section variant="highlight" spacing="md">
+          <Container>
+            <SectionHeader
+              title={
+                data.recommendationSource === "personalized"
+                  ? "Aanbevolen voor jou"
+                  : "Populaire projecten om te starten"
+              }
+              description={
+                data.recommendationSource === "personalized"
+                  ? "Gebaseerd op je profielinteresses, favorieten en recente interacties."
+                  : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."
+              }
+            />
             <GridLayout cols={3}>
               {data.recommendedProjects.map((item) => (
                 <div key={item.project.id} className="space-y-2">
                   <ProjectCard project={item.project} />
-                  <p className="text-xs text-[var(--muted)]">{item.reasons[0] ?? "Aanbevolen project"}</p>
+                  <p className="text-xs text-[var(--muted)]">
+                    {item.reasons[0] ?? "Aanbevolen project"}
+                  </p>
                 </div>
               ))}
             </GridLayout>
-          ) : (
-            <EmptyState
-              compact
-              title="Nog geen aanbevelingen"
-              description="Voeg interesses toe in je profiel en markeer favorieten om persoonlijke aanbevelingen te ontvangen."
+          </Container>
+        </Section>
+      )}
+
+      {/* ─── Workshops ─── */}
+      {data.upcomingWorkshops.length > 0 && (
+        <Section spacing="md" divider>
+          <Container>
+            <SectionHeader title="Aankomende workshops" href="/workshops" />
+            {heroWorkshop ? (
+              <div className="space-y-6">
+                <FeaturedBanner
+                  title={heroWorkshop.title}
+                  description={heroWorkshop.short_description ?? undefined}
+                  imageUrl={heroWorkshop.featured_image_url}
+                  imageFallback="placeholderWorkshop"
+                  href={`/workshop/${heroWorkshop.slug}`}
+                  badge={heroWorkshop.format_type === "online" ? "Online" : "Fysiek"}
+                  ctaText="Bekijk workshop"
+                  variant="warm"
+                />
+                {restWorkshops.length > 0 && (
+                  <GridLayout cols={3}>
+                    {restWorkshops.map((workshop) => (
+                      <WorkshopCard key={workshop.id} workshop={workshop} />
+                    ))}
+                  </GridLayout>
+                )}
+              </div>
+            ) : (
+              <GridLayout cols={3}>
+                {data.upcomingWorkshops.map((workshop) => (
+                  <WorkshopCard key={workshop.id} workshop={workshop} />
+                ))}
+              </GridLayout>
+            )}
+          </Container>
+        </Section>
+      )}
+
+      {/* ─── Agenda ─── */}
+      {data.upcomingEvents.length > 0 && (
+        <Section variant="alt" spacing="md">
+          <Container>
+            <SectionHeader title="Agenda" href="/agenda" />
+            {heroEvent ? (
+              <div className="space-y-6">
+                <FeaturedBanner
+                  title={heroEvent.title}
+                  description={heroEvent.short_description ?? undefined}
+                  imageUrl={heroEvent.featured_image_url}
+                  imageFallback="placeholderEvent"
+                  href={`/agenda/${heroEvent.slug}`}
+                  badge={heroEvent.city ?? undefined}
+                  ctaText="Bekijk event"
+                  variant="sage"
+                />
+                {restEvents.length > 0 && (
+                  <GridLayout cols={3}>
+                    {restEvents.map((event) => (
+                      <EventCard key={event.id} event={event} />
+                    ))}
+                  </GridLayout>
+                )}
+              </div>
+            ) : (
+              <GridLayout cols={3}>
+                {data.upcomingEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </GridLayout>
+            )}
+          </Container>
+        </Section>
+      )}
+
+      {/* ─── Artikelen ─── */}
+      {data.latestArticles.length > 0 && (
+        <Section spacing="md">
+          <Container>
+            <SectionHeader
+              title="Inspiratieartikelen"
+              href="/gratis-haakpatronen"
+              linkText="Gratis NL haakpatronen"
             />
-          )}
-        </Container>
-      </Section>
+            <ArticleFeature articles={data.latestArticles} />
+          </Container>
+        </Section>
+      )}
 
-      {/* ─── Workshops — featured banner + cards ─── */}
-      <Section spacing="md" divider>
-        <Container>
-          <SectionHeader title="Aankomende workshops" href="/workshops" />
-
-          {heroWorkshop ? (
-            <div className="space-y-6">
-              {/* Full-width featured workshop banner */}
-              <FeaturedBanner
-                title={heroWorkshop.title}
-                description={heroWorkshop.short_description ?? undefined}
-                imageUrl={heroWorkshop.featured_image_url}
-                imageFallback="placeholderWorkshop"
-                href={`/workshop/${heroWorkshop.slug}`}
-                badge={heroWorkshop.format_type === "online" ? "Online" : "Fysiek"}
-                ctaText="Bekijk workshop"
-                variant="warm"
-              />
-
-              {/* Remaining workshops in compact row */}
-              {restWorkshops.length > 0 && (
-                <GridLayout cols={3}>
-                  {restWorkshops.map((workshop) => (
-                    <WorkshopCard key={workshop.id} workshop={workshop} />
-                  ))}
-                </GridLayout>
-              )}
-            </div>
-          ) : (
-            <GridLayout cols={3}>
-              {data.upcomingWorkshops.map((workshop) => (
-                <WorkshopCard key={workshop.id} workshop={workshop} />
-              ))}
-            </GridLayout>
-          )}
-        </Container>
-      </Section>
-
-      {/* ─── Agenda — featured banner + cards ─── */}
-      <Section variant="alt" spacing="md">
-        <Container>
-          <SectionHeader title="Agenda" href="/agenda" />
-
-          {heroEvent ? (
-            <div className="space-y-6">
-              {/* Full-width featured event banner */}
-              <FeaturedBanner
-                title={heroEvent.title}
-                description={heroEvent.short_description ?? undefined}
-                imageUrl={heroEvent.featured_image_url}
-                imageFallback="placeholderEvent"
-                href={`/agenda/${heroEvent.slug}`}
-                badge={heroEvent.city ?? undefined}
-                ctaText="Bekijk event"
-                variant="sage"
-              />
-
-              {/* Remaining events */}
-              {restEvents.length > 0 && (
-                <GridLayout cols={3}>
-                  {restEvents.map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
-                </GridLayout>
-              )}
-            </div>
-          ) : (
-            <GridLayout cols={3}>
-              {data.upcomingEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </GridLayout>
-          )}
-        </Container>
-      </Section>
-
-      {/* ─── Artikelen — magazine layout ─── */}
-      <Section spacing="md">
-        <Container>
-          <SectionHeader
-            title="Inspiratieartikelen"
-            href="/gratis-haakpatronen"
-            linkText="Gratis NL haakpatronen"
-          />
-          <ArticleFeature articles={data.latestArticles} />
-        </Container>
-      </Section>
-
-      {/* ─── CTA Banner — Start je hobby ─── */}
+      {/* ─── CTA — Klaar om te starten ─── */}
       <Section spacing="sm">
         <Container>
           <CTABanner
@@ -283,25 +278,29 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* ─── Projecten — standard grid ─── */}
-      <Section variant="alt" spacing="md">
-        <Container>
-          <SectionHeader title="Projecten om direct te starten" />
-          <GridLayout cols={4}>
-            {data.featuredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </GridLayout>
-        </Container>
-      </Section>
+      {/* ─── Projecten ─── */}
+      {data.featuredProjects.length > 0 && (
+        <Section variant="alt" spacing="md">
+          <Container>
+            <SectionHeader title="Projecten om direct te starten" />
+            <GridLayout cols={4}>
+              {data.featuredProjects.map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+            </GridLayout>
+          </Container>
+        </Section>
+      )}
 
-      {/* ─── Creators — spotlight row ─── */}
-      <Section spacing="lg" divider>
-        <Container>
-          <SectionHeader title="Creators van de maand" href="/creators" />
-          <CreatorSpotlight creators={data.creatorsOfTheMonth} />
-        </Container>
-      </Section>
+      {/* ─── Creators van de maand ─── */}
+      {data.creatorsOfTheMonth.length > 0 && (
+        <Section spacing="lg" divider>
+          <Container>
+            <SectionHeader title="Creators van de maand" href="/creators" />
+            <CreatorSpotlight creators={data.creatorsOfTheMonth} />
+          </Container>
+        </Section>
+      )}
     </>
   );
 }
