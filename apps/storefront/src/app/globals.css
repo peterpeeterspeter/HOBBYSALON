@@ -2,30 +2,31 @@
 
 /* Hobbysalon design tokens: warm palette, senior-friendly base */
 :root {
-  /* Core palette – warm, duidelijk zichtbaar */
-  --background: #f8f4ee;
-  --foreground: #2d2a26;
-  --muted: #6b6560;
-  --accent: #c17f59;
+  /* Core palette — Brand Kit v2: warm amber / peach / cream, senior-friendly */
+  --background: #fff2e0;
+  --foreground: #4d3b2a;
+  --muted: #7a5a3a;
+  --accent: #d08a4e;
   --accent-foreground: #ffffff;
-  --accent-hover: #a86b46;
-  --border: #e5ddd2;
+  --accent-hover: #a86b2f;
+  --accent-light: #f2cba8;
+  --border: #f2cba8;
   --card: #ffffff;
   --radius: 0.5rem;
 
-  /* Secondary accent — sage green, natural complement to terracotta */
-  --accent-secondary: #5b8a72;
+  /* Secondary accent — sage green, natural complement to amber */
+  --accent-secondary: #6a9b80;
   --accent-secondary-hover: #4d7a63;
-  --accent-secondary-foreground: #fdfbf7;
+  --accent-secondary-foreground: #ffffff;
 
-  /* Section alternation backgrounds */
-  --section-alt: #f3ede4;
-  --section-highlight: #faf3ed;
+  /* Section alternation backgrounds (gentle cream rhythm) */
+  --section-alt: #fae8d5;
+  --section-highlight: #fff8ef;
 
   /* Decorative */
   --divider-accent: var(--accent);
-  --font-heading: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-body: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  --font-heading: var(--font-quicksand), "Segoe UI", Arial, sans-serif;
+  --font-body: var(--font-lato), "Segoe UI", Arial, sans-serif;
 
   /* Semantic feedback */
   --success: #4a8c5c;
@@ -56,6 +57,7 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
   --color-border: var(--border);
   --color-card: var(--card);
   --color-success: var(--success);
@@ -66,7 +68,7 @@
   --color-section-alt: var(--section-alt);
   --color-section-highlight: var(--section-highlight);
   --font-sans: var(--font-body), "Segoe UI", sans-serif;
-  --font-display: var(--font-heading), var(--font-body), serif;
+  --font-display: var(--font-heading), var(--font-body), sans-serif;
   --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;

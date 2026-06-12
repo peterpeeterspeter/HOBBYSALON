@@ -1,14 +1,15 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getWorkshopPageData } from "@/lib/services/workshop-page";
 import { CreatorCard, ProductCard, EventCard, ArticleCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
-import { WorkshopBookingRequestForm } from "@/components/workshop/WorkshopBookingRequestForm";
+import { WorkshopBookingCard } from "@/components/workshop/WorkshopBookingCard";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { PageLayout } from "@/components/layout/page-layout";
-import { SplitLayout } from "@/components/layout/split-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
-import { PriceDisplay } from "@/components/domain/price-display";
+import { Badge } from "@/components/ui/badge";
+import { DifficultyIndicator } from "@/components/domain/difficulty-indicator";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
@@ -151,20 +152,42 @@ export default async function WorkshopPage({ params }: Props) {
   ];
 
   return (
-    <PageLayout
-      breadcrumbs={breadcrumbs}
-      title={workshop.title}
-      description={workshop.short_description ?? undefined}
-    >
+    <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={workshopJsonLd} />
-      <SplitLayout
-        sidebar={
-          <div className="space-y-4">
-            <AspectImage
-              src={workshop.featured_image_url}
-              alt={workshop.title}
-              ratio="video"
-            />
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+        {/* Main content */}
+        <div className="min-w-0">
+          <AspectImage
+            src={workshop.featured_image_url}
+            alt={workshop.title}
+            ratio="video"
+            className="overflow-hidden rounded-xl"
+          />
+
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {domain && <Badge variant="domain">{domain.name}</Badge>}
+            <Badge variant="format">
+              {FORMAT_LABELS[workshop.format_type] ?? workshop.format_type}
+            </Badge>
+            <DifficultyIndicator level={workshop.difficulty_level} />
+          </div>
+
+          <h1 className="mt-3 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
+            {workshop.title}
+          </h1>
+
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            {creator && (
+              <span className="text-[var(--muted)]">
+                door{" "}
+                <Link
+                  href={`/creator/${creator.slug}`}
+                  className="font-semibold text-[var(--accent)] hover:underline"
+                >
+                  {creator.display_name}
+                </Link>
+              </span>
+            )}
             <FavoriteToggleButton
               entityType="workshop"
               entityId={workshop.id}
@@ -172,145 +195,123 @@ export default async function WorkshopPage({ params }: Props) {
               nextPath={`/workshop/${workshop.slug}`}
             />
           </div>
-        }
-      >
-        <CardShell variant="default" padding="lg">
-          <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
-            {FORMAT_LABELS[workshop.format_type] ?? workshop.format_type} ·{" "}
-            {DIFFICULTY_LABELS[workshop.difficulty_level] ?? workshop.difficulty_level}
-          </span>
-          {workshop.price_cents > 0 && (
-            <div className="mt-4">
-              <PriceDisplay
-                amount={workshop.price_cents}
-                currencyCode={workshop.currency_code}
-                size="lg"
-              />
-            </div>
-          )}
-          {workshop.duration_minutes && (
-            <p className="mt-2 text-[var(--muted)]">
-              Duur: ±{workshop.duration_minutes} minuten
-            </p>
-          )}
-          {workshop.location_name && (
-            <p className="mt-2 text-[var(--muted)]">
-              Locatie: {workshop.location_name}
-              {workshop.city && `, ${workshop.city}`}
-            </p>
-          )}
+
           {workshop.description && (
-            <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
-              {workshop.description}
-            </p>
+            <section className="mt-8">
+              <SectionTitle>Over de workshop</SectionTitle>
+              <p className="mt-3 whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+                {workshop.description}
+              </p>
+            </section>
           )}
-          {workshop.booking_mode === "external_link" && workshop.booking_url && (
-            <a
-              href={workshop.booking_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-6 inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
-            >
-              Boek nu
-            </a>
-          )}
-          {workshop.booking_mode === "request" && creator && (
-            <WorkshopBookingRequestForm
-              workshopId={workshop.id}
-              creatorId={workshop.creator_id}
-              sessions={sessions}
-            />
-          )}
-        </CardShell>
-      </SplitLayout>
 
-      {sessions.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Data
-          </h2>
-          <ul className="space-y-3">
-            {sessions.map((s) => (
-              <li key={s.id}>
-                <CardShell variant="default" padding="md">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {formatSessionDate(s.starts_at)} – {formatSessionDate(s.ends_at)}
-                      </p>
-                      {s.capacity != null && (
-                        <p className="text-sm text-[var(--muted)]">
-                          {s.remaining_spots != null
-                            ? `${s.remaining_spots} plekken over`
-                            : `${s.capacity} plekken`}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={
-                        s.booking_status === "open"
-                          ? "rounded-full bg-green-100 px-3 py-1 text-sm text-green-800 dark:bg-green-900 dark:text-green-200"
-                          : "rounded-full bg-[var(--border)] px-3 py-1 text-sm text-[var(--muted)]"
-                      }
-                    >
-                      {s.booking_status === "open" ? "Beschikbaar" : s.booking_status}
-                    </span>
-                  </div>
-                </CardShell>
-              </li>
+          {sessions.length > 0 && (
+            <section className="mt-10">
+              <SectionTitle>Beschikbare data</SectionTitle>
+              <ul className="mt-4 space-y-3">
+                {sessions.map((s) => (
+                  <li key={s.id}>
+                    <CardShell variant="default" padding="md">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-[var(--foreground)]">
+                            {formatSessionDate(s.starts_at)} – {formatSessionDate(s.ends_at)}
+                          </p>
+                          {s.capacity != null && (
+                            <p className="text-sm text-[var(--muted)]">
+                              {s.remaining_spots != null
+                                ? `${s.remaining_spots} plekken over`
+                                : `${s.capacity} plekken`}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={
+                            s.booking_status === "open"
+                              ? "rounded-full bg-[var(--success)]/15 px-3 py-1 text-sm font-medium text-[var(--success)]"
+                              : "rounded-full bg-[var(--border)] px-3 py-1 text-sm text-[var(--muted)]"
+                          }
+                        >
+                          {s.booking_status === "open" ? "Beschikbaar" : s.booking_status}
+                        </span>
+                      </div>
+                    </CardShell>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {creator && (
+            <section className="mt-10">
+              <SectionTitle>Workshopgever</SectionTitle>
+              <div className="mt-4">
+                <CreatorCard creator={creator} className="max-w-md" />
+              </div>
+            </section>
+          )}
+
+          <EntityLinkBlock
+            title="Benodigde materialen"
+            isEmpty={requiredProducts.length === 0}
+            emptyMessage="Geen verplichte materialen opgegeven."
+          >
+            {requiredProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
             ))}
-          </ul>
-        </section>
-      )}
+          </EntityLinkBlock>
 
-      {creator && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Workshopleider
-          </h2>
-          <CreatorCard creator={creator} className="max-w-md" />
-        </section>
-      )}
+          <EntityLinkBlock
+            title="Aanbevolen materialen"
+            isEmpty={optionalProducts.length === 0}
+            emptyMessage="Geen extra materialen."
+          >
+            {optionalProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </EntityLinkBlock>
 
-      <EntityLinkBlock
-        title="Benodigde materialen"
-        isEmpty={requiredProducts.length === 0}
-        emptyMessage="Geen verplichte materialen opgegeven."
-      >
-        {requiredProducts.map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </EntityLinkBlock>
+          <EntityLinkBlock
+            title="Gerelateerde evenementen"
+            isEmpty={data.relatedEvents.length === 0}
+            emptyMessage="Geen gerelateerde evenementen."
+          >
+            {data.relatedEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </EntityLinkBlock>
 
-      <EntityLinkBlock
-        title="Aanbevolen materialen"
-        isEmpty={optionalProducts.length === 0}
-        emptyMessage="Geen extra materialen."
-      >
-        {optionalProducts.map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </EntityLinkBlock>
+          <EntityLinkBlock
+            title="Gerelateerde artikelen"
+            isEmpty={data.relatedArticles.length === 0}
+            emptyMessage="Geen gerelateerde artikelen."
+          >
+            {data.relatedArticles.map((article) => (
+              <ArticleCard key={article.id} article={article} />
+            ))}
+          </EntityLinkBlock>
+        </div>
 
-      <EntityLinkBlock
-        title="Gerelateerde evenementen"
-        isEmpty={data.relatedEvents.length === 0}
-        emptyMessage="Geen gerelateerde evenementen."
-      >
-        {data.relatedEvents.map((event) => (
-          <EventCard key={event.id} event={event} />
-        ))}
-      </EntityLinkBlock>
-
-      <EntityLinkBlock
-        title="Gerelateerde artikelen"
-        isEmpty={data.relatedArticles.length === 0}
-        emptyMessage="Geen gerelateerde artikelen."
-      >
-        {data.relatedArticles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
-        ))}
-      </EntityLinkBlock>
+        {/* Sticky booking card */}
+        <aside className="lg:sticky lg:top-20">
+          <WorkshopBookingCard
+            workshop={workshop}
+            creator={creator}
+            sessions={sessions}
+          />
+        </aside>
+      </div>
     </PageLayout>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+        {children}
+      </h2>
+      <span className="h-px flex-1 bg-[var(--border)]" />
+    </div>
   );
 }

@@ -216,7 +216,7 @@ export function CheckoutPaymentForm({
         appearance: {
           theme: "stripe",
           variables: {
-            colorPrimary: "#c17f59",
+            colorPrimary: "#d08a4e",
             borderRadius: "0.5rem",
           },
         },
