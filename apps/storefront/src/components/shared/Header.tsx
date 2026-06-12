@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, ShoppingCart, Heart, ChevronDown } from "lucide-react";
+import { Menu, X, ShoppingCart, Heart, ChevronDown, Search } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
 import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { hasAuthSessionCookie } from "@/lib/auth/session";
@@ -75,8 +75,29 @@ export async function Header() {
           />
         </nav>
 
-        {/* Spacer */}
-        <div className="min-w-0 flex-1" />
+        {/* Search (doubles as flexible spacer) */}
+        <div className="min-w-0 flex-1">
+          <form
+            action="/zoeken"
+            role="search"
+            className="mx-auto hidden max-w-md md:block"
+          >
+            <div className="relative">
+              <Search
+                size={18}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+              />
+              <input
+                type="search"
+                name="q"
+                placeholder="Zoek workshops, materialen, creators..."
+                aria-label="Zoeken"
+                className="h-10 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+              />
+            </div>
+          </form>
+        </div>
 
         {/* Right: cart, favorites, account (guests: Registreer/Log in | logged-in: Profiel dropdown) */}
         <div className="flex items-center gap-0.5">

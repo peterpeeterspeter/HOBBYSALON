@@ -1,15 +1,13 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getProductPageData } from "@/lib/services/product-page";
 import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
-import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
-import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { ProductBuyCard } from "@/components/product/ProductBuyCard";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageLayout } from "@/components/layout/page-layout";
-import { SplitLayout } from "@/components/layout/split-layout";
-import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
-import { PriceDisplay } from "@/components/domain/price-display";
+import { Badge } from "@/components/ui/badge";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -78,104 +76,127 @@ export default async function ProductPage({ params }: Props) {
   ];
 
   return (
-    <PageLayout
-      breadcrumbs={breadcrumbs}
-      title={product.title}
-      description={product.short_description ?? undefined}
-    >
+    <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={productJsonLd} />
-      <SplitLayout
-        sidebar={
-          <div className="space-y-4">
-            <AspectImage src={product.featured_image_url} alt={product.title} ratio="square" />
-            <FavoriteToggleButton
-              entityType="product"
-              entityId={product.id}
-              isFavorited={productIsFavorite}
-              nextPath={`/product/${product.slug}`}
-            />
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+        {/* Main content */}
+        <div className="min-w-0">
+          <AspectImage
+            src={product.featured_image_url}
+            alt={product.title}
+            ratio="square"
+            className="max-w-xl overflow-hidden rounded-xl"
+          />
+
+          <div className="mt-6">
+            <Badge variant="domain">
+              {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
+            </Badge>
+            <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
+              {product.title}
+            </h1>
+            {creator && (
+              <p className="mt-2 text-[var(--muted)]">
+                door{" "}
+                <Link
+                  href={`/creator/${creator.slug}`}
+                  className="font-semibold text-[var(--accent)] hover:underline"
+                >
+                  {creator.display_name}
+                </Link>
+              </p>
+            )}
           </div>
-        }
-      >
-        <CardShell variant="default" padding="lg">
-          <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
-            {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
-          </span>
-          {price && (
-            <div className="mt-4">
-              <PriceDisplay amount={price.amount} currencyCode={price.currency_code} size="lg" />
-            </div>
-          )}
+
           {product.short_description && (
-            <p className="mt-4 text-[var(--foreground)]">
+            <p className="mt-4 text-lg text-[var(--foreground)]">
               {product.short_description}
             </p>
           )}
+
           {product.description && (
-            <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
-              {product.description}
-            </p>
+            <section className="mt-8">
+              <SectionTitle>Beschrijving</SectionTitle>
+              <p className="mt-3 whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+                {product.description}
+              </p>
+            </section>
           )}
-          <div className="mt-6">
-            <ProductPurchaseControls
-              variants={variants}
-              productType={product.product_type}
-              creatorSlug={creator?.slug ?? null}
-            />
-          </div>
-        </CardShell>
-      </SplitLayout>
 
-      {creator && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Maker / leverancier
-          </h2>
-          <CreatorCard creator={creator} className="max-w-md" />
-        </section>
-      )}
+          {creator && (
+            <section className="mt-10">
+              <SectionTitle>Maker / leverancier</SectionTitle>
+              <div className="mt-4">
+                <CreatorCard creator={creator} className="max-w-md" />
+              </div>
+            </section>
+          )}
 
-      <EntityLinkBlock
-        title="Gerelateerde workshops"
-        isEmpty={data.relatedWorkshops.length === 0}
-        emptyMessage="Geen gerelateerde workshops."
-      >
-        {data.relatedWorkshops.map((w) => (
-          <WorkshopCard key={w.id} workshop={w} />
-        ))}
-      </EntityLinkBlock>
+          <EntityLinkBlock
+            title="Gerelateerde workshops"
+            isEmpty={data.relatedWorkshops.length === 0}
+            emptyMessage="Geen gerelateerde workshops."
+          >
+            {data.relatedWorkshops.map((w) => (
+              <WorkshopCard key={w.id} workshop={w} />
+            ))}
+          </EntityLinkBlock>
 
-      {product.product_type === "handmade" && (
-        <EntityLinkBlock
-          title="Relevante benodigdheden"
-          isEmpty={data.relatedSupplies.length === 0}
-          emptyMessage="Nog geen relevante benodigdheden."
-        >
-          {data.relatedSupplies.map((supply) => (
-            <ProductCard key={supply.id} product={supply} />
-          ))}
-        </EntityLinkBlock>
-      )}
+          {product.product_type === "handmade" && (
+            <EntityLinkBlock
+              title="Relevante benodigdheden"
+              isEmpty={data.relatedSupplies.length === 0}
+              emptyMessage="Nog geen relevante benodigdheden."
+            >
+              {data.relatedSupplies.map((supply) => (
+                <ProductCard key={supply.id} product={supply} />
+              ))}
+            </EntityLinkBlock>
+          )}
 
-      <EntityLinkBlock
-        title="Gerelateerde artikelen"
-        isEmpty={data.relatedArticles.length === 0}
-        emptyMessage="Geen gerelateerde artikelen."
-      >
-        {data.relatedArticles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
-        ))}
-      </EntityLinkBlock>
+          <EntityLinkBlock
+            title="Gerelateerde artikelen"
+            isEmpty={data.relatedArticles.length === 0}
+            emptyMessage="Geen gerelateerde artikelen."
+          >
+            {data.relatedArticles.map((article) => (
+              <ArticleCard key={article.id} article={article} />
+            ))}
+          </EntityLinkBlock>
 
-      <EntityLinkBlock
-        title="Gerelateerde evenementen"
-        isEmpty={data.relatedEvents.length === 0}
-        emptyMessage="Geen gerelateerde evenementen."
-      >
-        {data.relatedEvents.map((event) => (
-          <EventCard key={event.id} event={event} />
-        ))}
-      </EntityLinkBlock>
+          <EntityLinkBlock
+            title="Gerelateerde evenementen"
+            isEmpty={data.relatedEvents.length === 0}
+            emptyMessage="Geen gerelateerde evenementen."
+          >
+            {data.relatedEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </EntityLinkBlock>
+        </div>
+
+        {/* Sticky buy card */}
+        <aside className="lg:sticky lg:top-20">
+          <ProductBuyCard
+            product={product}
+            creator={creator}
+            price={price}
+            variants={variants}
+            isFavorite={productIsFavorite}
+          />
+        </aside>
+      </div>
     </PageLayout>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+        {children}
+      </h2>
+      <span className="h-px flex-1 bg-[var(--border)]" />
+    </div>
   );
 }
