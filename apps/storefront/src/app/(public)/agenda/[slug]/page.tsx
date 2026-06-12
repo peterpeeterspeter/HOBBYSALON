@@ -1,15 +1,18 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Calendar, Clock, MapPin, Tag } from "lucide-react";
 import { getEventPageData } from "@/lib/services/event-page";
-import { CreatorCard, ProductCard, WorkshopCard, ArticleCard } from "@/components/cards";
+import {
+  CreatorCard,
+  ProductCard,
+  WorkshopCard,
+  ArticleCard,
+  EventCard,
+} from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { EventTicketCard } from "@/components/events/EventTicketCard";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { PageLayout } from "@/components/layout/page-layout";
-import { SplitLayout } from "@/components/layout/split-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
-import { CardShell } from "@/components/ui/card-shell";
-import { AspectImage } from "@/components/ui/aspect-image";
-import { PriceDisplay } from "@/components/domain/price-display";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -25,11 +28,29 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   workshop_day: "Workshopdag",
 };
 
-function formatEventDate(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    dateStyle: "long",
-    timeStyle: "short",
-  }).format(new Date(iso));
+const dateFmt = new Intl.DateTimeFormat("nl-NL", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+const dayMonthFmt = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long" });
+const timeFmt = new Intl.DateTimeFormat("nl-NL", { hour: "2-digit", minute: "2-digit" });
+
+function formatDateParts(startsAt: string, endsAt: string) {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  const sameDay = start.toDateString() === end.toDateString();
+  const sameYear = start.getFullYear() === end.getFullYear();
+
+  const dateLabel = sameDay
+    ? dateFmt.format(start)
+    : `${sameYear ? dayMonthFmt.format(start) : dateFmt.format(start)} – ${dateFmt.format(end)}`;
+
+  return {
+    dateLabel,
+    timeLabel: `${timeFmt.format(start)} – ${timeFmt.format(end)}`,
+    isMultiDay: !sameDay,
+  };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -59,11 +80,23 @@ export default async function EventPage({ params }: Props) {
     workshops,
     relatedProducts,
     relatedArticles,
-  } =
-    data;
+    relatedEvents,
+  } = data;
+
   const user = await getAuthUser();
   const eventIsFavorite = user ? await isFavorite(user.id, "event", event.id) : false;
+
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
+  const { dateLabel, timeLabel, isMultiDay } = formatDateParts(
+    event.starts_at,
+    event.ends_at
+  );
+  const locationLabel = event.location_name ?? event.city ?? null;
+  const isFree = event.ticket_price_cents == null || event.ticket_price_cents <= 0;
+  const priceLabel = isFree
+    ? "Gratis toegang"
+    : `€${((event.ticket_price_cents as number) / 100).toFixed(2)}`;
+
   const eventJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -73,9 +106,7 @@ export default async function EventPage({ params }: Props) {
     endDate: event.ends_at,
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
-    image: event.featured_image_url
-      ? [absoluteUrl(event.featured_image_url)]
-      : undefined,
+    image: event.featured_image_url ? [absoluteUrl(event.featured_image_url)] : undefined,
     location: {
       "@type": "Place",
       name: event.location_name ?? event.title,
@@ -106,160 +137,244 @@ export default async function EventPage({ params }: Props) {
         : undefined,
   };
 
-  const breadcrumbs = [
-    { label: "Home", href: "/" },
-    { label: "Agenda", href: "/agenda" },
-    { label: event.title },
+  const heroTags = [
+    dateLabel,
+    locationLabel,
+    workshops.length > 0
+      ? `${workshops.length} workshop${workshops.length === 1 ? "" : "s"}`
+      : null,
+    priceLabel,
+  ].filter((t): t is string => Boolean(t));
+
+  const infoCells = [
+    { icon: Calendar, label: "Datum", value: dateLabel },
+    {
+      icon: Clock,
+      label: "Tijd",
+      value: isMultiDay ? "Meerdaags evenement" : timeLabel,
+    },
+    locationLabel
+      ? { icon: MapPin, label: "Locatie", value: locationLabel }
+      : null,
+    { icon: Tag, label: "Type", value: typeLabel },
+  ].filter((c): c is { icon: typeof Calendar; label: string; value: string } => c !== null);
+
+  const allCreators = [
+    ...(organizer ? [organizer] : []),
+    ...creators.filter((c) => c.id !== organizer?.id),
   ];
 
   return (
-    <PageLayout
-      breadcrumbs={breadcrumbs}
-      title={event.title}
-      description={event.short_description ?? undefined}
-    >
+    <>
       <JsonLd data={eventJsonLd} />
-      <SplitLayout
-        sidebar={
-          <div className="space-y-4">
-            <AspectImage src={event.featured_image_url} alt={event.title} ratio="video" />
+
+      {/* Hero */}
+      <div className="relative h-[360px] overflow-hidden sm:h-[420px] lg:h-[460px]">
+        {event.featured_image_url ? (
+          <img
+            src={event.featured_image_url}
+            alt={event.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[var(--color-amber-500)] to-[var(--color-amber-700)]" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(77,59,42,0.92)] via-[rgba(77,59,42,0.35)] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0">
+          <div className="mx-auto max-w-6xl px-4 pb-8 sm:pb-9">
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-widest text-[var(--accent-light)]">
+              {typeLabel}
+              {domains.length > 0 && ` · ${domains.map((d) => d.name).join(" · ")}`}
+            </p>
+            <h1 className="max-w-3xl font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[2.75rem]">
+              {event.title}
+            </h1>
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              {heroTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white/90 backdrop-blur-sm"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main layout */}
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 lg:grid-cols-[1fr_360px] lg:items-start">
+        {/* Left column */}
+        <div className="min-w-0">
+          {/* Info bar */}
+          <div className="mb-8 grid grid-cols-2 gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 sm:grid-cols-4 sm:gap-5 sm:px-6">
+            {infoCells.map((cell) => (
+              <div key={cell.label} className="flex items-start gap-2.5">
+                <cell.icon
+                  size={18}
+                  className="mt-0.5 shrink-0 text-[var(--accent)]"
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">
+                    {cell.label}
+                  </p>
+                  <p className="text-[15px] font-semibold leading-snug text-[var(--foreground)]">
+                    {cell.value}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Favorite + address */}
+          <div className="mb-8 flex flex-wrap items-center gap-4">
             <FavoriteToggleButton
               entityType="event"
               entityId={event.id}
               isFavorited={eventIsFavorite}
               nextPath={`/agenda/${event.slug}`}
             />
+            {event.address_line_1 && (
+              <p className="text-sm text-[var(--muted)]">
+                {event.address_line_1}
+                {event.postal_code && event.city
+                  ? `, ${event.postal_code} ${event.city}`
+                  : ""}
+              </p>
+            )}
           </div>
-        }
-      >
-        <CardShell variant="default" padding="lg">
-          <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
-            {typeLabel}
-            {event.city && ` · ${event.city}`}
-          </span>
-          <p className="mt-4 text-lg text-[var(--foreground)]">
-            {formatEventDate(event.starts_at)} – {formatEventDate(event.ends_at)}
-          </p>
-          {event.location_name && (
-            <p className="mt-2 text-[var(--muted)]">
-              Locatie: {event.location_name}
-            </p>
-          )}
-          {event.address_line_1 && (
-            <p className="text-[var(--muted)]">
-              {event.address_line_1}
-              {event.postal_code && event.city && (
-                <>, {event.postal_code} {event.city}</>
-              )}
-            </p>
-          )}
-          {event.ticket_price_cents != null && event.ticket_price_cents > 0 && (
-            <div className="mt-2 font-semibold text-[var(--foreground)]">
-              Ticket:{" "}
-              <PriceDisplay
-                amount={event.ticket_price_cents}
-                currencyCode={event.currency_code ?? "EUR"}
-                size="md"
-              />
+
+          {/* Description */}
+          {event.description && (
+            <div className="mb-12 max-w-2xl whitespace-pre-wrap text-[17px] leading-relaxed text-[var(--foreground)]">
+              {event.description}
             </div>
           )}
-          {event.ticketing_mode === "external_link" && event.ticket_url && (
-            <a
-              href={event.ticket_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-6 inline-flex rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90"
+
+          {/* Graph: workshops at this event */}
+          {workshops.length > 0 && (
+            <GraphSection
+              tag="Workshops"
+              title="Boekbare workshops op dit evenement"
+              subtitle="Schrijf je vooraf in — plaatsen zijn beperkt."
             >
-              Koop tickets
-            </a>
+              <GridLayout cols={2} gap="md">
+                {workshops.map((w) => (
+                  <WorkshopCard key={w.id} workshop={w} />
+                ))}
+              </GridLayout>
+            </GraphSection>
           )}
-          {event.description && (
-            <p className="mt-4 whitespace-pre-wrap text-[var(--foreground)]">
-              {event.description}
-            </p>
+
+          {/* Graph: creators attending */}
+          {allCreators.length > 0 && (
+            <GraphSection
+              tag="Creators"
+              title="Makers & workshopgevers aanwezig"
+              subtitle="Ontmoet je favoriete creators en ontdek nieuwe makers."
+              seeAllHref="/creators"
+            >
+              <GridLayout cols={4} gap="md">
+                {allCreators.map((c) => (
+                  <CreatorCard key={c.id} creator={c} />
+                ))}
+              </GridLayout>
+            </GraphSection>
           )}
-        </CardShell>
-      </SplitLayout>
 
-      {domains.length > 0 && (
-        <CardShell variant="default" padding="md" className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Domeinen
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {domains.map((d) => (
-              <Link
-                key={d.id}
-                href={`/${d.slug}`}
-                className="rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm text-[var(--foreground)] hover:border-[var(--accent)]"
-              >
-                {d.name}
-              </Link>
-            ))}
-          </div>
-        </CardShell>
-      )}
+          {/* Graph: products */}
+          {relatedProducts.length > 0 && (
+            <GraphSection
+              tag="Marktplaats"
+              title="Producten van exposerende makers"
+              subtitle="Bestel alvast online of koop ter plaatse aan de stands."
+              seeAllHref="/materials"
+            >
+              <GridLayout cols={4} gap="md">
+                {relatedProducts.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
 
-      {organizer && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Organisator
-          </h2>
-          <CreatorCard creator={organizer} className="max-w-md" />
-        </section>
-      )}
+          {/* Graph: articles */}
+          {relatedArticles.length > 0 && (
+            <GraphSection tag="Artikelen" title="Inspiratie & voorbereiding">
+              <GridLayout cols={3} gap="md">
+                {relatedArticles.map((a) => (
+                  <ArticleCard key={a.id} article={a} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
 
-      {creators.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Deelnemende makers
-          </h2>
-          <GridLayout cols={3}>
-            {creators.map((creator) => (
-              <CreatorCard key={creator.id} creator={creator} />
-            ))}
-          </GridLayout>
-        </section>
-      )}
+          {/* Graph: related events */}
+          {relatedEvents.length > 0 && (
+            <GraphSection
+              tag="Agenda"
+              title="Andere evenementen in de buurt"
+              seeAllHref="/agenda"
+            >
+              <GridLayout cols={3} gap="md">
+                {relatedEvents.map((e) => (
+                  <EventCard key={e.id} event={e} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
+        </div>
 
-      {workshops.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Workshops op dit evenement
-          </h2>
-          <GridLayout cols={3}>
-            {workshops.map((workshop) => (
-              <WorkshopCard key={workshop.id} workshop={workshop} />
-            ))}
-          </GridLayout>
-        </section>
-      )}
+        {/* Right column: ticket card */}
+        <div>
+          <EventTicketCard
+            event={event}
+            dateRangeLabel={dateLabel}
+            locationLabel={locationLabel}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
 
-      {relatedProducts.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Uitgelichte producten
-          </h2>
-          <GridLayout cols={3}>
-            {relatedProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </GridLayout>
-        </section>
-      )}
-
-      {relatedArticles.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Gerelateerde artikelen
-          </h2>
-          <GridLayout cols={3}>
-            {relatedArticles.map((article) => (
-              <ArticleCard key={article.id} article={article} />
-            ))}
-          </GridLayout>
-        </section>
-      )}
-    </PageLayout>
+function GraphSection({
+  tag,
+  title,
+  subtitle,
+  seeAllHref,
+  children,
+}: {
+  tag: string;
+  title: string;
+  subtitle?: string;
+  seeAllHref?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mb-12">
+      <div className="mb-1.5 flex items-center gap-3">
+        <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
+          {tag}
+        </span>
+        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+          {title}
+        </h2>
+        <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
+        {seeAllHref && (
+          <Link
+            href={seeAllHref}
+            className="shrink-0 text-sm font-semibold text-[var(--accent)] hover:underline"
+          >
+            Bekijk alles →
+          </Link>
+        )}
+      </div>
+      {subtitle && <p className="mb-5 text-[15px] text-[var(--muted)]">{subtitle}</p>}
+      {!subtitle && <div className="mb-5" />}
+      {children}
+    </section>
   );
 }
