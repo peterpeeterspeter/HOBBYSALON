@@ -135,3 +135,62 @@ export async function listAllCreators(
     return a.display_name.localeCompare(b.display_name);
   });
 }
+
+export type CreatorWithStats = Creator & {
+  workshop_count: number;
+  primary_domain_name: string | null;
+};
+
+/**
+ * Enriches a small set of creators (e.g. the homepage spotlight) with two graph
+ * signals shown in the design: a primary hobby domain and an active-workshop
+ * count. Uses batched `in (...)` queries — no per-creator round-trips.
+ */
+export async function enrichCreatorsWithStats(
+  creators: Creator[]
+): Promise<CreatorWithStats[]> {
+  if (creators.length === 0) return [];
+  const supabase = createPlatformClient();
+  const ids = creators.map((c) => c.id);
+
+  const [{ data: workshopRows }, { data: domainLinks }] = await Promise.all([
+    supabase
+      .from("workshops")
+      .select("creator_id")
+      .in("creator_id", ids)
+      .eq("is_active", true),
+    supabase.from("creator_domains").select("creator_id, domain_id").in("creator_id", ids),
+  ]);
+
+  const workshopCount = new Map<string, number>();
+  (workshopRows ?? []).forEach((row: { creator_id: string }) => {
+    workshopCount.set(row.creator_id, (workshopCount.get(row.creator_id) ?? 0) + 1);
+  });
+
+  const domainIds = [
+    ...new Set((domainLinks ?? []).map((l: { domain_id: string }) => l.domain_id)),
+  ];
+  const domainNameById = new Map<string, string>();
+  if (domainIds.length > 0) {
+    const { data: domains } = await supabase
+      .from("domains")
+      .select("id, name")
+      .in("id", domainIds);
+    (domains ?? []).forEach((d: { id: string; name: string }) =>
+      domainNameById.set(d.id, d.name)
+    );
+  }
+
+  const primaryDomain = new Map<string, string>();
+  (domainLinks ?? []).forEach((l: { creator_id: string; domain_id: string }) => {
+    if (primaryDomain.has(l.creator_id)) return;
+    const name = domainNameById.get(l.domain_id);
+    if (name) primaryDomain.set(l.creator_id, name);
+  });
+
+  return creators.map((creator) => ({
+    ...creator,
+    workshop_count: workshopCount.get(creator.id) ?? 0,
+    primary_domain_name: primaryDomain.get(creator.id) ?? null,
+  }));
+}

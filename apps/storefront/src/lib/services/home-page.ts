@@ -1,6 +1,10 @@
 import { unstable_cache } from "next/cache";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
-import { listFeaturedCreators } from "@/lib/platform/queries/creators";
+import {
+  listFeaturedCreators,
+  enrichCreatorsWithStats,
+  type CreatorWithStats,
+} from "@/lib/platform/queries/creators";
 import { listFeaturedProducts } from "@/lib/platform/queries/products";
 import { listUpcomingWorkshops } from "@/lib/platform/queries/workshops";
 import { listEvents } from "@/lib/platform/queries/events";
@@ -15,7 +19,6 @@ import { getMedusaProductsByIds } from "@/lib/commerce/medusa/products";
 import { logServerPerf, timeAsync } from "@/lib/perf/server-timing";
 import type {
   Domain,
-  Creator,
   Workshop,
   Event,
   Article,
@@ -34,7 +37,7 @@ export type HomePageData = {
   featuredSupplies: ProductWithPrice[];
   upcomingEvents: Event[];
   latestArticles: Article[];
-  creatorsOfTheMonth: Creator[];
+  creatorsOfTheMonth: CreatorWithStats[];
   featuredProjects: Project[];
   recommendedProjects: RecommendedProject[];
   recommendationSource: RecommendationSource;
@@ -101,12 +104,13 @@ const getHomePageDataCached = unstable_cache(
   );
 
   const {
-    result: [handmadeWithPrices, suppliesWithPrices],
+    result: [handmadeWithPrices, suppliesWithPrices, creatorsWithStats],
     durationMs: pricingMs,
   } = await timeAsync(() =>
     Promise.all([
       enrichProductsWithPrices(featuredHandmade),
       enrichProductsWithPrices(featuredSupplies),
+      enrichCreatorsWithStats(creatorsOfTheMonth),
     ])
   );
 
@@ -124,7 +128,7 @@ const getHomePageDataCached = unstable_cache(
     featuredSupplies: suppliesWithPrices,
     upcomingEvents,
     latestArticles,
-    creatorsOfTheMonth,
+    creatorsOfTheMonth: creatorsWithStats,
     featuredProjects,
     recommendedProjects: recommendationResult.projects,
     recommendationSource: recommendationResult.source,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ShoppingCart, Heart, ChevronDown, Search } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
+import { buttonVariants } from "@/components/ui/button";
 import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { hasAuthSessionCookie } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
@@ -53,7 +54,31 @@ export async function Header() {
           />
         </Link>
 
-        {/* Main nav (left): Workshops, Agenda, Materialen, Creators — permanent visible from md up */}
+        {/* Search — left-aligned next to the logo; grows to push the nav to the right */}
+        <div className="min-w-0 flex-1">
+          <form
+            action="/zoeken"
+            role="search"
+            className="hidden max-w-[480px] md:block"
+          >
+            <div className="relative">
+              <Search
+                size={18}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+              />
+              <input
+                type="search"
+                name="q"
+                placeholder="Zoek workshops, makers, materialen..."
+                aria-label="Zoeken"
+                className="h-10 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+              />
+            </div>
+          </form>
+        </div>
+
+        {/* Main nav (right): Workshops, Agenda, Materialen, Creators */}
         <nav
           className="hidden items-center gap-0.5 md:flex"
           aria-label="Hoofdnavigatie"
@@ -65,32 +90,8 @@ export async function Header() {
           ))}
         </nav>
 
-        {/* Search (doubles as flexible spacer) */}
-        <div className="min-w-0 flex-1">
-          <form
-            action="/zoeken"
-            role="search"
-            className="mx-auto hidden max-w-md md:block"
-          >
-            <div className="relative">
-              <Search
-                size={18}
-                aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-              />
-              <input
-                type="search"
-                name="q"
-                placeholder="Zoek workshops, materialen, creators..."
-                aria-label="Zoeken"
-                className="h-10 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
-              />
-            </div>
-          </form>
-        </div>
-
-        {/* Right: cart, favorites, account (guests: Registreer/Log in | logged-in: Profiel dropdown) */}
-        <div className="flex items-center gap-0.5">
+        {/* Right: cart, favorites, auth (guests: Aanmelden/Registreren buttons | logged-in: Profiel) */}
+        <div className="flex items-center gap-2">
           <Link href="/cart" className={iconBtnClass} aria-label="Winkelwagen">
             <ShoppingCart size={20} aria-hidden />
           </Link>
@@ -100,14 +101,20 @@ export async function Header() {
           {hasSession ? (
             <ProfileDropdown navLinkClass={navLinkClass} logoutAction={logoutAction} />
           ) : (
-            <>
-              <Link href="/register" className={`${navLinkClass} hidden md:inline-flex`}>
-                Registreer
+            <div className="hidden items-center gap-2 md:flex">
+              <Link
+                href="/login"
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
+              >
+                Aanmelden
               </Link>
-              <Link href="/login" className={`${navLinkClass} hidden md:inline-flex`}>
-                Inloggen
+              <Link
+                href="/register"
+                className={buttonVariants({ variant: "primary", size: "sm" })}
+              >
+                Registreren
               </Link>
-            </>
+            </div>
           )}
           <MobileMenu
             mainLinks={[...STATIC_LINKS.main]}
