@@ -70,7 +70,7 @@ export async function Header() {
               <input
                 type="search"
                 name="q"
-                placeholder="Zoek workshops, makers, materialen..."
+                placeholder="Zoek workshops, makers, materialen en creatieve inspiratie..."
                 aria-label="Zoeken"
                 className="h-10 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
               />

@@ -10,15 +10,23 @@ type Domain = {
 
 type DomainBarProps = {
   domains: Domain[];
+  /** Optional heading rendered above the pill row (e.g. "Kies je creatieve hobby"). */
+  title?: string;
 };
 
-function DomainBar({ domains }: DomainBarProps) {
+function DomainBar({ domains, title }: DomainBarProps) {
   if (!domains.length) return null;
 
   return (
     <div className="border-b border-[var(--border)] bg-[var(--card)]">
-      <div className="mx-auto flex max-w-6xl gap-2.5 overflow-x-auto px-4 py-3 scrollbar-hide snap-x">
-        {domains.map((domain) => (
+      <div className="mx-auto max-w-6xl px-4 py-3">
+        {title && (
+          <h2 className="mb-2.5 font-[family-name:var(--font-heading)] text-sm font-semibold text-[var(--foreground)]">
+            {title}
+          </h2>
+        )}
+        <div className="flex gap-2.5 overflow-x-auto scrollbar-hide snap-x">
+          {domains.map((domain) => (
           <Link
             key={domain.id}
             href={`/${domain.slug}`}
@@ -32,7 +40,8 @@ function DomainBar({ domains }: DomainBarProps) {
             />
             <span>{domain.name}</span>
           </Link>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

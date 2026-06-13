@@ -37,7 +37,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       imageUrl:
         featuredProduct.featured_image_url ?? LANDING_IMAGES.placeholderProduct,
       href: `/product/${featuredProduct.slug}`,
-      label: "Benodigdheden",
+      label: "Materialen & handgemaakt",
     });
   }
 
@@ -66,7 +66,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       imageUrl:
         creator.banner_url ?? creator.avatar_url ?? LANDING_IMAGES.placeholderCreator,
       href: `/creator/${creator.slug}`,
-      label: "Creator",
+      label: "Maker in de kijker",
     });
   }
 
@@ -108,7 +108,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       description: project.short_description,
       imageUrl: project.featured_image_url ?? LANDING_IMAGES.placeholderProject,
       href: `/project/${project.slug}`,
-      label: "Project",
+      label: "Project om te starten",
     });
   }
 
