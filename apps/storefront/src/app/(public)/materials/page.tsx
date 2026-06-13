@@ -239,29 +239,33 @@ export default async function MaterialsMarketplacePage({
     });
   }
 
+  const activeCategoryLabel = categoryFilter
+    ? (categoryNameFilter ??
+        categoryOptions.find((c) => c.id === categoryFilter)?.name ??
+        "Categorie")
+    : null;
+
   return (
-    <Container className="py-8">
-      <header className="mb-6">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-          Hobbymaterialen
-        </h1>
-        <p className="mt-1 text-lg text-[var(--muted)]">
-          Materialen van makers en leveranciers — direct bestellen, snel in huis.
-        </p>
-        {locationPreference.hasPreference && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
-              Lokale prioriteit: {locationPreference.label}
+    <Container className="py-6">
+      {/* Breadcrumb */}
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]"
+      >
+        <Link href="/" className="transition-colors hover:text-[var(--accent)]">
+          Hobbysalon
+        </Link>
+        <span aria-hidden>›</span>
+        <span className="font-semibold text-[var(--foreground)]">Hobbymaterialen</span>
+        {activeCategoryLabel && (
+          <>
+            <span aria-hidden>›</span>
+            <span className="font-semibold text-[var(--foreground)]">
+              {activeCategoryLabel}
             </span>
-            <Link
-              href="/materials"
-              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              Reset filters
-            </Link>
-          </div>
+          </>
         )}
-      </header>
+      </nav>
 
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
         <MaterialsSidebar
@@ -278,6 +282,29 @@ export default async function MaterialsMarketplacePage({
         />
 
         <div className="min-w-0 flex-1">
+          {/* Page header — inside the main column, beside the sidebar (per design) */}
+          <header className="mb-5">
+            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+              {activeCategoryLabel ?? "Hobbymaterialen"}
+            </h1>
+            <p className="mt-1 text-[15px] text-[var(--muted)]">
+              Materialen van makers en leveranciers — direct bestellen, snel in huis.
+            </p>
+            {locationPreference.hasPreference && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
+                  Lokale prioriteit: {locationPreference.label}
+                </span>
+                <Link
+                  href="/materials"
+                  className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+                >
+                  Reset filters
+                </Link>
+              </div>
+            )}
+          </header>
+
           <CategoryCircles
             domains={domains}
             activeDomain={params.domain}

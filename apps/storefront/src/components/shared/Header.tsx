@@ -53,7 +53,7 @@ export async function Header() {
           />
         </Link>
 
-        {/* Main nav (left): Hobbymaterialen, Workshops, Agenda, Per Hobby, Inspiratie - permanent visible from md up */}
+        {/* Main nav (left): Workshops, Agenda, Materialen, Creators — permanent visible from md up */}
         <nav
           className="hidden items-center gap-0.5 md:flex"
           aria-label="Hoofdnavigatie"
@@ -63,16 +63,6 @@ export async function Header() {
               {link.label}
             </NavLink>
           ))}
-          <Dropdown
-            label="Per Hobby"
-            links={domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name }))}
-            navLinkClass={navLinkClass}
-          />
-          <Dropdown
-            label="Inspiratie"
-            links={[...STATIC_LINKS.inspiratie]}
-            navLinkClass={navLinkClass}
-          />
         </nav>
 
         {/* Search (doubles as flexible spacer) */}
@@ -131,39 +121,6 @@ export async function Header() {
         </div>
       </div>
     </header>
-  );
-}
-
-function Dropdown({
-  label,
-  links,
-  navLinkClass,
-}: {
-  label: string;
-  links: Array<{ href: string; label: string }>;
-  navLinkClass: string;
-}) {
-  if (links.length === 0) return null;
-  return (
-    <details className="group relative">
-      <summary className={`${navLinkClass} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}>
-        {label}
-        <ChevronDown size={16} aria-hidden className="ml-0.5 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="absolute left-0 top-full z-50 mt-0.5 min-w-[200px] rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 shadow-lg">
-        <div className="grid grid-cols-2 gap-0.5 px-1 sm:grid-cols-3">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </details>
   );
 }
 

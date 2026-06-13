@@ -5,9 +5,10 @@
 
 export const STATIC_LINKS = {
   main: [
-    { href: "/materials", label: "Hobbymaterialen" },
     { href: "/workshops", label: "Workshops" },
     { href: "/agenda", label: "Agenda" },
+    { href: "/materials", label: "Materialen" },
+    { href: "/creators", label: "Creators" },
   ],
   inspiratie: [
     { href: "/tools", label: "Tools" },
