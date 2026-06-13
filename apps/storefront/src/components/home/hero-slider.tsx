@@ -27,8 +27,8 @@ const TYPE_SECONDARY_HREF: Record<HeroSlide["type"], string> = {
 const TYPE_SECONDARY_LABEL: Record<HeroSlide["type"], string> = {
   workshop: "Ontdek alle workshops",
   event: "Bekijk de agenda",
-  product: "Naar de marketplace",
-  creator: "Alle creators",
+  product: "Naar de marktplaats",
+  creator: "Alle makers",
   article: "Lees meer artikelen",
   project: "Ontdek workshops",
 };

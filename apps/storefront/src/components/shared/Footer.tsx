@@ -29,7 +29,7 @@ export async function Footer() {
             />
           </Link>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/50">
-            Dé creatieve marketplace voor workshops, handwerk en hobby-inspiratie in België en Nederland.
+            Dé creatieve marketplace voor workshops, handwerk, materialen en hobby-inspiratie in België en Nederland.
           </p>
         </div>
 

@@ -13,7 +13,7 @@ import {
 import { CreatorsSidebar } from "@/components/creators/CreatorsSidebar";
 
 export const metadata: Metadata = {
-  title: "Creators | Hobbysalon",
+  title: "Makers | Hobbysalon",
   description: "Ontdek makers, leveranciers en workshopleiders",
 };
 
@@ -100,7 +100,7 @@ export default async function CreatorsPage({
     <Container className="py-8">
       <header className="mb-6">
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-          Creators
+          Makers
         </h1>
         <p className="mt-1 text-lg text-[var(--muted)]">
           Makers, leveranciers en workshopgevers van de Hobbysalon community.

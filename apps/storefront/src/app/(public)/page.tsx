@@ -113,11 +113,6 @@ export default async function HomePage() {
 
   return (
     <>
-      <h1 className="sr-only">Welkom bij Hobbysalon</h1>
-      <p className="sr-only">
-        Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
-      </p>
-
       <TrackOnMount
         event="home_recommendations_viewed"
         payload={{
@@ -128,12 +123,42 @@ export default async function HomePage() {
         }}
       />
 
-      {/* ─── Hero ─── */}
-      <HeroSlider slides={heroSlides} autoplayIntervalMs={6000} />
+      {/* ─── Hero intro — visible headline + lead ─── */}
+      <section className="bg-[var(--background)]">
+        <Container>
+          <div className="mx-auto max-w-3xl py-10 text-center md:py-14">
+            <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight text-[var(--foreground)] md:text-4xl lg:text-[2.75rem]">
+              Ontdek creatieve workshops, makers en materialen
+            </h1>
+            <p className="mt-4 text-base leading-relaxed text-[var(--muted)] md:text-lg">
+              Hobbysalon brengt creatieve hobbyisten, workshopgevers en makers
+              samen op één plek. Vind workshops in jouw buurt, koop unieke
+              handgemaakte producten, ontdek materialen en laat je inspireren door
+              tutorials en projecten.
+            </p>
+          </div>
+        </Container>
+      </section>
 
-      {/* ─── Domain bar — sticky pill navigation between hero and content ─── */}
+      {/* ─── Populair op Hobbysalon — uitgelichte highlights ─── */}
+      <section aria-labelledby="home-highlights">
+        <Container>
+          <h2
+            id="home-highlights"
+            className="mb-4 font-[family-name:var(--font-heading)] text-sm font-bold uppercase tracking-wider text-[var(--accent)]"
+          >
+            Populair op Hobbysalon
+          </h2>
+        </Container>
+        <HeroSlider slides={heroSlides} autoplayIntervalMs={6000} />
+      </section>
+
+      {/* ─── Domain bar — "Kies je creatieve hobby" pill navigation ─── */}
       {data.popularDomains.length > 0 && (
-        <DomainBar domains={data.popularDomains} />
+        <DomainBar
+          domains={data.popularDomains}
+          title="Kies je creatieve hobby"
+        />
       )}
 
       {/* ─── Workshops ─── */}
@@ -160,8 +185,8 @@ export default async function HomePage() {
         <Section variant="alt" spacing="md">
           <Container>
             <SectionHeader
-              title="Handgemaakte spullen &amp; materialen"
-              description="Unieke producten van Belgische en Nederlandse makers"
+              title="Handgemaakte spullen &amp; creatieve materialen"
+              description="Ontdek unieke producten, materialen en creaties van Belgische en Nederlandse makers. Van handgemaakte kaarten tot keramiek, wol, accessoires en afgewerkte hobbyprojecten."
               href="/materials"
               linkText="Bekijk de marktplaats"
             />
@@ -176,14 +201,15 @@ export default async function HomePage() {
         </Section>
       )}
 
-      {/* ─── Creators van de maand — 4-col centered grid ─── */}
+      {/* ─── Makers van de maand — 4-col centered grid ─── */}
       {data.creatorsOfTheMonth.length > 0 && (
         <Section spacing="md">
           <Container>
             <SectionHeader
-              title="Creators van de maand"
+              title="Makers van de maand"
+              description="Ontdek creatieve makers, workshopgevers en kleine ateliers uit België en Nederland."
               href="/creators"
-              linkText="Bekijk alle creators"
+              linkText="Bekijk alle makers"
             />
             <GridLayout cols={4} gap="md">
               {data.creatorsOfTheMonth.slice(0, 4).map((creator) => (
@@ -214,7 +240,7 @@ export default async function HomePage() {
           <Container>
             <SectionHeader
               title="Inspiratie &amp; tutorials"
-              description="Gratis tutorials met materialen die je meteen kunt bestellen"
+              description="Gratis tutorials, patronen en creatieve gidsen. Start meteen met een nieuw project en bestel de materialen die je nodig hebt."
               href="/gratis-haakpatronen"
               linkText="Bekijk alle artikelen"
             />
@@ -261,12 +287,12 @@ export default async function HomePage() {
               title={
                 data.recommendationSource === "personalized"
                   ? "Aanbevolen voor jou"
-                  : "Populaire projecten om te starten"
+                  : "Populaire projecten om direct te starten"
               }
               description={
                 data.recommendationSource === "personalized"
                   ? "Gebaseerd op je profielinteresses, favorieten en recente interacties."
-                  : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."
+                  : "Projecten gebaseerd op populaire hobby's, actuele activiteit en inspiratie van Hobbysalon-makers."
               }
             />
             <GridLayout cols={3}>
@@ -287,7 +313,7 @@ export default async function HomePage() {
       {data.featuredProjects.length > 0 && (
         <Section variant="alt" spacing="md">
           <Container>
-            <SectionHeader title="Projecten om direct te starten" />
+            <SectionHeader title="Uitgelichte projecten" />
             <GridLayout cols={4}>
               {data.featuredProjects.map((project) => (
                 <ProjectCard key={project.id} project={project} />
@@ -300,8 +326,8 @@ export default async function HomePage() {
       {/* ─── CTA Banner — dark background, full-bleed ─── */}
       <CTABanner
         variant="dark"
-        title="Word creator op Hobbysalon"
-        description="Verkoop je handgemaakt werk, geef workshops of deel je inspiratie met duizenden hobbyisten."
+        title="Word maker op Hobbysalon"
+        description="Verkoop je handgemaakte werk, geef workshops of deel je creatieve inspiratie met duizenden hobbyisten in België en Nederland."
         href="/register"
         ctaText="Start als workshopgever"
         secondaryHref="/register"
