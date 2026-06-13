@@ -35,11 +35,11 @@ export async function Footer() {
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div>
               <h3 className="text-2xl font-bold text-white font-[family-name:var(--font-heading)]">
-                Blijf creatief geïnspireerd
+                Blijf op de hoogte
               </h3>
               <p className="mt-2 text-base text-white/85 leading-relaxed max-w-md">
-                Ontvang wekelijks handgeplukte workshops, events en makers in je inbox.
-                Geen spam, alleen inspiratie.
+                Elke week nieuwe patronen, workshops en makers in je mailbox.
+                Sluit je aan bij 50.000+ creatieve hobbyisten.
               </p>
             </div>
             <div>
@@ -65,10 +65,11 @@ export async function Footer() {
                 />
               </Link>
               <p className="mt-3 text-sm text-[var(--muted)]">
-                Creatief platform voor hobbyisten — handmade, workshops en events.
+                Sinds de jaren &apos;90 dé plek voor creatieve hobbyisten in België en Nederland.
+                Workshops, gratis patronen en een community van 50.000+ makers.
               </p>
               <p className="mt-2 text-xs italic text-[var(--muted)]/70 font-[family-name:var(--font-heading)]">
-                Handgemaakt met liefde in Belgi&euml;
+                Handgemaakt met liefde in Belgi&euml; &amp; Nederland
               </p>
             </div>
 

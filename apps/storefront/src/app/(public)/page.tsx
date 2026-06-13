@@ -16,9 +16,9 @@ import { buildPageMetadata } from "@/lib/seo";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 
 export const metadata = buildPageMetadata({
-  title: "Hobbysalon | Creatieve hobby community",
+  title: "Hobbysalon — Creatieve hobby's, workshops & handgemaakt",
   description:
-    "Ontdek handgemaakte producten, benodigdheden, workshops, events en inspiratie op Hobbysalon.",
+    "Sinds de jaren '90 dé plek voor creatieve hobbyisten in België en Nederland. Ontdek workshops, gratis patronen, handgemaakte producten en een community van 50.000+ makers.",
   path: "/",
 });
 export const revalidate = 300;
@@ -75,22 +75,23 @@ export default async function HomePage() {
           user_id: data.viewerUserId,
         }}
       />
-      <h1 className="sr-only">Welkom bij Hobbysalon</h1>
+      <h1 className="sr-only">Hobbysalon — Dé creatieve community voor hobbyisten in België en Nederland</h1>
       <p className="sr-only">
-        Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
+        Sinds de jaren &apos;90 brengen we creatieve mensen samen. Ontdek gratis patronen,
+        workshops bij jou in de buurt, handgemaakte producten en duizenden inspirerende artikelen.
       </p>
 
       {/* ─── Marketplace — featured hero + grid ─── */}
       <Section spacing="lg">
         <Container>
           <SectionHeader
-            title="Marketplace"
-            description="Ontdek handgemaakt werk van creators en materiaal van hobbywinkels."
+            title="Handgemaakt & materialen"
+            description="Van makers uit België en Nederland — direct te bestellen of op te halen."
           />
 
           {/* Handmade: 1 featured large + 3 regular */}
           <div className="mt-6">
-            <SectionHeader subtle title="Uitgelicht handgemaakt" />
+            <SectionHeader subtle title="Uitgelicht handgemaakt werk" />
             {heroHandmade ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {/* Featured large card spanning 2 cols */}
@@ -114,9 +115,9 @@ export default async function HomePage() {
           <div className="mt-10">
             <SectionHeader
               subtle
-              title="Uitgelichte benodigdheden"
+              title="Benodigdheden & garen"
               href="/materials"
-              linkText="Naar materials marketplace"
+              linkText="Bekijk alle materialen"
             />
             <GridLayout cols={4}>
               {data.featuredSupplies.map((product) => (
@@ -130,7 +131,7 @@ export default async function HomePage() {
       {/* ─── Populaire domeinen — horizontal pills ─── */}
       <Section variant="alt" spacing="md">
         <Container>
-          <SectionHeader title="Populaire domeinen" />
+          <SectionHeader title="Kies je hobby" />
           <DomainPills domains={data.popularDomains} />
         </Container>
       </Section>
@@ -140,9 +141,9 @@ export default async function HomePage() {
         <Container>
           <CTABanner
             title="Word creator op Hobbysalon"
-            description="Verkoop je handgemaakt werk, geef workshops of deel je inspiratie met duizenden hobbyisten."
+            description="Verkoop je handgemaakte werk, geef workshops of deel je patronen met onze community van 50.000+ hobbyisten."
             href="/register"
-            ctaText="Start als creator"
+            ctaText="Gratis starten"
             variant="warm"
           />
         </Container>
@@ -155,12 +156,12 @@ export default async function HomePage() {
             title={
               data.recommendationSource === "personalized"
                 ? "Aanbevolen voor jou"
-                : "Populaire projecten om te starten"
+                : "Populair bij onze community"
             }
             description={
               data.recommendationSource === "personalized"
-                ? "Gebaseerd op je profielinteresses, favorieten, domeingedrag en recente interacties."
-                : "Gebaseerd op domeinpopulariteit en actuele activiteit op Hobbysalon."
+                ? "Gebaseerd op je favorieten en interesses."
+                : "De projecten waar nu het meest mee gestart wordt."
             }
           />
           {data.recommendedProjects.length > 0 ? (
@@ -176,7 +177,7 @@ export default async function HomePage() {
             <EmptyState
               compact
               title="Nog geen aanbevelingen"
-              description="Voeg interesses toe in je profiel en markeer favorieten om persoonlijke aanbevelingen te ontvangen."
+              description="Maak een account aan en markeer je favorieten voor persoonlijke tips."
             />
           )}
         </Container>
@@ -185,7 +186,7 @@ export default async function HomePage() {
       {/* ─── Workshops — featured banner + cards ─── */}
       <Section spacing="md" divider>
         <Container>
-          <SectionHeader title="Aankomende workshops" href="/workshops" />
+          <SectionHeader title="Workshops bij jou in de buurt" href="/workshops" />
 
           {heroWorkshop ? (
             <div className="space-y-6">
@@ -223,7 +224,7 @@ export default async function HomePage() {
       {/* ─── Agenda — featured banner + cards ─── */}
       <Section variant="alt" spacing="md">
         <Container>
-          <SectionHeader title="Agenda" href="/agenda" />
+          <SectionHeader title="Evenementen & beurzen" href="/agenda" />
 
           {heroEvent ? (
             <div className="space-y-6">
@@ -262,9 +263,9 @@ export default async function HomePage() {
       <Section spacing="md">
         <Container>
           <SectionHeader
-            title="Inspiratieartikelen"
+            title="Inspiratie & gratis patronen"
             href="/gratis-haakpatronen"
-            linkText="Gratis NL haakpatronen"
+            linkText="Alle gratis patronen"
           />
           <ArticleFeature articles={data.latestArticles} />
         </Container>
@@ -274,10 +275,10 @@ export default async function HomePage() {
       <Section spacing="sm">
         <Container>
           <CTABanner
-            title="Klaar om te starten?"
-            description="Ontdek stap-voor-stap projecten, van beginners tot gevorderden. Alles wat je nodig hebt op één plek."
+            title="Klaar om iets te maken?"
+            description="Ontdek stap-voor-stap patronen en projecten — van beginner tot expert. Inclusief garenlijst en video-uitleg."
             href="/materials"
-            ctaText="Bekijk projecten"
+            ctaText="Start een project"
             variant="sage"
           />
         </Container>
@@ -286,7 +287,7 @@ export default async function HomePage() {
       {/* ─── Projecten — standard grid ─── */}
       <Section variant="alt" spacing="md">
         <Container>
-          <SectionHeader title="Projecten om direct te starten" />
+          <SectionHeader title="Projecten om nu te beginnen" />
           <GridLayout cols={4}>
             {data.featuredProjects.map((project) => (
               <ProjectCard key={project.id} project={project} />
@@ -298,7 +299,7 @@ export default async function HomePage() {
       {/* ─── Creators — spotlight row ─── */}
       <Section spacing="lg" divider>
         <Container>
-          <SectionHeader title="Creators van de maand" href="/creators" />
+          <SectionHeader title="Makers in de spotlight" href="/creators" />
           <CreatorSpotlight creators={data.creatorsOfTheMonth} />
         </Container>
       </Section>
