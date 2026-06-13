@@ -3,7 +3,6 @@ import { getHomePageData } from "@/lib/services/home-page";
 import { buildHeroSlides } from "@/lib/services/hero-slides";
 import { HeroSlider } from "@/components/home/hero-slider";
 import { DomainBar } from "@/components/home/domain-bar";
-import { FeaturedBanner } from "@/components/home/featured-banner";
 import { CTABanner } from "@/components/home/cta-banner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,7 @@ import { GridLayout } from "@/components/layout/grid-layout";
 import { Section } from "@/components/layout/section";
 import { buildPageMetadata } from "@/lib/seo";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
-import type { Creator } from "@/types/platform";
+import type { CreatorWithStats } from "@/lib/platform/queries/creators";
 
 export const metadata = buildPageMetadata({
   title: "Hobbysalon | Creatieve hobby community",
@@ -38,9 +37,11 @@ const CREATOR_TYPE_LABELS: Record<string, string> = {
   organizer: "Organisator",
 };
 
-function CreatorFeatureCard({ creator }: { creator: Creator }) {
+function CreatorFeatureCard({ creator }: { creator: CreatorWithStats }) {
   const firstType = creator.creator_types?.[0];
-  const typeLabel = firstType ? (CREATOR_TYPE_LABELS[firstType] ?? firstType) : null;
+  const badgeLabel =
+    creator.primary_domain_name ??
+    (firstType ? (CREATOR_TYPE_LABELS[firstType] ?? firstType) : null);
 
   return (
     <Link href={`/creator/${creator.slug}`} className="block">
@@ -54,15 +55,15 @@ function CreatorFeatureCard({ creator }: { creator: Creator }) {
           <p className="font-[family-name:var(--font-heading)] text-base font-semibold text-[var(--foreground)]">
             {creator.display_name}
           </p>
-          {creator.business_name && (
-            <p className="mt-0.5 text-xs text-[var(--muted)] truncate max-w-[160px] mx-auto">
-              {creator.business_name}
-            </p>
-          )}
-          {typeLabel && (
+          {badgeLabel && (
             <div className="mt-2">
-              <Badge variant="domain">{typeLabel}</Badge>
+              <Badge variant="domain">{badgeLabel}</Badge>
             </div>
+          )}
+          {creator.workshop_count > 0 && (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {creator.workshop_count} workshop{creator.workshop_count === 1 ? "" : "s"}
+            </p>
           )}
         </div>
       </CardShell>
@@ -110,9 +111,6 @@ export default async function HomePage() {
     featuredProjects: data.featuredProjects,
   });
 
-  const [heroWorkshop, ...restWorkshops] = data.upcomingWorkshops;
-  const [heroEvent, ...restEvents] = data.upcomingEvents;
-
   return (
     <>
       <h1 className="sr-only">Welkom bij Hobbysalon</h1>
@@ -148,33 +146,11 @@ export default async function HomePage() {
               href="/workshops"
               linkText="Bekijk alle workshops"
             />
-            {heroWorkshop ? (
-              <div className="space-y-6">
-                <FeaturedBanner
-                  title={heroWorkshop.title}
-                  description={heroWorkshop.short_description ?? undefined}
-                  imageUrl={heroWorkshop.featured_image_url}
-                  imageFallback="placeholderWorkshop"
-                  href={`/workshop/${heroWorkshop.slug}`}
-                  badge={heroWorkshop.format_type === "online" ? "Online" : "Fysiek"}
-                  ctaText="Bekijk workshop"
-                  variant="warm"
-                />
-                {restWorkshops.length > 0 && (
-                  <GridLayout cols={4} gap="md">
-                    {restWorkshops.slice(0, 4).map((workshop) => (
-                      <WorkshopCard key={workshop.id} workshop={workshop} />
-                    ))}
-                  </GridLayout>
-                )}
-              </div>
-            ) : (
-              <GridLayout cols={4} gap="md">
-                {data.upcomingWorkshops.slice(0, 4).map((workshop) => (
-                  <WorkshopCard key={workshop.id} workshop={workshop} />
-                ))}
-              </GridLayout>
-            )}
+            <GridLayout cols={4} gap="md">
+              {data.upcomingWorkshops.slice(0, 4).map((workshop) => (
+                <WorkshopCard key={workshop.id} workshop={workshop} />
+              ))}
+            </GridLayout>
           </Container>
         </Section>
       )}
@@ -223,33 +199,11 @@ export default async function HomePage() {
         <Section variant="alt" spacing="md">
           <Container>
             <SectionHeader title="Aankomende evenementen" href="/agenda" linkText="Bekijk de agenda" />
-            {heroEvent ? (
-              <div className="space-y-6">
-                <FeaturedBanner
-                  title={heroEvent.title}
-                  description={heroEvent.short_description ?? undefined}
-                  imageUrl={heroEvent.featured_image_url}
-                  imageFallback="placeholderEvent"
-                  href={`/agenda/${heroEvent.slug}`}
-                  badge={heroEvent.city ?? undefined}
-                  ctaText="Bekijk event"
-                  variant="sage"
-                />
-                {restEvents.length > 0 && (
-                  <GridLayout cols={3} gap="md">
-                    {restEvents.slice(0, 3).map((event) => (
-                      <EventCard key={event.id} event={event} />
-                    ))}
-                  </GridLayout>
-                )}
-              </div>
-            ) : (
-              <GridLayout cols={3} gap="md">
-                {data.upcomingEvents.slice(0, 3).map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </GridLayout>
-            )}
+            <GridLayout cols={3} gap="md">
+              {data.upcomingEvents.slice(0, 3).map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </GridLayout>
           </Container>
         </Section>
       )}
