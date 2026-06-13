@@ -103,6 +103,25 @@ Rules
 	•	Keep public pages indexable and metadata-rich
 	•	Do not build the frontend as a generic dashboard-first SaaS shell
 
+### 3.1 Two seller dashboards
+
+Hobbysalon deliberately splits seller tooling across two surfaces:
+
+| Surface | Host | Stack | Purpose |
+|---------|------|-------|---------|
+| Creator dashboard | `www.hobbysalon.be/dashboard` | Next.js + Supabase | Profile, workshops, events, materials import, platform product discovery |
+| Verkopersportaal | `verkoper.hobbysalon.be` | Mercur vendor-panel (Vite SPA) | Shipping, inventory, promotions, returns, Stripe Connect, team members |
+
+Auth flow:
+
+1. User logs in on the storefront via Supabase.
+2. Storefront `/dashboard/verkoper` calls `POST /store/platform/seller-auth/exchange` with the Supabase access token.
+3. Backend validates `user_seller_links`, ensures a Medusa seller `auth_identity`, returns a seller JWT.
+4. Storefront redirects to `verkoper.hobbysalon.be/login/callback?token=...`.
+5. Vendor panel stores the JWT and opens seller commerce views.
+
+Platform discovery stays in Supabase; transactional seller depth stays in Medusa vendor APIs.
+
 ⸻
 
 4. Platform Database Layer

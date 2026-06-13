@@ -4,6 +4,7 @@ import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import {
   ContainerRegistrationKeys,
   MedusaError,
+  Modules,
   toHandle,
 } from '@medusajs/framework/utils'
 import { createProductsWorkflow } from '@medusajs/medusa/core-flows'
@@ -66,6 +67,35 @@ const resolveHandmadeTypeId = async (
   return productType.id
 }
 
+const resolveDefaultSalesChannelId = async (
+  scope: MedusaRequest['scope']
+): Promise<string> => {
+  const storeModule = scope.resolve(Modules.STORE)
+  const [store] = await storeModule.listStores(
+    {},
+    { select: ['default_sales_channel_id'] }
+  )
+
+  if (store?.default_sales_channel_id) {
+    return store.default_sales_channel_id
+  }
+
+  const salesChannelModule = scope.resolve(Modules.SALES_CHANNEL)
+  const [defaultChannel] = await salesChannelModule.listSalesChannels(
+    { name: 'Default Sales Channel' },
+    { take: 1 }
+  )
+
+  if (defaultChannel?.id) {
+    return defaultChannel.id
+  }
+
+  throw new MedusaError(
+    MedusaError.Types.INVALID_DATA,
+    'Default sales channel is not configured.'
+  )
+}
+
 const ensureCreatorSeller = async (
   knex: any,
   sellerId: string
@@ -113,6 +143,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
   await ensureCreatorSeller(knex, sellerId)
   const handmadeTypeId = await resolveHandmadeTypeId(knex)
+  const salesChannelId = await resolveDefaultSalesChannelId(req.scope)
 
   const normalizedTitle = payload.title.trim()
   const normalizedSlug = normalizeNullable(payload.slug)
@@ -155,6 +186,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
           handle,
           status: payload.is_active ? 'published' : 'draft',
           type_id: handmadeTypeId,
+          sales_channels: [{ id: salesChannelId }],
           metadata,
           images: featuredImageUrl ? [{ url: featuredImageUrl }] : undefined,
           options: [

@@ -32,9 +32,9 @@ function getAdminConfig() {
     process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
     "http://localhost:9000";
   const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
+    process.env.MEDUSA_ADMIN_API_TOKEN?.trim() ||
+    process.env.MEDUSA_ADMIN_TOKEN?.trim() ||
+    process.env.MEDUSA_BACKEND_ADMIN_TOKEN?.trim();
 
   if (!adminToken) {
     return null;
@@ -44,6 +44,66 @@ function getAdminConfig() {
     baseUrl: baseUrl.replace(/\/$/, ""),
     adminToken,
   };
+}
+
+async function resolveDefaultSalesChannelId(
+  baseUrl: string,
+  adminToken: string
+): Promise<string | null> {
+  const response = await fetch(`${baseUrl}/admin/sales-channels?limit=5`, {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "x-medusa-access-token": adminToken,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as {
+    sales_channels?: Array<{ id: string; name?: string }>;
+  };
+
+  const channels = payload.sales_channels ?? [];
+  return (
+    channels.find((channel) => channel.name === "Default Sales Channel")?.id ??
+    channels[0]?.id ??
+    null
+  );
+}
+
+export async function ensureCreatorProductSalesChannel(
+  productId: string
+): Promise<boolean> {
+  const config = getAdminConfig();
+  if (!config) {
+    return false;
+  }
+
+  const salesChannelId = await resolveDefaultSalesChannelId(
+    config.baseUrl,
+    config.adminToken
+  );
+  if (!salesChannelId) {
+    return false;
+  }
+
+  const response = await fetch(`${config.baseUrl}/admin/products/${productId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.adminToken}`,
+      "x-medusa-access-token": config.adminToken,
+    },
+    body: JSON.stringify({
+      sales_channels: [{ id: salesChannelId }],
+    }),
+    cache: "no-store",
+  });
+
+  return response.ok;
 }
 
 export async function createCreatorMarketplaceProduct(

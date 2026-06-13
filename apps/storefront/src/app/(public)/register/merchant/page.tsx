@@ -25,7 +25,7 @@ type Props = {
 export default async function RegisterMerchantPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next } = await searchParams;
-  const nextPath = next?.startsWith("/") ? next : "/dashboard/materials";
+  const nextPath = next?.startsWith("/") ? next : "/dashboard/verkoper";
 
   if (user) {
     const context = await getUserRegistrationContext(user.id);

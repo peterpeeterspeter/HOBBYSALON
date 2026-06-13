@@ -83,6 +83,37 @@ NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://api.hobbysalon.be
 Also set `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` after creating or retrieving the
 Medusa store publishable API key. Redeploy `storefront`.
 
+For the vendor portal handoff, also set on the storefront project:
+
+```text
+VENDOR_PANEL_URL=https://verkoper.hobbysalon.be
+```
+
+Deploy the vendor panel per `deploy/verkoper-vercel.md`.
+
+## 6. Production checklist (after first healthy deploy)
+
+Confirm these before cutting over traffic:
+
+1. **DNS** — `api.hobbysalon.be` A record points to the VPS public IPv4 (not an old host).
+2. **TLS** — `sudo certbot --nginx -d api.hobbysalon.be`, then `curl https://api.hobbysalon.be/health`.
+3. **VPS `.env`** — copy values from `.env.example`, including:
+   - `VENDOR_CORS` and `AUTH_CORS` with `https://verkoper.hobbysalon.be`
+   - `PLATFORM_SUPABASE_URL`, `PLATFORM_SUPABASE_SERVICE_ROLE_KEY`, `PLATFORM_SUPABASE_ANON_KEY` (seller auth exchange)
+   - Stripe, Resend, and real `JWT_SECRET` / `COOKIE_SECRET`
+4. **Redeploy backend** after `.env` changes: `./deploy.sh`
+5. **Seller auth backfill** (one-time, after platform Supabase env is set):
+
+   ```bash
+   docker compose exec backend yarn backfill:seller-auth
+   ```
+
+6. **SSH** — use key-based login only; rotate the root password if it was ever shared.
+
+Medusa connects to the private Compose Postgres with `?ssl_mode=disable` in
+`DATABASE_URL` and `DATABASE_SSL=false`. Do not enable SSL for the internal
+database network.
+
 ## Operations
 
 Deploy updates:

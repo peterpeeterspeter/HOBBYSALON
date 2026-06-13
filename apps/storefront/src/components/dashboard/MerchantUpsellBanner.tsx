@@ -6,14 +6,33 @@ import { CardShell } from "@/components/ui/card-shell";
 
 type MerchantUpsellBannerProps = {
   hasMerchantRole: boolean;
+  hasSellerLink: boolean;
   creatorHasSupplierRole: boolean;
 };
 
 export function MerchantUpsellBanner({
   hasMerchantRole,
+  hasSellerLink,
   creatorHasSupplierRole,
 }: MerchantUpsellBannerProps) {
   const pathname = usePathname();
+
+  if (hasSellerLink) {
+    if (pathname === "/dashboard/verkoper") {
+      return null;
+    }
+
+    return (
+      <CardShell variant="featured" padding="md" className="mb-6 border-emerald-300 bg-emerald-50">
+        <p className="text-sm text-emerald-900">
+          Beheer verzending, voorraad en uitbetalingen in het verkopersportaal.{" "}
+          <Link href="/dashboard/verkoper" className="underline font-medium">
+            Open verkopersportaal
+          </Link>
+        </p>
+      </CardShell>
+    );
+  }
 
   if (hasMerchantRole) return null;
 

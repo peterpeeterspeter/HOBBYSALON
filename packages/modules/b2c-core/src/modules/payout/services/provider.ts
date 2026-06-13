@@ -153,12 +153,18 @@ export class PayoutProvider implements IPayoutProvider {
         );
       }
 
-      const accountLink = await this.client_.accountLinks.create({
-        account: accountId,
-        refresh_url: context.refresh_url as string,
-        return_url: context.return_url as string,
-        type: "account_onboarding",
-      });
+      const payoutAccountId = context.payout_account_id as string | undefined;
+      const accountLink = await this.client_.accountLinks.create(
+        {
+          account: accountId,
+          refresh_url: context.refresh_url as string,
+          return_url: context.return_url as string,
+          type: "account_onboarding",
+        },
+        payoutAccountId
+          ? { idempotencyKey: `${payoutAccountId}_onboarding` }
+          : undefined
+      );
 
       return {
         data: accountLink as unknown as Record<string, unknown>,

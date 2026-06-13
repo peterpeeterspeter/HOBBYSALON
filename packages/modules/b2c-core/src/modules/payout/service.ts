@@ -122,7 +122,7 @@ class PayoutModuleService extends MedusaService({
 
     const { data: providerData } = await this.provider_.initializeOnboarding(
       account.reference_id!,
-      context
+      { ...context, payout_account_id }
     );
 
     let onboarding = existingOnboarding;

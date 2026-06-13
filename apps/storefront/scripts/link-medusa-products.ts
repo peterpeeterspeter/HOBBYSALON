@@ -12,16 +12,26 @@ config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import Medusa from "@medusajs/js-sdk";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+function resolveEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  return value ?? "";
+}
+
+const supabaseUrl = resolveEnv("NEXT_PUBLIC_SUPABASE_URL");
 const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  resolveEnv("SUPABASE_SERVICE_ROLE_KEY") ||
+  resolveEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 const medusaUrl =
-  process.env.MEDUSA_BACKEND_URL ?? process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ?? "http://localhost:9000";
-const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ?? "";
+  resolveEnv("MEDUSA_BACKEND_URL") ||
+  resolveEnv("NEXT_PUBLIC_MEDUSA_BACKEND_URL") ||
+  "http://localhost:9000";
+const publishableKey = resolveEnv("NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY");
 
 async function main() {
-  if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing Supabase env vars");
+  if (!supabaseKey) {
+    console.error(
+      "Missing Supabase key. Set SUPABASE_SERVICE_ROLE_KEY (recommended) or NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
     process.exit(1);
   }
   if (!publishableKey) {

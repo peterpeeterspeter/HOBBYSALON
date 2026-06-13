@@ -7,6 +7,7 @@ import { storeReturnsMiddlewares } from "./returns/middlewares";
 import { storeSellerMiddlewares } from "./seller/middlewares";
 import { storeShippingOptionRoutesMiddlewares } from "./shipping-options/middlewares";
 import { storeWishlistMiddlewares } from "./wishlist/middlewares";
+import { storePlatformMiddlewares } from "./platform/middlewares";
 
 export const storeMiddlewares: MiddlewareRoute[] = [
   {
@@ -24,4 +25,5 @@ export const storeMiddlewares: MiddlewareRoute[] = [
   ...storeShippingOptionRoutesMiddlewares,
   ...storeReturnsMiddlewares,
   ...storeWishlistMiddlewares,
+  ...storePlatformMiddlewares,
 ];
