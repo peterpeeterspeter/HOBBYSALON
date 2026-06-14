@@ -17,10 +17,10 @@ export function CreatorProfileTab({
   hasMerchantRole,
 }: CreatorProfileTabProps) {
   const selectedTypes = new Set(creator?.creator_types ?? []);
-  const onboardingTypes =
-    onboarding && Array.isArray(onboarding.creator_types)
-      ? (onboarding.creator_types as string[])
-      : [];
+  const onboardingCreatorTypes = onboarding?.creator_types;
+  const onboardingTypes = Array.isArray(onboardingCreatorTypes)
+    ? (onboardingCreatorTypes as string[])
+    : [];
   const showSupplierHint =
     !hasMerchantRole &&
     (selectedTypes.has("supplier") ||
@@ -36,7 +36,7 @@ export function CreatorProfileTab({
             required
             defaultValue={
               creator?.display_name ??
-              (typeof onboarding?.display_name === "string" ? onboarding.display_name : "") ??
+              (typeof onboarding?.display_name === "string" ? onboarding?.display_name : "") ??
               accountDisplayName
             }
           />
@@ -47,7 +47,7 @@ export function CreatorProfileTab({
               placeholder="bijv. marie-haakt"
               defaultValue={
                 creator?.slug ??
-                (typeof onboarding?.preferred_slug === "string" ? onboarding.preferred_slug : "")
+                (typeof onboarding?.preferred_slug === "string" ? onboarding?.preferred_slug : "")
               }
             />
             <p className="mt-1 text-xs text-[var(--muted)]">
@@ -59,7 +59,7 @@ export function CreatorProfileTab({
             label="Bedrijfsnaam"
             defaultValue={
               creator?.business_name ??
-              (typeof onboarding?.business_name === "string" ? onboarding.business_name : "")
+              (typeof onboarding?.business_name === "string" ? onboarding?.business_name : "")
             }
           />
           <Input
@@ -67,7 +67,7 @@ export function CreatorProfileTab({
             label="Stad"
             defaultValue={
               creator?.city ??
-              (typeof onboarding?.city === "string" ? onboarding.city : "") ??
+              (typeof onboarding?.city === "string" ? onboarding?.city : "") ??
               registrationCity ??
               ""
             }
@@ -121,7 +121,7 @@ export function CreatorProfileTab({
           name="country_code"
           value={
             creator?.country_code ??
-            (typeof onboarding?.country_code === "string" ? onboarding.country_code : "") ??
+            (typeof onboarding?.country_code === "string" ? onboarding?.country_code : "") ??
             registrationCountryCode ??
             "BE"
           }
