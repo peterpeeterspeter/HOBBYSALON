@@ -148,11 +148,11 @@ export const POST = async (
       container: req.scope,
       input: { ids: deleteIds }
     });
-    deletedRequestIds = deleteResult.result;
+    deletedRequestIds = deleteResult.result as string[];
   }
 
   const createdRequests: RequestDTO[] = createResults.map(
-    ({ result }) => result[0]
+    ({ result }) => (result as RequestDTO[])[0]
   );
 
   let updatedRequests: RequestDTO[] = [];

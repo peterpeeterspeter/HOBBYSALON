@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform
 } from '@medusajs/framework/workflows-sdk'
@@ -19,7 +20,9 @@ import { retrieveOrderFromReturnRequestStep } from '../steps'
 export const proceedReturnRequestWorkflow = createWorkflow(
   'proceed-return-request',
   function (
-    input: VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
+    input: WorkflowData<
+      VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
+    >
   ) {
     const order = retrieveOrderFromReturnRequestStep(input)
     const beginPayload = transform({ order, input }, ({ order, input }) => {

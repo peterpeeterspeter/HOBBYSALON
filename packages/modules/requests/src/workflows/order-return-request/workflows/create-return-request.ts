@@ -1,6 +1,7 @@
 import { Modules } from "@medusajs/framework/utils";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -15,9 +16,14 @@ import {
   validateOrderReturnRequestStep,
 } from "../steps";
 
+type CreateOrderReturnRequestWorkflowInput = {
+  data: CreateOrderReturnRequestDTO;
+  seller_id: string;
+};
+
 export const createOrderReturnRequestWorkflow = createWorkflow(
   "create-order-return-request",
-  function (input: { data: CreateOrderReturnRequestDTO; seller_id: string }) {
+  function (input: WorkflowData<CreateOrderReturnRequestWorkflowInput>) {
     validateOrderReturnRequestStep(input.data);
     const request = createOrderReturnRequestStep(input.data);
     const requestId = transform({ request }, ({ request }) => request.id);
@@ -49,7 +55,7 @@ export const createOrderReturnRequestWorkflow = createWorkflow(
     );
 
     return new WorkflowResponse(request, {
-      hooks: [orderReturnRequestCreatedHook],
+      hooks: [orderReturnRequestCreatedHook] as any[],
     });
   }
 );

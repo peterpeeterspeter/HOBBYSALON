@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -24,7 +25,9 @@ import { Modules } from "@medusajs/framework/utils";
 export const updateOrderReturnRequestWorkflow = createWorkflow(
   "update-order-return-request",
   function (
-    input: VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
+    input: WorkflowData<
+      VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
+    >
   ) {
     when(input, (input) => input.status === "refunded").then(() => {
       proceedReturnRequestWorkflow.runAsStep({ input });
@@ -67,7 +70,7 @@ export const updateOrderReturnRequestWorkflow = createWorkflow(
       }
     );
     return new WorkflowResponse(request, {
-      hooks: [orderReturnRequestUpdatedHook],
+      hooks: [orderReturnRequestUpdatedHook] as any[],
     });
   }
 );

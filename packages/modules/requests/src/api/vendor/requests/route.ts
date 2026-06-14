@@ -5,7 +5,7 @@ import {
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 
 import sellerRequest from "../../../links/seller-request";
-import { fetchSellerByAuthActorId } from "@mercurjs/framework";
+import { fetchSellerByAuthActorId, RequestDTO } from "@mercurjs/framework";
 import { createRequestWorkflow } from "../../../workflows/requests/workflows";
 import { VendorCreateRequestType } from "./validators";
 
@@ -123,6 +123,7 @@ export const POST = async (
     },
     container: req.scope,
   });
+  const createdRequests = result as RequestDTO[];
 
   const {
     data: [request],
@@ -130,7 +131,7 @@ export const POST = async (
     entity: "request",
     fields: req.queryConfig.fields,
     filters: {
-      id: result[0].id,
+      id: createdRequests[0].id,
     },
   });
 
