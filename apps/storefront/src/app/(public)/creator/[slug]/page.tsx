@@ -179,9 +179,6 @@ export default async function CreatorPage({ params }: Props) {
               {relatedWorkshops.length > 0 && (
                 <Link
                   href="#workshops"
-                  onClick={(e) => {
-                    e.preventDefault();
-                  }}
                   className="inline-flex h-10 items-center rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                 >
                   Boek workshop

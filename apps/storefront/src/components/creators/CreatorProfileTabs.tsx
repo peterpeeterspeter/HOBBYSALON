@@ -93,7 +93,7 @@ export function CreatorProfileTabs({
       </div>
 
       {/* Tab content */}
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div id="workshops" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-8">
         {activeTab === "workshops" && (
           <div>
             <p className="mb-6 text-[15px] text-[var(--muted)]">
