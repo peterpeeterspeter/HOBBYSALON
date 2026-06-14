@@ -3,8 +3,10 @@ import { getCreatorById } from "@/lib/platform/queries/creators";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
-import { getEventCommercialEntitlements } from "@/lib/platform/commercial-entitlements";
-import type { EventEntitlements } from "@/lib/platform/commercial-entitlements";
+import {
+  getEventCommercialEntitlements,
+  type EventEntitlements,
+} from "@/lib/platform/commercial-entitlements";
 import type {
   Event,
   Creator,

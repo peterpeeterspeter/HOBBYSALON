@@ -7,9 +7,7 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import {
   getCreatorCommercialEntitlements,
-} from "@/lib/platform/commercial-entitlements";
-import type {
-  CommercialEntitlements,
+  type CommercialEntitlements,
 } from "@/lib/platform/commercial-entitlements";
 import type { Workshop, Creator, Domain, Product, Event, Article } from "@/types/platform";
 

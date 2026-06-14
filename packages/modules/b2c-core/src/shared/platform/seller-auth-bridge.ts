@@ -2,8 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import jwt from "jsonwebtoken";
 
-import { MedusaContainer } from "@medusajs/framework";
-import { ConfigModule } from "@medusajs/framework";
+import { ConfigModule, MedusaContainer } from "@medusajs/framework";
 import {
   ContainerRegistrationKeys,
   MedusaError,

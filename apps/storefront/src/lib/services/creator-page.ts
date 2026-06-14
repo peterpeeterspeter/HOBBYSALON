@@ -16,8 +16,10 @@ import {
 } from "@/lib/platform/queries/articles";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
-import { getCreatorCommercialEntitlements } from "@/lib/platform/commercial-entitlements";
-import type { CommercialEntitlements } from "@/lib/platform/commercial-entitlements";
+import {
+  getCreatorCommercialEntitlements,
+  type CommercialEntitlements,
+} from "@/lib/platform/commercial-entitlements";
 import type {
   Creator,
   Product,

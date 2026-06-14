@@ -13,7 +13,9 @@ export default [
       '**/build/**',
       '**/*.js',
       '**/*.mjs',
-      '**/*.cjs'
+      '**/*.cjs',
+      // Upstream Mercur vendor UI; lint separately when customized
+      'apps/vendor-panel/**'
     ]
   },
   ...tseslint.configs.recommended.map((config) => ({

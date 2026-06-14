@@ -6,7 +6,6 @@ import {
   updateBookingRequestStatusAction,
   updateWorkshopAction,
   linkWorkshopProductAction,
-  unlinkWorkshopProductAction,
 } from "@/app/actions/dashboard";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
 import { CardShell } from "@/components/ui/card-shell";
