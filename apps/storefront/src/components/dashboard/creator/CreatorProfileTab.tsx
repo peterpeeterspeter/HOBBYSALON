@@ -17,9 +17,10 @@ export function CreatorProfileTab({
   hasMerchantRole,
 }: CreatorProfileTabProps) {
   const selectedTypes = new Set(creator?.creator_types ?? []);
-  const onboardingTypes = Array.isArray(onboarding?.creator_types)
-    ? (onboarding.creator_types as string[])
-    : [];
+  const onboardingTypes =
+    onboarding && Array.isArray(onboarding.creator_types)
+      ? (onboarding.creator_types as string[])
+      : [];
   const showSupplierHint =
     !hasMerchantRole &&
     (selectedTypes.has("supplier") ||
