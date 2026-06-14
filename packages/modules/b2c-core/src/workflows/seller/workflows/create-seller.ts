@@ -2,6 +2,7 @@ import { transform } from "@medusajs/framework/workflows-sdk";
 import { setAuthAppMetadataStep } from "@medusajs/medusa/core-flows";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
 } from "@medusajs/workflows-sdk";
@@ -23,7 +24,7 @@ type CreateSellerWorkflowInput = {
 
 export const createSellerWorkflow = createWorkflow(
   "create-seller",
-  function (input: CreateSellerWorkflowInput) {
+  function (input: WorkflowData<CreateSellerWorkflowInput>) {
     const seller = createSellerStep(input.seller);
 
     const memberInput = transform(
@@ -47,6 +48,8 @@ export const createSellerWorkflow = createWorkflow(
     const sellerCreatedHook = createHook("sellerCreated", {
       sellerId: seller.id,
     });
-    return new WorkflowResponse(seller, { hooks: [sellerCreatedHook] });
+    return new WorkflowResponse(seller, {
+      hooks: [sellerCreatedHook] as any[],
+    });
   }
 );

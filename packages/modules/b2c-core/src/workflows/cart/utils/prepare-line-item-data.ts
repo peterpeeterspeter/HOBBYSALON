@@ -71,7 +71,7 @@ export function prepareLineItemData(data: Input) {
     : true
 
   const requiresShipping = isDefined(item?.requires_shipping)
-    ? item.requires_shipping
+    ? item!.requires_shipping
     : someInventoryRequiresShipping
 
   const lineItem: any = {

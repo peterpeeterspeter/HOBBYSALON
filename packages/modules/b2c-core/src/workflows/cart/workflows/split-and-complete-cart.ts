@@ -27,6 +27,7 @@ import {
 } from "@medusajs/types/dist/cart";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
 } from "@medusajs/workflows-sdk";
@@ -58,7 +59,7 @@ export const splitAndCompleteCartWorkflow = createWorkflow(
     name: "split-and-complete-cart",
     idempotent: true,
   },
-  function (input: SplitAndCompleteCartWorkflowInput) {
+  function (input: WorkflowData<SplitAndCompleteCartWorkflowInput>) {
     const existingOrderSet = useRemoteQueryStep({
       entry_point: "order_set",
       fields: ["id", "cart_id"],
@@ -384,7 +385,7 @@ export const splitAndCompleteCartWorkflow = createWorkflow(
     return new WorkflowResponse(
       { id: orderSetId },
       {
-        hooks: [orderSetCreatedHook],
+        hooks: [orderSetCreatedHook] as any[],
       }
     );
   }
