@@ -1,5 +1,5 @@
 import { defineConfig, loadEnv } from '@medusajs/framework/utils'
-import type { InputConfigModules } from '@medusajs/types/dist/common/config-module'
+import type { InputConfig, InputConfigModules } from '@medusajs/types'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
@@ -102,7 +102,6 @@ module.exports = defineConfig({
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
-      // @ts-expect-error: vendorCors is not a valid config
       vendorCors: process.env.VENDOR_CORS!,
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET || 'supersecret',
@@ -142,5 +141,5 @@ module.exports = defineConfig({
       options: {}
     }
   ],
-  modules
-})
+  modules,
+} as InputConfig)
