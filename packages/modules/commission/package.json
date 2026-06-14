@@ -45,6 +45,7 @@
     "@medusajs/ui": "4.0.25",
     "@medusajs/icons": "2.11.3",
     "@mercurjs/framework": "*",
+    "@mercurjs/b2c-core": "*",
     "@swc/core": "1.5.7",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.2",
@@ -65,7 +66,8 @@
     "@medusajs/medusa": "2.11.3",
     "@medusajs/ui": "4.0.25",
     "@medusajs/icons": "2.11.3",
-    "@mercurjs/framework": "*"
+    "@mercurjs/framework": "*",
+    "@mercurjs/b2c-core": "*"
   },
   "engines": {
     "node": ">=20"
