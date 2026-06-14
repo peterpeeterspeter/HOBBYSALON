@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
 } from "@medusajs/framework/workflows-sdk";
@@ -10,14 +11,14 @@ export const deleteReviewWorkflow = createWorkflow(
   {
     name: "delete-review",
   },
-  function (id: string) {
-    deleteReviewStep(id);
+  function (input: WorkflowData<string>) {
+    deleteReviewStep(input);
 
     const reviewDeletedHook = createHook("reviewDeleted", {
-      review_id: id,
+      review_id: input,
     });
-    return new WorkflowResponse(id, {
-      hooks: [reviewDeletedHook],
+    return new WorkflowResponse(input, {
+      hooks: [reviewDeletedHook] as any[],
     });
   }
 );

@@ -1,6 +1,7 @@
 import { Modules } from "@medusajs/framework/utils";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -20,7 +21,7 @@ export const createReviewWorkflow = createWorkflow(
   {
     name: "create-review",
   },
-  function (input: CreateReviewDTO) {
+  function (input: WorkflowData<CreateReviewDTO>) {
     validateReviewStep(input);
     const review = createReviewStep(input);
 
@@ -58,7 +59,7 @@ export const createReviewWorkflow = createWorkflow(
       review_id: review.id,
     });
     return new WorkflowResponse(review, {
-      hooks: [reviewCreatedHook],
+      hooks: [reviewCreatedHook] as any[],
     });
   }
 );

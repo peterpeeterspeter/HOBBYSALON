@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
 } from "@medusajs/framework/workflows-sdk";
@@ -13,7 +14,7 @@ export const updateReviewWorkflow = createWorkflow(
   {
     name: "update-review",
   },
-  function (input: UpdateReviewDTO) {
+  function (input: WorkflowData<UpdateReviewDTO>) {
     const review = updateReviewStep(input);
     emitEventStep({
       eventName: AlgoliaEvents.REVIEW_CHANGED,
@@ -24,7 +25,7 @@ export const updateReviewWorkflow = createWorkflow(
       review_id: review.id,
     });
     return new WorkflowResponse(review, {
-      hooks: [reviewUpdatedHook],
+      hooks: [reviewUpdatedHook] as any[],
     });
   }
 );
