@@ -6,13 +6,14 @@ export async function Footer() {
   const columns = [
     { title: "Ontdekken", links: FOOTER_SECTIONS.ontdekken },
     { title: "Meedoen", links: FOOTER_SECTIONS.meedoen },
+    { title: "Zakelijk", links: FOOTER_SECTIONS.zakelijk },
     { title: "Info", links: FOOTER_SECTIONS.info },
   ];
 
   return (
     <footer className="mt-auto bg-[var(--foreground)]">
       {/* 4-column grid: brand col + 3 link cols */}
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         {/* Brand column */}
         <div>
           <Link

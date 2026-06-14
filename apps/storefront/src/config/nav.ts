@@ -43,4 +43,5 @@ export const FOOTER_SECTIONS = {
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Algemene voorwaarden" },
   ],
+  zakelijk: [{ href: "/partners", label: "Zakelijk samenwerken" }],
 } as const;
