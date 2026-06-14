@@ -9,6 +9,7 @@ import {
 
 import {
   AdminUpdateOrderReturnRequestDTO,
+  OrderReturnRequestDTO,
   VendorUpdateOrderReturnRequestDTO,
   SELLER_MODULE,
 } from "@mercurjs/framework";
@@ -35,7 +36,7 @@ export const updateOrderReturnRequestWorkflow = createWorkflow(
 
     const request = updateOrderReturnRequestStep(input);
 
-    const requestId = transform(request, (request) => request.id);
+    const requestId = transform(request, (request: OrderReturnRequestDTO) => request.id);
     const order = useQueryGraphStep({
       entity: returnRequestOrder.entryPoint,
       fields: ["order.returns.id", "order_return_request.seller.id"],
