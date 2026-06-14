@@ -1,5 +1,9 @@
 import { createPlatformClient } from "../client";
 import type { Workshop } from "@/types/platform";
+import {
+  computeRankingScore,
+  getActiveBoostScoresForEntities,
+} from "../ranking";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -35,6 +39,26 @@ function getWorkshopLocalityScore(
   }
 
   return score;
+}
+
+async function sortWorkshopsWithBoosts(workshops: Workshop[]): Promise<Workshop[]> {
+  if (workshops.length === 0) return workshops;
+  const boostScores = await getActiveBoostScoresForEntities(
+    "workshop",
+    workshops.map((workshop) => workshop.id)
+  );
+
+  return [...workshops].sort((a, b) => {
+    const scoreA = computeRankingScore({
+      isFeatured: a.is_featured,
+      boostScore: boostScores.get(a.id),
+    });
+    const scoreB = computeRankingScore({
+      isFeatured: b.is_featured,
+      boostScore: boostScores.get(b.id),
+    });
+    return scoreB - scoreA;
+  });
 }
 
 function sortWorkshopsByLocalPreference(
@@ -109,11 +133,12 @@ export async function listWorkshopsByDomain(
 
   if (error) return [];
   const workshops = (data ?? []) as Workshop[];
+  const ranked = await sortWorkshopsWithBoosts(workshops);
   if (options?.city || options?.country_code) {
-    return workshops;
+    return ranked;
   }
   return sortWorkshopsByLocalPreference(
-    workshops,
+    ranked,
     options?.preferred_city,
     options?.preferred_country_code
   );
@@ -178,11 +203,12 @@ export async function listAllWorkshops(filters?: {
 
   if (error) return [];
   const workshops = (data ?? []) as Workshop[];
+  const ranked = await sortWorkshopsWithBoosts(workshops);
   if (filters?.city || filters?.country_code) {
-    return workshops;
+    return ranked;
   }
   return sortWorkshopsByLocalPreference(
-    workshops,
+    ranked,
     filters?.preferred_city,
     filters?.preferred_country_code
   );

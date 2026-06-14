@@ -29,6 +29,7 @@ type Props = {
   relatedEvents: Event[];
   relatedArticles: Article[];
   relatedCreators: Creator[];
+  showExternalLinks?: boolean;
 };
 
 const CREATOR_TYPE_LABELS: Record<string, string> = {
@@ -48,6 +49,7 @@ export function CreatorProfileTabs({
   relatedEvents,
   relatedArticles,
   relatedCreators,
+  showExternalLinks = true,
 }: Props) {
   const tabs = [
     { key: "workshops", label: "Workshops", count: relatedWorkshops.length },
@@ -147,7 +149,13 @@ export function CreatorProfileTabs({
         )}
 
         {activeTab === "about" && (
-          <AboutTab creator={creator} domains={domains} projects={projects} types={types} />
+          <AboutTab
+            creator={creator}
+            domains={domains}
+            projects={projects}
+            types={types}
+            showExternalLinks={showExternalLinks}
+          />
         )}
       </div>
 
@@ -207,11 +215,13 @@ function AboutTab({
   domains,
   projects,
   types,
+  showExternalLinks,
 }: {
   creator: Creator;
   domains: Domain[];
   projects: CreatorProjectTeaser[];
   types: string[];
+  showExternalLinks: boolean;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -296,7 +306,8 @@ function AboutTab({
           </div>
         )}
 
-        {(creator.website_url || creator.instagram_url || creator.facebook_url) && (
+        {showExternalLinks &&
+          (creator.website_url || creator.instagram_url || creator.facebook_url) && (
           <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-5">
             <h3 className="mb-3 font-[family-name:var(--font-heading)] text-[15px] font-bold text-[var(--foreground)]">
               Sociale media & website
@@ -312,6 +323,15 @@ function AboutTab({
                 <SocialLink href={creator.facebook_url} label="Facebook" handle={creator.display_name} />
               )}
             </div>
+          </div>
+        )}
+
+        {!showExternalLinks && (
+          <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-5">
+            <p className="text-[14px] text-[var(--muted)]">
+              Ontdek het aanbod van {creator.display_name} via Hobbysalon — producten,
+              workshops en contact verlopen via ons platform.
+            </p>
           </div>
         )}
 

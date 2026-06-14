@@ -16,6 +16,8 @@ import {
 } from "@/lib/platform/queries/articles";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
+import { getCreatorCommercialEntitlements } from "@/lib/platform/commercial-entitlements";
+import type { CommercialEntitlements } from "@/lib/platform/commercial-entitlements";
 import type {
   Creator,
   Product,
@@ -39,6 +41,7 @@ export type CreatorPageData = {
   relatedEvents: Event[];
   relatedArticles: Article[];
   relatedCreators: Creator[];
+  entitlements: CommercialEntitlements | null;
 };
 
 export type CreatorProjectTeaser = {
@@ -59,8 +62,14 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
       relatedEvents: [],
       relatedArticles: [],
       relatedCreators: [],
+      entitlements: null,
     };
   }
+
+  const entitlements = await getCreatorCommercialEntitlements(
+    creator.id,
+    creator.creator_types
+  );
 
   const [
     products,
@@ -130,6 +139,7 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     relatedEvents: mergeById<Event>(ownEvents, linkedEvents),
     relatedArticles: mergeById<Article>(ownArticles, linkedArticles),
     relatedCreators,
+    entitlements,
   };
 }
 

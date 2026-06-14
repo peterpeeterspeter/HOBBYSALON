@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getWorkshopPageData } from "@/lib/services/workshop-page";
+import { canUseExternalBookingLink } from "@/lib/platform/commercial-entitlements";
 import { CreatorCard, ProductCard, EventCard, ArticleCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { WorkshopBookingCard } from "@/components/workshop/WorkshopBookingCard";
@@ -55,12 +56,20 @@ export default async function WorkshopPage({ params }: Props) {
 
   if (!data.workshop) notFound();
 
-  const { workshop, creator, domain, sessions, requiredProducts, optionalProducts } = data;
+  const { workshop, creator, domain, sessions, requiredProducts, optionalProducts, entitlements } =
+    data;
   const user = await getAuthUser();
   const workshopIsFavorite = user
     ? await isFavorite(user.id, "workshop", workshop.id)
     : false;
   const workshopUrl = absoluteUrl(`/workshop/${workshop.slug}`);
+  const allowExternalBooking = entitlements
+    ? canUseExternalBookingLink(entitlements)
+    : true;
+  const offerUrl =
+    allowExternalBooking && workshop.booking_url
+      ? workshop.booking_url
+      : workshopUrl;
   const courseMode =
     workshop.format_type === "physical"
       ? "onsite"
@@ -104,7 +113,7 @@ export default async function WorkshopPage({ params }: Props) {
         },
     offers: {
       "@type": "Offer",
-      url: workshop.booking_url ?? workshopUrl,
+      url: offerUrl,
       price: workshop.price_cents / 100,
       priceCurrency: workshop.currency_code.toUpperCase(),
       availability: "https://schema.org/InStock",
@@ -119,7 +128,7 @@ export default async function WorkshopPage({ params }: Props) {
         workshop.format_type === "online"
           ? {
               "@type": "VirtualLocation",
-              url: workshop.booking_url ?? workshopUrl,
+              url: offerUrl,
             }
           : workshop.location_name || workshop.city || workshop.country_code
             ? {
@@ -134,7 +143,7 @@ export default async function WorkshopPage({ params }: Props) {
             : undefined,
       offers: {
         "@type": "Offer",
-        url: workshop.booking_url ?? workshopUrl,
+        url: offerUrl,
         price: workshop.price_cents / 100,
         priceCurrency: workshop.currency_code.toUpperCase(),
         availability:
@@ -298,6 +307,7 @@ export default async function WorkshopPage({ params }: Props) {
             workshop={workshop}
             creator={creator}
             sessions={sessions}
+            allowExternalBooking={allowExternalBooking}
           />
         </aside>
       </div>

@@ -6,6 +6,7 @@ type EventTicketCardProps = {
   event: Event;
   dateRangeLabel: string;
   locationLabel: string | null;
+  allowExternalTickets?: boolean;
 };
 
 /** Formats an ISO timestamp as the compact UTC stamp Google Calendar expects. */
@@ -33,11 +34,14 @@ export function EventTicketCard({
   event,
   dateRangeLabel,
   locationLabel,
+  allowExternalTickets = false,
 }: EventTicketCardProps) {
   const isFree =
     event.ticket_price_cents == null || event.ticket_price_cents <= 0;
   const hasExternalTickets =
-    event.ticketing_mode === "external_link" && Boolean(event.ticket_url);
+    allowExternalTickets &&
+    event.ticketing_mode === "external_link" &&
+    Boolean(event.ticket_url);
   const calendarUrl = buildGoogleCalendarUrl(event, locationLabel);
 
   return (

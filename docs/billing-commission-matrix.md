@@ -15,11 +15,13 @@ This document defines the MVP commission rules for Hobbysalon. Stripe is the pay
 | `event_listing`  | flat       | TBD         | Event listing promotion/placement  |
 | `event_ticket`   | flat       | TBD         | Event tickets                      |
 | `workshop_ticket`| flat       | TBD         | Workshop bookings                  |
-| `workshop_kit`   | commerce   | —           | Treated as regular products        |
+| `workshop_kit`   | commerce   | 10% (6% creator sellers) | Kit products; seller-type override at order time        |
 
 ### Notes
 
-- **supply, handmade**: Percentage commission on sale amount (excl./incl. tax per rule).
+- **supply, handmade**: Percentage commission on sale amount (line item total, not shipping).
+- **workshop_kit**: Default 10% product-type rule; creator sellers resolved to 6% in commission workflow.
+- Commission base excludes shipping lines; payment/checkout fees are separate from commission.
 - **event_listing, event_ticket, workshop_ticket**: Flat fee per item/booking. MVP uses placeholder 1 EUR (100 cents) until business defines final values. Update seed in `apps/backend/src/scripts/seed/seed-functions.ts` when amounts are decided.
 - **workshop_kit**: No platform commission; treated as standard commerce (seller revenue).
 

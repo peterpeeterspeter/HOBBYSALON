@@ -3,6 +3,8 @@ import { getCreatorById } from "@/lib/platform/queries/creators";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
+import { getEventCommercialEntitlements } from "@/lib/platform/commercial-entitlements";
+import type { EventEntitlements } from "@/lib/platform/commercial-entitlements";
 import type {
   Event,
   Creator,
@@ -21,6 +23,7 @@ export type EventPageData = {
   relatedProducts: Product[];
   relatedArticles: Article[];
   relatedEvents: Event[];
+  eventEntitlements: EventEntitlements | null;
 };
 
 export async function getEventPageData(
@@ -37,8 +40,11 @@ export async function getEventPageData(
       relatedProducts: [],
       relatedArticles: [],
       relatedEvents: [],
+      eventEntitlements: null,
     };
   }
+
+  const eventEntitlements = await getEventCommercialEntitlements(event.id);
 
   const supabase = createPlatformClient();
 
@@ -132,5 +138,6 @@ export async function getEventPageData(
     relatedProducts,
     relatedArticles,
     relatedEvents,
+    eventEntitlements,
   };
 }

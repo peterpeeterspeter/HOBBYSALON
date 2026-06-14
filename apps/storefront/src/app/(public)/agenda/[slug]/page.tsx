@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Clock, MapPin, Tag } from "lucide-react";
 import { getEventPageData } from "@/lib/services/event-page";
+import { canUseExternalTicketLink } from "@/lib/platform/commercial-entitlements";
 import {
   CreatorCard,
   ProductCard,
@@ -11,6 +12,7 @@ import {
 } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { EventTicketCard } from "@/components/events/EventTicketCard";
+import { EventVendorInquiryForm } from "@/components/events/EventVendorInquiryForm";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { getAuthUser } from "@/lib/auth/session";
@@ -81,7 +83,12 @@ export default async function EventPage({ params }: Props) {
     relatedProducts,
     relatedArticles,
     relatedEvents,
+    eventEntitlements,
   } = data;
+
+  const allowExternalTickets = eventEntitlements
+    ? canUseExternalTicketLink(eventEntitlements)
+    : true;
 
   const user = await getAuthUser();
   const eventIsFavorite = user ? await isFavorite(user.id, "event", event.id) : false;
@@ -132,7 +139,9 @@ export default async function EventPage({ params }: Props) {
             price: (event.ticket_price_cents / 100).toFixed(2),
             priceCurrency: (event.currency_code ?? "EUR").toUpperCase(),
             availability: "https://schema.org/InStock",
-            url: event.ticket_url ?? absoluteUrl(`/agenda/${event.slug}`),
+            url: allowExternalTickets && event.ticket_url
+              ? event.ticket_url
+              : absoluteUrl(`/agenda/${event.slug}`),
           }
         : undefined,
   };
@@ -311,6 +320,14 @@ export default async function EventPage({ params }: Props) {
             </GraphSection>
           )}
 
+          {organizer && (
+            <EventVendorInquiryForm
+              eventId={event.id}
+              organizerCreatorId={organizer.id}
+              eventTitle={event.title}
+            />
+          )}
+
           {/* Graph: related events */}
           {relatedEvents.length > 0 && (
             <GraphSection
@@ -333,6 +350,7 @@ export default async function EventPage({ params }: Props) {
             event={event}
             dateRangeLabel={dateLabel}
             locationLabel={locationLabel}
+            allowExternalTickets={allowExternalTickets}
           />
         </div>
       </div>

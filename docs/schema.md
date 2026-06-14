@@ -1005,13 +1005,23 @@ Recommended homepage blocks:
 - `entity_links`
 - `subscribers`
 
+## Commercial plans (implemented)
+
+- `commercial_plans` — plan catalog per segment (`workshop`, `maker`, `supplier`, `organizer`)
+- `creator_plan_subscriptions` — active plan per creator per segment
+- `event_plan_subscriptions` — per-event listing packages
+- `listing_credit_wallets` / `listing_credit_transactions` / `listing_credit_products` — maker listing credits
+- `visibility_boosts` — paid ranking and spotlight
+- `event_vendor_inquiries` — standholder lead capture
+
+Migrations: `apps/storefront/scripts/migrate-commercial-plans.sql`, `seed-commercial-plans.sql`, etc.
+
 ## Later additions
 
 - `reviews`
 - `favorites`
 - `advanced segmentation`
 - `digital patterns`
-- `memberships`
 - more advanced booking logic
 
 ---

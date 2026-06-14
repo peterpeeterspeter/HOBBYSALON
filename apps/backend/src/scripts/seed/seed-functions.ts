@@ -600,7 +600,7 @@ export async function createInventoryItemStockLevels(
  * Hobbysalon commission matrix (see docs/billing-commission-matrix.md):
  * - supply: 10%, handmade: 6%
  * - event_listing, event_ticket, workshop_ticket: flat (TBD amount, placeholder 100 = 1 EUR)
- * - workshop_kit: no rule (commerce only)
+ * - workshop_kit: 10% default (6% for creator sellers at runtime via resolve-commission-rate)
  */
 const HOBBYSALON_PRODUCT_TYPES = [
   'supply',
@@ -620,7 +620,7 @@ const COMMISSION_CONFIG: Record<
   event_listing: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
   event_ticket: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
   workshop_ticket: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
-  workshop_kit: { type: 'percentage', percentage_rate: 0 } // No platform fee; explicit 0% overrides site default
+  workshop_kit: { type: 'percentage', percentage_rate: 10 }
 }
 
 function tryCommissionRule(container: MedusaContainer, fn: () => Promise<unknown>) {

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { getCreatorPageData } from "@/lib/services/creator-page";
+import { canShowExternalLinks } from "@/lib/platform/commercial-entitlements";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -47,7 +48,14 @@ export default async function CreatorPage({ params }: Props) {
     relatedEvents,
     relatedArticles,
     relatedCreators,
+    entitlements,
   } = data;
+
+  const showExternalLinks =
+    !entitlements?.gatingEnabled ||
+    entitlements.segments.some((segment) =>
+      canShowExternalLinks(entitlements, segment.segment)
+    );
 
   const user = await getAuthUser();
   const creatorIsFavorite = user ? await isFavorite(user.id, "creator", creator.id) : false;
@@ -55,9 +63,11 @@ export default async function CreatorPage({ params }: Props) {
   const types = (creator.creator_types ?? []).map((t) => CREATOR_TYPE_LABELS[t] ?? t);
 
   const creatorUrl = absoluteUrl(`/creator/${creator.slug}`);
-  const sameAs = [creator.website_url, creator.instagram_url, creator.facebook_url].filter(
-    (url): url is string => Boolean(url)
-  );
+  const sameAs = showExternalLinks
+    ? [creator.website_url, creator.instagram_url, creator.facebook_url].filter(
+        (url): url is string => Boolean(url)
+      )
+    : [];
   const creatorJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "ProfilePage",
@@ -216,6 +226,7 @@ export default async function CreatorPage({ params }: Props) {
         relatedEvents={relatedEvents}
         relatedArticles={relatedArticles}
         relatedCreators={relatedCreators}
+        showExternalLinks={showExternalLinks}
       />
     </>
   );

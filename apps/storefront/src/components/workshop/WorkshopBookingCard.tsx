@@ -23,6 +23,7 @@ type WorkshopBookingCardProps = {
   workshop: Workshop;
   creator: Creator | null;
   sessions: BookingSession[];
+  allowExternalBooking?: boolean;
 };
 
 function formatDuration(minutes: number): string {
@@ -40,6 +41,7 @@ export function WorkshopBookingCard({
   workshop,
   creator,
   sessions,
+  allowExternalBooking = false,
 }: WorkshopBookingCardProps) {
   const capacity = sessions.find((s) => s.capacity != null)?.capacity ?? null;
 
@@ -104,7 +106,9 @@ export function WorkshopBookingCard({
       </dl>
 
       <div className="px-6 pb-2">
-        {workshop.booking_mode === "external_link" && workshop.booking_url ? (
+        {allowExternalBooking &&
+        workshop.booking_mode === "external_link" &&
+        workshop.booking_url ? (
           <a
             href={workshop.booking_url}
             target="_blank"

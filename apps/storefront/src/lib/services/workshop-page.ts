@@ -5,6 +5,12 @@ import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { listProductsByIds } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
+import {
+  getCreatorCommercialEntitlements,
+} from "@/lib/platform/commercial-entitlements";
+import type {
+  CommercialEntitlements,
+} from "@/lib/platform/commercial-entitlements";
 import type { Workshop, Creator, Domain, Product, Event, Article } from "@/types/platform";
 
 export type WorkshopSession = {
@@ -25,6 +31,7 @@ export type WorkshopPageData = {
   optionalProducts: Product[];
   relatedEvents: Event[];
   relatedArticles: Article[];
+  entitlements: CommercialEntitlements | null;
 };
 
 export async function getWorkshopPageData(
@@ -41,6 +48,7 @@ export async function getWorkshopPageData(
       optionalProducts: [],
       relatedEvents: [],
       relatedArticles: [],
+      entitlements: null,
     };
   }
 
@@ -113,6 +121,10 @@ export async function getWorkshopPageData(
     listArticlesByIds(relatedArticleIds),
   ]);
 
+  const entitlements = creator
+    ? await getCreatorCommercialEntitlements(creator.id, creator.creator_types)
+    : null;
+
   return {
     workshop,
     creator: creator ?? null,
@@ -122,6 +134,7 @@ export async function getWorkshopPageData(
     optionalProducts,
     relatedEvents,
     relatedArticles,
+    entitlements,
   };
 }
 

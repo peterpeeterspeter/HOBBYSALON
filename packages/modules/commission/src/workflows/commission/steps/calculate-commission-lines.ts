@@ -12,9 +12,13 @@ import {
   COMMISSION_MODULE,
 } from "../../../modules/commission";
 import {
+  resolveHobbysalonCommissionPercentage,
+} from "../../../modules/commission/resolve-commission-rate";
+import {
   CommissionRateDTO,
   CreateCommissionLineDTO,
 } from "@mercurjs/framework";
+import { SELLER_MODULE } from "@mercurjs/b2c-core/modules/seller";
 
 type StepInput = {
   seller_id: string;
@@ -44,6 +48,7 @@ async function calculatePercentageCommission(
   currency: string,
   container: MedusaContainer
 ) {
+  // Commission applies to merchandise line items only — not shipping totals.
   const total = MathBN.convert(item.total);
   const taxValue = MathBN.convert(item.tax_total);
   const calculationBase = rate.include_tax ? total : total.minus(taxValue);
@@ -117,10 +122,20 @@ export const calculateCommissionLinesStep = createStep(
         data: [product],
       } = await query.graph({
         entity: "product",
-        fields: ["categories.id"],
+        fields: ["categories.id", "type.value"],
         filters: {
           id: item.product_id,
         },
+      });
+
+      const sellerModule = container.resolve(SELLER_MODULE);
+      const seller = await sellerModule.retrieveSeller(seller_id).catch(() => null);
+      const sellerType =
+        seller?.seller_type === "merchant" ? "merchant" : "creator";
+
+      const hobbysalonRate = resolveHobbysalonCommissionPercentage({
+        productTypeValue: product?.type?.value,
+        sellerType,
       });
 
       const commissionRule =
@@ -131,10 +146,15 @@ export const calculateCommissionLinesStep = createStep(
         });
 
       if (commissionRule) {
+        const rate = { ...commissionRule.rate };
+        if (hobbysalonRate != null && rate.type === "percentage") {
+          rate.percentage_rate = hobbysalonRate * 100;
+        }
+
         commissionLines.push({
           item_line_id: item.id,
           value: await calculateCommissionValue(
-            commissionRule.rate,
+            rate,
             item,
             order.currency_code,
             container
