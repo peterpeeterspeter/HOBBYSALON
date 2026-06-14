@@ -113,6 +113,11 @@ export default async function HomePage() {
 
   return (
     <>
+      <h1 className="sr-only">Welkom bij Hobbysalon</h1>
+      <p className="sr-only">
+        Ontdek creatieve hobby&apos;s, makers, workshops, evenementen en inspiratie.
+      </p>
+
       <TrackOnMount
         event="home_recommendations_viewed"
         payload={{
@@ -123,42 +128,12 @@ export default async function HomePage() {
         }}
       />
 
-      {/* ─── Hero intro — visible headline + lead ─── */}
-      <section className="bg-[var(--background)]">
-        <Container>
-          <div className="mx-auto max-w-3xl py-10 text-center md:py-14">
-            <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight text-[var(--foreground)] md:text-4xl lg:text-[2.75rem]">
-              Ontdek creatieve workshops, makers en materialen
-            </h1>
-            <p className="mt-4 text-base leading-relaxed text-[var(--muted)] md:text-lg">
-              Hobbysalon brengt creatieve hobbyisten, workshopgevers en makers
-              samen op één plek. Vind workshops in jouw buurt, koop unieke
-              handgemaakte producten, ontdek materialen en laat je inspireren door
-              tutorials en projecten.
-            </p>
-          </div>
-        </Container>
-      </section>
+      {/* ─── Hero — full-bleed 520px slider, leads the page (per design) ─── */}
+      <HeroSlider slides={heroSlides} autoplayIntervalMs={6000} />
 
-      {/* ─── Populair op Hobbysalon — uitgelichte highlights ─── */}
-      <section aria-labelledby="home-highlights">
-        <Container>
-          <h2
-            id="home-highlights"
-            className="mb-4 font-[family-name:var(--font-heading)] text-sm font-bold uppercase tracking-wider text-[var(--accent)]"
-          >
-            Populair op Hobbysalon
-          </h2>
-        </Container>
-        <HeroSlider slides={heroSlides} autoplayIntervalMs={6000} />
-      </section>
-
-      {/* ─── Domain bar — "Kies je creatieve hobby" pill navigation ─── */}
+      {/* ─── Domain bar — pill navigation between hero and content ─── */}
       {data.popularDomains.length > 0 && (
-        <DomainBar
-          domains={data.popularDomains}
-          title="Kies je creatieve hobby"
-        />
+        <DomainBar domains={data.popularDomains} />
       )}
 
       {/* ─── Workshops ─── */}
