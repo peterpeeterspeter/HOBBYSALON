@@ -1,6 +1,8 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
+import { CommissionRuleDTO } from '@mercurjs/framework'
+
 import {
   createCommissionRuleWorkflow,
   listCommissionRulesWorkflow
@@ -51,6 +53,7 @@ export async function POST(
     container: req.scope,
     throwOnError: true
   })
+  const rule = result as CommissionRuleDTO
 
   const {
     data: [commission_rule]
@@ -58,7 +61,7 @@ export async function POST(
     entity: 'commission_rule',
     fields: req.queryConfig.fields,
     filters: {
-      id: result.id
+      id: rule.id
     }
   })
 

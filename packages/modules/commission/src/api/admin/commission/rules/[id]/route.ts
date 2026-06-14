@@ -115,9 +115,10 @@ export async function DELETE(
     input: req.params.id,
     container: req.scope
   })
+  const deletedId = result as string
 
   res.json({
-    id: result,
+    id: deletedId,
     object: 'commission_rule',
     deleted: true
   })

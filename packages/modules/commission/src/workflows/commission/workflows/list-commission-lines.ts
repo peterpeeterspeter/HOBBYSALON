@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow
 } from '@medusajs/framework/workflows-sdk'
 
@@ -20,7 +21,7 @@ type Input = {
 
 export const listCommissionLinesWorkflow = createWorkflow(
   'list-commission-lines',
-  function (input: Input) {
+  function (input: WorkflowData<Input>) {
     return new WorkflowResponse(listCommissionLinesStep(input))
   }
 )
