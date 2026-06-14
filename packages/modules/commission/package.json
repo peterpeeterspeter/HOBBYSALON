@@ -30,7 +30,8 @@
     "./*": "./.medusa/server/src/*.js"
   },
   "scripts": {
-    "build": "medusa plugin:build",
+    "build": "tsc -p tsconfig.json",
+    "build:plugin": "medusa plugin:build",
     "dev": "medusa plugin:develop",
     "prepublishOnly": "medusa plugin:build"
   },

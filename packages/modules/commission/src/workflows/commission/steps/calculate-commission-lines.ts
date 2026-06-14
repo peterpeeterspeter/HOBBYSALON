@@ -18,7 +18,7 @@ import {
   CommissionRateDTO,
   CreateCommissionLineDTO,
 } from "@mercurjs/framework";
-import { SELLER_MODULE } from "@mercurjs/b2c-core/modules/seller";
+import { SELLER_MODULE, SellerModuleService } from "@mercurjs/b2c-core/modules/seller";
 
 type StepInput = {
   seller_id: string;
@@ -128,7 +128,9 @@ export const calculateCommissionLinesStep = createStep(
         },
       });
 
-      const sellerModule = container.resolve(SELLER_MODULE);
+      const sellerModule = container.resolve(
+        SELLER_MODULE
+      ) as SellerModuleService;
       const seller = await sellerModule.retrieveSeller(seller_id).catch(() => null);
       const sellerType =
         seller?.seller_type === "merchant" ? "merchant" : "creator";
