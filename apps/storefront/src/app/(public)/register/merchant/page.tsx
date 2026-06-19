@@ -19,12 +19,12 @@ export const metadata: Metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 };
 
 export default async function RegisterMerchantPage({ searchParams }: Props) {
   const user = await getAuthUser();
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   const nextPath = next?.startsWith("/") ? next : "/dashboard/verkoper";
 
   if (user) {
@@ -41,6 +41,11 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
       size="narrow"
     >
       <CardShell variant="default" padding="lg">
+        {error && (
+          <p className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {error}
+          </p>
+        )}
         {user ? (
           <MerchantUpgradeForm
             action={onboardMerchantForLoggedInUserAction}

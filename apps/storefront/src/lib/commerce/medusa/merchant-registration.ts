@@ -94,3 +94,37 @@ export async function provisionMerchantSeller(
     status: payload.merchant?.status ?? "created",
   };
 }
+
+export function formatMerchantProvisionError(error?: string): string {
+  if (!error) {
+    return "Merchant-profiel aanmaken mislukt.";
+  }
+
+  const normalized = error.toLowerCase();
+
+  if (normalized.includes("missing medusa_admin_api_token")) {
+    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+  }
+
+  if (
+    normalized.includes("(401)") ||
+    normalized.includes("(403)") ||
+    normalized.includes("(404)")
+  ) {
+    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+  }
+
+  if (
+    normalized.includes("already exists as creator") ||
+    normalized.includes("already exists as") ||
+    normalized.includes("(409)")
+  ) {
+    return "Dit e-mailadres is al gekoppeld aan een ander accounttype. Gebruik een nieuw e-mailadres voor je winkel.";
+  }
+
+  if (normalized.includes("invalid email") || normalized.includes("invalid_format")) {
+    return "Controleer je e-mailadres en probeer opnieuw.";
+  }
+
+  return "Merchant-profiel aanmaken mislukt. Probeer opnieuw of gebruik een ander e-mailadres.";
+}
