@@ -8,6 +8,7 @@ import {
   addBundleToCart,
   type BundleLineInput,
   removeFromCart,
+  updateCartLineItemQuantity,
   CART_COOKIE_NAME,
   CART_COOKIE_MAX_AGE,
 } from "@/lib/commerce/medusa/cart";
@@ -164,5 +165,38 @@ export async function removeFromCartAction(
   }
 
   revalidatePath("/cart");
+  return { success: true };
+}
+
+export async function updateCartLineItemQuantityAction(
+  lineItemId: string,
+  quantity: number
+): Promise<AddToCartResult> {
+  if (!lineItemId) {
+    return { success: false, message: "Product ontbreekt" };
+  }
+
+  if (!Number.isFinite(quantity) || quantity < 1) {
+    return { success: false, message: "Ongeldig aantal" };
+  }
+
+  const cookieStore = await cookies();
+  const cartId = cookieStore.get(CART_COOKIE_NAME)?.value;
+
+  if (!cartId) {
+    return { success: false, message: "Winkelwagen niet gevonden" };
+  }
+
+  const result = await updateCartLineItemQuantity(
+    cartId,
+    lineItemId,
+    Math.floor(quantity)
+  );
+  if (!result.success) {
+    return { success: false, message: "Aantal aanpassen mislukt" };
+  }
+
+  revalidatePath("/cart");
+  revalidatePath("/checkout");
   return { success: true };
 }

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { CART_COOKIE_NAME, getCart } from "@/lib/commerce/medusa/cart";
 import { RemoveFromCartButton } from "@/components/cart/RemoveFromCartButton";
+import { CartItemQuantityControl } from "@/components/cart/CartItemQuantityControl";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
@@ -90,11 +91,13 @@ export default async function CartPage() {
                       Bundel: {bundleLabel ?? bundleId}
                     </p>
                   )}
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    Aantal: {qty}
-                  </p>
                 </div>
                 <div className="flex items-center gap-4">
+                  <CartItemQuantityControl
+                    itemId={i.id as string}
+                    quantity={qty}
+                    disabled={!!bundleId}
+                  />
                   <PriceDisplay amount={itemTotal} currencyCode={currencyCode} size="md" />
                   <RemoveFromCartButton itemId={i.id as string} />
                 </div>

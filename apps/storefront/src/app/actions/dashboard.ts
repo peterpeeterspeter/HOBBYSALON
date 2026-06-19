@@ -3,10 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  createAuthenticatedPlatformClient,
   createPlatformClient,
 } from "@/lib/platform/client";
-import { getAuthAccessToken, getAuthUser } from "@/lib/auth/session";
+import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import {
   cancelCreatorOrder,
@@ -233,6 +232,53 @@ function fail(path: string, message: string): never {
 
 function ok(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
+}
+
+function sanitizeCreatorTypes(values: string[]): string[] {
+  const allowed = new Set([
+    "maker",
+    "workshopgever",
+    "supplier",
+    "content_creator",
+    "organizer",
+  ]);
+  const normalized = Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => allowed.has(value))
+    )
+  );
+  return normalized.length > 0 ? normalized : ["maker"];
+}
+
+async function syncCreatorAccountRoles(
+  userId: string,
+  creatorTypes: string[],
+  supabase: ReturnType<typeof createPlatformClient>
+): Promise<string | null> {
+  const roles = new Set<string>(["creator"]);
+  if (creatorTypes.includes("workshopgever")) {
+    roles.add("workshop_host");
+  }
+  if (creatorTypes.includes("organizer")) {
+    roles.add("organizer");
+  }
+
+  for (const role of roles) {
+    const { error } = await supabase.from("user_account_roles").upsert(
+      {
+        user_id: userId,
+        role,
+      },
+      { onConflict: "user_id,role" }
+    );
+    if (error) {
+      return error.message;
+    }
+  }
+
+  return null;
 }
 
 async function syncCreatorDomains(
@@ -522,9 +568,11 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     const preferredSlug = parseOptionalString(formData, "slug") ?? displayName;
     const slug = await ensureUniqueSlug("creators", preferredSlug);
     const selectedDomainIds = parseUuidValues(formData, "domain_ids");
-    const creatorTypes = (formData.getAll("creator_types") ?? [])
-      .map((value) => value.toString())
-      .filter(Boolean);
+    const creatorTypes = sanitizeCreatorTypes(
+      (formData.getAll("creator_types") ?? [])
+        .map((value) => value.toString())
+        .filter(Boolean)
+    );
 
     const existing = await getCreatorByUserId(user.id);
     const avatarUrl = await resolveUploadedOrExistingUrl(
@@ -542,7 +590,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
 
     const socialUrls = await enforceCreatorSocialUrls(
       existing?.id ?? "",
-      creatorTypes.length > 0 ? creatorTypes : ["maker"],
+      creatorTypes,
       {
         website_url: parseOptionalString(formData, "website_url"),
         instagram_url: parseOptionalString(formData, "instagram_url"),
@@ -563,14 +611,10 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       facebook_url: socialUrls.facebook_url,
       city: parseOptionalString(formData, "city"),
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
-      creator_types: creatorTypes.length > 0 ? creatorTypes : ["maker"],
+      creator_types: creatorTypes,
     };
 
-    const accessToken = await getAuthAccessToken();
-    if (!accessToken) {
-      fail("/login?next=/dashboard/creator", "Je sessie is verlopen. Meld je opnieuw aan.");
-    }
-    const supabase = createAuthenticatedPlatformClient(accessToken);
+    const supabase = createPlatformClient();
 
     let finalCreatorSlug = payload.slug;
 
@@ -629,18 +673,15 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       }
     }
 
-    const { error: roleError } = await supabase.from("user_account_roles").upsert(
-      {
-        user_id: user.id,
-        role: "creator",
-      },
-      { onConflict: "user_id,role" }
+    const roleSyncError = await syncCreatorAccountRoles(
+      user.id,
+      creatorTypes,
+      supabase
     );
-    if (roleError) {
-      console.error("Failed to assign creator role", {
+    if (roleSyncError) {
+      console.error("Failed to assign creator roles", {
         userId: user.id,
-        code: roleError.code,
-        message: roleError.message,
+        message: roleSyncError,
       });
       fail("/dashboard/creator", "Creator-rol kon niet worden opgeslagen.");
     }

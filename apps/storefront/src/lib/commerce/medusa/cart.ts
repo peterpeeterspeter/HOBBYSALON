@@ -191,6 +191,32 @@ export async function removeFromCart(
   }
 }
 
+/** Update quantity for a cart line item. */
+export async function updateCartLineItemQuantity(
+  cartId: string,
+  lineItemId: string,
+  quantity: number
+): Promise<{ success: boolean }> {
+  if (!Number.isFinite(quantity) || quantity < 1) {
+    return { success: false };
+  }
+
+  try {
+    const fields =
+      "id,currency_code,*items,*items.variant,*items.variant.product";
+    await sdk.store.cart.updateLineItem(
+      cartId,
+      lineItemId,
+      { quantity: Math.floor(quantity) },
+      { fields }
+    );
+    return { success: true };
+  } catch (e) {
+    console.error("Update cart line item failed:", e);
+    return { success: false };
+  }
+}
+
 /** Address shape for shipping/billing. */
 export type CartAddress = {
   first_name: string;
