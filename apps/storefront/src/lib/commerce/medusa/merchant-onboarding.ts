@@ -21,6 +21,7 @@ export type MerchantOnboardingInput = {
   postalCode?: string | null;
   countryCode?: string | null;
   interestTypes?: RegistrationInterestType[];
+  supabaseAccessToken?: string | null;
 };
 
 export async function completeMerchantOnboarding(
@@ -56,16 +57,27 @@ export async function completeMerchantOnboarding(
     };
   }
 
-  const merchantResult = await provisionMerchantSeller({
-    displayName: input.displayName,
-    businessName: input.displayName,
-    contactName: input.contactName,
-    email: input.email,
-    phone: input.phone,
-    city: input.city,
-    postalCode: input.postalCode,
-    countryCode: input.countryCode,
-  });
+  const supabaseAccessToken = input.supabaseAccessToken?.trim();
+  if (!supabaseAccessToken) {
+    return {
+      ok: false,
+      message: "Je sessie is verlopen. Meld je opnieuw aan.",
+    };
+  }
+
+  const merchantResult = await provisionMerchantSeller(
+    {
+      displayName: input.displayName,
+      businessName: input.displayName,
+      contactName: input.contactName,
+      email: input.email,
+      phone: input.phone,
+      city: input.city,
+      postalCode: input.postalCode,
+      countryCode: input.countryCode,
+    },
+    { supabaseAccessToken: input.supabaseAccessToken }
+  );
 
   if (!merchantResult.ok || !merchantResult.sellerId) {
     console.error("Failed to provision merchant seller", {

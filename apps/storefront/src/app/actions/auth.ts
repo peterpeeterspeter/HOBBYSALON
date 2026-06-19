@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   clearAuthSession,
   createEmailSession,
+  getAuthAccessToken,
   getAuthUser,
   persistAuthSession,
   registerEmailUser,
@@ -407,6 +408,7 @@ export async function registerMerchantAction(
       postalCode,
       countryCode,
       interestTypes,
+      supabaseAccessToken: session?.access_token ?? null,
     });
 
     if (!onboarding.ok) {
@@ -484,6 +486,7 @@ export async function onboardMerchantForLoggedInUserAction(
     };
   }
 
+  const accessToken = await getAuthAccessToken();
   const onboarding = await completeMerchantOnboarding({
     userId: user.id,
     displayName,
@@ -494,6 +497,7 @@ export async function onboardMerchantForLoggedInUserAction(
     postalCode,
     countryCode,
     interestTypes,
+    supabaseAccessToken: accessToken,
   });
 
   if (!onboarding.ok) {

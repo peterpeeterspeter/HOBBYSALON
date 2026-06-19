@@ -11,6 +11,10 @@ type ProvisionMerchantInput = {
   countryCode?: string | null;
 };
 
+type ProvisionMerchantOptions = {
+  supabaseAccessToken?: string | null;
+};
+
 type ProvisionMerchantResult = {
   ok: boolean;
   sellerId: string | null;
@@ -18,11 +22,23 @@ type ProvisionMerchantResult = {
   error?: string;
 };
 
-function getAdminConfig() {
-  const baseUrl =
+function getBackendUrl(): string {
+  return (
     process.env.MEDUSA_BACKEND_URL ??
     process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
+    "http://localhost:9000"
+  ).replace(/\/$/, "");
+}
+
+function getPublishableKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
+    process.env.MEDUSA_PUBLISHABLE_KEY ??
+    ""
+  );
+}
+
+function getAdminConfig() {
   const adminToken =
     process.env.MEDUSA_ADMIN_API_TOKEN ??
     process.env.MEDUSA_ADMIN_TOKEN ??
@@ -33,12 +49,63 @@ function getAdminConfig() {
   }
 
   return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
+    baseUrl: getBackendUrl(),
     adminToken,
   };
 }
 
-export async function provisionMerchantSeller(
+async function provisionMerchantViaStore(
+  input: ProvisionMerchantInput,
+  supabaseAccessToken: string
+): Promise<ProvisionMerchantResult> {
+  const publishableKey = getPublishableKey();
+  const response = await fetch(
+    `${getBackendUrl()}/store/platform/merchants/register`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseAccessToken}`,
+        ...(publishableKey
+          ? { "x-publishable-api-key": publishableKey }
+          : {}),
+      },
+      body: JSON.stringify({
+        name: input.businessName?.trim() || input.displayName.trim(),
+        contact_name: input.contactName?.trim() || null,
+        email: input.email.trim().toLowerCase(),
+        phone: input.phone?.trim() || null,
+        city: input.city?.trim() || null,
+        postal_code: input.postalCode?.trim() || null,
+        country_code: input.countryCode?.trim() || "BE",
+        description: null,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    return {
+      ok: false,
+      sellerId: null,
+      status: "failed",
+      error: `Merchant store provisioning failed (${response.status}): ${body || "unknown error"}`,
+    };
+  }
+
+  const payload = (await response.json()) as {
+    merchant?: { seller_id?: string; status?: "created" | "existing" };
+  };
+
+  return {
+    ok: !!payload.merchant?.seller_id,
+    sellerId: payload.merchant?.seller_id ?? null,
+    status: payload.merchant?.status ?? "created",
+  };
+}
+
+async function provisionMerchantViaAdmin(
   input: ProvisionMerchantInput
 ): Promise<ProvisionMerchantResult> {
   const config = getAdminConfig();
@@ -95,6 +162,18 @@ export async function provisionMerchantSeller(
   };
 }
 
+export async function provisionMerchantSeller(
+  input: ProvisionMerchantInput,
+  options?: ProvisionMerchantOptions
+): Promise<ProvisionMerchantResult> {
+  const supabaseAccessToken = options?.supabaseAccessToken?.trim();
+  if (supabaseAccessToken) {
+    return provisionMerchantViaStore(input, supabaseAccessToken);
+  }
+
+  return provisionMerchantViaAdmin(input);
+}
+
 export function formatMerchantProvisionError(error?: string): string {
   if (!error) {
     return "Merchant-profiel aanmaken mislukt.";
@@ -108,9 +187,12 @@ export function formatMerchantProvisionError(error?: string): string {
 
   if (
     normalized.includes("(401)") ||
-    normalized.includes("(403)") ||
-    normalized.includes("(404)")
+    normalized.includes("(403)")
   ) {
+    return "Je sessie is verlopen. Meld je opnieuw aan.";
+  }
+
+  if (normalized.includes("(404)")) {
     return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
   }
 
