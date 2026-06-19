@@ -12,9 +12,18 @@ export type SellerAuthExchangeResult = {
   seller_type: string;
 };
 
+function getPublishableKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
+    process.env.MEDUSA_PUBLISHABLE_KEY ??
+    ""
+  );
+}
+
 export async function exchangeSupabaseSessionForSellerToken(
   supabaseAccessToken: string
 ): Promise<SellerAuthExchangeResult> {
+  const publishableKey = getPublishableKey();
   const response = await fetch(
     `${backendUrl}/store/platform/seller-auth/exchange`,
     {
@@ -22,6 +31,9 @@ export async function exchangeSupabaseSessionForSellerToken(
       headers: {
         Authorization: `Bearer ${supabaseAccessToken}`,
         "Content-Type": "application/json",
+        ...(publishableKey
+          ? { "x-publishable-api-key": publishableKey }
+          : {}),
       },
       cache: "no-store",
     }

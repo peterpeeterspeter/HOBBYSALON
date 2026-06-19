@@ -33,9 +33,9 @@ export const FOOTER_SECTIONS = {
     { href: "/tools", label: "Tools" },
   ],
   meedoen: [
-    { href: "/register", label: "Maker worden" },
-    { href: "/register", label: "Workshop geven" },
-    { href: "/register", label: "Verkopen" },
+    { href: "/voor-makers", label: "Maker worden" },
+    { href: "/voor-workshopgevers", label: "Workshop geven" },
+    { href: "/voor-winkels", label: "Verkopen" },
   ],
   info: [
     { href: "/landing", label: "Over ons" },
