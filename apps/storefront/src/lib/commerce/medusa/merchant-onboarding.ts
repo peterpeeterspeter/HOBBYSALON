@@ -98,7 +98,7 @@ export async function completeMerchantOnboarding(
     return {
       ok: false,
       message:
-        "Merchant-profiel werd aangemaakt maar koppelen aan je account mislukte.",
+        "Merchant-profiel werd aangemaakt maar koppelen aan je account mislukte. Log in en probeer opnieuw, of neem contact op als dit blijft gebeuren.",
     };
   }
 
