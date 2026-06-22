@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getMedusaAdminBackendConfig } from "./medusa-admin-auth";
+
 export type CreatorOrderListItem = {
   id: string;
   display_id: number | null;
@@ -24,33 +26,13 @@ type CreatorOrdersResponse = {
   limit: number;
 };
 
-function getAdminConfig() {
-  const baseUrl =
-    process.env.MEDUSA_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
-  if (!adminToken) {
-    return null;
-  }
-
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
-  };
-}
-
 export async function listCreatorOrders(input: {
   sellerId: string;
   limit?: number;
   offset?: number;
   status?: string;
 }): Promise<CreatorOrdersResponse | null> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) return null;
 
   const url = new URL(
@@ -80,11 +62,11 @@ async function postOrderAction(
   orderId: string,
   action: "complete" | "cancel"
 ): Promise<{ ok: boolean; error?: string }> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 

@@ -1,5 +1,7 @@
 import { getAuthUser } from "@/lib/auth/session";
+import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import {
@@ -40,6 +42,15 @@ const PRODUCT_STOCK_MODE_OPTIONS = [
 export default async function DashboardProductsPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
+  if (creator && user) {
+    const registrationContext = await getUserRegistrationContext(user.id);
+    const hasCreatorSeller = registrationContext.sellerLinks.some(
+      (link) => link.sellerType === "creator"
+    );
+    if (!hasCreatorSeller) {
+      await ensureCreatorSellerLinked(user.id, user.email ?? "", creator);
+    }
+  }
   const { success, error } = await searchParams;
   const [domains, categoryOptions] = await Promise.all([
     listDomainsBySort(),

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getMedusaAdminBackendConfig } from "./medusa-admin-auth";
+
 type CreatorProductInput = {
   sellerId: string;
   platformCreatorId: string;
@@ -25,27 +27,6 @@ type CreatorProductResult = {
   productId: string | null;
   error?: string;
 };
-
-function getAdminConfig() {
-  const baseUrl =
-    process.env.MEDUSA_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN?.trim() ||
-    process.env.MEDUSA_ADMIN_TOKEN?.trim() ||
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN?.trim();
-
-  if (!adminToken) {
-    return null;
-  }
-
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
-  };
-}
-
 async function resolveDefaultSalesChannelId(
   baseUrl: string,
   adminToken: string
@@ -77,7 +58,7 @@ async function resolveDefaultSalesChannelId(
 export async function ensureCreatorProductSalesChannel(
   productId: string
 ): Promise<boolean> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return false;
   }
@@ -109,12 +90,12 @@ export async function ensureCreatorProductSalesChannel(
 export async function createCreatorMarketplaceProduct(
   input: CreatorProductInput
 ): Promise<CreatorProductResult> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
       productId: null,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 
@@ -193,12 +174,12 @@ export async function updateCreatorMarketplaceProduct(input: {
   priceCents?: number;
   currencyCode?: string | null;
 }): Promise<CreatorProductResult> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
       productId: null,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 
@@ -283,11 +264,11 @@ export async function deleteCreatorMarketplaceProduct(input: {
   sellerId: string;
   medusaProductId: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 

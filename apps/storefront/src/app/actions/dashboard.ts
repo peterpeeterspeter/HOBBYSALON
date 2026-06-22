@@ -16,6 +16,7 @@ import {
   deleteCreatorMarketplaceProduct,
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
+import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
 import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
 import {
   attachDefaultEventPlan,
@@ -189,9 +190,20 @@ async function getRequiredCreator() {
   }
 
   if (!sellerLink?.seller_id) {
-    throw new Error(
-      "Creator seller ontbreekt. Herregistreer via /register/creator."
+    const ensured = await ensureCreatorSellerLinked(
+      user.id,
+      user.email ?? "",
+      creator
     );
+
+    if (!ensured.ok || !ensured.sellerId) {
+      throw new Error(
+        ensured.error ??
+          "Creator seller ontbreekt. Herregistreer via /register/creator."
+      );
+    }
+
+    return { user, creator, sellerId: ensured.sellerId };
   }
 
   return { user, creator, sellerId: sellerLink.seller_id as string };
