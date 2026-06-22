@@ -17,6 +17,7 @@ import {
 } from "@/lib/platform/queries/recommendations";
 import { getMedusaProductsByIds } from "@/lib/commerce/medusa/products";
 import { logServerPerf, timeAsync } from "@/lib/perf/server-timing";
+import { withTimeout } from "@/lib/perf/with-timeout";
 import type {
   Domain,
   Workshop,
@@ -25,6 +26,9 @@ import type {
   Product,
   Project,
 } from "@/types/platform";
+
+const HOME_PAGE_FETCH_TIMEOUT_MS = 45_000;
+const isProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
 
 type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
@@ -45,31 +49,48 @@ export type HomePageData = {
   viewerUserId: string | null;
 };
 
+const EMPTY_HOME_PAGE_DATA: HomePageData = {
+  popularDomains: [],
+  upcomingWorkshops: [],
+  featuredHandmade: [],
+  featuredSupplies: [],
+  upcomingEvents: [],
+  latestArticles: [],
+  creatorsOfTheMonth: [],
+  featuredProjects: [],
+  recommendedProjects: [],
+  recommendationSource: "cold_start",
+  recommendationLatencyMs: 0,
+  viewerUserId: null,
+};
+
 async function enrichProductsWithPrices(
   products: Product[]
 ): Promise<ProductWithPrice[]> {
+  if (isProductionBuild) {
+    return products.map((product) => ({ ...product, price: null }));
+  }
+
   const medusaMap = await getMedusaProductsByIds(
-    products.map((product) => product.medusa_product_id),
-    8
+    products.map((product) => product.medusa_product_id)
   );
 
   return products.map((product) => {
-      const medusa = product.medusa_product_id
-        ? medusaMap.get(product.medusa_product_id) ?? null
-        : null;
-      const price = medusa?.calculated_price
-        ? {
-            amount: medusa.calculated_price.calculated_amount,
-            currency_code: medusa.calculated_price.currency_code,
-          }
-        : null;
+    const medusa = product.medusa_product_id
+      ? medusaMap.get(product.medusa_product_id) ?? null
+      : null;
+    const price = medusa?.calculated_price
+      ? {
+          amount: medusa.calculated_price.calculated_amount,
+          currency_code: medusa.calculated_price.currency_code,
+        }
+      : null;
 
-      return { ...product, price };
-    });
+    return { ...product, price };
+  });
 }
 
-const getHomePageDataCached = unstable_cache(
-  async (): Promise<HomePageData> => {
+async function loadHomePageData(): Promise<HomePageData> {
   const totalStartMs = Date.now();
   const fromDate = new Date().toISOString();
 
@@ -99,7 +120,16 @@ const getHomePageDataCached = unstable_cache(
       listLatestArticles(6),
       listFeaturedCreators(6),
       listFeaturedProjects(4),
-      getProjectRecommendations({ userId: null, limit: 6 }),
+      withTimeout(
+        getProjectRecommendations({ userId: null, limit: 6 }),
+        15_000,
+        {
+          source: "cold_start" as const,
+          projects: [],
+          signalCount: 0,
+          latencyMs: 0,
+        }
+      ),
     ])
   );
 
@@ -135,6 +165,19 @@ const getHomePageDataCached = unstable_cache(
     recommendationLatencyMs: recommendationResult.latencyMs,
     viewerUserId: null,
   };
+}
+
+const getHomePageDataCached = unstable_cache(
+  async (): Promise<HomePageData> => {
+    try {
+      return await withTimeout(
+        loadHomePageData(),
+        HOME_PAGE_FETCH_TIMEOUT_MS,
+        EMPTY_HOME_PAGE_DATA
+      );
+    } catch {
+      return EMPTY_HOME_PAGE_DATA;
+    }
   },
   ["home-page-data-v2"],
   {
