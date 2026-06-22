@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveMedusaAdminToken } from "./medusa-admin-auth";
+
 type ProvisionCreatorInput = {
   displayName: string;
   businessName?: string | null;
@@ -18,31 +20,15 @@ type ProvisionCreatorResult = {
   error?: string;
 };
 
-function getAdminConfig() {
+export async function provisionCreatorSeller(
+  input: ProvisionCreatorInput
+): Promise<ProvisionCreatorResult> {
   const baseUrl =
     process.env.MEDUSA_BACKEND_URL ??
     process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
     "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
+  const adminToken = await resolveMedusaAdminToken();
   if (!adminToken) {
-    return null;
-  }
-
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
-  };
-}
-
-export async function provisionCreatorSeller(
-  input: ProvisionCreatorInput
-): Promise<ProvisionCreatorResult> {
-  const config = getAdminConfig();
-  if (!config) {
     return {
       ok: false,
       sellerId: null,
@@ -52,13 +38,13 @@ export async function provisionCreatorSeller(
   }
 
   const response = await fetch(
-    `${config.baseUrl}/admin/platform/creators/register`,
+    `${baseUrl.replace(/\/$/, "")}/admin/platform/creators/register`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.adminToken}`,
-        "x-medusa-access-token": config.adminToken,
+        Authorization: `Bearer ${adminToken}`,
+        "x-medusa-access-token": adminToken,
       },
       body: JSON.stringify({
         name: input.businessName?.trim() || input.displayName.trim(),

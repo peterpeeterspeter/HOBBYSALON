@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveMedusaAdminToken } from "./medusa-admin-auth";
+
 type ProvisionMerchantInput = {
   displayName: string;
   businessName?: string | null;
@@ -36,22 +38,6 @@ function getPublishableKey(): string {
     process.env.MEDUSA_PUBLISHABLE_KEY ??
     ""
   );
-}
-
-function getAdminConfig() {
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
-  if (!adminToken) {
-    return null;
-  }
-
-  return {
-    baseUrl: getBackendUrl(),
-    adminToken,
-  };
 }
 
 async function provisionMerchantViaStore(
@@ -108,8 +94,8 @@ async function provisionMerchantViaStore(
 async function provisionMerchantViaAdmin(
   input: ProvisionMerchantInput
 ): Promise<ProvisionMerchantResult> {
-  const config = getAdminConfig();
-  if (!config) {
+  const adminToken = await resolveMedusaAdminToken();
+  if (!adminToken) {
     return {
       ok: false,
       sellerId: null,
@@ -119,13 +105,13 @@ async function provisionMerchantViaAdmin(
   }
 
   const response = await fetch(
-    `${config.baseUrl}/admin/platform/materials/merchants/register`,
+    `${getBackendUrl()}/admin/platform/materials/merchants/register`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.adminToken}`,
-        "x-medusa-access-token": config.adminToken,
+        Authorization: `Bearer ${adminToken}`,
+        "x-medusa-access-token": adminToken,
       },
       body: JSON.stringify({
         name: input.businessName?.trim() || input.displayName.trim(),
@@ -166,12 +152,17 @@ export async function provisionMerchantSeller(
   input: ProvisionMerchantInput,
   options?: ProvisionMerchantOptions
 ): Promise<ProvisionMerchantResult> {
+  const adminResult = await provisionMerchantViaAdmin(input);
+  if (adminResult.ok) {
+    return adminResult;
+  }
+
   const supabaseAccessToken = options?.supabaseAccessToken?.trim();
   if (supabaseAccessToken) {
     return provisionMerchantViaStore(input, supabaseAccessToken);
   }
 
-  return provisionMerchantViaAdmin(input);
+  return adminResult;
 }
 
 export function formatMerchantProvisionError(error?: string): string {
@@ -186,11 +177,18 @@ export function formatMerchantProvisionError(error?: string): string {
   }
 
   if (
-    normalized.includes("(401)") ||
+    normalized.includes("merchant store provisioning failed (401)") ||
     normalized.includes("invalid or expired supabase session") ||
     normalized.includes("missing supabase bearer token")
   ) {
     return "Je sessie is verlopen. Meld je opnieuw aan.";
+  }
+
+  if (
+    normalized.includes("merchant provisioning failed (401)") ||
+    normalized.includes("merchant provisioning failed (403)")
+  ) {
+    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
   }
 
   if (normalized.includes("(403)")) {

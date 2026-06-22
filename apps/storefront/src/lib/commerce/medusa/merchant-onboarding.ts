@@ -24,19 +24,6 @@ export type MerchantOnboardingInput = {
   supabaseAccessToken?: string | null;
 };
 
-function isMerchantAuthError(error?: string): boolean {
-  if (!error) {
-    return false;
-  }
-
-  const normalized = error.toLowerCase();
-  return (
-    normalized.includes("(401)") ||
-    normalized.includes("invalid or expired supabase session") ||
-    normalized.includes("missing supabase bearer token")
-  );
-}
-
 export async function completeMerchantOnboarding(
   input: MerchantOnboardingInput
 ): Promise<{ ok: boolean; message: string }> {
@@ -81,17 +68,9 @@ export async function completeMerchantOnboarding(
     countryCode: input.countryCode,
   };
 
-  let merchantResult = await provisionMerchantSeller(merchantInput, {
+  const merchantResult = await provisionMerchantSeller(merchantInput, {
     supabaseAccessToken: input.supabaseAccessToken,
   });
-
-  if (
-    !merchantResult.ok &&
-    input.supabaseAccessToken?.trim() &&
-    isMerchantAuthError(merchantResult.error)
-  ) {
-    merchantResult = await provisionMerchantSeller(merchantInput);
-  }
 
   if (!merchantResult.ok || !merchantResult.sellerId) {
     console.error("Failed to provision merchant seller", {
