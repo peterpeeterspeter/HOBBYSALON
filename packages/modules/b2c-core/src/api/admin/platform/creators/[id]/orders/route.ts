@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
-import { ContainerRegistrationKeys, MedusaError } from '@medusajs/framework/utils'
+import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 import { ensureSellerForCreatorRoutes } from '../../../../../../shared/platform/ensure-seller-for-creator-routes'
 
