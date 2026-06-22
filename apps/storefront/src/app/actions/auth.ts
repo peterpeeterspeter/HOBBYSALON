@@ -19,7 +19,6 @@ import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registrati
 import { completeMerchantOnboarding } from "@/lib/commerce/medusa/merchant-onboarding";
 import { persistCreatorRegistrationProfile } from "@/lib/platform/queries/creator-registration";
 import {
-  ensureUserRole,
   linkUserToSeller,
   persistUserRegistrationProfile,
   runRegistrationCompatibilityMigration,
