@@ -11,7 +11,7 @@ import {
 } from '@medusajs/medusa/core-flows'
 import { z } from 'zod'
 
-import { ensureSellerForCreatorRoutes } from '../../../../../../shared/platform/ensure-seller-for-creator-routes'
+import { ensureSellerForCreatorRoutes } from '../../../../../../../shared/platform/ensure-seller-for-creator-routes'
 
 type ProductTypeRow = {
   id: string
