@@ -110,7 +110,7 @@ Confirm these before cutting over traffic:
 
 6. **SSH** — use key-based login only; rotate the root password if it was ever shared.
 
-Medusa connects to the private Compose Postgres with `?ssl_mode=disable` in
+Medusa connects to the private Compose Postgres with `?sslmode=disable` in
 `DATABASE_URL` and `DATABASE_SSL=false`. Do not enable SSL for the internal
 database network.
 

@@ -52,6 +52,29 @@ export async function getAuthAccessToken(): Promise<string | null> {
   return cookieStore.get(AUTH_ACCESS_COOKIE)?.value ?? null;
 }
 
+export async function resolveSupabaseAccessToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get(AUTH_ACCESS_COOKIE)?.value ?? null;
+  const refreshToken = cookieStore.get(AUTH_REFRESH_COOKIE)?.value ?? null;
+
+  if (accessToken) {
+    const user = await getUserForAccessToken(accessToken);
+    if (user) {
+      return accessToken;
+    }
+  }
+
+  if (accessToken && refreshToken) {
+    const session = await validateAuthSession(accessToken, refreshToken);
+    if (session) {
+      await persistAuthSession(session);
+      return session.access_token;
+    }
+  }
+
+  return accessToken;
+}
+
 export async function hasAuthSessionCookie(): Promise<boolean> {
   const cookieStore = await cookies();
   return Boolean(cookieStore.get(AUTH_ACCESS_COOKIE)?.value);

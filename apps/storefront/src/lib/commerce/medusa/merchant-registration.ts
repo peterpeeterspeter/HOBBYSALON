@@ -187,9 +187,14 @@ export function formatMerchantProvisionError(error?: string): string {
 
   if (
     normalized.includes("(401)") ||
-    normalized.includes("(403)")
+    normalized.includes("invalid or expired supabase session") ||
+    normalized.includes("missing supabase bearer token")
   ) {
     return "Je sessie is verlopen. Meld je opnieuw aan.";
+  }
+
+  if (normalized.includes("(403)")) {
+    return "Dit e-mailadres komt niet overeen met je account. Gebruik het e-mailadres waarmee je bent aangemeld.";
   }
 
   if (normalized.includes("(404)")) {

@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 import {
   clearAuthSession,
   createEmailSession,
-  getAuthAccessToken,
   getAuthUser,
   persistAuthSession,
   registerEmailUser,
+  resolveSupabaseAccessToken,
 } from "@/lib/auth/session";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import {
@@ -486,7 +486,7 @@ export async function onboardMerchantForLoggedInUserAction(
     };
   }
 
-  const accessToken = await getAuthAccessToken();
+  const accessToken = await resolveSupabaseAccessToken();
   const onboarding = await completeMerchantOnboarding({
     userId: user.id,
     displayName,

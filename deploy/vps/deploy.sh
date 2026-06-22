@@ -26,3 +26,6 @@ ln -sfn \
   /etc/nginx/sites-enabled/api.hobbysalon.be
 nginx -t
 systemctl reload nginx
+if command -v certbot >/dev/null 2>&1; then
+  certbot --nginx -d "${BACKEND_DOMAIN:-api.hobbysalon.be}" --non-interactive --redirect || true
+fi
