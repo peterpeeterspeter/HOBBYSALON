@@ -10,6 +10,7 @@ import {
 import { MemberRole, SellerType } from "@mercurjs/framework";
 
 import { SELLER_MODULE, SellerModuleService } from "../../modules/seller";
+import { ensureSellerDefaultShippingProfile } from "./ensure-seller-default-shipping-profile";
 
 export type RegisterMerchantSellerInput = {
   name: string;
@@ -59,6 +60,21 @@ const buildUniqueHandle = async (knex: any, name: string): Promise<string> => {
   return `${safeBase}-${Date.now()}`.slice(0, 80);
 };
 
+async function finalizeMerchantSeller(
+  scope: MedusaContainer,
+  sellerId: string,
+  sellerType: string,
+  status: "created" | "existing"
+): Promise<RegisterMerchantSellerResult> {
+  await ensureSellerDefaultShippingProfile(scope, sellerId);
+
+  return {
+    seller_id: sellerId,
+    seller_type: sellerType,
+    status,
+  };
+}
+
 export async function registerMerchantSeller(
   scope: MedusaContainer,
   input: RegisterMerchantSellerInput
@@ -80,11 +96,12 @@ export async function registerMerchantSeller(
       );
     }
 
-    return {
-      seller_id: existing.id,
-      seller_type: existing.seller_type,
-      status: "existing",
-    };
+    return finalizeMerchantSeller(
+      scope,
+      existing.id,
+      existing.seller_type,
+      "existing"
+    );
   }
 
   const sellerService = scope.resolve<SellerModuleService>(SELLER_MODULE);
@@ -116,9 +133,10 @@ export async function registerMerchantSeller(
     seller_id: seller.id,
   });
 
-  return {
-    seller_id: seller.id,
-    seller_type: seller.seller_type,
-    status: "created",
-  };
+  return finalizeMerchantSeller(
+    scope,
+    seller.id,
+    seller.seller_type,
+    "created"
+  );
 }

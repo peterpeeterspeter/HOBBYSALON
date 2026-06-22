@@ -11,6 +11,7 @@ import { createProductsWorkflow } from '@medusajs/medusa/core-flows'
 import { z } from 'zod'
 
 import { ensureSellerForCreatorRoutes } from '../../../../../../shared/platform/ensure-seller-for-creator-routes'
+import { ensureSellerDefaultShippingProfile } from '../../../../../../shared/platform/ensure-seller-default-shipping-profile'
 
 type ProductTypeRow = {
   id: string
@@ -121,6 +122,10 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   await ensureCreatorSeller(knex, sellerId)
   const handmadeTypeId = await resolveHandmadeTypeId(knex)
   const salesChannelId = await resolveDefaultSalesChannelId(req.scope)
+  const shippingProfileId = await ensureSellerDefaultShippingProfile(
+    req.scope,
+    sellerId
+  )
 
   const normalizedTitle = payload.title.trim()
   const normalizedSlug = normalizeNullable(payload.slug)
@@ -164,6 +169,9 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
           status: payload.is_active ? 'published' : 'draft',
           type_id: handmadeTypeId,
           sales_channels: [{ id: salesChannelId }],
+          ...(shippingProfileId
+            ? { shipping_profile_id: shippingProfileId }
+            : {}),
           metadata,
           images: featuredImageUrl ? [{ url: featuredImageUrl }] : undefined,
           options: [

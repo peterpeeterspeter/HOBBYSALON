@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { MemberRole, SellerType } from '@mercurjs/framework'
 
 import { SELLER_MODULE, SellerModuleService } from '../../../../../modules/seller'
+import { ensureSellerDefaultShippingProfile } from '../../../../../shared/platform/ensure-seller-default-shipping-profile'
 
 const RegisterCreatorPayload = z.object({
   name: z.string().trim().min(1),
@@ -92,6 +93,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       existing.seller_type === SellerType.CREATOR ||
       existing.seller_type === SellerType.MERCHANT
     ) {
+      await ensureSellerDefaultShippingProfile(req.scope, existing.id)
+
       res.json({
         creator: {
           seller_id: existing.id,
@@ -139,6 +142,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   await sellerService.createSellerOnboardings({
     seller_id: seller.id,
   })
+
+  await ensureSellerDefaultShippingProfile(req.scope, seller.id)
 
   res.status(201).json({
     creator: {
