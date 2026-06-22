@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { CardShell } from "@/components/ui/card-shell";
 import { getAuthAccessToken, getAuthUser } from "@/lib/auth/session";
@@ -42,6 +43,10 @@ export default async function VerkoperHandoffPage() {
     const exchange = await exchangeSupabaseSessionForSellerToken(accessToken);
     redirect(buildVendorPanelHandoffUrl(exchange.token));
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     const message =
       error instanceof Error
         ? error.message
