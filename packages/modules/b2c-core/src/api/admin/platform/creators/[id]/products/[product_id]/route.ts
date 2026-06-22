@@ -11,12 +11,7 @@ import {
 } from '@medusajs/medusa/core-flows'
 import { z } from 'zod'
 
-import { SellerType } from '@mercurjs/framework'
-
-type SellerRow = {
-  id: string
-  seller_type: string | null
-}
+import { ensureSellerForCreatorRoutes } from '../../../../../../shared/platform/ensure-seller-for-creator-routes'
 
 type ProductTypeRow = {
   id: string
@@ -68,23 +63,7 @@ const resolveHandmadeTypeId = async (
   return productType.id
 }
 
-const ensureCreatorSeller = async (
-  knex: any,
-  sellerId: string
-): Promise<void> => {
-  const seller = (await knex('seller')
-    .select('id', 'seller_type')
-    .where('id', sellerId)
-    .whereNull('deleted_at')
-    .first()) as SellerRow | undefined
-
-  if (!seller || seller.seller_type !== SellerType.CREATOR) {
-    throw new MedusaError(
-      MedusaError.Types.NOT_FOUND,
-      `Creator seller ${sellerId} not found`
-    )
-  }
-}
+const ensureCreatorSeller = ensureSellerForCreatorRoutes
 
 const ensureSellerOwnsProduct = async (
   knex: any,

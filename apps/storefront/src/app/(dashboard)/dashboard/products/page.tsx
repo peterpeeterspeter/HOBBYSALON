@@ -1,7 +1,6 @@
 import { getAuthUser } from "@/lib/auth/session";
-import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
+import { ensureCreatorSellerLinked, resolveSellerIdForCreatorOps } from "@/lib/commerce/medusa/creator-onboarding";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
-import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import {
@@ -43,11 +42,8 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
   if (creator && user) {
-    const registrationContext = await getUserRegistrationContext(user.id);
-    const hasCreatorSeller = registrationContext.sellerLinks.some(
-      (link) => link.sellerType === "creator"
-    );
-    if (!hasCreatorSeller) {
+    const linkedSellerId = await resolveSellerIdForCreatorOps(user.id);
+    if (!linkedSellerId) {
       await ensureCreatorSellerLinked(user.id, user.email ?? "", creator);
     }
   }

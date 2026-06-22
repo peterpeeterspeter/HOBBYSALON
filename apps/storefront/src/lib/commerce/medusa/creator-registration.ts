@@ -16,7 +16,8 @@ type ProvisionCreatorInput = {
 type ProvisionCreatorResult = {
   ok: boolean;
   sellerId: string | null;
-  status: "created" | "existing" | "failed";
+  status: "created" | "existing" | "existing_merchant" | "failed";
+  linkAsSellerType?: "creator" | "merchant";
   error?: string;
 };
 
@@ -71,12 +72,19 @@ export async function provisionCreatorSeller(
   }
 
   const payload = (await response.json()) as {
-    creator?: { seller_id?: string; status?: "created" | "existing" };
+    creator?: {
+      seller_id?: string;
+      status?: "created" | "existing" | "existing_merchant";
+    };
   };
+
+  const status = payload.creator?.status ?? "created";
 
   return {
     ok: !!payload.creator?.seller_id,
     sellerId: payload.creator?.seller_id ?? null,
-    status: payload.creator?.status ?? "created",
+    status,
+    linkAsSellerType:
+      status === "existing_merchant" ? "merchant" : "creator",
   };
 }

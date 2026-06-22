@@ -88,21 +88,27 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     .first()
 
   if (existing) {
-    if (existing.seller_type !== SellerType.CREATOR) {
-      throw new MedusaError(
-        MedusaError.Types.CONFLICT,
-        `Seller with email ${payload.email} already exists as ${existing.seller_type}.`
-      )
+    if (
+      existing.seller_type === SellerType.CREATOR ||
+      existing.seller_type === SellerType.MERCHANT
+    ) {
+      res.json({
+        creator: {
+          seller_id: existing.id,
+          seller_type: existing.seller_type,
+          status:
+            existing.seller_type === SellerType.CREATOR
+              ? 'existing'
+              : 'existing_merchant',
+        },
+      })
+      return
     }
 
-    res.json({
-      creator: {
-        seller_id: existing.id,
-        seller_type: existing.seller_type,
-        status: 'existing',
-      },
-    })
-    return
+    throw new MedusaError(
+      MedusaError.Types.CONFLICT,
+      `Seller with email ${payload.email} already exists as ${existing.seller_type}.`
+    )
   }
 
   const sellerService = req.scope.resolve<SellerModuleService>(SELLER_MODULE)
