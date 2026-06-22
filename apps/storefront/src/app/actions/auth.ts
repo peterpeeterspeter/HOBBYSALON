@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
+  activateRegisteredUserSession,
   clearAuthSession,
   createEmailSession,
   getAuthUser,
@@ -179,12 +180,29 @@ export async function registerAction(
     redirect(redirectPath);
   }
 
+  if (user && registrationUserId) {
+    const activatedSession = await activateRegisteredUserSession(
+      registrationUserId,
+      email,
+      password
+    );
+    if (activatedSession) {
+      const redirectPath = await resolvePostAuthRedirectPath({
+        userId: registrationUserId,
+        requestedNextPath,
+        defaultPath: "/",
+      });
+      await persistAuthSession(activatedSession);
+      redirect(redirectPath);
+    }
+  }
+
   if (user) {
     return {
       success: true,
       message: profilePersisted
-        ? "Account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan."
-        : "Account aangemaakt. Bevestig je e-mail en werk je voorkeuren later bij in je profiel.",
+        ? "Account aangemaakt. Log in met je e-mailadres en wachtwoord."
+        : "Account aangemaakt. Log in en werk je voorkeuren later bij in je profiel.",
     };
   }
 
@@ -326,12 +344,29 @@ export async function registerCreatorAction(
     redirect(redirectPath);
   }
 
+  if (user && registrationUserId) {
+    const activatedSession = await activateRegisteredUserSession(
+      registrationUserId,
+      email,
+      password
+    );
+    if (activatedSession) {
+      const redirectPath = await resolvePostAuthRedirectPath({
+        userId: registrationUserId,
+        requestedNextPath,
+        defaultPath: "/dashboard/creator",
+      });
+      await persistAuthSession(activatedSession);
+      redirect(redirectPath);
+    }
+  }
+
   if (user) {
     return {
       success: true,
       message: profilePersisted && creatorProvisioned
-        ? "Creator-account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan."
-        : "Creator-account aangemaakt. Bevestig je e-mail en vervolledig je creatorshop setup in je dashboard.",
+        ? "Creator-account aangemaakt. Log in met je e-mailadres en wachtwoord."
+        : "Creator-account aangemaakt. Log in en vervolledig je creatorshop setup in je dashboard.",
     };
   }
 
@@ -435,11 +470,28 @@ export async function registerMerchantAction(
     redirect(redirectPath);
   }
 
+  if (user && registrationUserId) {
+    const activatedSession = await activateRegisteredUserSession(
+      registrationUserId,
+      email,
+      password
+    );
+    if (activatedSession) {
+      const redirectPath = await resolvePostAuthRedirectPath({
+        userId: registrationUserId,
+        requestedNextPath,
+        defaultPath: "/dashboard/materials",
+      });
+      await persistAuthSession(activatedSession);
+      redirect(redirectPath);
+    }
+  }
+
   if (user) {
     return {
       success: true,
       message:
-        "Merchant-account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan.",
+        "Merchant-account aangemaakt. Log in met je e-mailadres en wachtwoord om verder te gaan.",
     };
   }
 
