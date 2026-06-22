@@ -45,3 +45,24 @@ export async function resolveMedusaAdminToken(): Promise<string | null> {
     null
   );
 }
+
+export type MedusaAdminBackendConfig = {
+  baseUrl: string;
+  adminToken: string;
+};
+
+export async function getMedusaAdminBackendConfig(): Promise<MedusaAdminBackendConfig | null> {
+  const adminToken = await resolveMedusaAdminToken();
+  if (!adminToken) {
+    return null;
+  }
+
+  return {
+    baseUrl: getBackendUrl(),
+    adminToken,
+  };
+}
+
+export async function hasMedusaAdminAccess(): Promise<boolean> {
+  return (await resolveMedusaAdminToken()) !== null;
+}

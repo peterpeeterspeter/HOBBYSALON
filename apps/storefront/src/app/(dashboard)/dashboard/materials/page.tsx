@@ -21,6 +21,7 @@ import {
   listMaterialCategoryOptions,
   listMerchantMaterialsOverview,
 } from "@/lib/commerce/medusa/materials-ops";
+import { hasMedusaAdminAccess } from "@/lib/commerce/medusa/medusa-admin-auth";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
@@ -249,11 +250,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
     value: category.id,
     label: `${category.name} (${category.handle})`,
   }));
-  const canTriggerSync = Boolean(
-    process.env.MEDUSA_ADMIN_API_TOKEN ||
-      process.env.MEDUSA_ADMIN_TOKEN ||
-      process.env.MEDUSA_BACKEND_ADMIN_TOKEN
-  );
+  const canTriggerSync = await hasMedusaAdminAccess();
   const dryRun = await dryRunSnapshot;
   const selectedFeed =
     selectedFeedId && merchantDetail
@@ -346,8 +343,8 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
         {!canTriggerSync ? (
           <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set <code>MEDUSA_ADMIN_API_TOKEN</code> (or{" "}
-            <code>MEDUSA_ADMIN_TOKEN</code>) on storefront server to enable this.
+            Set <code>MEDUSA_ADMIN_EMAIL</code> / <code>MEDUSA_ADMIN_PASSWORD</code>{" "}
+            (or <code>MEDUSA_ADMIN_API_TOKEN</code>) on storefront server to enable this.
           </p>
         ) : (
           <form action={triggerMaterialsProjectionSyncAction} className="mt-4 space-y-4">
@@ -467,8 +464,9 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
         {!merchantOverview ? (
           <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Merchant overview unavailable. Set{" "}
-            <code>MEDUSA_ADMIN_API_TOKEN</code> on storefront server.
+            Merchant overview unavailable. Configure Medusa admin credentials{" "}
+            (<code>MEDUSA_ADMIN_EMAIL</code> / <code>MEDUSA_ADMIN_PASSWORD</code> or{" "}
+            <code>MEDUSA_ADMIN_API_TOKEN</code>) on the storefront server.
           </p>
         ) : merchantOverview.merchants.length === 0 ? (
           <p className="mt-3 text-sm text-[var(--muted)]">No merchant sellers found.</p>
