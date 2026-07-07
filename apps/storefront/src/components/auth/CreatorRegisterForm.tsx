@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { AuthActionState } from "@/app/actions/auth";
+import { useRouter } from "next/navigation";
 import {
   REGISTRATION_COUNTRY_OPTIONS,
   REGISTRATION_DEFAULT_COUNTRY,
@@ -42,10 +43,21 @@ export function CreatorRegisterForm({
   action,
   nextPath,
 }: CreatorRegisterFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(action, {
     success: false,
     message: "",
   });
+
+  useEffect(() => {
+    if (!state.success) return;
+    const next = nextPath?.startsWith("/") ? nextPath : "/dashboard/creator";
+    const url = `/login?next=${encodeURIComponent(next)}`;
+    const timeout = window.setTimeout(() => {
+      router.push(url);
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [router, state.success, nextPath]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -220,6 +232,11 @@ export function CreatorRegisterForm({
           }
         >
           {state.message}
+        </p>
+      )}
+      {state.success && (
+        <p className="text-sm text-[var(--muted)]">
+          Je wordt doorgestuurd naar de login…
         </p>
       )}
 

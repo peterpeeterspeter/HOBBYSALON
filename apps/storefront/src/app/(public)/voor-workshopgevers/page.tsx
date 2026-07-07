@@ -48,6 +48,18 @@ const PLANS = [
     ],
   },
   {
+    title: "Tracked",
+    price: "€390 excl. btw / jaar",
+    features: [
+      "Alles van Essential",
+      "Tot 20 actieve workshops",
+      "Externe boekingslink tonen",
+      "Conversie-tracking op je workshopknop",
+      "Maandelijkse performance update",
+      "Geen commissie per deelnemer",
+    ],
+  },
+  {
     title: "Premium",
     price: "€690 excl. btw / jaar",
     featured: true,
@@ -93,7 +105,7 @@ const FAQ_ITEMS = [
   {
     question: "Kan ik een externe boekingslink tonen?",
     answer:
-      "Alleen binnen een premium of tracked pakket.",
+      "Ja, binnen het Tracked- of Premium-pakket. Bij Essential werken we met de aanvraagflow via Hobbysalon.",
   },
   {
     question: "Controleren jullie aanbieders?",

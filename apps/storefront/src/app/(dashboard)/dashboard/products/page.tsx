@@ -175,7 +175,16 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   type="number"
                   min={0}
                 />
-                <Input name="featured_image_url" label="Afbeelding URL" />
+                <div className="sm:col-span-2">
+                  <Input
+                    name="featured_image_url"
+                    label="Afbeelding URL"
+                    placeholder="https://..."
+                  />
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Plak hier een directe link naar een afbeelding (bijv. eindigend op .jpg/.png).
+                  </p>
+                </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
@@ -300,11 +309,17 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       min={0}
                       defaultValue={product.estimated_dispatch_days ?? ""}
                     />
-                    <Input
-                      name="featured_image_url"
-                      label="Afbeelding URL"
-                      defaultValue={product.featured_image_url ?? ""}
-                    />
+                    <div className="sm:col-span-2">
+                      <Input
+                        name="featured_image_url"
+                        label="Afbeelding URL"
+                        placeholder="https://..."
+                        defaultValue={product.featured_image_url ?? ""}
+                      />
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        Plak hier een directe link naar een afbeelding (bijv. eindigend op .jpg/.png).
+                      </p>
+                    </div>
                     <Input
                       name="short_description"
                       label="Korte omschrijving"

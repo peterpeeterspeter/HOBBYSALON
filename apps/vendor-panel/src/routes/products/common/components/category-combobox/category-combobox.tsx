@@ -62,9 +62,10 @@ export const CategoryCombobox = forwardRef<
   const [level, setLevel] = useState<Level[]>([])
   const { searchValue, onSearchValueChange, query } = useDebouncedSearch()
 
+  const parentCategoryId = !searchValue ? getParentId(level) : undefined
   const queryParams = {
     q: query,
-    parent_category_id: !searchValue ? getParentId(level) : undefined,
+    parent_category_id: parentCategoryId,
     include_descendants_tree: !searchValue ? true : false,
   }
 
@@ -465,9 +466,9 @@ type ProductCategoryOption = {
   has_children: boolean
 }
 
-function getParentId(level: Level[]): string {
+function getParentId(level: Level[]): string | undefined {
   if (!level.length) {
-    return "null"
+    return undefined
   }
 
   return level[level.length - 1].id
