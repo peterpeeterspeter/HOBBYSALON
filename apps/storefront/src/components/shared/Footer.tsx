@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { FOOTER_SECTIONS } from "@/config/nav";
 
 export async function Footer() {
@@ -18,16 +17,10 @@ export async function Footer() {
         <div>
           <Link
             href="/"
-            className="inline-block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            className="font-[family-name:var(--font-heading)] text-2xl font-black tracking-[-0.04em] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
             aria-label="Hobbysalon - ga naar home"
           >
-            <Image
-              src="/logo.png"
-              alt="Hobbysalon"
-              width={150}
-              height={100}
-              className="h-10 w-auto object-contain brightness-0 invert opacity-90"
-            />
+            Hobbysalon
           </Link>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/50">
             Dé creatieve marketplace voor workshops, handwerk, materialen en hobby-inspiratie in België en Nederland.
