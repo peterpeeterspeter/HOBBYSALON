@@ -71,33 +71,30 @@ const Header = () => {
   const fallback = seller?.photo || 'M';
 
   return (
-    <div className="grid w-full grid-cols-[24px_1fr_15px] items-center gap-x-3 bg-ui-bg-subtle p-0.5 p-3 pr-2">
+    <a
+      href="https://www.hobbysalon.be"
+      target="_blank"
+      rel="noreferrer"
+      className="grid w-full grid-cols-[24px_1fr_15px] items-center gap-x-3 bg-ui-bg-subtle p-0.5 p-3 pr-2 hover:bg-ui-bg-subtle-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-border-interactive"
+      title="Open Hobbysalon homepage"
+    >
       {fallback ? (
         <div className="h-7 w-7">
-          <ImageAvatar
-            src={seller?.photo || '/logo.png'}
-            size={7}
-            rounded
-          />
+          <ImageAvatar src={seller?.photo || '/logo.png'} size={7} rounded />
         </div>
       ) : (
         <Skeleton className="h-6 w-6 rounded-md" />
       )}
       <div className="block overflow-hidden text-left">
         {name ? (
-          <Text
-            size="small"
-            weight="plus"
-            leading="compact"
-            className="truncate"
-          >
+          <Text size="small" weight="plus" leading="compact" className="truncate">
             {name}
           </Text>
         ) : (
           <Skeleton className="h-[9px] w-[120px]" />
         )}
       </div>
-    </div>
+    </a>
   );
 };
 

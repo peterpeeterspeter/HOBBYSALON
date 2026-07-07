@@ -130,7 +130,10 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
       if (error instanceof Error) {
         toast.error(error.message)
       }
+      return
     }
+
+    const photo = uploadedMedia[0]?.url || seller.photo || null
 
     await mutateAsync(
       {
@@ -138,7 +141,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
         email: values.email,
         phone: values.phone,
         description: values.description,
-        photo: uploadedMedia[0]?.url || seller.photo || "",
+        ...(photo ? { photo } : {}),
       },
       {
         onSuccess: () => {
@@ -170,7 +173,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
                       </div>
                       <Form.Control>
                         <FileUpload
-                          uploadedImage={fields[0]?.url || ""}
+                          uploadedImage={fields[0]?.url || seller.photo || ""}
                           multiple={false}
                           label={t("products.media.uploadImagesLabel")}
                           hint={t("products.media.uploadImagesHint")}

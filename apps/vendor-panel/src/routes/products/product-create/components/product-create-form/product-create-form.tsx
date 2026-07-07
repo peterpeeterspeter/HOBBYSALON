@@ -97,6 +97,17 @@ export const ProductCreateForm = ({
     [watchedVariants]
   )
 
+  const toHandle = (input: string) => {
+    return (input ?? "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80)
+  }
+
   const handleSubmit = form.handleSubmit(async (values, e) => {
     let isDraftSubmission = false
 
@@ -144,7 +155,10 @@ export const ProductCreateForm = ({
       if (error instanceof Error) {
         toast.error(error.message)
       }
+      return
     }
+
+    const normalizedHandle = toHandle(values.handle || values.title)
 
     await mutateAsync(
       {
@@ -156,6 +170,7 @@ export const ProductCreateForm = ({
         height: parseInt(payload.height || "") || undefined,
         width: parseInt(payload.width || "") || undefined,
         type_id: payload.type_id || undefined,
+        handle: normalizedHandle || undefined,
         tags:
           payload.tags?.map((tag) => ({
             id: tag,

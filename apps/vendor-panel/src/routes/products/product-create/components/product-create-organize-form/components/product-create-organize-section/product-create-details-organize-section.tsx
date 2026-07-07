@@ -1,6 +1,7 @@
-import { Heading } from "@medusajs/ui"
+import { Heading, Text } from "@medusajs/ui"
 import { UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { Form } from "../../../../../../../components/common/form"
 import { SwitchBox } from "../../../../../../../components/common/switch-box"
@@ -89,8 +90,18 @@ export const ProductCreateOrganizationSection = ({
                     onSearchValueChange={types.onSearchValueChange}
                     fetchNextPage={types.fetchNextPage}
                     allowClear
+                    disabled={types.disabled}
                   />
                 </Form.Control>
+                {types.disabled && (
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Geen types gevonden.{" "}
+                    <Link className="text-ui-fg-interactive underline" to="/product-types/create">
+                      Maak een type aan
+                    </Link>
+                    .
+                  </Text>
+                )}
                 <Form.ErrorMessage />
               </Form.Item>
             )
@@ -113,8 +124,18 @@ export const ProductCreateOrganizationSection = ({
                     onSearchValueChange={collections.onSearchValueChange}
                     fetchNextPage={collections.fetchNextPage}
                     allowClear
+                    disabled={collections.disabled}
                   />
                 </Form.Control>
+                {collections.disabled && (
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Geen collecties gevonden.{" "}
+                    <Link className="text-ui-fg-interactive underline" to="/collections/create">
+                      Maak een collectie aan
+                    </Link>
+                    .
+                  </Text>
+                )}
                 <Form.ErrorMessage />
               </Form.Item>
             )
@@ -156,8 +177,18 @@ export const ProductCreateOrganizationSection = ({
                     searchValue={tags.searchValue}
                     onSearchValueChange={tags.onSearchValueChange}
                     fetchNextPage={tags.fetchNextPage}
+                    disabled={tags.disabled}
                   />
                 </Form.Control>
+                {tags.disabled && (
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Geen tags gevonden.{" "}
+                    <Link className="text-ui-fg-interactive underline" to="/product-tags/create">
+                      Maak een tag aan
+                    </Link>
+                    .
+                  </Text>
+                )}
                 <Form.ErrorMessage />
               </Form.Item>
             )
