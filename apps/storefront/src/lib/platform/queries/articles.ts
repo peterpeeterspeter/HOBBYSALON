@@ -92,6 +92,36 @@ export async function listLatestArticles(limit = 8): Promise<Article[]> {
   return (data ?? []) as Article[];
 }
 
+export async function listPublishedContentArticles(limit = 48): Promise<Article[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .eq("is_published", true)
+    .neq("article_type", "pattern")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(Math.max(1, Math.min(limit, 96)));
+
+  if (error) return [];
+  return (data ?? []) as Article[];
+}
+
+export async function listPublishedPatterns(limit = 48): Promise<Article[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .eq("is_published", true)
+    .eq("article_type", "pattern")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(Math.max(1, Math.min(limit, 96)));
+
+  if (error) return [];
+  return (data ?? []) as Article[];
+}
+
 export async function listFreeDutchCrochetPatternArticles(
   limit = 60
 ): Promise<Article[]> {

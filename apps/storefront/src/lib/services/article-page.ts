@@ -2,7 +2,7 @@ import { getArticleBySlug } from "@/lib/platform/queries/articles";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { getWorkshopById } from "@/lib/platform/queries/workshops";
 import { listEventsByIds } from "@/lib/platform/queries/events";
-import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
+import { getEntityConnections } from "@/lib/platform/queries/entity-links";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import type { Article, Creator, Event, Product, Workshop } from "@/types/platform";
@@ -33,19 +33,19 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     };
   }
 
-  const entityLinks = await getRelatedEntities("article", article.id);
-  const relatedProductIds = entityLinks
-    .filter((link) => link.target_entity_type === "product")
-    .map((link) => link.target_entity_id);
-  const relatedWorkshopIds = entityLinks
-    .filter((link) => link.target_entity_type === "workshop")
-    .map((link) => link.target_entity_id);
-  const relatedCreatorIds = entityLinks
-    .filter((link) => link.target_entity_type === "creator")
-    .map((link) => link.target_entity_id);
-  const relatedEventIds = entityLinks
-    .filter((link) => link.target_entity_type === "event")
-    .map((link) => link.target_entity_id);
+  const entityConnections = await getEntityConnections("article", article.id);
+  const relatedProductIds = entityConnections
+    .filter((connection) => connection.entityType === "product")
+    .map((connection) => connection.entityId);
+  const relatedWorkshopIds = entityConnections
+    .filter((connection) => connection.entityType === "workshop")
+    .map((connection) => connection.entityId);
+  const relatedCreatorIds = entityConnections
+    .filter((connection) => connection.entityType === "creator")
+    .map((connection) => connection.entityId);
+  const relatedEventIds = entityConnections
+    .filter((connection) => connection.entityType === "event")
+    .map((connection) => connection.entityId);
 
   const supabase = createPlatformClient();
   let relatedProducts: Product[] = [];
@@ -94,12 +94,18 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     ? await getCreatorById(article.author_creator_id)
     : null;
 
+  const creatorsById = new Map(
+    [...relatedCreators, author].filter((creator): creator is Creator => creator != null).map(
+      (creator) => [creator.id, creator]
+    )
+  );
+
   return {
     article,
     author: author ?? null,
     relatedProducts: relatedProductsWithPrices,
     relatedWorkshops,
-    relatedCreators,
+    relatedCreators: [...creatorsById.values()],
     relatedEvents,
   };
 }
