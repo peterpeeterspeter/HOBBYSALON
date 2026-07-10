@@ -10,7 +10,7 @@ import {
   insertProjectSoughtMaterial,
   deleteProjectSoughtMaterial,
 } from "@/lib/platform/queries/projects";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
+import { resolveProductImageUrl } from "@/lib/storage/upload-image";
 
 const DIFFICULTY_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 
