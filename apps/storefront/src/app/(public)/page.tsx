@@ -26,15 +26,9 @@ import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import type { CreatorWithStats } from "@/lib/platform/queries/creators";
 
 export const metadata = buildPageMetadata({
-<<<<<<< HEAD
-  title: "Hobbysalon — Creatieve hobby's, workshops & handgemaakt",
-  description:
-    "Sinds de jaren '90 dé plek voor creatieve hobbyisten in België en Nederland. Ontdek workshops, gratis patronen, handgemaakte producten en een community van 50.000+ makers.",
-=======
   title: "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
   description:
     "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
->>>>>>> 8efe3afa3030fd1ea4ae20762fbdd2410eae6f3d
   path: "/",
 });
 export const revalidate = 300;
@@ -422,43 +416,6 @@ export default async function HomePage() {
           user_id: data.viewerUserId,
         }}
       />
-<<<<<<< HEAD
-      <h1 className="sr-only">Hobbysalon — Dé creatieve community voor hobbyisten in België en Nederland</h1>
-      <p className="sr-only">
-        Sinds de jaren &apos;90 brengen we creatieve mensen samen. Ontdek gratis patronen,
-        workshops bij jou in de buurt, handgemaakte producten en duizenden inspirerende artikelen.
-      </p>
-
-      {/* ─── Marketplace — featured hero + grid ─── */}
-      <Section spacing="lg">
-        <Container>
-          <SectionHeader
-            title="Handgemaakt & materialen"
-            description="Van makers uit België en Nederland — direct te bestellen of op te halen."
-          />
-
-          {/* Handmade: 1 featured large + 3 regular */}
-          <div className="mt-6">
-            <SectionHeader subtle title="Uitgelicht handgemaakt werk" />
-            {heroHandmade ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {/* Featured large card spanning 2 cols */}
-                <div className="md:col-span-2 md:row-span-2">
-                  <ProductCard product={heroHandmade} className="h-full" />
-                </div>
-                {restHandmade.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <GridLayout cols={4}>
-                {data.featuredHandmade.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </GridLayout>
-            )}
-          </div>
-=======
 
       <HeroSection domainCount={data.popularDomains.length} />
       <PlatformPillars />
@@ -478,7 +435,6 @@ export default async function HomePage() {
           </Container>
         </Section>
       )}
->>>>>>> 8efe3afa3030fd1ea4ae20762fbdd2410eae6f3d
 
       {!hasLiveSections && <EmptyPlatformPreview />}
 
@@ -486,17 +442,10 @@ export default async function HomePage() {
         <Section spacing="lg">
           <Container size="wide">
             <SectionHeader
-<<<<<<< HEAD
-              subtle
-              title="Benodigdheden & garen"
-              href="/materials"
-              linkText="Bekijk alle materialen"
-=======
               title="Workshops waar je zin van krijgt"
               description="Kies een les, schuif aan tafel en ga naar huis met iets dat je zelf maakte."
               href="/workshops"
               linkText="Bekijk workshops"
->>>>>>> 8efe3afa3030fd1ea4ae20762fbdd2410eae6f3d
             />
             <GridLayout cols={4} gap="md">
               {data.upcomingWorkshops.slice(0, 4).map((workshop) => (
@@ -507,45 +456,6 @@ export default async function HomePage() {
         </Section>
       )}
 
-<<<<<<< HEAD
-      {/* ─── Populaire domeinen — horizontal pills ─── */}
-      <Section variant="alt" spacing="md">
-        <Container>
-          <SectionHeader title="Kies je hobby" />
-          <DomainPills domains={data.popularDomains} />
-        </Container>
-      </Section>
-
-      {/* ─── CTA Banner — Word creator ─── */}
-      <Section spacing="sm">
-        <Container>
-          <CTABanner
-            title="Word creator op Hobbysalon"
-            description="Verkoop je handgemaakte werk, geef workshops of deel je patronen met onze community van 50.000+ hobbyisten."
-            href="/register"
-            ctaText="Gratis starten"
-            variant="warm"
-          />
-        </Container>
-      </Section>
-
-      {/* ─── Aanbevelingen — warm highlight ─── */}
-      <Section variant="highlight" spacing="md">
-        <Container>
-          <SectionHeader
-            title={
-              data.recommendationSource === "personalized"
-                ? "Aanbevolen voor jou"
-                : "Populair bij onze community"
-            }
-            description={
-              data.recommendationSource === "personalized"
-                ? "Gebaseerd op je favorieten en interesses."
-                : "De projecten waar nu het meest mee gestart wordt."
-            }
-          />
-          {data.recommendedProjects.length > 0 ? (
-=======
       {(data.featuredHandmade.length > 0 || data.featuredSupplies.length > 0) && (
         <Section variant="alt" spacing="lg">
           <Container size="wide">
@@ -655,7 +565,6 @@ export default async function HomePage() {
                   : "Laagdrempelige ideeën uit de community om meteen mee aan de slag te gaan."
               }
             />
->>>>>>> 8efe3afa3030fd1ea4ae20762fbdd2410eae6f3d
             <GridLayout cols={3}>
               {data.recommendedProjects.map((item) => (
                 <div key={item.project.id} className="space-y-2">
@@ -666,50 +575,6 @@ export default async function HomePage() {
                 </div>
               ))}
             </GridLayout>
-<<<<<<< HEAD
-          ) : (
-            <EmptyState
-              compact
-              title="Nog geen aanbevelingen"
-              description="Maak een account aan en markeer je favorieten voor persoonlijke tips."
-            />
-          )}
-        </Container>
-      </Section>
-
-      {/* ─── Workshops — featured banner + cards ─── */}
-      <Section spacing="md" divider>
-        <Container>
-          <SectionHeader title="Workshops bij jou in de buurt" href="/workshops" />
-
-          {heroWorkshop ? (
-            <div className="space-y-6">
-              {/* Full-width featured workshop banner */}
-              <FeaturedBanner
-                title={heroWorkshop.title}
-                description={heroWorkshop.short_description ?? undefined}
-                imageUrl={heroWorkshop.featured_image_url}
-                imageFallback="placeholderWorkshop"
-                href={`/workshop/${heroWorkshop.slug}`}
-                badge={heroWorkshop.format_type === "online" ? "Online" : "Fysiek"}
-                ctaText="Bekijk workshop"
-                variant="warm"
-              />
-
-              {/* Remaining workshops in compact row */}
-              {restWorkshops.length > 0 && (
-                <GridLayout cols={3}>
-                  {restWorkshops.map((workshop) => (
-                    <WorkshopCard key={workshop.id} workshop={workshop} />
-                  ))}
-                </GridLayout>
-              )}
-            </div>
-          ) : (
-            <GridLayout cols={3}>
-              {data.upcomingWorkshops.map((workshop) => (
-                <WorkshopCard key={workshop.id} workshop={workshop} />
-=======
           </Container>
         </Section>
       )}
@@ -721,7 +586,6 @@ export default async function HomePage() {
             <GridLayout cols={4}>
               {data.featuredProjects.map((project) => (
                 <ProjectCard key={project.id} project={project} />
->>>>>>> 8efe3afa3030fd1ea4ae20762fbdd2410eae6f3d
               ))}
             </GridLayout>
           </Container>
@@ -746,94 +610,7 @@ export default async function HomePage() {
             </Link>
           </div>
         </Container>
-<<<<<<< HEAD
-      </Section>
-
-      {/* ─── Agenda — featured banner + cards ─── */}
-      <Section variant="alt" spacing="md">
-        <Container>
-          <SectionHeader title="Evenementen & beurzen" href="/agenda" />
-
-          {heroEvent ? (
-            <div className="space-y-6">
-              {/* Full-width featured event banner */}
-              <FeaturedBanner
-                title={heroEvent.title}
-                description={heroEvent.short_description ?? undefined}
-                imageUrl={heroEvent.featured_image_url}
-                imageFallback="placeholderEvent"
-                href={`/agenda/${heroEvent.slug}`}
-                badge={heroEvent.city ?? undefined}
-                ctaText="Bekijk event"
-                variant="sage"
-              />
-
-              {/* Remaining events */}
-              {restEvents.length > 0 && (
-                <GridLayout cols={3}>
-                  {restEvents.map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
-                </GridLayout>
-              )}
-            </div>
-          ) : (
-            <GridLayout cols={3}>
-              {data.upcomingEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </GridLayout>
-          )}
-        </Container>
-      </Section>
-
-      {/* ─── Artikelen — magazine layout ─── */}
-      <Section spacing="md">
-        <Container>
-          <SectionHeader
-            title="Inspiratie & gratis patronen"
-            href="/gratis-haakpatronen"
-            linkText="Alle gratis patronen"
-          />
-          <ArticleFeature articles={data.latestArticles} />
-        </Container>
-      </Section>
-
-      {/* ─── CTA Banner — Start je hobby ─── */}
-      <Section spacing="sm">
-        <Container>
-          <CTABanner
-            title="Klaar om iets te maken?"
-            description="Ontdek stap-voor-stap patronen en projecten — van beginner tot expert. Inclusief garenlijst en video-uitleg."
-            href="/materials"
-            ctaText="Start een project"
-            variant="sage"
-          />
-        </Container>
-      </Section>
-
-      {/* ─── Projecten — standard grid ─── */}
-      <Section variant="alt" spacing="md">
-        <Container>
-          <SectionHeader title="Projecten om nu te beginnen" />
-          <GridLayout cols={4}>
-            {data.featuredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </GridLayout>
-        </Container>
-      </Section>
-
-      {/* ─── Creators — spotlight row ─── */}
-      <Section spacing="lg" divider>
-        <Container>
-          <SectionHeader title="Makers in de spotlight" href="/creators" />
-          <CreatorSpotlight creators={data.creatorsOfTheMonth} />
-        </Container>
-      </Section>
-=======
       </section>
->>>>>>> 8efe3afa3030fd1ea4ae20762fbdd2410eae6f3d
     </>
   );
 }
