@@ -47,6 +47,13 @@ export function AuthForm({ mode, action, nextPath }: AuthFormProps) {
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="next" value={nextPath} />
 
+      {mode === "register" && (
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--muted)]">
+          Na registratie sturen we een bevestigingsmail. Je kunt pas inloggen
+          nadat je je e-mailadres hebt bevestigd.
+        </p>
+      )}
+
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
           E-mailadres

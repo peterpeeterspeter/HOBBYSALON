@@ -98,9 +98,9 @@ const FAQ_ITEMS = [
       "Nee, bij dit model betaal je een vaste jaarprijs. Je behoudt je volledige workshopomzet.",
   },
   {
-    question: "Moet ik jullie bookingtool gebruiken?",
+    question: "Moet ik een boekingssysteem van Hobbysalon gebruiken?",
     answer:
-      "Nee. Bezoekers sturen een aanvraag via Hobbysalon en jij neemt daarna zelf contact op om de inschrijving af te ronden (bijv. via mail, je eigen website of betaling ter plaatse). Een ingebouwde boekings- en betaalmodule komt later optioneel bij.",
+      "Nee. Bij de start hoeven deelnemers niet via een nieuwe bookingtool te boeken. Zij sturen een aanvraag via Hobbysalon, waarna jij zelf contact opneemt en de inschrijving verder regelt (bijv. via mail, je eigen website of betaling ter plaatse). Heb je al een eigen boekingssysteem? Met het Tracked- of Premium-pakket kun je daar rechtstreeks naar linken. Een Hobbysalon-bookingtool kan later als extra optie worden toegevoegd.",
   },
   {
     question: "Kan ik een externe boekingslink tonen?",

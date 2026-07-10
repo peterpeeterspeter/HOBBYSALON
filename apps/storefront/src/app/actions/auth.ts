@@ -3,7 +3,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
-  activateRegisteredUserSession,
   clearAuthSession,
   createEmailSession,
   getAuthUser,
@@ -180,29 +179,12 @@ export async function registerAction(
     redirect(redirectPath);
   }
 
-  if (user && registrationUserId) {
-    const activatedSession = await activateRegisteredUserSession(
-      registrationUserId,
-      email,
-      password
-    );
-    if (activatedSession) {
-      const redirectPath = await resolvePostAuthRedirectPath({
-        userId: registrationUserId,
-        requestedNextPath,
-        defaultPath: "/",
-      });
-      await persistAuthSession(activatedSession);
-      redirect(redirectPath);
-    }
-  }
-
   if (user) {
     return {
       success: true,
       message: profilePersisted
-        ? "Account aangemaakt. Log in met je e-mailadres en wachtwoord."
-        : "Account aangemaakt. Log in en werk je voorkeuren later bij in je profiel.",
+        ? "Controleer je e-mail en bevestig je account voordat je inlogt."
+        : "Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.",
     };
   }
 
@@ -344,29 +326,12 @@ export async function registerCreatorAction(
     redirect(redirectPath);
   }
 
-  if (user && registrationUserId) {
-    const activatedSession = await activateRegisteredUserSession(
-      registrationUserId,
-      email,
-      password
-    );
-    if (activatedSession) {
-      const redirectPath = await resolvePostAuthRedirectPath({
-        userId: registrationUserId,
-        requestedNextPath,
-        defaultPath: "/dashboard/creator",
-      });
-      await persistAuthSession(activatedSession);
-      redirect(redirectPath);
-    }
-  }
-
   if (user) {
     return {
       success: true,
       message: profilePersisted && creatorProvisioned
-        ? "Creator-account aangemaakt. Log in met je e-mailadres en wachtwoord."
-        : "Creator-account aangemaakt. Log in en vervolledig je creatorshop setup in je dashboard.",
+        ? "Controleer je e-mail en bevestig je creator-account voordat je inlogt."
+        : "Controleer je e-mail en bevestig je account. Daarna kun je je creatorshop verder instellen in je dashboard.",
     };
   }
 
@@ -470,28 +435,11 @@ export async function registerMerchantAction(
     redirect(redirectPath);
   }
 
-  if (user && registrationUserId) {
-    const activatedSession = await activateRegisteredUserSession(
-      registrationUserId,
-      email,
-      password
-    );
-    if (activatedSession) {
-      const redirectPath = await resolvePostAuthRedirectPath({
-        userId: registrationUserId,
-        requestedNextPath,
-        defaultPath: "/dashboard/materials",
-      });
-      await persistAuthSession(activatedSession);
-      redirect(redirectPath);
-    }
-  }
-
   if (user) {
     return {
       success: true,
       message:
-        "Merchant-account aangemaakt. Log in met je e-mailadres en wachtwoord om verder te gaan.",
+        "Controleer je e-mail en bevestig je merchant-account voordat je inlogt.",
     };
   }
 

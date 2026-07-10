@@ -222,6 +222,10 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
     limit: 25,
     offset: 0,
   });
+  const merchantSellerOptions = (merchantOverview?.merchants ?? []).map((merchant) => ({
+    value: merchant.seller_id,
+    label: `${merchant.seller_name || merchant.seller_handle || merchant.seller_id} (${merchant.seller_id})`,
+  }));
   const merchantDetail = selectedSellerId
     ? await getMerchantMaterialsDetail(selectedSellerId)
     : null;
@@ -335,38 +339,62 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
       <CardShell variant="featured" padding="lg">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Producten synchroniseren met de site
+          Productcatalogus synchroniseren
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Zet Medusa-producten door naar de Hobbysalon-catalogus. Laat{" "}
-          <strong>Seller ID</strong> leeg om alle winkels te synchroniseren, of kies
-          één winkel via de tabel hieronder (knop <strong>Sync seller</strong>).
-        </p>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Je <strong>Seller ID</strong> staat onder elke winkelnaam in de tabel
-          &quot;Merchant readiness&quot; (formaat <code>sel_…</code>). Klik op{" "}
-          <strong>Details</strong> om alle instellingen van die winkel te openen.
+          Haal producten uit de catalogus van een winkel naar Hobbysalon. Dit is een
+          beheerdersactie en verandert geen productgegevens bij de winkel zelf. Je{" "}
+          <strong>Seller ID</strong> staat onder elke winkelnaam in de tabel hieronder
+          (formaat <code>sel_…</code>).
         </p>
 
         {!canTriggerSync ? (
           <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set <code>MEDUSA_ADMIN_EMAIL</code> / <code>MEDUSA_ADMIN_PASSWORD</code>{" "}
-            (or <code>MEDUSA_ADMIN_API_TOKEN</code>) on storefront server to enable this.
+            Medusa-beheerdersrechten ontbreken op de storefront-server. Voeg de admin-inloggegevens toe om een synchronisatie te kunnen starten.
           </p>
         ) : (
           <form action={triggerMaterialsProjectionSyncAction} className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
-              <Input
-                name="seller_id"
-                label="Seller ID (optioneel)"
-                placeholder="sel_01… (zie tabel hieronder)"
-              />
-              <Input
-                name="limit"
-                label="Aantal producten per batch (max. 500)"
-                defaultValue="200"
-              />
+              {merchantSellerOptions.length > 0 ? (
+                <div>
+                  <Select
+                    name="seller_id"
+                    label="Welke winkel wil je synchroniseren?"
+                    options={merchantSellerOptions}
+                    placeholder="Alle winkels synchroniseren"
+                    defaultValue={selectedSellerId ?? ""}
+                  />
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Kies een winkel uit de lijst. Laat dit leeg om alle winkels te synchroniseren.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Input
+                    name="seller_id"
+                    label="Seller ID (alleen als je die kent)"
+                    placeholder="sel_01… (zie tabel hieronder)"
+                    defaultValue={selectedSellerId ?? ""}
+                  />
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Je vindt deze code in de tabel hieronder, onder elke winkelnaam.
+                  </p>
+                </div>
+              )}
+              <div>
+                <Input
+                  name="limit"
+                  label="Aantal producten per batch"
+                  defaultValue="200"
+                  min={1}
+                  max={500}
+                  type="number"
+                />
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Laat 200 staan voor een normale synchronisatie. Kies maximaal 500 voor grote catalogi.
+                </p>
+              </div>
             </div>
             <Button type="submit">Synchronisatie starten</Button>
           </form>
@@ -375,10 +403,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
       <CardShell variant="default" padding="lg">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Goedkeuring &amp; import
+          Producten importeren en publiceren
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Deze instellingen gelden voor de hele marketplace — niet per winkel.
+          Deze regels gelden voor alle winkels. Kies vooraf of Hobbysalon nieuwe importproducten
+          eerst handmatig controleert of automatisch kan publiceren.
         </p>
         <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--section-alt)] px-4 py-3 text-sm text-[var(--foreground)]">
           <p className="font-medium">Wie keurt producten goed?</p>
@@ -398,68 +427,68 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
           {requireProductApprovalRule ? (
             <form
               action={updateMaterialsRuleAction}
-              className="rounded-lg border border-[var(--border)] p-3"
+              className="rounded-lg border border-[var(--border)] p-4"
             >
               <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <input type="hidden" name="rule_id" value={requireProductApprovalRule.id} />
-              <p className="font-medium">Productgoedkeuring verplicht</p>
-              <p className="text-xs text-[var(--muted)] mt-1">
+              <p className="font-medium">Handmatige controle vóór publicatie</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 {requireProductApprovalRule.is_enabled
-                  ? "Aan: nieuwe producten wachten op goedkeuring door Hobbysalon."
-                  : "Uit: producten worden automatisch gepubliceerd."}
+                  ? "Aan: geïmporteerde producten worden niet automatisch gepubliceerd. Een Hobbysalon-beheerder controleert ze eerst in de productbeheeromgeving."
+                  : "Uit: geldige geïmporteerde producten kunnen automatisch gepubliceerd worden. Gebruik dit alleen voor winkels waarvan je de catalogus vertrouwt."}
               </p>
-              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+              <label className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
                   name="is_enabled"
                   defaultChecked={requireProductApprovalRule.is_enabled}
                 />
-                Regel actief
+                Nieuwe importproducten eerst laten beoordelen
               </label>
               <div className="mt-3">
                 <Button type="submit" size="sm" variant="secondary">
-                  Opslaan
+                  Instelling opslaan
                 </Button>
               </div>
             </form>
           ) : (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Rule <code>require_product_approval</code> not found.
+              De instelling voor productcontrole is nog niet aangemaakt.
             </p>
           )}
 
           {productImportEnabledRule ? (
             <form
               action={updateMaterialsRuleAction}
-              className="rounded-lg border border-[var(--border)] p-3"
+              className="rounded-lg border border-[var(--border)] p-4"
             >
               <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <input type="hidden" name="rule_id" value={productImportEnabledRule.id} />
-              <p className="font-medium">Productimport toegestaan</p>
-              <p className="text-xs text-[var(--muted)] mt-1">
+              <p className="font-medium">CSV- en feedimport toestaan</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 {productImportEnabledRule.is_enabled
-                  ? "Aan: verkopers mogen CSV/feed-import gebruiken in het verkopersportaal."
-                  : "Uit: import via het verkopersportaal is geblokkeerd."}
+                  ? "Aan: winkels kunnen producten via een CSV-bestand of een gekoppelde productfeed importeren."
+                  : "Uit: nieuwe CSV- en feedimports zijn geblokkeerd. Bestaande producten blijven ongewijzigd."}
               </p>
-              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+              <label className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
                   name="is_enabled"
                   defaultChecked={productImportEnabledRule.is_enabled}
                 />
-                Regel actief
+                Import voor winkels toestaan
               </label>
               <div className="mt-3">
                 <Button type="submit" size="sm" variant="secondary">
-                  Opslaan
+                  Instelling opslaan
                 </Button>
               </div>
             </form>
           ) : (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Rule <code>product_import_enabled</code> not found.
+              De instelling voor productimport is nog niet aangemaakt.
             </p>
           )}
         </div>
@@ -468,7 +497,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
       <CardShell variant="default" padding="lg">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Winkels &amp; seller ID&apos;s
+            Winkels
           </h2>
           <form method="GET" className="flex items-end gap-2">
             <Input

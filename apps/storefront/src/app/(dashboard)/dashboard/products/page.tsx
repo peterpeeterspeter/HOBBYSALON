@@ -176,14 +176,19 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   type="number"
                   min={0}
                 />
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
                   <ImageUploadField
                     name="featured_image_file"
-                    label="Productafbeelding"
+                    label="Productfoto"
                     urlFieldName="featured_image_url"
                     uploadPathPrefix={`creators/${creator.id}/products`}
-                    hint="Upload een foto of plak een directe link. Zet het product op actief om het te publiceren — concepten tonen geen afbeelding op de site."
+                    hint="Kies een foto vanaf je computer of telefoon. Deze foto wordt gebruikt als hoofdafbeelding van je product."
                   />
+                  <p className="text-xs text-[var(--muted)]">
+                    Een geüploade foto krijgt voorrang op een geplakte link. Gebruik enkel een
+                    directe link naar JPG, PNG, WebP of GIF — niet een webpagina of
+                    Google Drive-preview.
+                  </p>
                 </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
                 <div className="sm:col-span-2">
@@ -309,15 +314,20 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       min={0}
                       defaultValue={product.estimated_dispatch_days ?? ""}
                     />
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
                       <ImageUploadField
                         name="featured_image_file"
-                        label="Productafbeelding"
+                        label="Productfoto vervangen"
                         currentUrl={product.featured_image_url}
                         urlFieldName="featured_image_url"
                         urlDefaultValue={product.featured_image_url ?? ""}
                         uploadPathPrefix={`creators/${creator.id}/products`}
+                        hint="Kies alleen een nieuwe foto als je de huidige wilt vervangen."
                       />
+                      <p className="text-xs text-[var(--muted)]">
+                        Een geüploade foto krijgt voorrang op een geplakte link. Laat beide
+                        velden leeg om je huidige foto te behouden.
+                      </p>
                     </div>
                     <Input
                       name="short_description"

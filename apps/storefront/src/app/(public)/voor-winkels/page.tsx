@@ -52,7 +52,7 @@ const PLANS = [
   },
   {
     title: "Premium winkel",
-    price: "Vanaf €79 / maand excl. btw",
+    price: "€29 / maand excl. btw",
     featured: true,
     features: [
       "10% commissie per verkoop",
@@ -65,7 +65,7 @@ const PLANS = [
   },
   {
     title: "Pro / categoriepartner",
-    price: "Op maat",
+    price: "Prijs op maat",
     features: [
       "10% commissie per verkoop",
       "Categorieboost",

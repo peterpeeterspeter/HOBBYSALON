@@ -128,48 +128,6 @@ export async function registerEmailUser(
   };
 }
 
-export async function activateRegisteredUserSession(
-  userId: string,
-  email: string,
-  password: string
-): Promise<Session | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!supabaseUrl || !serviceKey) {
-    return null;
-  }
-
-  const admin = createClient(supabaseUrl, serviceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
-  });
-
-  const { error: confirmError } = await admin.auth.admin.updateUserById(userId, {
-    email_confirm: true,
-  });
-
-  if (confirmError) {
-    console.error("Failed to confirm registered user email", {
-      userId,
-      message: confirmError.message,
-    });
-    return null;
-  }
-
-  const { session, error } = await createEmailSession(email, password);
-  if (error) {
-    console.error("Failed to sign in after confirming registration", {
-      userId,
-      message: error,
-    });
-  }
-
-  return session;
-}
-
 export async function validateAuthSession(
   accessToken: string,
   refreshToken: string

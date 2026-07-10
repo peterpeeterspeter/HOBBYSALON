@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bevestig je Hobbysalon-account</title>
+  </head>
+  <body style="margin: 0; padding: 0; background: #f7f4ee; color: #24322a; font-family: Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #f7f4ee;">
+      <tr>
+        <td align="center" style="padding: 32px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; background: #ffffff; border-radius: 16px; overflow: hidden;">
+            <tr>
+              <td style="padding: 32px 32px 16px;">
+                <p style="margin: 0; color: #6f7d72; font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Hobbysalon</p>
+                <h1 style="margin: 16px 0; color: #24322a; font-size: 28px; line-height: 1.25;">Welkom bij Hobbysalon</h1>
+                <p style="margin: 0; color: #4d5b51; font-size: 16px; line-height: 1.6;">Bevestig je e-mailadres om je account te activeren. Daarna kun je inloggen en je favorieten, workshops en profiel beheren.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 32px 32px;">
+                <a href="{{ .ConfirmationURL }}" style="display: inline-block; background: #365e43; border-radius: 8px; color: #ffffff; font-size: 16px; font-weight: 700; line-height: 1; padding: 15px 22px; text-decoration: none;">E-mailadres bevestigen</a>
+                <p style="margin: 24px 0 0; color: #6f7d72; font-size: 14px; line-height: 1.5;">Heb je geen account bij Hobbysalon aangemaakt? Dan kun je deze e-mail veilig negeren.</p>
+                <p style="margin: 16px 0 0; color: #6f7d72; font-size: 12px; line-height: 1.5;">Werkt de knop niet? Kopieer deze link naar je browser:<br /><a href="{{ .ConfirmationURL }}" style="color: #365e43; word-break: break-all;">{{ .ConfirmationURL }}</a></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
