@@ -625,6 +625,11 @@ const cspHeader = [
 const isVercel = process.env.VERCEL === "1";
 const nextConfig: NextConfig = {
   transpilePackages: ["@medusajs/js-sdk"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4.5mb",
+    },
+  },
   ...(isVercel ? {} : {
     outputFileTracingRoot: workspaceRoot,
     turbopack: { root: workspaceRoot },

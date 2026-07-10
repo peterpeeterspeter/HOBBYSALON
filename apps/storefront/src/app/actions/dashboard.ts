@@ -17,7 +17,7 @@ import {
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
 import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
+import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
@@ -1328,12 +1328,6 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", "Prijs (in cent) is verplicht.");
     }
 
-    const featuredImageUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "featured_image_file",
-      parseOptionalString(formData, "featured_image_url"),
-      `products/${creator.id}`
-    );
     const isActive = !!formData.get("is_active");
     const creditCheck = await enforceHandmadePublishCredits(
       creator.id,
@@ -1344,6 +1338,12 @@ export async function createProductAction(formData: FormData): Promise<void> {
     if (!creditCheck.ok) {
       fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
     }
+
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      pathPrefix: `creators/${creator.id}/products`,
+    });
 
     const result = await createCreatorMarketplaceProduct({
       sellerId,
@@ -1378,7 +1378,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     revalidatePath(`/creator/${creator.slug}`);
     ok(
       "/dashboard/products",
-      "Product aangemaakt. Het kan enkele seconden duren voor het zichtbaar is."
+      "Product aangemaakt. De afbeelding kan enkele seconden duren voordat ze zichtbaar is op de site — zet het product op actief om het te publiceren."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1433,12 +1433,6 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", "Product niet gevonden.");
     }
 
-    const featuredImageUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "featured_image_file",
-      parseOptionalString(formData, "featured_image_url") ?? existingProduct.featured_image_url,
-      `products/${creator.id}`
-    );
     const medusaProductId =
       medusaProductIdFromForm || existingProduct.medusa_product_id || null;
 
@@ -1449,6 +1443,13 @@ export async function updateProductAction(formData: FormData): Promise<void> {
           "Medusa creator-producten ondersteunen momenteel enkel type 'handmade'."
         );
       }
+
+      const featuredImageUrl = await resolveProductImageUrl(formData, {
+        fileField: "featured_image_file",
+        urlField: "featured_image_url",
+        existingUrl: existingProduct.featured_image_url,
+        pathPrefix: `creators/${creator.id}/products`,
+      });
 
       const result = await updateCreatorMarketplaceProduct({
         sellerId,
@@ -1494,6 +1495,12 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("products", preferredSlug, productId);
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      existingUrl: existingProduct.featured_image_url,
+      pathPrefix: `creators/${creator.id}/products`,
+    });
 
     const { error } = await supabase
       .from("products")

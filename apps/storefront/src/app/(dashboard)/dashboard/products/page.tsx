@@ -15,10 +15,10 @@ import {
 } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ImageUploadField } from "@/components/ui/image-upload-field";
 import type { Product } from "@/types/platform";
 
 type Props = {
@@ -180,15 +180,14 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   <ImageUploadField
                     name="featured_image_file"
                     label="Productfoto"
+                    urlFieldName="featured_image_url"
+                    uploadPathPrefix={`creators/${creator.id}/products`}
                     hint="Kies een foto vanaf je computer of telefoon. Deze foto wordt gebruikt als hoofdafbeelding van je product."
                   />
-                  <Input
-                    name="featured_image_url"
-                    label="Of plak een directe afbeeldingslink"
-                    placeholder="https://voorbeeld.be/foto.jpg"
-                  />
                   <p className="text-xs text-[var(--muted)]">
-                    Een geüploade foto krijgt voorrang op een geplakte link. Gebruik enkel een directe link naar een JPG, PNG, WebP of GIF, niet een link naar een webpagina of Google Drive-preview.
+                    Een geüploade foto krijgt voorrang op een geplakte link. Gebruik enkel een
+                    directe link naar JPG, PNG, WebP of GIF — niet een webpagina of
+                    Google Drive-preview.
                   </p>
                 </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
@@ -232,11 +231,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       ({product.product_type}){product.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
-                  <form
-                    action={updateProductAction}
-                    encType="multipart/form-data"
-                    className="mt-4 grid gap-4 sm:grid-cols-2"
-                  >
+                  <form action={updateProductAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={product.id} />
                     <input
                       type="hidden"
@@ -324,16 +319,14 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                         name="featured_image_file"
                         label="Productfoto vervangen"
                         currentUrl={product.featured_image_url}
+                        urlFieldName="featured_image_url"
+                        urlDefaultValue={product.featured_image_url ?? ""}
+                        uploadPathPrefix={`creators/${creator.id}/products`}
                         hint="Kies alleen een nieuwe foto als je de huidige wilt vervangen."
                       />
-                      <Input
-                        name="featured_image_url"
-                        label="Of gebruik een directe afbeeldingslink"
-                        placeholder="https://voorbeeld.be/foto.jpg"
-                        defaultValue={product.featured_image_url ?? ""}
-                      />
                       <p className="text-xs text-[var(--muted)]">
-                        Een geüploade foto krijgt voorrang op een geplakte link. Laat beide velden ongemoeid om je huidige foto te behouden.
+                        Een geüploade foto krijgt voorrang op een geplakte link. Laat beide
+                        velden leeg om je huidige foto te behouden.
                       </p>
                     </div>
                     <Input

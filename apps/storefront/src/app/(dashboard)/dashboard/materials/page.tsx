@@ -342,7 +342,10 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
           Productcatalogus synchroniseren
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Haal producten uit de catalogus van een winkel naar Hobbysalon. Dit is een beheerdersactie en verandert geen productgegevens bij de winkel zelf.
+          Haal producten uit de catalogus van een winkel naar Hobbysalon. Dit is een
+          beheerdersactie en verandert geen productgegevens bij de winkel zelf. Je{" "}
+          <strong>Seller ID</strong> staat onder elke winkelnaam in de tabel hieronder
+          (formaat <code>sel_…</code>).
         </p>
 
         {!canTriggerSync ? (
@@ -371,11 +374,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                   <Input
                     name="seller_id"
                     label="Seller ID (alleen als je die kent)"
-                    placeholder="sel_..."
+                    placeholder="sel_01… (zie tabel hieronder)"
                     defaultValue={selectedSellerId ?? ""}
                   />
                   <p className="mt-1 text-xs text-[var(--muted)]">
-                    Je vindt deze code in het blok ‘Winkels’ lager op deze pagina, naast de winkelnaam.
+                    Je vindt deze code in de tabel hieronder, onder elke winkelnaam.
                   </p>
                 </div>
               )}
@@ -403,8 +406,23 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
           Producten importeren en publiceren
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Deze regels gelden voor alle winkels. Kies vooraf of Hobbysalon nieuwe importproducten eerst handmatig controleert of automatisch kan publiceren.
+          Deze regels gelden voor alle winkels. Kies vooraf of Hobbysalon nieuwe importproducten
+          eerst handmatig controleert of automatisch kan publiceren.
         </p>
+        <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--section-alt)] px-4 py-3 text-sm text-[var(--foreground)]">
+          <p className="font-medium">Wie keurt producten goed?</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--muted)]">
+            <li>
+              <strong>Goedkeuring uit</strong> (standaard): nieuwe producten worden
+              automatisch gepubliceerd na aanmaak.
+            </li>
+            <li>
+              <strong>Goedkeuring aan</strong>: verkopers kunnen niet zelf publiceren.
+              Het Hobbysalon-team controleert en keurt producten goed in Medusa/admin
+              voordat ze op de site verschijnen.
+            </li>
+          </ul>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {requireProductApprovalRule ? (
             <form
@@ -484,9 +502,9 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
           <form method="GET" className="flex items-end gap-2">
             <Input
               name="merchant_q"
-              label="Search merchant"
+              label="Zoek winkel"
               defaultValue={merchantQ ?? ""}
-              placeholder="name or handle"
+              placeholder="naam of handle"
             />
             <Button type="submit" variant="secondary" size="sm">
               Filter
@@ -531,8 +549,9 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                           {merchant.seller_name || merchant.seller_handle || merchant.seller_id}
                         </div>
                         <div className="text-xs text-[var(--muted)]">
-                          {merchant.seller_id} · {merchant.store_status || "unknown"} ·{" "}
-                          {ready ? "ready" : "needs setup"}
+                          Seller ID: <code>{merchant.seller_id}</code> ·{" "}
+                          {merchant.store_status || "onbekend"} ·{" "}
+                          {ready ? "klaar" : "setup nodig"}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button asChild variant="ghost" size="sm">
@@ -550,7 +569,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
                               <input type="hidden" name="limit" value="200" />
                               <Button type="submit" variant="secondary" size="sm">
-                                Sync seller
+                                Sync deze winkel
                               </Button>
                             </form>
                           )}

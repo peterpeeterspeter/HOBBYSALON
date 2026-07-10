@@ -41,9 +41,10 @@ const PLANS = [
     title: "Basis verkoper",
     price: "€0 / maand",
     features: [
+      "Geen vaste maandelijkse kosten",
+      "10% commissie per verkoop",
       "Winkelprofiel",
       "Producten verkopen via Hobbysalon",
-      "10% commissie",
       "Verzendkosten apart",
       "Afrekenkosten apart",
       "Basis categorieplaatsing",
@@ -51,21 +52,22 @@ const PLANS = [
   },
   {
     title: "Premium winkel",
-    price: "€29 / maand",
+    price: "€29 / maand excl. btw",
     featured: true,
     features: [
+      "10% commissie per verkoop",
       "Meer productzichtbaarheid",
       "Bulk upload indien beschikbaar",
       "Uitgelichte winkel",
       "Kitvermeldingen",
       "Promotiekansen",
-      "Externe link alleen als premium/tracked feature",
     ],
   },
   {
     title: "Pro / categoriepartner",
     price: "Prijs op maat",
     features: [
+      "10% commissie per verkoop",
       "Categorieboost",
       "Sponsored tutorial",
       "Nieuwsbriefdeal",
@@ -127,7 +129,7 @@ export default function VoorWinkelsPage() {
       />
       <PlanCardsSection
         title="Verkooppakketten"
-        description="Van basis marketplace tot categoriepartnerschap."
+        description="Basis: alleen commissie bij verkoop. Premium en Pro: extra zichtbaarheid via abonnement. Op alle pakketten geldt 10% commissie op materialen."
         plans={PLANS}
       />
       <HowItWorksSection

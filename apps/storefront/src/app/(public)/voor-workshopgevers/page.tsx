@@ -100,7 +100,7 @@ const FAQ_ITEMS = [
   {
     question: "Moet ik een boekingssysteem van Hobbysalon gebruiken?",
     answer:
-      "Nee. Bij de start hoeven deelnemers niet via een nieuwe bookingtool te boeken. Zij sturen een aanvraag via Hobbysalon, waarna jij zelf contact opneemt en de inschrijving verder regelt. Heb je al een eigen boekingssysteem? Met het Tracked- of Premium-pakket kun je daar rechtstreeks naar linken. Een Hobbysalon-bookingtool kan later als extra optie worden toegevoegd.",
+      "Nee. Bij de start hoeven deelnemers niet via een nieuwe bookingtool te boeken. Zij sturen een aanvraag via Hobbysalon, waarna jij zelf contact opneemt en de inschrijving verder regelt (bijv. via mail, je eigen website of betaling ter plaatse). Heb je al een eigen boekingssysteem? Met het Tracked- of Premium-pakket kun je daar rechtstreeks naar linken. Een Hobbysalon-bookingtool kan later als extra optie worden toegevoegd.",
   },
   {
     question: "Kan ik een externe boekingslink tonen?",
