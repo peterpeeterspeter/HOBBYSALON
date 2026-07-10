@@ -43,7 +43,7 @@ export const POST = async (
   )
 
   const { result } = await createOnboardingForSellerWorkflow(req.scope).run({
-    context: { transactionId: seller.id },
+    context: { transactionId: `${seller.id}-onboarding` },
     input: {
       seller_id: seller.id,
       context: req.validatedBody.context ?? {}

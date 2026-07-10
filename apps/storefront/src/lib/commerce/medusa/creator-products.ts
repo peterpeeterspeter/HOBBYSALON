@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getMedusaAdminBackendConfig } from "./medusa-admin-auth";
+
 type CreatorProductInput = {
   sellerId: string;
   platformCreatorId: string;
@@ -25,36 +27,75 @@ type CreatorProductResult = {
   productId: string | null;
   error?: string;
 };
+async function resolveDefaultSalesChannelId(
+  baseUrl: string,
+  adminToken: string
+): Promise<string | null> {
+  const response = await fetch(`${baseUrl}/admin/sales-channels?limit=5`, {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "x-medusa-access-token": adminToken,
+    },
+    cache: "no-store",
+  });
 
-function getAdminConfig() {
-  const baseUrl =
-    process.env.MEDUSA_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
-  if (!adminToken) {
+  if (!response.ok) {
     return null;
   }
 
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
+  const payload = (await response.json()) as {
+    sales_channels?: Array<{ id: string; name?: string }>;
   };
+
+  const channels = payload.sales_channels ?? [];
+  return (
+    channels.find((channel) => channel.name === "Default Sales Channel")?.id ??
+    channels[0]?.id ??
+    null
+  );
+}
+
+export async function ensureCreatorProductSalesChannel(
+  productId: string
+): Promise<boolean> {
+  const config = await getMedusaAdminBackendConfig();
+  if (!config) {
+    return false;
+  }
+
+  const salesChannelId = await resolveDefaultSalesChannelId(
+    config.baseUrl,
+    config.adminToken
+  );
+  if (!salesChannelId) {
+    return false;
+  }
+
+  const response = await fetch(`${config.baseUrl}/admin/products/${productId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.adminToken}`,
+      "x-medusa-access-token": config.adminToken,
+    },
+    body: JSON.stringify({
+      sales_channels: [{ id: salesChannelId }],
+    }),
+    cache: "no-store",
+  });
+
+  return response.ok;
 }
 
 export async function createCreatorMarketplaceProduct(
   input: CreatorProductInput
 ): Promise<CreatorProductResult> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
       productId: null,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 
@@ -133,12 +174,12 @@ export async function updateCreatorMarketplaceProduct(input: {
   priceCents?: number;
   currencyCode?: string | null;
 }): Promise<CreatorProductResult> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
       productId: null,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 
@@ -223,11 +264,11 @@ export async function deleteCreatorMarketplaceProduct(input: {
   sellerId: string;
   medusaProductId: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const config = getAdminConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return {
       ok: false,
-      error: "Missing MEDUSA_ADMIN_API_TOKEN on storefront server.",
+      error: "Missing Medusa admin credentials on storefront server.",
     };
   }
 

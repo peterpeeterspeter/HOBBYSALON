@@ -2,6 +2,8 @@ import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { createEventAction, updateEventAction } from "@/app/actions/dashboard";
+import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor-inquiry";
+import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import type { Event } from "@/types/platform";
@@ -20,8 +22,7 @@ const EVENT_TYPES = [
 
 const TICKETING_MODES = [
   { value: "none", label: "Geen tickets" },
-  { value: "external_link", label: "Externe ticketlink" },
-  { value: "internal_ticket", label: "Interne tickets" },
+  { value: "external_link", label: "Externe ticketlink (Premium)" },
 ];
 
 function toDateTimeLocal(value: string): string {
@@ -36,14 +37,40 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
   const { success, error } = await searchParams;
 
   let events: Event[] = [];
+  let vendorInquiries: Array<{
+    id: string;
+    event_id: string;
+    business_name: string;
+    contact_name: string;
+    email: string;
+    message: string | null;
+    status: string;
+    created_at: string;
+  }> = [];
+  let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
+    null;
+
   if (creator) {
     const supabase = createPlatformClient();
-    const { data } = await supabase
-      .from("events")
-      .select("*")
-      .eq("organizer_creator_id", creator.id)
-      .order("starts_at", { ascending: true });
-    events = (data ?? []) as Event[];
+    commercialContext = await getDashboardCommercialContext(
+      creator.id,
+      creator.creator_types ?? []
+    );
+    const [eventsResult, inquiriesResult] = await Promise.all([
+      supabase
+        .from("events")
+        .select("*")
+        .eq("organizer_creator_id", creator.id)
+        .order("starts_at", { ascending: true }),
+      supabase
+        .from("event_vendor_inquiries")
+        .select("*")
+        .eq("organizer_creator_id", creator.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+    events = (eventsResult.data ?? []) as Event[];
+    vendorInquiries = inquiriesResult.data ?? [];
   }
 
   const defaultStart = new Date();
@@ -99,7 +126,11 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
               <label>
                 <span className="mb-1 block text-sm font-medium">Ticketing *</span>
                 <select name="ticketing_mode" defaultValue="none" className="w-full rounded-md border border-[var(--border)] px-3 py-2">
-                  {TICKETING_MODES.map((option) => (
+                  {TICKETING_MODES.filter(
+                    (option) =>
+                      option.value !== "external_link" ||
+                      commercialContext?.allowExternalLinks
+                  ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -211,7 +242,11 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                     <label>
                       <span className="mb-1 block text-sm font-medium">Ticketing *</span>
                       <select name="ticketing_mode" defaultValue={event.ticketing_mode} className="w-full rounded-md border border-[var(--border)] px-3 py-2">
-                        {TICKETING_MODES.map((option) => (
+                        {TICKETING_MODES.filter(
+                    (option) =>
+                      option.value !== "external_link" ||
+                      commercialContext?.allowExternalLinks
+                  ).map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -288,6 +323,62 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
               ))
             )}
           </div>
+
+          <CardShell variant="default" padding="lg" className="mt-8">
+            <h2 className="text-lg font-semibold">Standhouder-aanvragen</h2>
+            {vendorInquiries.length === 0 ? (
+              <p className="mt-3 text-sm text-[var(--muted)]">
+                Nog geen standhouder-aanvragen ontvangen.
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-4">
+                {vendorInquiries.map((inquiry) => (
+                  <li
+                    key={inquiry.id}
+                    className="rounded-lg border border-[var(--border)] p-4"
+                  >
+                    <p className="font-semibold">{inquiry.business_name}</p>
+                    <p className="text-sm text-[var(--muted)]">
+                      {inquiry.contact_name} · {inquiry.email}
+                    </p>
+                    {inquiry.message && (
+                      <p className="mt-2 text-sm">{inquiry.message}</p>
+                    )}
+                    <form
+                      className="mt-3 flex items-center gap-2"
+                      action={async (formData) => {
+                        "use server";
+                        if (!creator) return;
+                        await updateEventVendorInquiryStatusAction({
+                          inquiryId: inquiry.id,
+                          organizerCreatorId: creator.id,
+                          status: formData.get("status") as
+                            | "new"
+                            | "contacted"
+                            | "accepted"
+                            | "declined",
+                        });
+                      }}
+                    >
+                      <select
+                        name="status"
+                        defaultValue={inquiry.status}
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-sm"
+                      >
+                        <option value="new">Nieuw</option>
+                        <option value="contacted">Gecontacteerd</option>
+                        <option value="accepted">Geaccepteerd</option>
+                        <option value="declined">Afgewezen</option>
+                      </select>
+                      <Button type="submit" variant="secondary">
+                        Status opslaan
+                      </Button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardShell>
         </>
       )}
     </section>

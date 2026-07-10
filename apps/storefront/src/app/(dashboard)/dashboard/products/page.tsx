@@ -1,4 +1,5 @@
 import { getAuthUser } from "@/lib/auth/session";
+import { ensureCreatorSellerLinked, resolveSellerIdForCreatorOps } from "@/lib/commerce/medusa/creator-onboarding";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
@@ -14,6 +15,7 @@ import {
 } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -40,6 +42,12 @@ const PRODUCT_STOCK_MODE_OPTIONS = [
 export default async function DashboardProductsPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
+  if (creator && user) {
+    const linkedSellerId = await resolveSellerIdForCreatorOps(user.id);
+    if (!linkedSellerId) {
+      await ensureCreatorSellerLinked(user.id, user.email ?? "", creator);
+    }
+  }
   const { success, error } = await searchParams;
   const [domains, categoryOptions] = await Promise.all([
     listDomainsBySort(),
@@ -106,7 +114,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
       ) : (
         <>
           <CardShell variant="default" padding="lg" className="mb-8">
-            <form action={createProductAction}>
+            <form action={createProductAction} encType="multipart/form-data">
               <h2 className="text-lg font-semibold">Nieuw product</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
@@ -168,7 +176,20 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   type="number"
                   min={0}
                 />
-                <Input name="featured_image_url" label="Afbeelding URL" />
+                <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
+                  <ImageUploadField
+                    name="featured_image_file"
+                    label="Productfoto"
+                    urlFieldName="featured_image_url"
+                    uploadPathPrefix={`creators/${creator.id}/products`}
+                    hint="Kies een foto vanaf je computer of telefoon. Deze foto wordt gebruikt als hoofdafbeelding van je product."
+                  />
+                  <p className="text-xs text-[var(--muted)]">
+                    Een geüploade foto krijgt voorrang op een geplakte link. Gebruik enkel een
+                    directe link naar JPG, PNG, WebP of GIF — niet een webpagina of
+                    Google Drive-preview.
+                  </p>
+                </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
@@ -210,7 +231,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       ({product.product_type}){product.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
-                  <form action={updateProductAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <form action={updateProductAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={product.id} />
                     <input
                       type="hidden"
@@ -293,11 +314,21 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       min={0}
                       defaultValue={product.estimated_dispatch_days ?? ""}
                     />
-                    <Input
-                      name="featured_image_url"
-                      label="Afbeelding URL"
-                      defaultValue={product.featured_image_url ?? ""}
-                    />
+                    <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
+                      <ImageUploadField
+                        name="featured_image_file"
+                        label="Productfoto vervangen"
+                        currentUrl={product.featured_image_url}
+                        urlFieldName="featured_image_url"
+                        urlDefaultValue={product.featured_image_url ?? ""}
+                        uploadPathPrefix={`creators/${creator.id}/products`}
+                        hint="Kies alleen een nieuwe foto als je de huidige wilt vervangen."
+                      />
+                      <p className="text-xs text-[var(--muted)]">
+                        Een geüploade foto krijgt voorrang op een geplakte link. Laat beide
+                        velden leeg om je huidige foto te behouden.
+                      </p>
+                    </div>
                     <Input
                       name="short_description"
                       label="Korte omschrijving"

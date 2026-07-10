@@ -996,3 +996,132 @@ create index if not exists idx_workshop_booking_requests_status on public.worksh
 create trigger trg_workshop_booking_requests_updated_at
 before update on public.workshop_booking_requests
 for each row execute function public.set_updated_at();
+
+-- =========================================================
+-- COMMERCIAL PLANS
+-- Subscription tiers per segment (workshop, maker, supplier, organizer)
+-- =========================================================
+
+create table if not exists public.commercial_plans (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  segment text not null,
+  name text not null,
+  price_cents integer not null default 0,
+  currency_code text not null default 'EUR',
+  billing_period text not null,
+  listing_limit integer,
+  product_limit integer,
+  external_links_allowed boolean not null default false,
+  featured_allowed boolean not null default false,
+  video_allowed boolean not null default false,
+  analytics_allowed boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint commercial_plans_segment_check check (
+    segment in ('workshop', 'maker', 'supplier', 'organizer')
+  ),
+  constraint commercial_plans_billing_period_check check (
+    billing_period in ('monthly', 'yearly', 'one_time')
+  )
+);
+
+create table if not exists public.creator_plan_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  creator_id uuid not null references public.creators(id) on delete cascade,
+  plan_id uuid not null references public.commercial_plans(id) on delete restrict,
+  status text not null,
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz,
+  external_payment_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint creator_plan_subscriptions_status_check check (
+    status in ('active', 'trialing', 'past_due', 'cancelled', 'expired')
+  )
+);
+
+create table if not exists public.event_plan_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  plan_id uuid not null references public.commercial_plans(id) on delete restrict,
+  status text not null,
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz,
+  external_payment_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint event_plan_subscriptions_status_check check (
+    status in ('active', 'trialing', 'past_due', 'cancelled', 'expired')
+  )
+);
+
+-- =========================================================
+-- LISTING CREDITS (makers)
+-- =========================================================
+
+create table if not exists public.listing_credit_wallets (
+  id uuid primary key default gen_random_uuid(),
+  creator_id uuid not null unique references public.creators(id) on delete cascade,
+  balance integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint listing_credit_wallets_balance_check check (balance >= 0)
+);
+
+create table if not exists public.listing_credit_transactions (
+  id uuid primary key default gen_random_uuid(),
+  creator_id uuid not null references public.creators(id) on delete cascade,
+  amount integer not null,
+  reason text not null,
+  related_entity_type text,
+  related_entity_id uuid,
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.listing_credit_products (
+  id uuid primary key default gen_random_uuid(),
+  pack_code text not null unique,
+  name text not null,
+  credits integer not null,
+  price_cents integer not null,
+  currency_code text not null default 'EUR',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- VISIBILITY BOOSTS
+-- =========================================================
+
+create table if not exists public.visibility_boosts (
+  id uuid primary key default gen_random_uuid(),
+  entity_type text not null,
+  entity_id uuid not null,
+  boost_type text not null,
+  source text not null,
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz,
+  boost_score integer not null default 100,
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- EVENT VENDOR INQUIRIES
+-- =========================================================
+
+create table if not exists public.event_vendor_inquiries (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  organizer_creator_id uuid not null references public.creators(id) on delete cascade,
+  business_name text not null,
+  contact_name text not null,
+  email text not null,
+  message text,
+  status text not null default 'new',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);

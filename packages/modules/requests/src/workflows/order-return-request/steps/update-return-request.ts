@@ -10,27 +10,43 @@ import {
   OrderReturnModuleService,
 } from "../../../modules/order-return-request";
 
-export const updateOrderReturnRequestStep = createStep(
+type UpdateOrderReturnRequestInput =
+  | VendorUpdateOrderReturnRequestDTO
+  | AdminUpdateOrderReturnRequestDTO;
+
+export const updateOrderReturnRequestStep = createStep<
+  UpdateOrderReturnRequestInput,
+  OrderReturnRequestDTO,
+  OrderReturnRequestDTO
+>(
   "update-order-return-request",
   async (
-    input: VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO,
+    input,
     { container }
-  ) => {
+  ): Promise<StepResponse<OrderReturnRequestDTO, OrderReturnRequestDTO>> => {
     const service =
       container.resolve<OrderReturnModuleService>(ORDER_RETURN_MODULE);
 
-    const previousData = await service.retrieveOrderReturnRequest(input.id);
+    const previousData = (await service.retrieveOrderReturnRequest(
+      input.id
+    )) as OrderReturnRequestDTO;
 
-    const request: OrderReturnRequestDTO =
-      await service.updateOrderReturnRequests(input);
+    const request = (await service.updateOrderReturnRequests(
+      input
+    )) as OrderReturnRequestDTO;
 
     return new StepResponse(request, previousData);
   },
-  async (previousData: OrderReturnRequestDTO, { container }) => {
+  async (previousData, { container }) => {
+    if (!previousData) {
+      return;
+    }
+
     const service =
       container.resolve<OrderReturnModuleService>(ORDER_RETURN_MODULE);
 
-    // @ts-expect-error - incomplete type
-    await service.updateOrderReturnRequests(previousData);
+    await service.updateOrderReturnRequests(
+      previousData as UpdateOrderReturnRequestInput
+    );
   }
 );

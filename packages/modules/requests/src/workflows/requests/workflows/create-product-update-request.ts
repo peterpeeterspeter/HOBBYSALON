@@ -2,6 +2,7 @@ import { ProductStatus } from "@medusajs/framework/utils";
 import { createRemoteLinkStep } from "@medusajs/medusa/core-flows";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -21,13 +22,15 @@ import { REQUESTS_MODULE } from "../../../modules/requests";
 import { createRequestStep } from "../steps";
 import { parseProductUpdateRequestData } from "../utils/request-data-schemas";
 
+type CreateProductUpdateRequestWorkflowInput = {
+  data: CreateRequestDTO;
+  seller_id: string;
+  additional_data?: unknown;
+};
+
 export const createProductUpdateRequestWorkflow = createWorkflow(
   "create-product-update-request",
-  function (input: {
-    data: CreateRequestDTO;
-    seller_id: string;
-    additional_data?: unknown;
-  }) {
+  function (input: WorkflowData<CreateProductUpdateRequestWorkflowInput>) {
     const requestData = transform({ input }, ({ input }) =>
       parseProductUpdateRequestData(input.data.data)
     );
@@ -87,7 +90,7 @@ export const createProductUpdateRequestWorkflow = createWorkflow(
       }
     );
     return new WorkflowResponse(request, {
-      hooks: [productUpdateRequestCreatedHook],
+      hooks: [productUpdateRequestCreatedHook] as any[],
     });
   }
 );

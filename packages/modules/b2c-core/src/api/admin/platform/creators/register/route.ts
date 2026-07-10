@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { MemberRole, SellerType } from '@mercurjs/framework'
 
 import { SELLER_MODULE, SellerModuleService } from '../../../../../modules/seller'
+import { ensureSellerDefaultShippingProfile } from '../../../../../shared/platform/ensure-seller-default-shipping-profile'
 
 const RegisterCreatorPayload = z.object({
   name: z.string().trim().min(1),
@@ -88,21 +89,29 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     .first()
 
   if (existing) {
-    if (existing.seller_type !== SellerType.CREATOR) {
-      throw new MedusaError(
-        MedusaError.Types.CONFLICT,
-        `Seller with email ${payload.email} already exists as ${existing.seller_type}.`
-      )
+    if (
+      existing.seller_type === SellerType.CREATOR ||
+      existing.seller_type === SellerType.MERCHANT
+    ) {
+      await ensureSellerDefaultShippingProfile(req.scope, existing.id)
+
+      res.json({
+        creator: {
+          seller_id: existing.id,
+          seller_type: existing.seller_type,
+          status:
+            existing.seller_type === SellerType.CREATOR
+              ? 'existing'
+              : 'existing_merchant',
+        },
+      })
+      return
     }
 
-    res.json({
-      creator: {
-        seller_id: existing.id,
-        seller_type: existing.seller_type,
-        status: 'existing',
-      },
-    })
-    return
+    throw new MedusaError(
+      MedusaError.Types.CONFLICT,
+      `Seller with email ${payload.email} already exists as ${existing.seller_type}.`
+    )
   }
 
   const sellerService = req.scope.resolve<SellerModuleService>(SELLER_MODULE)
@@ -133,6 +142,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   await sellerService.createSellerOnboardings({
     seller_id: seller.id,
   })
+
+  await ensureSellerDefaultShippingProfile(req.scope, seller.id)
 
   res.status(201).json({
     creator: {

@@ -14,11 +14,18 @@ export const metadata: Metadata = {
   description: "Maak een nieuw hobbyproject aan.",
 };
 
-export default async function ProfileProjectsNewPage() {
+type Props = {
+  searchParams: Promise<{ success?: string; error?: string }>;
+};
+
+export default async function ProfileProjectsNewPage({
+  searchParams,
+}: Props) {
   const user = await getAuthUser();
   if (!user) {
     redirect("/login?next=/profile/projects/new");
   }
+  const { success, error } = await searchParams;
 
   return (
     <PageLayout
@@ -26,6 +33,16 @@ export default async function ProfileProjectsNewPage() {
       description="Maak een nieuw hobbyproject aan. Je kunt daarna materialen en foto's toevoegen."
     >
       <CardShell variant="default" padding="lg">
+        {success && (
+          <p className="mb-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {success}
+          </p>
+        )}
+        {error && (
+          <p className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {error}
+          </p>
+        )}
         <form action={createProjectAction} encType="multipart/form-data" className="space-y-4">
           <Input name="title" label="Titel *" required placeholder="Bijv. Gebreide sjaal voor beginners" />
           <Input name="slug" label="Slug (optioneel)" placeholder="Wordt automatisch gegenereerd uit titel" />
@@ -94,6 +111,8 @@ export default async function ProfileProjectsNewPage() {
             name="featured_image_file"
             label="Hoofdafbeelding"
             hint="De afbeelding die bij je project in overzichten verschijnt (optioneel)."
+            urlFieldName="featured_image_url"
+            uploadPathPrefix={`projects/${user.id}/featured`}
           />
           <input type="hidden" name="currency_code" value="EUR" />
           <div className="flex flex-wrap gap-3 pt-4">

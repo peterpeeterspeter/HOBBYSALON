@@ -1,6 +1,7 @@
 import { useQueryGraphStep } from '@medusajs/medusa/core-flows'
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform,
   when
@@ -12,7 +13,7 @@ import { createCommissionRuleStep, deleteCommissionRuleStep } from '../steps'
 
 export const upsertDefaultCommissionRuleWorkflow = createWorkflow(
   'upsert-default-commission-rule',
-  function (input: CreateCommissionRuleDTO) {
+  function (input: WorkflowData<CreateCommissionRuleDTO>) {
     const existingRule = useQueryGraphStep({
       entity: 'commission_rule',
       fields: ['id'],

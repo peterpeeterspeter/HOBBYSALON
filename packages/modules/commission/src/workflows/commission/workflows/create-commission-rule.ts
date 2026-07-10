@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
 } from "@medusajs/workflows-sdk";
@@ -10,7 +11,7 @@ import { checkForDuplicateStep, createCommissionRuleStep } from "../steps";
 
 export const createCommissionRuleWorkflow = createWorkflow(
   "create-commission-rule",
-  function (input: CreateCommissionRuleDTO) {
+  function (input: WorkflowData<CreateCommissionRuleDTO>) {
     checkForDuplicateStep(input);
 
     const rule = createCommissionRuleStep(input);
@@ -19,7 +20,7 @@ export const createCommissionRuleWorkflow = createWorkflow(
       commission_rule_id: rule.id,
     });
     return new WorkflowResponse(rule, {
-      hooks: [commissionRuleCreatedHook],
+      hooks: [commissionRuleCreatedHook] as any[],
     });
   }
 );

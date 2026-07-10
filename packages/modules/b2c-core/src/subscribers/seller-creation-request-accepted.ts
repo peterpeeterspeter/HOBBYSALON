@@ -4,6 +4,7 @@ import {
   CreateMemberDTO,
   CreateSellerDTO,
   MemberRole,
+  SellerDTO,
   SellerType,
   StoreStatus,
   RequestDTO,
@@ -50,7 +51,7 @@ export default async function sellerCreationRequestAcceptedHandler({
   const request = event.data;
   const payload = SellerCreationRequestPayload.parse(request.data);
 
-  const { result: seller } = await createSellerWorkflow.run({
+  const { result } = await createSellerWorkflow.run({
     container,
     input: {
       member: payload.member as Omit<CreateMemberDTO, "seller_id">,
@@ -58,6 +59,7 @@ export default async function sellerCreationRequestAcceptedHandler({
       auth_identity_id: payload.auth_identity_id,
     },
   });
+  const seller = result as SellerDTO;
 
   logger.info(
     `Seller creation request accepted: ${request.id}, seller: ${seller.id}`

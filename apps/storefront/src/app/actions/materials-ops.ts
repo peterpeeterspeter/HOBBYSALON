@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
+import { getMedusaAdminBackendConfig } from "@/lib/commerce/medusa/medusa-admin-auth";
 
 const DEFAULT_REDIRECT_PATH = "/dashboard/materials";
 const DRY_RUN_COOKIE_PREFIX = "hs_materials_dry_run_";
@@ -57,22 +58,6 @@ function fail(path: string, message: string): never {
 
 function ok(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
-}
-
-function getAdminConfig() {
-  const baseUrl =
-    process.env.MEDUSA_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
-  };
 }
 
 function buildMaterialsPath(sellerId: string, merchantQ?: string) {
@@ -156,14 +141,16 @@ export async function triggerMaterialsProjectionSyncAction(
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
+    const config = await getMedusaAdminBackendConfig();
 
-    if (!adminToken) {
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+
+    const { baseUrl, adminToken } = config;
 
     const limitRaw = formData.get("limit")?.toString().trim() || "";
     const parsedLimit = Number.parseInt(limitRaw, 10);
@@ -224,14 +211,16 @@ export async function createMerchantCategoryMappingAction(
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
+    const config = await getMedusaAdminBackendConfig();
 
-    if (!adminToken) {
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+
+    const { baseUrl, adminToken } = config;
 
     if (!sellerId) {
       fail(path, "seller_id is required.");
@@ -304,13 +293,14 @@ export async function createMerchantFeedSourceAction(
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
-    if (!adminToken) {
+    const config = await getMedusaAdminBackendConfig();
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+    const { baseUrl, adminToken } = config;
     if (!sellerId) {
       fail(path, "seller_id is required.");
     }
@@ -375,13 +365,14 @@ export async function updateMerchantFeedSourceAction(
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
-    if (!adminToken) {
+    const config = await getMedusaAdminBackendConfig();
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+    const { baseUrl, adminToken } = config;
     if (!sellerId || !feedId) {
       fail(path, "seller_id and feed_id are required.");
     }
@@ -456,13 +447,14 @@ export async function updateMaterialsRuleAction(formData: FormData): Promise<voi
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
-    if (!adminToken) {
+    const config = await getMedusaAdminBackendConfig();
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+    const { baseUrl, adminToken } = config;
 
     const ruleId = formData.get("rule_id")?.toString().trim() || "";
     if (!ruleId) {
@@ -503,13 +495,14 @@ export async function runMerchantFeedPullAction(formData: FormData): Promise<voi
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
-    if (!adminToken) {
+    const config = await getMedusaAdminBackendConfig();
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+    const { baseUrl, adminToken } = config;
     if (!sellerId || !feedId) {
       fail(path, "seller_id and feed_id are required.");
     }
@@ -554,13 +547,14 @@ export async function runMerchantImportDryRunAction(
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
-    if (!adminToken) {
+    const config = await getMedusaAdminBackendConfig();
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+    const { baseUrl, adminToken } = config;
     if (!sellerId) {
       fail(path, "seller_id is required.");
     }
@@ -654,13 +648,14 @@ export async function submitMerchantImportAction(
   const path = buildMaterialsPath(sellerId, merchantQ);
 
   try {
-    const { baseUrl, adminToken } = getAdminConfig();
-    if (!adminToken) {
+    const config = await getMedusaAdminBackendConfig();
+    if (!config) {
       fail(
         path,
-        "Missing MEDUSA_ADMIN_API_TOKEN (or MEDUSA_ADMIN_TOKEN) on storefront server."
+        "Missing Medusa admin credentials (MEDUSA_ADMIN_EMAIL/PASSWORD or MEDUSA_ADMIN_API_TOKEN) on storefront server."
       );
     }
+    const { baseUrl, adminToken } = config;
     if (!sellerId) {
       fail(path, "seller_id is required.");
     }

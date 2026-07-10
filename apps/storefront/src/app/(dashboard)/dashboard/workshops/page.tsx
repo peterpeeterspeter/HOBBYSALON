@@ -5,7 +5,9 @@ import {
   createWorkshopAction,
   updateBookingRequestStatusAction,
   updateWorkshopAction,
+  linkWorkshopProductAction,
 } from "@/app/actions/dashboard";
+import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import type { Workshop } from "@/types/platform";
@@ -38,9 +40,8 @@ const DIFFICULTY_OPTIONS = [
 ];
 
 const BOOKING_MODE_OPTIONS = [
-  { value: "request", label: "Aanvraag" },
-  { value: "external_link", label: "Externe link" },
-  { value: "internal_booking", label: "Interne booking" },
+  { value: "request", label: "Aanvraag via Hobbysalon" },
+  { value: "external_link", label: "Externe link (Premium)" },
 ];
 
 const REQUEST_STATUS_OPTIONS = [
@@ -57,9 +58,15 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
 
   let workshops: Workshop[] = [];
   let bookingRequests: BookingRequest[] = [];
+  let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
+    null;
 
   if (creator) {
     const supabase = createPlatformClient();
+    commercialContext = await getDashboardCommercialContext(
+      creator.id,
+      creator.creator_types ?? []
+    );
     const [workshopsResult, requestsResult] = await Promise.all([
       supabase
         .from("workshops")
@@ -83,6 +90,13 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
       <h1 className="text-3xl font-bold text-[var(--foreground)]">Workshopbeheer</h1>
       <p className="text-[var(--muted)]">
         Beheer workshops en behandel boekingsaanvragen.
+        {commercialContext?.workshopLimit != null && (
+          <>
+            {" "}
+            Actieve workshops: {commercialContext.activeWorkshopCount}/
+            {commercialContext.workshopLimit}
+          </>
+        )}
       </p>
 
       {success && (
@@ -137,7 +151,11 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
               <label>
                 <span className="mb-1 block text-sm font-medium">Boekingsmode *</span>
                 <select name="booking_mode" defaultValue="request" className="w-full rounded-md border border-[var(--border)] px-3 py-2">
-                  {BOOKING_MODE_OPTIONS.map((option) => (
+                  {BOOKING_MODE_OPTIONS.filter(
+                    (option) =>
+                      option.value !== "external_link" ||
+                      commercialContext?.allowExternalBooking
+                  ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -295,6 +313,32 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                     <div className="sm:col-span-2">
                       <button type="submit" className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]">
                         Opslaan
+                      </button>
+                    </div>
+                  </form>
+                  <form action={linkWorkshopProductAction} className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="workshop_id" value={workshop.id} />
+                    <label className="sm:col-span-2">
+                      <span className="mb-1 block text-sm font-medium">
+                        Materiaal/product koppelen (UUID)
+                      </span>
+                      <input
+                        name="product_id"
+                        required
+                        placeholder="Product-ID uit platform"
+                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                      />
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input type="checkbox" name="is_required" defaultChecked />
+                      <span className="text-sm">Verplicht materiaal</span>
+                    </label>
+                    <div>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]"
+                      >
+                        Koppelen
                       </button>
                     </div>
                   </form>

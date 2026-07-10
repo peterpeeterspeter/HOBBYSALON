@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getSiteUrl } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
 const ARTICLE_PAGE_SIZE = 1000;

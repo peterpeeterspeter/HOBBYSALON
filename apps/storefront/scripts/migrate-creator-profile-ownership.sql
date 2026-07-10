@@ -56,7 +56,7 @@ create policy account_role_owner_insert
   to authenticated
   with check (
     user_id = auth.uid()
-    and role in ('user', 'creator', 'workshop_host', 'organizer')
+    and role in ('user', 'creator', 'merchant', 'workshop_host', 'organizer')
   );
 
 drop policy if exists account_role_owner_select on public.user_account_roles;
@@ -74,7 +74,7 @@ create policy account_role_owner_update
   using (user_id = auth.uid())
   with check (
     user_id = auth.uid()
-    and role in ('user', 'creator', 'workshop_host', 'organizer')
+    and role in ('user', 'creator', 'merchant', 'workshop_host', 'organizer')
   );
 
 drop policy if exists user_preferences_owner_select on public.user_preferences;

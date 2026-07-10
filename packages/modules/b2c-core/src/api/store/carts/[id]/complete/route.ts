@@ -11,10 +11,12 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     context: { transactionId: cart_id }
   })
 
+  const orderSetId = (result as { id: string }).id
+
   const {
     result: { data }
   } = await getFormattedOrderSetListWorkflow(req.scope).run({
-    input: { filters: { id: result.id } }
+    input: { filters: { id: orderSetId } }
   })
 
   res.json({

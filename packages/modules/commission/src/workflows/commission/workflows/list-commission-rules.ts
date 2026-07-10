@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform
 } from '@medusajs/workflows-sdk'
@@ -9,16 +10,18 @@ import { AdminCommissionAggregate } from '@mercurjs/framework'
 import { findCommissionRulesStep } from '../steps'
 import { findCommissionReferencesStep } from '../steps/find-commission-references'
 
+type ListCommissionRulesWorkflowInput = {
+  pagination?: {
+    skip: number
+    take?: number
+    order?: Record<string, any>
+  }
+  ids?: string[]
+}
+
 export const listCommissionRulesWorkflow = createWorkflow(
   'list-commission-rules',
-  function (input: {
-    pagination?: {
-      skip: number
-      take?: number
-      order?: Record<string, any>
-    }
-    ids?: string[]
-  }) {
+  function (input: WorkflowData<ListCommissionRulesWorkflowInput>) {
     const data = findCommissionRulesStep(input)
     const references = findCommissionReferencesStep(data.commission_rules)
 

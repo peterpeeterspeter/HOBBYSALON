@@ -2,6 +2,7 @@ import { kebabCase } from '@medusajs/framework/utils'
 import { createCollectionsWorkflow } from '@medusajs/medusa/core-flows'
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform
 } from '@medusajs/workflows-sdk'
@@ -13,7 +14,7 @@ import { parseProductCollectionRequestData } from '../utils/request-data-schemas
 
 export const acceptProductCollectionRequestWorkflow = createWorkflow(
   'accept-product-collection-request',
-  function (input: AcceptRequestDTO) {
+  function (input: WorkflowData<AcceptRequestDTO>) {
     const requestData = transform({ input }, ({ input }) =>
       parseProductCollectionRequestData(input.data)
     )

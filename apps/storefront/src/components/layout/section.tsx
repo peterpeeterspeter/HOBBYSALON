@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type SectionProps = {
+type SectionProps = React.ComponentProps<"section"> & {
   children: React.ReactNode;
   /** Background variant for visual rhythm between sections */
   variant?: "default" | "alt" | "highlight";
@@ -8,7 +8,6 @@ type SectionProps = {
   spacing?: "sm" | "md" | "lg";
   /** Show decorative terracotta divider above the section */
   divider?: boolean;
-  className?: string;
 };
 
 const VARIANT_BG: Record<NonNullable<SectionProps["variant"]>, string> = {
@@ -29,6 +28,7 @@ function Section({
   spacing = "md",
   divider = false,
   className,
+  ...props
 }: SectionProps) {
   return (
     <>
@@ -45,6 +45,7 @@ function Section({
           SPACING[spacing],
           className
         )}
+        {...props}
       >
         {children}
       </section>

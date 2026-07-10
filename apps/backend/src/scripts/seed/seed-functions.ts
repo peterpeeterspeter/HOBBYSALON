@@ -210,12 +210,14 @@ export async function createPublishableKey(
 export async function createProductCategories(container: MedusaContainer) {
   const productService = container.resolve(Modules.PRODUCT)
   const allCategories = [
-    { name: 'Sneakers', is_active: true },
-    { name: 'Sandals', is_active: true },
-    { name: 'Boots', is_active: true },
-    { name: 'Sport', is_active: true },
-    { name: 'Accessories', is_active: true },
-    { name: 'Tops', is_active: true }
+    { name: 'Garen & wol', is_active: true },
+    { name: 'Stoffen', is_active: true },
+    { name: 'Kralen & sieraden', is_active: true },
+    { name: 'Papier & scrapbooking', is_active: true },
+    { name: 'Verf & tekenen', is_active: true },
+    { name: 'Keramiek & klei', is_active: true },
+    { name: 'Tools & toebehoren', is_active: true },
+    { name: 'DIY & decoratie', is_active: true }
   ]
 
   const results: any[] = []
@@ -240,12 +242,11 @@ export async function createProductCategories(container: MedusaContainer) {
 export async function createProductCollections(container: MedusaContainer) {
   const productService = container.resolve(Modules.PRODUCT)
   const allCollections = [
-    { title: 'Luxury' },
-    { title: 'Vintage' },
-    { title: 'Casual' },
-    { title: 'Soho' },
-    { title: 'Streetwear' },
-    { title: 'Y2K' }
+    { title: 'Nieuw' },
+    { title: 'Bestsellers' },
+    { title: 'Starterkits' },
+    { title: 'Cadeautips' },
+    { title: 'Limited editions' }
   ]
 
   const results: any[] = []
@@ -600,7 +601,7 @@ export async function createInventoryItemStockLevels(
  * Hobbysalon commission matrix (see docs/billing-commission-matrix.md):
  * - supply: 10%, handmade: 6%
  * - event_listing, event_ticket, workshop_ticket: flat (TBD amount, placeholder 100 = 1 EUR)
- * - workshop_kit: no rule (commerce only)
+ * - workshop_kit: 10% default (6% for creator sellers at runtime via resolve-commission-rate)
  */
 const HOBBYSALON_PRODUCT_TYPES = [
   'supply',
@@ -620,7 +621,7 @@ const COMMISSION_CONFIG: Record<
   event_listing: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
   event_ticket: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
   workshop_ticket: { type: 'flat', price_set: [{ amount: 100, currency_code: 'eur' }] },
-  workshop_kit: { type: 'percentage', percentage_rate: 0 } // No platform fee; explicit 0% overrides site default
+  workshop_kit: { type: 'percentage', percentage_rate: 10 }
 }
 
 function tryCommissionRule(container: MedusaContainer, fn: () => Promise<unknown>) {

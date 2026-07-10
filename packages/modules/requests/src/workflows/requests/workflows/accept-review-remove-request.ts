@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform,
 } from "@medusajs/workflows-sdk";
@@ -15,7 +16,7 @@ import { parseReviewRemoveRequestData } from "../utils/request-data-schemas";
 
 export const acceptReviewRemoveRequestWorkflow = createWorkflow(
   "accept-review-remove-request",
-  function (input: AcceptRequestDTO) {
+  function (input: WorkflowData<AcceptRequestDTO>) {
     const requestData = transform({ input }, ({ input }) =>
       parseReviewRemoveRequestData(input.data)
     );

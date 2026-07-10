@@ -28,18 +28,25 @@ export function AddToCartButton({
   const handleClick = async () => {
     setPending(true);
     setMessage(null);
-    const result = await addToCartAction(variantId, quantity);
-    setPending(false);
-    if (result.success) {
-      trackEvent("add_to_cart", {
-        variant_id: variantId,
-        quantity,
-      });
-      setMessage("Toegevoegd aan winkelwagen");
-      router.refresh();
-      router.push("/cart");
-    } else {
-      setMessage(result.message ?? "Er ging iets mis");
+    try {
+      const result = await addToCartAction(variantId, quantity);
+      if (result.success) {
+        trackEvent("add_to_cart", {
+          variant_id: variantId,
+          quantity,
+        });
+        setMessage("Toegevoegd aan winkelwagen");
+        router.refresh();
+        router.push("/cart");
+      } else {
+        setMessage(result.message ?? "Toevoegen aan winkelwagen mislukt.");
+      }
+    } catch (error) {
+      const fallback =
+        error instanceof Error ? error.message : "Toevoegen aan winkelwagen mislukt.";
+      setMessage(fallback);
+    } finally {
+      setPending(false);
     }
   };
 

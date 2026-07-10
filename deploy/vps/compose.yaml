@@ -42,7 +42,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 9000
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?ssl_mode=disable
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       DATABASE_SSL: "false"
       REDIS_URL: redis://redis:6379
       WORKER_MODE: shared

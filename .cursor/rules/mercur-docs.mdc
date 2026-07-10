@@ -1,0 +1,28 @@
+---
+description: When to use Mercur MCP vs local Hobbysalon docs for commerce and platform work
+alwaysApply: true
+---
+
+# Mercur documentation (MCP)
+
+This repo has the **Mercur MCP** server configured in `.cursor/mcp.json`. Use **SearchMercurJsDocumentation** for live Mercur/Medusa docs.
+
+## Use Mercur MCP for
+
+- Medusa workflows, modules, links, subscribers
+- Vendor and admin API routes
+- Stripe Connect, payouts, commissions
+- Mercur blocks, CLI, registry, migrations
+- Code in `apps/backend/` and `packages/modules/*`
+
+## Use local docs for
+
+- Supabase platform schema, creators, workshops, events, articles
+- Creator dashboard, Dutch UX, senior-friendly UI
+- `entity_links` graph and platform-first architecture
+
+See `AGENTS.md`, `docs/architecture.md`, and `docs/agents.md`.
+
+## Version caveat
+
+This codebase is **Mercur 1.5.4** (`apps/backend`, `packages/modules/*`). MCP docs describe **Mercur 2.x** (blocks, `packages/api`, CLI). Treat MCP results as patterns to adapt — not drop-in file paths.

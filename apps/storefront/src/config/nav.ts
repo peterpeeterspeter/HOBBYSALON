@@ -5,9 +5,10 @@
 
 export const STATIC_LINKS = {
   main: [
-    { href: "/materials", label: "Hobbymaterialen" },
     { href: "/workshops", label: "Workshops" },
     { href: "/agenda", label: "Agenda" },
+    { href: "/materials", label: "Materialen" },
+    { href: "/creators", label: "Makers" },
   ],
   inspiratie: [
     { href: "/tools", label: "Tools" },
@@ -23,17 +24,24 @@ export const STATIC_LINKS = {
 } as const;
 
 export const FOOTER_SECTIONS = {
-  ontdek: [
-    { href: "/", label: "Home" },
-    { href: "/materials", label: "Hobbymaterialen" },
+  ontdekken: [
     { href: "/workshops", label: "Workshops" },
-    { href: "/agenda", label: "Agenda" },
-    { href: "/tools", label: "Tools" },
+    { href: "/agenda", label: "Evenementen" },
+    { href: "/materials", label: "Materialen" },
+    { href: "/creators", label: "Makers" },
     { href: "/gratis-haakpatronen", label: "Patronen" },
-    { href: "/favorites", label: "Favorieten" },
+    { href: "/tools", label: "Tools" },
+  ],
+  meedoen: [
+    { href: "/voor-makers", label: "Maker worden" },
+    { href: "/voor-workshopgevers", label: "Workshop geven" },
+    { href: "/voor-winkels", label: "Verkopen" },
   ],
   info: [
-    { href: "/landing", label: "Over Hobbysalon" },
-    { href: "/register", label: "Account aanmaken" },
+    { href: "/landing", label: "Over ons" },
+    { href: "/landing", label: "Contact" },
+    { href: "/privacy", label: "Privacy" },
+    { href: "/terms", label: "Algemene voorwaarden" },
   ],
+  zakelijk: [{ href: "/partners", label: "Zakelijk samenwerken" }],
 } as const;

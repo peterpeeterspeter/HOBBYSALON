@@ -1,32 +1,14 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import { ContainerRegistrationKeys, MedusaError } from '@medusajs/framework/utils'
 
-import { SellerType } from '@mercurjs/framework'
+import { ensureSellerForCreatorRoutes } from '../../../../../../../../shared/platform/ensure-seller-for-creator-routes'
 
 import sellerOrderLink from '../../../../../../../../links/seller-order'
 import { getVendorOrdersListWorkflow } from '../../../../../../../../workflows/order/workflows'
 import { cancelOrderWorkflow } from '../../../../../../../../workflows/order/workflows/cancel-order'
 import { vendorOrderFields } from '../../../../../../../vendor/orders/query-config'
 
-type SellerRow = {
-  id: string
-  seller_type: string | null
-}
-
-const ensureCreatorSeller = async (knex: any, sellerId: string): Promise<void> => {
-  const seller = (await knex('seller')
-    .select('id', 'seller_type')
-    .where('id', sellerId)
-    .whereNull('deleted_at')
-    .first()) as SellerRow | undefined
-
-  if (!seller || seller.seller_type !== SellerType.CREATOR) {
-    throw new MedusaError(
-      MedusaError.Types.NOT_FOUND,
-      `Creator seller ${sellerId} not found`
-    )
-  }
-}
+const ensureCreatorSeller = ensureSellerForCreatorRoutes
 
 const ensureSellerOwnsOrder = async (
   query: any,

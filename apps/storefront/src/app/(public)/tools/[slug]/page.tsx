@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { ToolLayout } from "@/components/tools/ToolLayout";
+import { RelatedTools } from "@/components/tools/RelatedTools";
 import { buildPageMetadata } from "@/lib/seo";
-import { getToolBySlug } from "@/lib/tools/registry";
+import { getToolBySlug, getRelatedTools } from "@/lib/tools/registry";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -22,10 +23,16 @@ export default async function ToolPage({ params }: Props) {
   if (!tool) notFound();
 
   const ToolComponent = tool.component;
+  const relatedTools = getRelatedTools(slug);
 
   return (
-    <ToolLayout title={tool.title} description={tool.description}>
+    <ToolLayout
+      title={tool.title}
+      description={tool.description}
+      categoryLabel={tool.categoryLabel}
+    >
       <ToolComponent />
+      <RelatedTools tools={relatedTools} categoryLabel={tool.categoryLabel} />
     </ToolLayout>
   );
 }

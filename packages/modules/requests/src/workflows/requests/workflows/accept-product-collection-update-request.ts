@@ -1,6 +1,7 @@
 import { updateCollectionsWorkflow } from '@medusajs/medusa/core-flows'
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform
 } from '@medusajs/workflows-sdk'
@@ -12,7 +13,7 @@ import { parseProductCollectionUpdateRequestData } from '../utils/request-data-s
 
 export const acceptProductCollectionUpdateRequestWorkflow = createWorkflow(
   'accept-product-collection-update-request',
-  function (input: AcceptRequestDTO) {
+  function (input: WorkflowData<AcceptRequestDTO>) {
     const requestData = transform({ input }, ({ input }) =>
       parseProductCollectionUpdateRequestData(input.data)
     )

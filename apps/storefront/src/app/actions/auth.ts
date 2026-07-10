@@ -8,6 +8,7 @@ import {
   getAuthUser,
   persistAuthSession,
   registerEmailUser,
+  resolveSupabaseAccessToken,
 } from "@/lib/auth/session";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import {
@@ -15,10 +16,9 @@ import {
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
 import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registration";
-import { provisionMerchantSeller } from "@/lib/commerce/medusa/merchant-registration";
+import { completeMerchantOnboarding } from "@/lib/commerce/medusa/merchant-onboarding";
 import { persistCreatorRegistrationProfile } from "@/lib/platform/queries/creator-registration";
 import {
-  ensureUserRole,
   linkUserToSeller,
   persistUserRegistrationProfile,
   runRegistrationCompatibilityMigration,
@@ -183,8 +183,8 @@ export async function registerAction(
     return {
       success: true,
       message: profilePersisted
-        ? "Account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan."
-        : "Account aangemaakt. Bevestig je e-mail en werk je voorkeuren later bij in je profiel.",
+        ? "Controleer je e-mail en bevestig je account voordat je inlogt."
+        : "Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.",
     };
   }
 
@@ -330,8 +330,8 @@ export async function registerCreatorAction(
     return {
       success: true,
       message: profilePersisted && creatorProvisioned
-        ? "Creator-account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan."
-        : "Creator-account aangemaakt. Bevestig je e-mail en vervolledig je creatorshop setup in je dashboard.",
+        ? "Controleer je e-mail en bevestig je creator-account voordat je inlogt."
+        : "Controleer je e-mail en bevestig je account. Daarna kun je je creatorshop verder instellen in je dashboard.",
     };
   }
 
@@ -391,63 +391,37 @@ export async function registerMerchantAction(
   }
 
   const registrationUserId = user?.id ?? session?.user?.id ?? null;
-  let merchantProvisioned = false;
+  const nextPath =
+    requestedNextPath?.startsWith("/") && !requestedNextPath.startsWith("//")
+      ? requestedNextPath
+      : "/dashboard/materials";
 
   if (registrationUserId) {
-    const profileResult = await persistUserRegistrationProfile({
+    const onboarding = await completeMerchantOnboarding({
       userId: registrationUserId,
-      postalCode,
-      countryCode,
-      interestTypes,
-    });
-
-    if (!profileResult.ok) {
-      console.error("Failed to persist merchant registration profile", {
-        userId: registrationUserId,
-        errors: profileResult.errors,
-      });
-    }
-
-    const roleResult = await ensureUserRole(registrationUserId, "merchant");
-    if (!roleResult.ok) {
-      console.error("Failed to ensure merchant role", {
-        userId: registrationUserId,
-        errors: roleResult.errors,
-      });
-    }
-
-    const merchantResult = await provisionMerchantSeller({
       displayName,
-      businessName: displayName,
       contactName,
       email,
       phone,
       city,
       postalCode,
       countryCode,
+      interestTypes,
+      supabaseAccessToken: session?.access_token ?? null,
     });
 
-    if (!merchantResult.ok || !merchantResult.sellerId) {
-      console.error("Failed to provision merchant seller", {
-        userId: registrationUserId,
-        error: merchantResult.error,
-      });
-    } else {
-      merchantProvisioned = true;
-      const sellerLinkResult = await linkUserToSeller(
-        registrationUserId,
-        merchantResult.sellerId,
-        "merchant"
-      );
-
-      if (!sellerLinkResult.ok) {
-        merchantProvisioned = false;
-        console.error("Failed to link user to merchant seller", {
-          userId: registrationUserId,
-          sellerId: merchantResult.sellerId,
-          errors: sellerLinkResult.errors,
-        });
+    if (!onboarding.ok) {
+      if (session) {
+        await persistAuthSession(session);
+        redirect(
+          `/register/merchant?error=${encodeURIComponent(onboarding.message)}&next=${encodeURIComponent(nextPath)}`
+        );
       }
+
+      return {
+        success: false,
+        message: onboarding.message,
+      };
     }
   }
 
@@ -455,9 +429,7 @@ export async function registerMerchantAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: merchantProvisioned
-        ? "/dashboard/materials"
-        : `/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`,
+      defaultPath: "/dashboard/materials",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -466,9 +438,8 @@ export async function registerMerchantAction(
   if (user) {
     return {
       success: true,
-      message: merchantProvisioned
-        ? "Merchant-account aangemaakt. Bevestig je e-mail indien vereist en meld je daarna aan."
-        : "Account aangemaakt. Merchant onboarding wordt voorbereid, vervolledig dit in je dashboard.",
+      message:
+        "Controleer je e-mail en bevestig je merchant-account voordat je inlogt.",
     };
   }
 
@@ -514,55 +485,24 @@ export async function onboardMerchantForLoggedInUserAction(
     };
   }
 
-  const profileResult = await persistUserRegistrationProfile({
+  const accessToken = await resolveSupabaseAccessToken();
+  const onboarding = await completeMerchantOnboarding({
     userId: user.id,
-    postalCode,
-    countryCode,
-    interestTypes,
-  });
-
-  if (!profileResult.ok) {
-    return {
-      success: false,
-      message: "Opslaan van profielgegevens mislukt.",
-    };
-  }
-
-  const roleResult = await ensureUserRole(user.id, "merchant");
-  if (!roleResult.ok) {
-    return {
-      success: false,
-      message: "Merchant-rol toekennen mislukt.",
-    };
-  }
-
-  const merchantResult = await provisionMerchantSeller({
     displayName,
-    businessName: displayName,
     contactName,
     email,
     phone,
     city,
     postalCode,
     countryCode,
+    interestTypes,
+    supabaseAccessToken: accessToken,
   });
 
-  if (!merchantResult.ok || !merchantResult.sellerId) {
+  if (!onboarding.ok) {
     return {
       success: false,
-      message: "Merchant-profiel aanmaken mislukt.",
-    };
-  }
-
-  const sellerLinkResult = await linkUserToSeller(
-    user.id,
-    merchantResult.sellerId,
-    "merchant"
-  );
-  if (!sellerLinkResult.ok) {
-    return {
-      success: false,
-      message: "Merchant-profiel werd aangemaakt maar koppelen aan account mislukte.",
+      message: onboarding.message,
     };
   }
 

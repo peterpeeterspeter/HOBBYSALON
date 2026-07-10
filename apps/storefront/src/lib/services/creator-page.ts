@@ -1,4 +1,4 @@
-import { getCreatorBySlug } from "@/lib/platform/queries/creators";
+import { getCreatorBySlug, listAllCreators } from "@/lib/platform/queries/creators";
 import { listProductsByCreator } from "@/lib/platform/queries/products";
 import {
   getWorkshopById,
@@ -16,6 +16,10 @@ import {
 } from "@/lib/platform/queries/articles";
 import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
+import {
+  getCreatorCommercialEntitlements,
+  type CommercialEntitlements,
+} from "@/lib/platform/commercial-entitlements";
 import type {
   Creator,
   Product,
@@ -38,6 +42,8 @@ export type CreatorPageData = {
   relatedWorkshops: Workshop[];
   relatedEvents: Event[];
   relatedArticles: Article[];
+  relatedCreators: Creator[];
+  entitlements: CommercialEntitlements | null;
 };
 
 export type CreatorProjectTeaser = {
@@ -57,8 +63,15 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
       relatedWorkshops: [],
       relatedEvents: [],
       relatedArticles: [],
+      relatedCreators: [],
+      entitlements: null,
     };
   }
+
+  const entitlements = await getCreatorCommercialEntitlements(
+    creator.id,
+    creator.creator_types
+  );
 
   const [
     products,
@@ -113,6 +126,12 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     buildCreatorProjects(ownProjects),
   ]);
 
+  const relatedCreators = creatorDomains.length > 0
+    ? (await listAllCreators({ domainId: creatorDomains[0].id }))
+        .filter((c) => c.id !== creator.id)
+        .slice(0, 4)
+    : [];
+
   return {
     creator,
     products: productsWithPrices,
@@ -121,6 +140,8 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     relatedWorkshops: mergeById<Workshop>(ownWorkshops, linkedWorkshops),
     relatedEvents: mergeById<Event>(ownEvents, linkedEvents),
     relatedArticles: mergeById<Article>(ownArticles, linkedArticles),
+    relatedCreators,
+    entitlements,
   };
 }
 

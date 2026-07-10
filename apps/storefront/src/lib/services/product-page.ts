@@ -14,7 +14,10 @@ import {
   getMedusaProduct,
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
-import { createCreatorMarketplaceProduct } from "@/lib/commerce/medusa/creator-products";
+import {
+  createCreatorMarketplaceProduct,
+  ensureCreatorProductSalesChannel,
+} from "@/lib/commerce/medusa/creator-products";
 import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
 
 export type ProductPageData = {
@@ -147,21 +150,29 @@ async function ensurePurchasableMedusaProductId(
     currencyCode: "EUR",
   });
 
-  if (!created.ok || !created.productId) {
-    return null;
+  let medusaProductId = created.productId;
+
+  if (!created.ok || !medusaProductId) {
+    const existing = await getMedusaProductByHandle(product.slug ?? null);
+    if (!existing?.id) {
+      return null;
+    }
+    medusaProductId = existing.id;
   }
+
+  await ensureCreatorProductSalesChannel(medusaProductId);
 
   const supabase = createPlatformClient();
   await supabase
     .from("products")
     .update({
-      medusa_product_id: created.productId,
+      medusa_product_id: medusaProductId,
       updated_at: new Date().toISOString(),
     })
     .eq("id", product.id)
     .is("medusa_product_id", null);
 
-  return created.productId;
+  return medusaProductId;
 }
 
 export async function getProductPageData(slug: string): Promise<ProductPageData> {

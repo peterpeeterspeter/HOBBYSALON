@@ -4,6 +4,7 @@ import {
 } from "@medusajs/medusa/core-flows";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -18,9 +19,14 @@ import { REQUESTS_MODULE } from "../../../modules/requests";
 
 import { createRequestStep } from "../steps";
 
+type CreateRequestWorkflowInput = {
+  data: CreateRequestDTO;
+  seller_id: string;
+};
+
 export const createRequestWorkflow = createWorkflow(
   "create-request",
-  function (input: { data: CreateRequestDTO; seller_id: string }) {
+  function (input: WorkflowData<CreateRequestWorkflowInput>) {
     const request = createRequestStep(input.data);
 
     const link = transform({ request, input }, ({ request, input }) => {
@@ -48,7 +54,7 @@ export const createRequestWorkflow = createWorkflow(
       sellerId: input.seller_id,
     });
     return new WorkflowResponse(request, {
-      hooks: [requestCreatedHook],
+      hooks: [requestCreatedHook] as any[],
     });
   }
 );

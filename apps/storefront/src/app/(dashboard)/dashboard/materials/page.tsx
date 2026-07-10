@@ -21,6 +21,7 @@ import {
   listMaterialCategoryOptions,
   listMerchantMaterialsOverview,
 } from "@/lib/commerce/medusa/materials-ops";
+import { hasMedusaAdminAccess } from "@/lib/commerce/medusa/medusa-admin-auth";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
@@ -221,6 +222,10 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
     limit: 25,
     offset: 0,
   });
+  const merchantSellerOptions = (merchantOverview?.merchants ?? []).map((merchant) => ({
+    value: merchant.seller_id,
+    label: `${merchant.seller_name || merchant.seller_handle || merchant.seller_id} (${merchant.seller_id})`,
+  }));
   const merchantDetail = selectedSellerId
     ? await getMerchantMaterialsDetail(selectedSellerId)
     : null;
@@ -249,11 +254,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
     value: category.id,
     label: `${category.name} (${category.handle})`,
   }));
-  const canTriggerSync = Boolean(
-    process.env.MEDUSA_ADMIN_API_TOKEN ||
-      process.env.MEDUSA_ADMIN_TOKEN ||
-      process.env.MEDUSA_BACKEND_ADMIN_TOKEN
-  );
+  const canTriggerSync = await hasMedusaAdminAccess();
   const dryRun = await dryRunSnapshot;
   const selectedFeed =
     selectedFeedId && merchantDetail
@@ -338,110 +339,156 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
       <CardShell variant="featured" padding="lg">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Force projection sync
+          Productcatalogus synchroniseren
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Queues batches via <code>/admin/platform/products/projection/sync</code>.
+          Haal producten uit de catalogus van een winkel naar Hobbysalon. Dit is een
+          beheerdersactie en verandert geen productgegevens bij de winkel zelf. Je{" "}
+          <strong>Seller ID</strong> staat onder elke winkelnaam in de tabel hieronder
+          (formaat <code>sel_…</code>).
         </p>
 
         {!canTriggerSync ? (
           <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set <code>MEDUSA_ADMIN_API_TOKEN</code> (or{" "}
-            <code>MEDUSA_ADMIN_TOKEN</code>) on storefront server to enable this.
+            Medusa-beheerdersrechten ontbreken op de storefront-server. Voeg de admin-inloggegevens toe om een synchronisatie te kunnen starten.
           </p>
         ) : (
           <form action={triggerMaterialsProjectionSyncAction} className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
-              <Input
-                name="seller_id"
-                label="Seller ID (optional)"
-                placeholder="sel_..."
-              />
-              <Input
-                name="limit"
-                label="Batch size (optional, max 500)"
-                defaultValue="200"
-              />
+              {merchantSellerOptions.length > 0 ? (
+                <div>
+                  <Select
+                    name="seller_id"
+                    label="Welke winkel wil je synchroniseren?"
+                    options={merchantSellerOptions}
+                    placeholder="Alle winkels synchroniseren"
+                    defaultValue={selectedSellerId ?? ""}
+                  />
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Kies een winkel uit de lijst. Laat dit leeg om alle winkels te synchroniseren.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Input
+                    name="seller_id"
+                    label="Seller ID (alleen als je die kent)"
+                    placeholder="sel_01… (zie tabel hieronder)"
+                    defaultValue={selectedSellerId ?? ""}
+                  />
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Je vindt deze code in de tabel hieronder, onder elke winkelnaam.
+                  </p>
+                </div>
+              )}
+              <div>
+                <Input
+                  name="limit"
+                  label="Aantal producten per batch"
+                  defaultValue="200"
+                  min={1}
+                  max={500}
+                  type="number"
+                />
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Laat 200 staan voor een normale synchronisatie. Kies maximaal 500 voor grote catalogi.
+                </p>
+              </div>
             </div>
-            <Button type="submit">Queue Sync</Button>
+            <Button type="submit">Synchronisatie starten</Button>
           </form>
         )}
       </CardShell>
 
       <CardShell variant="default" padding="lg">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Approval & import rules
+          Producten importeren en publiceren
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          P1 controls for merchant product auto-approval and import availability.
+          Deze regels gelden voor alle winkels. Kies vooraf of Hobbysalon nieuwe importproducten
+          eerst handmatig controleert of automatisch kan publiceren.
         </p>
+        <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--section-alt)] px-4 py-3 text-sm text-[var(--foreground)]">
+          <p className="font-medium">Wie keurt producten goed?</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--muted)]">
+            <li>
+              <strong>Goedkeuring uit</strong> (standaard): nieuwe producten worden
+              automatisch gepubliceerd na aanmaak.
+            </li>
+            <li>
+              <strong>Goedkeuring aan</strong>: verkopers kunnen niet zelf publiceren.
+              Het Hobbysalon-team controleert en keurt producten goed in Medusa/admin
+              voordat ze op de site verschijnen.
+            </li>
+          </ul>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {requireProductApprovalRule ? (
             <form
               action={updateMaterialsRuleAction}
-              className="rounded-lg border border-[var(--border)] p-3"
+              className="rounded-lg border border-[var(--border)] p-4"
             >
               <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <input type="hidden" name="rule_id" value={requireProductApprovalRule.id} />
-              <p className="font-medium">Require product approval</p>
-              <p className="text-xs text-[var(--muted)] mt-1">
+              <p className="font-medium">Handmatige controle vóór publicatie</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 {requireProductApprovalRule.is_enabled
-                  ? "Enabled: nieuwe producten vereisen approval."
-                  : "Disabled: auto-approval actief."}
+                  ? "Aan: geïmporteerde producten worden niet automatisch gepubliceerd. Een Hobbysalon-beheerder controleert ze eerst in de productbeheeromgeving."
+                  : "Uit: geldige geïmporteerde producten kunnen automatisch gepubliceerd worden. Gebruik dit alleen voor winkels waarvan je de catalogus vertrouwt."}
               </p>
-              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+              <label className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
                   name="is_enabled"
                   defaultChecked={requireProductApprovalRule.is_enabled}
                 />
-                Rule enabled
+                Nieuwe importproducten eerst laten beoordelen
               </label>
               <div className="mt-3">
                 <Button type="submit" size="sm" variant="secondary">
-                  Save rule
+                  Instelling opslaan
                 </Button>
               </div>
             </form>
           ) : (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Rule <code>require_product_approval</code> not found.
+              De instelling voor productcontrole is nog niet aangemaakt.
             </p>
           )}
 
           {productImportEnabledRule ? (
             <form
               action={updateMaterialsRuleAction}
-              className="rounded-lg border border-[var(--border)] p-3"
+              className="rounded-lg border border-[var(--border)] p-4"
             >
               <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <input type="hidden" name="rule_id" value={productImportEnabledRule.id} />
-              <p className="font-medium">Product import enabled</p>
-              <p className="text-xs text-[var(--muted)] mt-1">
+              <p className="font-medium">CSV- en feedimport toestaan</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 {productImportEnabledRule.is_enabled
-                  ? "Enabled: CSV/feed import toegestaan."
-                  : "Disabled: import route geblokkeerd."}
+                  ? "Aan: winkels kunnen producten via een CSV-bestand of een gekoppelde productfeed importeren."
+                  : "Uit: nieuwe CSV- en feedimports zijn geblokkeerd. Bestaande producten blijven ongewijzigd."}
               </p>
-              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+              <label className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
                   name="is_enabled"
                   defaultChecked={productImportEnabledRule.is_enabled}
                 />
-                Rule enabled
+                Import voor winkels toestaan
               </label>
               <div className="mt-3">
                 <Button type="submit" size="sm" variant="secondary">
-                  Save rule
+                  Instelling opslaan
                 </Button>
               </div>
             </form>
           ) : (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Rule <code>product_import_enabled</code> not found.
+              De instelling voor productimport is nog niet aangemaakt.
             </p>
           )}
         </div>
@@ -450,14 +497,14 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
       <CardShell variant="default" padding="lg">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Merchant readiness
+            Winkels
           </h2>
           <form method="GET" className="flex items-end gap-2">
             <Input
               name="merchant_q"
-              label="Search merchant"
+              label="Zoek winkel"
               defaultValue={merchantQ ?? ""}
-              placeholder="name or handle"
+              placeholder="naam of handle"
             />
             <Button type="submit" variant="secondary" size="sm">
               Filter
@@ -467,8 +514,9 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
         {!merchantOverview ? (
           <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Merchant overview unavailable. Set{" "}
-            <code>MEDUSA_ADMIN_API_TOKEN</code> on storefront server.
+            Merchant overview unavailable. Configure Medusa admin credentials{" "}
+            (<code>MEDUSA_ADMIN_EMAIL</code> / <code>MEDUSA_ADMIN_PASSWORD</code> or{" "}
+            <code>MEDUSA_ADMIN_API_TOKEN</code>) on the storefront server.
           </p>
         ) : merchantOverview.merchants.length === 0 ? (
           <p className="mt-3 text-sm text-[var(--muted)]">No merchant sellers found.</p>
@@ -501,8 +549,9 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                           {merchant.seller_name || merchant.seller_handle || merchant.seller_id}
                         </div>
                         <div className="text-xs text-[var(--muted)]">
-                          {merchant.seller_id} · {merchant.store_status || "unknown"} ·{" "}
-                          {ready ? "ready" : "needs setup"}
+                          Seller ID: <code>{merchant.seller_id}</code> ·{" "}
+                          {merchant.store_status || "onbekend"} ·{" "}
+                          {ready ? "klaar" : "setup nodig"}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button asChild variant="ghost" size="sm">
@@ -520,7 +569,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
                               <input type="hidden" name="limit" value="200" />
                               <Button type="submit" variant="secondary" size="sm">
-                                Sync seller
+                                Sync deze winkel
                               </Button>
                             </form>
                           )}

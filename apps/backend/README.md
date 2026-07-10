@@ -58,6 +58,12 @@ Required env vars:
 
 - `PLATFORM_SUPABASE_URL` (fallback: `NEXT_PUBLIC_SUPABASE_URL`)
 - `PLATFORM_SUPABASE_SERVICE_ROLE_KEY` (fallback: `SUPABASE_SERVICE_ROLE_KEY`)
+- `PLATFORM_SUPABASE_ANON_KEY` (fallback: `NEXT_PUBLIC_SUPABASE_ANON_KEY`) — seller auth exchange
+
+Seller auth bridge (vendor portal):
+
+- `POST /store/platform/seller-auth/exchange` — Supabase bearer token → Medusa seller JWT
+- One-time backfill: `yarn backfill:seller-auth` (links existing `user_seller_links` to seller auth identities)
 
 Optional defaults:
 

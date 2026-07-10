@@ -2,7 +2,7 @@
   "compilerOptions": {
     "lib": ["ES2021"],
     "target": "ES2021",
-    "outDir": "${configDir}/dist",
+    "outDir": "dist",
     "esModuleInterop": true,
     "declaration": true,
     "declarationMap": true,
@@ -23,6 +23,6 @@
     "incremental": false,
     "jsx": "react-jsx"
   },
-  "include": ["${configDir}/src"],
-  "exclude": ["${configDir}/dist", "${configDir}/node_modules"]
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
 }

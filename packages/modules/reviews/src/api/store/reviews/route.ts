@@ -53,6 +53,7 @@ export const POST = async (
       customer_id: req.auth_context.actor_id,
     },
   });
+  const reviewResult = result as { id: string };
 
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
 
@@ -62,7 +63,7 @@ export const POST = async (
     entity: "review",
     fields: req.queryConfig.fields,
     filters: {
-      id: result.id,
+      id: reviewResult.id,
     },
   });
 

@@ -169,20 +169,97 @@ export async function ensureUserRole(
   };
 }
 
+async function isStaleAuthUser(userId: string): Promise<boolean> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  return !!error || !data.user;
+}
+
 export async function linkUserToSeller(
   userId: string,
   sellerId: string,
   sellerType: UserSellerType
 ): Promise<PersistResult> {
   const supabase = createPlatformClient();
-  const { error } = await supabase.from("user_seller_links").upsert(
-    {
-      user_id: userId,
-      seller_id: sellerId,
-      seller_type: sellerType,
-    },
-    { onConflict: "user_id,seller_type" }
-  );
+
+  const { data: existingForUser, error: existingForUserError } = await supabase
+    .from("user_seller_links")
+    .select("id, seller_id")
+    .eq("user_id", userId)
+    .eq("seller_type", sellerType)
+    .maybeSingle();
+
+  if (existingForUserError) {
+    return {
+      ok: false,
+      errors: [existingForUserError.message],
+    };
+  }
+
+  if (existingForUser?.seller_id === sellerId) {
+    return {
+      ok: true,
+      errors: [],
+    };
+  }
+
+  const { data: existingForSeller, error: existingForSellerError } =
+    await supabase
+      .from("user_seller_links")
+      .select("id, user_id")
+      .eq("seller_id", sellerId)
+      .maybeSingle();
+
+  if (existingForSellerError) {
+    return {
+      ok: false,
+      errors: [existingForSellerError.message],
+    };
+  }
+
+  if (existingForSeller && existingForSeller.user_id !== userId) {
+    const staleOwner = await isStaleAuthUser(existingForSeller.user_id);
+    if (staleOwner) {
+      const { error: deleteStaleError } = await supabase
+        .from("user_seller_links")
+        .delete()
+        .eq("id", existingForSeller.id);
+
+      if (deleteStaleError) {
+        return {
+          ok: false,
+          errors: [deleteStaleError.message],
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        errors: [
+          "Deze winkel is al gekoppeld aan een ander account met hetzelfde e-mailadres.",
+        ],
+      };
+    }
+  }
+
+  if (existingForUser) {
+    const { error: deleteUserLinkError } = await supabase
+      .from("user_seller_links")
+      .delete()
+      .eq("id", existingForUser.id);
+
+    if (deleteUserLinkError) {
+      return {
+        ok: false,
+        errors: [deleteUserLinkError.message],
+      };
+    }
+  }
+
+  const { error } = await supabase.from("user_seller_links").insert({
+    user_id: userId,
+    seller_id: sellerId,
+    seller_type: sellerType,
+  });
 
   if (error) {
     return {

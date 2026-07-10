@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from '@medusajs/framework/utils'
+import type { InputConfig, InputConfigModules } from '@medusajs/types'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
@@ -9,69 +10,7 @@ const shouldEnableAlgolia =
   Boolean(process.env.ALGOLIA_APP_ID) &&
   Boolean(process.env.ALGOLIA_API_KEY)
 
-module.exports = defineConfig({
-  admin: {
-    disable: true // Disable built-in admin - using separate admin-panel container
-  },
-  projectConfig: {
-    databaseUrl: process.env.DATABASE_URL,
-    redisUrl: process.env.REDIS_URL,
-    workerMode:
-      (process.env.WORKER_MODE as "shared" | "server" | "worker" | undefined) ??
-      "shared",
-    databaseDriverOptions:
-      process.env.NODE_ENV === 'production' &&
-      process.env.DATABASE_SSL !== 'false'
-        ? {
-            connection: {
-              ssl: { rejectUnauthorized: false }
-            }
-          }
-        : undefined,
-    http: {
-      storeCors: process.env.STORE_CORS!,
-      adminCors: process.env.ADMIN_CORS!,
-      // @ts-expect-error: vendorCors is not a valid config
-      vendorCors: process.env.VENDOR_CORS!,
-      authCors: process.env.AUTH_CORS!,
-      jwtSecret: process.env.JWT_SECRET || 'supersecret',
-      cookieSecret: process.env.COOKIE_SECRET || 'supersecret'
-    }
-  },
-  plugins: [
-    {
-      resolve: '@mercurjs/b2c-core',
-      options: {}
-    },
-    {
-      resolve: '@mercurjs/commission',
-      options: {}
-    },
-    ...(shouldEnableAlgolia
-      ? [
-          {
-            resolve: '@mercurjs/algolia',
-            options: {
-              apiKey: process.env.ALGOLIA_API_KEY,
-              appId: process.env.ALGOLIA_APP_ID
-            }
-          }
-        ]
-      : []),
-    {
-      resolve: '@mercurjs/reviews',
-      options: {}
-    },
-    {
-      resolve: '@mercurjs/requests',
-      options: {}
-    },
-    {
-      resolve: '@mercurjs/resend',
-      options: {}
-    }
-  ],
-  modules: [
+const modules: InputConfigModules = [
     ...(process.env.S3_ACCESS_KEY_ID
       ? [
           {
@@ -140,4 +79,67 @@ module.exports = defineConfig({
       resolve: '@medusajs/index'
     }
   ]
-})
+
+module.exports = defineConfig({
+  admin: {
+    disable: true // Disable built-in admin - using separate admin-panel container
+  },
+  projectConfig: {
+    databaseUrl: process.env.DATABASE_URL,
+    redisUrl: process.env.REDIS_URL,
+    workerMode:
+      (process.env.WORKER_MODE as "shared" | "server" | "worker" | undefined) ??
+      "shared",
+    databaseDriverOptions:
+      process.env.NODE_ENV === 'production' &&
+      process.env.DATABASE_SSL !== 'false'
+        ? {
+            connection: {
+              ssl: { rejectUnauthorized: false }
+            }
+          }
+        : undefined,
+    http: {
+      storeCors: process.env.STORE_CORS!,
+      adminCors: process.env.ADMIN_CORS!,
+      vendorCors: process.env.VENDOR_CORS!,
+      authCors: process.env.AUTH_CORS!,
+      jwtSecret: process.env.JWT_SECRET || 'supersecret',
+      cookieSecret: process.env.COOKIE_SECRET || 'supersecret'
+    }
+  },
+  plugins: [
+    {
+      resolve: '@mercurjs/b2c-core',
+      options: {}
+    },
+    {
+      resolve: '@mercurjs/commission',
+      options: {}
+    },
+    ...(shouldEnableAlgolia
+      ? [
+          {
+            resolve: '@mercurjs/algolia',
+            options: {
+              apiKey: process.env.ALGOLIA_API_KEY,
+              appId: process.env.ALGOLIA_APP_ID
+            }
+          }
+        ]
+      : []),
+    {
+      resolve: '@mercurjs/reviews',
+      options: {}
+    },
+    {
+      resolve: '@mercurjs/requests',
+      options: {}
+    },
+    {
+      resolve: '@mercurjs/resend',
+      options: {}
+    }
+  ],
+  modules,
+} as InputConfig)

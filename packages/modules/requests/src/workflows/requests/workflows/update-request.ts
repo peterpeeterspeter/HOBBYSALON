@@ -1,6 +1,7 @@
 import { emitEventStep } from "@medusajs/medusa/core-flows";
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -12,7 +13,7 @@ import { updateRelatedProductStatusStep, updateRequestStep } from "../steps";
 
 export const updateRequestWorkflow = createWorkflow(
   "update-request",
-  function (input: UpdateRequestDTO) {
+  function (input: WorkflowData<UpdateRequestDTO>) {
     const request = updateRequestStep(input);
 
     const requestUpdatedHook = createHook("requestUpdated", {
@@ -26,6 +27,6 @@ export const updateRequestWorkflow = createWorkflow(
       }),
       data: request,
     });
-    return new WorkflowResponse(request, { hooks: [requestUpdatedHook] });
+    return new WorkflowResponse(request, { hooks: [requestUpdatedHook] as any[] });
   }
 );

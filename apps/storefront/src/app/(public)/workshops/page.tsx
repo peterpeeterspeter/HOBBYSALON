@@ -1,16 +1,24 @@
-import { Suspense } from "react";
-import Link from "next/link";
-import { listAllWorkshops } from "@/lib/platform/queries/workshops";
-import { createPlatformClient } from "@/lib/platform/client";
-import { WorkshopCard } from "@/components/cards";
-import { getLocationPreference } from "@/lib/location/preference";
-import { Container } from "@/components/ui/container";
-import { GridLayout } from "@/components/layout/grid-layout";
-import { CardShell } from "@/components/ui/card-shell";
-import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { WorkshopCard } from "@/components/cards";
+import { GridLayout } from "@/components/layout/grid-layout";
+import { Container } from "@/components/ui/container";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CategoryCircles } from "@/components/materials/CategoryCircles";
+import {
+  ActiveFilterChips,
+  type FilterChip,
+} from "@/components/materials/ActiveFilterChips";
+import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
+import { WorkshopsSidebar } from "@/components/workshops/WorkshopsSidebar";
+import { WorkshopsToolbar } from "@/components/workshops/WorkshopsToolbar";
+import { WorkshopRow } from "@/components/workshops/WorkshopRow";
+import { getLocationPreference } from "@/lib/location/preference";
+import { listActiveDomains } from "@/lib/platform/queries/domains";
+import { listAllWorkshops } from "@/lib/platform/queries/workshops";
+import { listSupplyMarketplaceProducts } from "@/lib/platform/queries/products";
+import { createPlatformClient } from "@/lib/platform/client";
+import type { Workshop } from "@/types/platform";
 
 export const metadata: Metadata = {
   title: "Workshops | Hobbysalon",
@@ -18,113 +26,185 @@ export const metadata: Metadata = {
 };
 
 type SearchParams = Promise<{
+  q?: string;
   domain?: string;
   difficulty?: string;
   format?: string;
   city?: string;
   country?: string;
+  sort?: string;
+  page?: string;
+  view?: string;
 }>;
 
-async function getDomains() {
-  const supabase = createPlatformClient();
-  const { data } = await supabase
-    .from("domains")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
-  return (data ?? []) as Array<{ id: string; name: string; slug: string }>;
-}
+const PAGE_SIZE = 12;
 
-async function getUniqueWorkshopCities(): Promise<string[]> {
+async function getUniqueWorkshopValues(
+  column: "city" | "country_code"
+): Promise<string[]> {
   const supabase = createPlatformClient();
   const { data } = await supabase
     .from("workshops")
-    .select("city")
+    .select(column)
     .eq("is_active", true)
-    .not("city", "is", null);
+    .not(column, "is", null);
 
-  const cities = [
+  const values = [
     ...new Set(
       (data ?? [])
-        .map((row) => (row as { city: string | null }).city)
-        .filter((city): city is string => !!city)
+        .map((row) => (row as Record<typeof column, string | null>)[column])
+        .filter((value): value is string => !!value)
     ),
   ];
-
-  return cities.sort();
+  return values.sort();
 }
 
-async function getUniqueWorkshopCountries(): Promise<string[]> {
-  const supabase = createPlatformClient();
-  const { data } = await supabase
-    .from("workshops")
-    .select("country_code")
-    .eq("is_active", true)
-    .not("country_code", "is", null);
-
-  const countries = [
-    ...new Set(
-      (data ?? [])
-        .map((row) => (row as { country_code: string | null }).country_code)
-        .filter((country): country is string => !!country)
-    ),
-  ];
-
-  return countries.sort();
+function sortWorkshops(workshops: Workshop[], sort: string): Workshop[] {
+  if (sort === "newest") {
+    return [...workshops].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+  if (sort === "price_asc") {
+    return [...workshops].sort((a, b) => a.price_cents - b.price_cents);
+  }
+  return workshops;
 }
 
-async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
-  const locationPreference = await getLocationPreference();
-  const workshops = await listAllWorkshops({
-    domain_id: params.domain,
-    difficulty_level: params.difficulty,
-    format_type: params.format,
-    city: params.city,
-    country_code: params.country,
-    preferred_city: locationPreference.city ?? undefined,
-    preferred_country_code: locationPreference.countryCode ?? undefined,
+function buildWorkshopsHref(
+  current: Record<string, string | undefined>,
+  overrides: Record<string, string | undefined> = {}
+) {
+  const merged = { ...current, ...overrides };
+  const query = new URLSearchParams();
+  Object.entries(merged).forEach(([key, value]) => {
+    if (value && value.trim() && value !== "all") {
+      query.set(key, value);
+    }
   });
-  const [domains, cities, countries] = await Promise.all([
-    getDomains(),
-    getUniqueWorkshopCities(),
-    getUniqueWorkshopCountries(),
+  const serialized = query.toString();
+  return serialized ? `/workshops?${serialized}` : "/workshops";
+}
+
+export default async function WorkshopsPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const pageRaw = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const view = params.view === "list" ? "list" : "grid";
+  const sort =
+    params.sort === "newest" || params.sort === "price_asc"
+      ? params.sort
+      : "relevance";
+  const locationPreference = await getLocationPreference();
+
+  const [domains, allWorkshops, cities, countries] = await Promise.all([
+    listActiveDomains(),
+    listAllWorkshops({
+      q: params.q,
+      domain_id: params.domain,
+      difficulty_level: params.difficulty,
+      format_type: params.format,
+      city: params.city,
+      country_code: params.country,
+      preferred_city: locationPreference.city ?? undefined,
+      preferred_country_code: locationPreference.countryCode ?? undefined,
+    }),
+    getUniqueWorkshopValues("city"),
+    getUniqueWorkshopValues("country_code"),
   ]);
 
-  const formatTypeOptions = [
-    { value: "physical", label: "Fysiek" },
-    { value: "online", label: "Online" },
-    { value: "hybrid", label: "Hybride" },
-  ];
+  const sortedWorkshops = sortWorkshops(allWorkshops, sort);
+  const totalCount = sortedWorkshops.length;
+  const offset = (page - 1) * PAGE_SIZE;
+  const pagedWorkshops = sortedWorkshops.slice(offset, offset + PAGE_SIZE);
+  const hasNextPage = offset + PAGE_SIZE < totalCount;
 
-  const difficultyOptions = [
-    { value: "beginner", label: "Beginner" },
-    { value: "intermediate", label: "Gevorderd" },
-    { value: "advanced", label: "Expert" },
-  ];
+  // Graph: materials you can buy for the techniques taught in this domain.
+  const graphMaterials = params.domain
+    ? (await listSupplyMarketplaceProducts({ domain_id: params.domain, limit: 4 }))
+    : [];
+
+  const current = {
+    q: params.q,
+    domain: params.domain,
+    difficulty: params.difficulty,
+    format: params.format,
+    city: params.city,
+    country: params.country,
+    sort: params.sort,
+    view: params.view,
+  };
+
+  const hrefForDomain = (domainId?: string) =>
+    buildWorkshopsHref(current, { domain: domainId, page: undefined });
+  const hrefForPage = (target: number) =>
+    buildWorkshopsHref(current, { page: target > 1 ? String(target) : undefined });
+
+  const FORMAT_LABELS: Record<string, string> = {
+    physical: "Fysiek",
+    online: "Online",
+    hybrid: "Hybride",
+  };
+  const DIFFICULTY_LABELS: Record<string, string> = {
+    beginner: "Beginner",
+    intermediate: "Gevorderd",
+    advanced: "Expert",
+  };
+
+  const chips: FilterChip[] = [];
+  if (params.q) {
+    chips.push({
+      label: `"${params.q}"`,
+      removeHref: buildWorkshopsHref(current, { q: undefined, page: undefined }),
+    });
+  }
+  if (params.domain) {
+    chips.push({
+      label: domains.find((d) => d.id === params.domain)?.name ?? "Domein",
+      removeHref: buildWorkshopsHref(current, { domain: undefined, page: undefined }),
+    });
+  }
+  if (params.format) {
+    chips.push({
+      label: FORMAT_LABELS[params.format] ?? params.format,
+      removeHref: buildWorkshopsHref(current, { format: undefined, page: undefined }),
+    });
+  }
+  if (params.difficulty) {
+    chips.push({
+      label: DIFFICULTY_LABELS[params.difficulty] ?? params.difficulty,
+      removeHref: buildWorkshopsHref(current, { difficulty: undefined, page: undefined }),
+    });
+  }
+  if (params.city) {
+    chips.push({
+      label: params.city,
+      removeHref: buildWorkshopsHref(current, { city: undefined, page: undefined }),
+    });
+  }
+  if (params.country) {
+    chips.push({
+      label: params.country,
+      removeHref: buildWorkshopsHref(current, { country: undefined, page: undefined }),
+    });
+  }
 
   return (
     <Container className="py-8">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-[var(--foreground)] mb-2">
+      <header className="mb-6">
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
           Workshops
         </h1>
-        <p className="text-lg text-[var(--muted)]">
-          Leer nieuwe technieken van ervaren instructeurs
+        <p className="mt-1 text-lg text-[var(--muted)]">
+          Leer nieuwe technieken van ervaren instructeurs — fysiek of online.
         </p>
         {locationPreference.hasPreference && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
               Lokale prioriteit: {locationPreference.label}
             </span>
-            {locationPreference.city && (
-              <Link
-                href={`/workshops?city=${encodeURIComponent(locationPreference.city)}`}
-                className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                Alleen {locationPreference.city}
-              </Link>
-            )}
             <Link
               href="/workshops"
               className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -135,84 +215,98 @@ async function WorkshopsContent({ searchParams }: { searchParams: SearchParams }
         )}
       </header>
 
-      <CardShell variant="default" padding="lg" className="mb-8">
-        <h2 className="font-semibold text-[var(--foreground)] mb-4">Filters</h2>
-        <form method="GET" action="/workshops" className="grid gap-4 sm:grid-cols-6">
-          <Select
-            id="domain"
-            name="domain"
-            label="Domein"
-            placeholder="Alle domeinen"
-            options={domains.map((d) => ({ value: d.id, label: d.name }))}
-            defaultValue={params.domain ?? ""}
-          />
-          <Select
-            id="format"
-            name="format"
-            label="Format"
-            placeholder="Alle formats"
-            options={formatTypeOptions}
-            defaultValue={params.format ?? ""}
-          />
-          <Select
-            id="difficulty"
-            name="difficulty"
-            label="Niveau"
-            placeholder="Alle niveaus"
-            options={difficultyOptions}
-            defaultValue={params.difficulty ?? ""}
-          />
-          <Select
-            id="city"
-            name="city"
-            label="Stad"
-            placeholder="Alle steden"
-            options={cities.map((city) => ({ value: city, label: city }))}
-            defaultValue={params.city ?? ""}
-          />
-          <Select
-            id="country"
-            name="country"
-            label="Regio (land)"
-            placeholder="Alle landen"
-            options={countries.map((country) => ({ value: country, label: country }))}
-            defaultValue={params.country ?? ""}
-          />
-          <div className="flex items-end">
-            <Button type="submit" fullWidth>
-              Filteren
-            </Button>
-          </div>
-        </form>
-      </CardShell>
-
-      {workshops.length === 0 ? (
-        <EmptyState
-          image="emptySearch"
-          title="Geen workshops gevonden"
-          description="Geen workshops gevonden met deze filters."
-          action={{ label: "Alle workshops bekijken", href: "/workshops" }}
+      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
+        <WorkshopsSidebar
+          domains={domains}
+          cities={cities}
+          countries={countries}
+          params={{
+            q: params.q,
+            domain: params.domain,
+            format: params.format,
+            difficulty: params.difficulty,
+            city: params.city,
+            country: params.country,
+            sort: params.sort,
+            view: params.view,
+          }}
         />
-      ) : (
-        <>
-          <p className="mb-6 text-sm text-[var(--muted)]">
-            {workshops.length} workshop{workshops.length !== 1 ? "s" : ""} gevonden
-          </p>
-          <GridLayout cols={3} gap="lg">
-            {workshops.map((workshop) => (
-              <WorkshopCard key={workshop.id} workshop={workshop} />
-            ))}
-          </GridLayout>
-        </>
-      )}
-    </Container>
-  );
-}
 
-export default function WorkshopsPage(props: { searchParams: SearchParams }) {
-  return (
-    <Suspense fallback={<div className="text-center py-12">Laden...</div>}>
-      <WorkshopsContent searchParams={props.searchParams} />
-    </Suspense>
+        <div className="min-w-0 flex-1">
+          <CategoryCircles
+            domains={domains}
+            activeDomain={params.domain}
+            hrefForDomain={hrefForDomain}
+          />
+
+          <ActiveFilterChips chips={chips} clearHref="/workshops" />
+
+          {graphMaterials.length > 0 && (
+            <section className="mb-6 rounded-[10px] border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-[var(--accent)]/15 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
+                  Materialen
+                </span>
+                <span className="text-[15px] font-semibold text-[var(--foreground)]">
+                  Schaf hier de benodigdheden aan:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {graphMaterials.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`/product/${product.slug}`}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[13px] font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    >
+                      {product.featured_image_url && (
+                        <img
+                          src={product.featured_image_url}
+                          alt=""
+                          className="h-7 w-7 rounded object-cover"
+                          loading="lazy"
+                        />
+                      )}
+                      <span className="max-w-[200px] truncate">{product.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          <WorkshopsToolbar
+            resultCount={pagedWorkshops.length}
+            totalCount={totalCount}
+            view={view}
+          />
+
+          {pagedWorkshops.length === 0 ? (
+            <EmptyState
+              image="emptySearch"
+              title="Geen workshops gevonden"
+              description="Pas je filters aan of probeer een bredere zoekterm."
+              action={{ label: "Alle workshops", href: "/workshops" }}
+            />
+          ) : view === "list" ? (
+            <div className="flex flex-col gap-4">
+              {pagedWorkshops.map((workshop) => (
+                <WorkshopRow key={workshop.id} workshop={workshop} />
+              ))}
+            </div>
+          ) : (
+            <GridLayout cols={3} gap="lg">
+              {pagedWorkshops.map((workshop) => (
+                <WorkshopCard key={workshop.id} workshop={workshop} />
+              ))}
+            </GridLayout>
+          )}
+
+          <MaterialsPagination
+            page={page}
+            hasNextPage={hasNextPage}
+            hrefForPage={hrefForPage}
+          />
+        </div>
+      </div>
+    </Container>
   );
 }

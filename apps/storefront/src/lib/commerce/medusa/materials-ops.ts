@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getMedusaAdminBackendConfig } from "./medusa-admin-auth";
+
 export type MerchantMaterialsOverview = {
   seller_id: string;
   seller_name: string | null;
@@ -148,32 +150,12 @@ export type ConfigurationRule = {
   is_enabled: boolean;
 };
 
-function getAdminBackendConfig() {
-  const baseUrl =
-    process.env.MEDUSA_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
-  if (!adminToken) {
-    return null;
-  }
-
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
-  };
-}
-
 export async function listMerchantMaterialsOverview(input?: {
   q?: string;
   limit?: number;
   offset?: number;
 }): Promise<MerchantOverviewResponse | null> {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return null;
   }
@@ -209,7 +191,7 @@ export async function listMerchantMaterialsOverview(input?: {
 export async function getMerchantMaterialsDetail(
   sellerId: string
 ): Promise<MerchantMaterialsDetail | null> {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config || !sellerId) {
     return null;
   }
@@ -238,7 +220,7 @@ export async function getMerchantMaterialsDetail(
 export async function listMaterialCategoryOptions(): Promise<
   MaterialCategoryOption[]
 > {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return [];
   }
@@ -270,7 +252,7 @@ export async function listMerchantFeedSourceRuns(
   sellerId: string,
   feedId: string
 ): Promise<FeedRun[]> {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config || !sellerId || !feedId) {
     return [];
   }
@@ -301,7 +283,7 @@ export async function getMerchantFeedSourceMetrics(
   sellerId: string,
   feedId: string
 ): Promise<FeedMetrics | null> {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config || !sellerId || !feedId) {
     return null;
   }
@@ -331,7 +313,7 @@ export async function getMerchantImportJobDetail(
   sellerId: string,
   jobId: string
 ): Promise<MerchantImportJobDetail | null> {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config || !sellerId || !jobId) {
     return null;
   }
@@ -358,7 +340,7 @@ export async function getMerchantImportJobDetail(
 }
 
 export async function listConfigurationRules(): Promise<ConfigurationRule[]> {
-  const config = getAdminBackendConfig();
+  const config = await getMedusaAdminBackendConfig();
   if (!config) {
     return [];
   }

@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
 } from "@medusajs/workflows-sdk";
@@ -15,7 +16,7 @@ import { createRequestStep } from "../steps";
 
 export const createSellerCreationRequestWorkflow = createWorkflow(
   "create-seller-creation-request",
-  function (input: CreateRequestDTO) {
+  function (input: WorkflowData<CreateRequestDTO>) {
     const request = createRequestStep(input);
 
     emitMultipleEventsStep([
@@ -36,7 +37,7 @@ export const createSellerCreationRequestWorkflow = createWorkflow(
       }
     );
     return new WorkflowResponse(request, {
-      hooks: [sellerCreationRequestCreatedHook],
+      hooks: [sellerCreationRequestCreatedHook] as any[],
     });
   }
 );

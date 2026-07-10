@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, ShoppingCart, Heart, ChevronDown } from "lucide-react";
+import { Menu, X, ShoppingCart, Heart, ChevronDown, Search } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
+import { buttonVariants } from "@/components/ui/button";
 import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { hasAuthSessionCookie } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
@@ -46,14 +47,38 @@ export async function Header() {
           <Image
             src="/logo.png"
             alt="Hobbysalon"
-            width={140}
-            height={40}
-            className="h-8 w-auto object-contain md:h-9"
+            width={150}
+            height={100}
+            className="h-9 w-auto object-contain md:h-10"
             priority
           />
         </Link>
 
-        {/* Main nav (left): Hobbymaterialen, Workshops, Agenda, Per Hobby, Inspiratie - permanent visible from md up */}
+        {/* Search — left-aligned next to the logo; grows to push the nav to the right */}
+        <div className="min-w-0 flex-1">
+          <form
+            action="/zoeken"
+            role="search"
+            className="hidden max-w-[480px] md:block"
+          >
+            <div className="relative">
+              <Search
+                size={18}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+              />
+              <input
+                type="search"
+                name="q"
+                placeholder="Zoek workshops, makers, materialen en creatieve inspiratie..."
+                aria-label="Zoeken"
+                className="h-10 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+              />
+            </div>
+          </form>
+        </div>
+
+        {/* Main nav (right): Workshops, Agenda, Materialen, Creators */}
         <nav
           className="hidden items-center gap-0.5 md:flex"
           aria-label="Hoofdnavigatie"
@@ -63,23 +88,10 @@ export async function Header() {
               {link.label}
             </NavLink>
           ))}
-          <Dropdown
-            label="Per Hobby"
-            links={domainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name }))}
-            navLinkClass={navLinkClass}
-          />
-          <Dropdown
-            label="Inspiratie"
-            links={[...STATIC_LINKS.inspiratie]}
-            navLinkClass={navLinkClass}
-          />
         </nav>
 
-        {/* Spacer */}
-        <div className="min-w-0 flex-1" />
-
-        {/* Right: cart, favorites, account (guests: Registreer/Log in | logged-in: Profiel dropdown) */}
-        <div className="flex items-center gap-0.5">
+        {/* Right: cart, favorites, auth (guests: Aanmelden/Registreren buttons | logged-in: Profiel) */}
+        <div className="flex items-center gap-2">
           <Link href="/cart" className={iconBtnClass} aria-label="Winkelwagen">
             <ShoppingCart size={20} aria-hidden />
           </Link>
@@ -89,14 +101,20 @@ export async function Header() {
           {hasSession ? (
             <ProfileDropdown navLinkClass={navLinkClass} logoutAction={logoutAction} />
           ) : (
-            <>
-              <Link href="/register" className={`${navLinkClass} hidden md:inline-flex`}>
-                Registreer
+            <div className="hidden items-center gap-2 md:flex">
+              <Link
+                href="/login"
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
+              >
+                Aanmelden
               </Link>
-              <Link href="/login" className={`${navLinkClass} hidden md:inline-flex`}>
-                Inloggen
+              <Link
+                href="/register"
+                className={buttonVariants({ variant: "primary", size: "sm" })}
+              >
+                Registreren
               </Link>
-            </>
+            </div>
           )}
           <MobileMenu
             mainLinks={[...STATIC_LINKS.main]}
@@ -110,39 +128,6 @@ export async function Header() {
         </div>
       </div>
     </header>
-  );
-}
-
-function Dropdown({
-  label,
-  links,
-  navLinkClass,
-}: {
-  label: string;
-  links: Array<{ href: string; label: string }>;
-  navLinkClass: string;
-}) {
-  if (links.length === 0) return null;
-  return (
-    <details className="group relative">
-      <summary className={`${navLinkClass} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}>
-        {label}
-        <ChevronDown size={16} aria-hidden className="ml-0.5 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="absolute left-0 top-full z-50 mt-0.5 min-w-[200px] rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 shadow-lg">
-        <div className="grid grid-cols-2 gap-0.5 px-1 sm:grid-cols-3">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </details>
   );
 }
 

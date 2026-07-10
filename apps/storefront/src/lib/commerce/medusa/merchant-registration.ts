@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveMedusaAdminToken } from "./medusa-admin-auth";
+
 type ProvisionMerchantInput = {
   displayName: string;
   businessName?: string | null;
@@ -11,6 +13,10 @@ type ProvisionMerchantInput = {
   countryCode?: string | null;
 };
 
+type ProvisionMerchantOptions = {
+  supabaseAccessToken?: string | null;
+};
+
 type ProvisionMerchantResult = {
   ok: boolean;
   sellerId: string | null;
@@ -18,31 +24,78 @@ type ProvisionMerchantResult = {
   error?: string;
 };
 
-function getAdminConfig() {
-  const baseUrl =
+function getBackendUrl(): string {
+  return (
     process.env.MEDUSA_BACKEND_URL ??
     process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
+    "http://localhost:9000"
+  ).replace(/\/$/, "");
+}
 
-  if (!adminToken) {
-    return null;
+function getPublishableKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ??
+    process.env.MEDUSA_PUBLISHABLE_KEY ??
+    ""
+  );
+}
+
+async function provisionMerchantViaStore(
+  input: ProvisionMerchantInput,
+  supabaseAccessToken: string
+): Promise<ProvisionMerchantResult> {
+  const publishableKey = getPublishableKey();
+  const response = await fetch(
+    `${getBackendUrl()}/store/platform/merchants/register`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseAccessToken}`,
+        ...(publishableKey
+          ? { "x-publishable-api-key": publishableKey }
+          : {}),
+      },
+      body: JSON.stringify({
+        name: input.businessName?.trim() || input.displayName.trim(),
+        contact_name: input.contactName?.trim() || null,
+        email: input.email.trim().toLowerCase(),
+        phone: input.phone?.trim() || null,
+        city: input.city?.trim() || null,
+        postal_code: input.postalCode?.trim() || null,
+        country_code: input.countryCode?.trim() || "BE",
+        description: null,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    return {
+      ok: false,
+      sellerId: null,
+      status: "failed",
+      error: `Merchant store provisioning failed (${response.status}): ${body || "unknown error"}`,
+    };
   }
 
+  const payload = (await response.json()) as {
+    merchant?: { seller_id?: string; status?: "created" | "existing" };
+  };
+
   return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
+    ok: !!payload.merchant?.seller_id,
+    sellerId: payload.merchant?.seller_id ?? null,
+    status: payload.merchant?.status ?? "created",
   };
 }
 
-export async function provisionMerchantSeller(
+async function provisionMerchantViaAdmin(
   input: ProvisionMerchantInput
 ): Promise<ProvisionMerchantResult> {
-  const config = getAdminConfig();
-  if (!config) {
+  const adminToken = await resolveMedusaAdminToken();
+  if (!adminToken) {
     return {
       ok: false,
       sellerId: null,
@@ -52,13 +105,13 @@ export async function provisionMerchantSeller(
   }
 
   const response = await fetch(
-    `${config.baseUrl}/admin/platform/materials/merchants/register`,
+    `${getBackendUrl()}/admin/platform/materials/merchants/register`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.adminToken}`,
-        "x-medusa-access-token": config.adminToken,
+        Authorization: `Bearer ${adminToken}`,
+        "x-medusa-access-token": adminToken,
       },
       body: JSON.stringify({
         name: input.businessName?.trim() || input.displayName.trim(),
@@ -93,4 +146,70 @@ export async function provisionMerchantSeller(
     sellerId: payload.merchant?.seller_id ?? null,
     status: payload.merchant?.status ?? "created",
   };
+}
+
+export async function provisionMerchantSeller(
+  input: ProvisionMerchantInput,
+  options?: ProvisionMerchantOptions
+): Promise<ProvisionMerchantResult> {
+  const adminResult = await provisionMerchantViaAdmin(input);
+  if (adminResult.ok) {
+    return adminResult;
+  }
+
+  const supabaseAccessToken = options?.supabaseAccessToken?.trim();
+  if (supabaseAccessToken) {
+    return provisionMerchantViaStore(input, supabaseAccessToken);
+  }
+
+  return adminResult;
+}
+
+export function formatMerchantProvisionError(error?: string): string {
+  if (!error) {
+    return "Merchant-profiel aanmaken mislukt.";
+  }
+
+  const normalized = error.toLowerCase();
+
+  if (normalized.includes("missing medusa_admin_api_token")) {
+    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+  }
+
+  if (
+    normalized.includes("merchant store provisioning failed (401)") ||
+    normalized.includes("invalid or expired supabase session") ||
+    normalized.includes("missing supabase bearer token")
+  ) {
+    return "Je sessie is verlopen. Meld je opnieuw aan.";
+  }
+
+  if (
+    normalized.includes("merchant provisioning failed (401)") ||
+    normalized.includes("merchant provisioning failed (403)")
+  ) {
+    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+  }
+
+  if (normalized.includes("(403)")) {
+    return "Dit e-mailadres komt niet overeen met je account. Gebruik het e-mailadres waarmee je bent aangemeld.";
+  }
+
+  if (normalized.includes("(404)")) {
+    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+  }
+
+  if (
+    normalized.includes("already exists as creator") ||
+    normalized.includes("already exists as") ||
+    normalized.includes("(409)")
+  ) {
+    return "Dit e-mailadres is al gekoppeld aan een ander accounttype. Gebruik een nieuw e-mailadres voor je winkel.";
+  }
+
+  if (normalized.includes("invalid email") || normalized.includes("invalid_format")) {
+    return "Controleer je e-mailadres en probeer opnieuw.";
+  }
+
+  return "Merchant-profiel aanmaken mislukt. Probeer opnieuw of gebruik een ander e-mailadres.";
 }

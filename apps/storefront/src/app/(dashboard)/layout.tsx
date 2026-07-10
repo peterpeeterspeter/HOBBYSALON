@@ -29,6 +29,7 @@ export default async function DashboardLayout({
     ["creator", "workshop_host", "organizer"].includes(role)
   );
   const hasMerchantRole = registrationContext.roles.includes("merchant");
+  const hasSellerLink = registrationContext.sellerLinks.length > 0;
   const creatorHasSupplierRole = creator?.creator_types?.includes("supplier") ?? false;
 
   return (
@@ -41,9 +42,9 @@ export default async function DashboardLayout({
                 <Image
                   src="/logo.png"
                   alt="Hobbysalon"
-                  width={140}
-                  height={38}
-                  className="h-8 w-auto object-contain"
+                  width={150}
+                  height={100}
+                  className="h-9 w-auto object-contain"
                 />
               </Link>
               <p className="text-xs text-[var(--muted)] mt-1">{user.email ?? "Ingelogd"}</p>
@@ -70,6 +71,11 @@ export default async function DashboardLayout({
                 {hasMerchantRole && (
                   <Link href="/dashboard/sought-materials" className="hover:text-[var(--accent)] transition-colors">
                     Producten gezocht
+                  </Link>
+                )}
+                {hasSellerLink && (
+                  <Link href="/dashboard/verkoper" className="hover:text-[var(--accent)] transition-colors">
+                    Verkopersportaal
                   </Link>
                 )}
                 <Link href="/dashboard/workshops" className="hover:text-[var(--accent)] transition-colors">
@@ -120,6 +126,7 @@ export default async function DashboardLayout({
           <Suspense fallback={null}>
             <MerchantUpsellBanner
               hasMerchantRole={hasMerchantRole}
+              hasSellerLink={hasSellerLink}
               creatorHasSupplierRole={creatorHasSupplierRole}
             />
           </Suspense>

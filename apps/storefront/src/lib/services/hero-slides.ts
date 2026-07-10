@@ -37,7 +37,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       imageUrl:
         featuredProduct.featured_image_url ?? LANDING_IMAGES.placeholderProduct,
       href: `/product/${featuredProduct.slug}`,
-      label: "Handgemaakt",
+      label: "Materialen & handgemaakt",
     });
   }
 
@@ -66,7 +66,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       imageUrl:
         creator.banner_url ?? creator.avatar_url ?? LANDING_IMAGES.placeholderCreator,
       href: `/creator/${creator.slug}`,
-      label: "Maker",
+      label: "Maker in de kijker",
     });
   }
 
@@ -80,7 +80,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       description: event.short_description,
       imageUrl: event.featured_image_url ?? LANDING_IMAGES.placeholderEvent,
       href: `/agenda/${event.slug}`,
-      label: "Evenement",
+      label: "Agenda",
     });
   }
 
@@ -94,7 +94,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       description: article.excerpt,
       imageUrl: article.featured_image_url ?? LANDING_IMAGES.placeholderArticle,
       href: `/artikel/${article.slug}`,
-      label: "Patroon",
+      label: "Inspiratie",
     });
   }
 
@@ -108,7 +108,7 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       description: project.short_description,
       imageUrl: project.featured_image_url ?? LANDING_IMAGES.placeholderProject,
       href: `/project/${project.slug}`,
-      label: "Aan de slag",
+      label: "Project om te starten",
     });
   }
 
@@ -118,10 +118,10 @@ export function buildHeroSlides(data: HomeData): HeroSlide[] {
       id: "welcome",
       type: "project",
       title: "Welkom bij Hobbysalon",
-      description: "Sinds de jaren '90 dé plek voor creatieve hobbyisten. Ontdek gratis patronen, workshops en een community van 50.000+ makers.",
+      description: "Ontdek handgemaakte producten, workshops, evenementen en makers.",
       imageUrl: LANDING_IMAGES.hero,
       href: "/workshops",
-      label: "Ontdek",
+      label: "Verken",
     });
   }
 

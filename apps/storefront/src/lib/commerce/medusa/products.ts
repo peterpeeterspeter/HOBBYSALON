@@ -1,4 +1,11 @@
+import { withTimeout } from "@/lib/perf/with-timeout";
 import { sdk } from "./client";
+
+const MEDUSA_PRODUCT_TIMEOUT_MS = 8_000;
+const MEDUSA_PRODUCT_FIELDS =
+  "id,title,handle,*variants,*variants.calculated_price";
+const MEDUSA_COUNTRY_CODE =
+  process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be";
 
 export type MedusaProductPrice = {
   id: string;
@@ -67,30 +74,45 @@ function toMedusaProductData(product: {
  * Fetch Medusa product by ID for price, variants, inventory display.
  * Returns null if not found or if medusaProductId is empty.
  */
-export async function getMedusaProduct(
-  medusaProductId: string | null
+async function retrieveMedusaProduct(
+  medusaProductId: string
 ): Promise<MedusaProductData> {
-  if (!medusaProductId) return null;
-
   try {
-    const { product } = await sdk.store.product.retrieve(medusaProductId, {
-      fields: "id,title,handle,*variants,*variants.calculated_price",
-      country_code: process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be",
-    });
+    const { product } = await withTimeout(
+      sdk.store.product.retrieve(medusaProductId, {
+        fields: MEDUSA_PRODUCT_FIELDS,
+        country_code: MEDUSA_COUNTRY_CODE,
+      }),
+      MEDUSA_PRODUCT_TIMEOUT_MS
+    );
 
     if (!product) return null;
-    return toMedusaProductData(product as Parameters<typeof toMedusaProductData>[0]);
+    return toMedusaProductData(
+      product as Parameters<typeof toMedusaProductData>[0]
+    );
   } catch {
     try {
-      const { product } = await sdk.store.product.retrieve(medusaProductId, {
-        fields: "id,title,handle,*variants,*variants.calculated_price",
-      });
+      const { product } = await withTimeout(
+        sdk.store.product.retrieve(medusaProductId, {
+          fields: MEDUSA_PRODUCT_FIELDS,
+        }),
+        MEDUSA_PRODUCT_TIMEOUT_MS
+      );
       if (!product) return null;
-      return toMedusaProductData(product as Parameters<typeof toMedusaProductData>[0]);
+      return toMedusaProductData(
+        product as Parameters<typeof toMedusaProductData>[0]
+      );
     } catch {
       return null;
     }
   }
+}
+
+export async function getMedusaProduct(
+  medusaProductId: string | null
+): Promise<MedusaProductData> {
+  if (!medusaProductId) return null;
+  return retrieveMedusaProduct(medusaProductId);
 }
 
 export async function getMedusaProductByHandle(
@@ -113,30 +135,64 @@ export async function getMedusaProductByHandle(
   }
 }
 
-export async function getMedusaProductsByIds(
-  medusaProductIds: Array<string | null | undefined>,
-  concurrency = 6
+async function listMedusaProductsByIds(
+  ids: string[]
 ): Promise<Map<string, MedusaProductData>> {
-  const ids = [...new Set(medusaProductIds.filter((id): id is string => Boolean(id)))];
   const resultMap = new Map<string, MedusaProductData>();
+  const chunkSize = 50;
 
-  if (ids.length === 0) {
-    return resultMap;
+  for (let offset = 0; offset < ids.length; offset += chunkSize) {
+    const chunk = ids.slice(offset, offset + chunkSize);
+
+    try {
+      const { products } = await withTimeout(
+        sdk.store.product.list({
+          id: chunk,
+          fields: MEDUSA_PRODUCT_FIELDS,
+          country_code: MEDUSA_COUNTRY_CODE,
+          limit: chunk.length,
+        }),
+        MEDUSA_PRODUCT_TIMEOUT_MS
+      );
+
+      for (const product of products ?? []) {
+        resultMap.set(
+          product.id,
+          toMedusaProductData(
+            product as Parameters<typeof toMedusaProductData>[0]
+          )
+        );
+      }
+    } catch {
+      // Fall back to per-product retrieval for this chunk.
+    }
+
+    const missingIds = chunk.filter((id) => !resultMap.has(id));
+    if (missingIds.length === 0) {
+      continue;
+    }
+
+    await Promise.all(
+      missingIds.map(async (id) => {
+        const product = await retrieveMedusaProduct(id);
+        resultMap.set(id, product);
+      })
+    );
   }
 
-  const workerCount = Math.max(1, Math.min(concurrency, ids.length));
-  let cursor = 0;
-
-  const worker = async () => {
-    while (cursor < ids.length) {
-      const currentIndex = cursor;
-      cursor += 1;
-      const id = ids[currentIndex];
-      const product = await getMedusaProduct(id);
-      resultMap.set(id, product);
-    }
-  };
-
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return resultMap;
+}
+
+export async function getMedusaProductsByIds(
+  medusaProductIds: Array<string | null | undefined>
+): Promise<Map<string, MedusaProductData>> {
+  const ids = [
+    ...new Set(medusaProductIds.filter((id): id is string => Boolean(id))),
+  ];
+
+  if (ids.length === 0) {
+    return new Map<string, MedusaProductData>();
+  }
+
+  return listMedusaProductsByIds(ids);
 }

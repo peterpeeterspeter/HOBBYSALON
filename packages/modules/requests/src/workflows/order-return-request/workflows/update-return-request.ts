@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createHook,
   createWorkflow,
   transform,
@@ -8,6 +9,7 @@ import {
 
 import {
   AdminUpdateOrderReturnRequestDTO,
+  OrderReturnRequestDTO,
   VendorUpdateOrderReturnRequestDTO,
   SELLER_MODULE,
 } from "@mercurjs/framework";
@@ -24,7 +26,9 @@ import { Modules } from "@medusajs/framework/utils";
 export const updateOrderReturnRequestWorkflow = createWorkflow(
   "update-order-return-request",
   function (
-    input: VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
+    input: WorkflowData<
+      VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
+    >
   ) {
     when(input, (input) => input.status === "refunded").then(() => {
       proceedReturnRequestWorkflow.runAsStep({ input });
@@ -32,7 +36,7 @@ export const updateOrderReturnRequestWorkflow = createWorkflow(
 
     const request = updateOrderReturnRequestStep(input);
 
-    const requestId = transform(request, (request) => request.id);
+    const requestId = transform(request, (request: OrderReturnRequestDTO) => request.id);
     const order = useQueryGraphStep({
       entity: returnRequestOrder.entryPoint,
       fields: ["order.returns.id", "order_return_request.seller.id"],
@@ -67,7 +71,7 @@ export const updateOrderReturnRequestWorkflow = createWorkflow(
       }
     );
     return new WorkflowResponse(request, {
-      hooks: [orderReturnRequestUpdatedHook],
+      hooks: [orderReturnRequestUpdatedHook] as any[],
     });
   }
 );

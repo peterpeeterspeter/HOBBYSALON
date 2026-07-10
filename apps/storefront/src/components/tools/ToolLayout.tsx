@@ -4,10 +4,16 @@ import { Container } from "@/components/ui/container";
 type ToolLayoutProps = {
   title: string;
   description: string;
+  categoryLabel?: string;
   children: React.ReactNode;
 };
 
-export function ToolLayout({ title, description, children }: ToolLayoutProps) {
+export function ToolLayout({
+  title,
+  description,
+  categoryLabel,
+  children,
+}: ToolLayoutProps) {
   return (
     <Container className="py-8">
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
@@ -29,7 +35,14 @@ export function ToolLayout({ title, description, children }: ToolLayoutProps) {
       </nav>
 
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">{title}</h1>
+        {categoryLabel && (
+          <p className="mb-1.5 text-sm font-bold uppercase tracking-wider text-[var(--accent)]">
+            {categoryLabel}
+          </p>
+        )}
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
+          {title}
+        </h1>
         <p className="mt-2 text-[var(--muted)]">{description}</p>
       </header>
 

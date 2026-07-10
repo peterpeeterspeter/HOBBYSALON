@@ -1,5 +1,6 @@
 import {
   WorkflowResponse,
+  WorkflowData,
   createWorkflow,
   transform
 } from '@medusajs/framework/workflows-sdk'
@@ -12,7 +13,7 @@ import { parseProductTagRequestData } from '../utils/request-data-schemas'
 
 export const acceptProductTagRequestWorkflow = createWorkflow(
   'accept-product-tag-request',
-  function (input: AcceptRequestDTO) {
+  function (input: WorkflowData<AcceptRequestDTO>) {
     const requestData = transform({ input }, ({ input }) =>
       parseProductTagRequestData(input.data)
     )

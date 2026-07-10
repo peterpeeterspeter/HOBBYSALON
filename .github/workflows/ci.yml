@@ -57,8 +57,8 @@ jobs:
       - name: Build local Mercur packages required by backend typecheck
         run: |
           yarn workspace @mercurjs/framework build
-          yarn workspace @mercurjs/b2c-core build
-          yarn workspace @mercurjs/commission build
+          yarn workspace @mercurjs/b2c-core exec tsc -p tsconfig.json
+          yarn workspace @mercurjs/commission exec tsc -p tsconfig.json
 
       - name: Typecheck backend
         run: yarn workspace api tsc --noEmit -p tsconfig.json

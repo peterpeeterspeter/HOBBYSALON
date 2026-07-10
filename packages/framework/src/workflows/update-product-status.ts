@@ -1,3 +1,7 @@
+import type {
+  IEventBusModuleService,
+  IProductModuleService
+} from '@medusajs/framework/types'
 import { Modules, ProductStatus } from '@medusajs/framework/utils'
 import {
   StepResponse,
@@ -11,9 +15,19 @@ import { AlgoliaEvents } from '../types/algolia/events'
 export const updateProductStatusStep = createStep(
   'update-product-status',
   async (input: { id: string; status: ProductStatus }, { container }) => {
-    const service = container.resolve(Modules.PRODUCT)
-    const knex = container.resolve('__pg_connection__')
-    const eventBus = container.resolve(Modules.EVENT_BUS)
+    const service = container.resolve(
+      Modules.PRODUCT
+    ) as IProductModuleService
+    const knex = container.resolve('__pg_connection__') as {
+      (table: string): {
+        where(column: string, value: string): {
+          update(values: Record<string, unknown>): Promise<void>
+        }
+      }
+    }
+    const eventBus = container.resolve(
+      Modules.EVENT_BUS
+    ) as IEventBusModuleService
 
     await knex('product').where('id', input.id).update({
       status: input.status

@@ -2,7 +2,7 @@
 -- Run via Supabase SQL Editor or: psql $DATABASE_URL -f scripts/seed-platform.sql
 -- Prerequisite: Platform schema (docs/SQL.md) must be applied first
 
--- Domains (8)
+-- Domains (14)
 INSERT INTO public.domains (id, slug, name, short_description, sort_order, is_active, seo_title, seo_description) VALUES
   ('d1111111-1111-1111-1111-111111111101', 'crochet', 'Crochet', 'Haakwerk en amigurumi', 1, true, 'Crochet | Hobbysalon', 'Ontdek haakprojecten, patronen en makers'),
   ('d1111111-1111-1111-1111-111111111102', 'knitting', 'Breien', 'Breien en tricot', 2, true, 'Breien | Hobbysalon', 'Breipatronen en wol van makers'),
@@ -11,7 +11,13 @@ INSERT INTO public.domains (id, slug, name, short_description, sort_order, is_ac
   ('d1111111-1111-1111-1111-111111111105', 'jewelry-making', 'Sieraden maken', 'Kralen en juwelen', 5, true, 'Sieraden | Hobbysalon', 'Materialen en workshops'),
   ('d1111111-1111-1111-1111-111111111106', 'scrapbooking', 'Scrapbooking', 'Fotoalbums en decoratie', 6, true, 'Scrapbooking | Hobbysalon', 'Papier en embellishments'),
   ('d1111111-1111-1111-1111-111111111107', 'pottery', 'Keramiek', 'Klei en draaien', 7, true, 'Keramiek | Hobbysalon', 'Pottenbakken en workshops'),
-  ('d1111111-1111-1111-1111-111111111108', 'diy', 'DIY', 'Doe-het-zelf projecten', 8, true, 'DIY | Hobbysalon', 'Creatieve projecten')
+  ('d1111111-1111-1111-1111-111111111108', 'diy', 'DIY', 'Doe-het-zelf projecten', 8, true, 'DIY | Hobbysalon', 'Creatieve projecten'),
+  ('d1111111-1111-1111-1111-111111111109', 'macrame', 'Macramé', 'Knooptechnieken en wandhangers', 9, true, 'Macramé | Hobbysalon', 'Macramé projecten, koord en makers'),
+  ('d1111111-1111-1111-1111-11111111110a', 'embroidery', 'Borduren', 'Handborduurwerk en patronen', 10, true, 'Borduren | Hobbysalon', 'Borduurpakketten, workshops en inspiratie'),
+  ('d1111111-1111-1111-1111-11111111110b', 'painting', 'Schilderen', 'Aquarel, acryl en mixed media', 11, true, 'Schilderen | Hobbysalon', 'Schilderworkshops, verf en inspiratie'),
+  ('d1111111-1111-1111-1111-11111111110c', 'candle-making', 'Kaarsen maken', 'Gieten, kleuren en geuren', 12, true, 'Kaarsen maken | Hobbysalon', 'Kaarsenworkshops en materialen'),
+  ('d1111111-1111-1111-1111-11111111110d', 'woodworking', 'Houtbewerking', 'Snijden, schuren en afwerken', 13, true, 'Houtbewerking | Hobbysalon', 'Houtprojecten en tools'),
+  ('d1111111-1111-1111-1111-11111111110e', 'quilting', 'Quilten', 'Patchwork en quilts', 14, true, 'Quilten | Hobbysalon', 'Quiltprojecten, stoffen en patronen')
 ON CONFLICT (id) DO UPDATE SET
   slug = EXCLUDED.slug,
   name = EXCLUDED.name,

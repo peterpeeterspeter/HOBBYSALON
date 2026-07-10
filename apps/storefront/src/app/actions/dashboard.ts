@@ -3,10 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  createAuthenticatedPlatformClient,
   createPlatformClient,
 } from "@/lib/platform/client";
-import { getAuthAccessToken, getAuthUser } from "@/lib/auth/session";
+import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import {
   cancelCreatorOrder,
@@ -17,7 +16,17 @@ import {
   deleteCreatorMarketplaceProduct,
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
+import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
+import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
+import {
+  attachDefaultEventPlan,
+  enforceCreatorSocialUrls,
+  enforceEventTicketingFields,
+  enforceHandmadePublishCredits,
+  enforceWorkshopBookingFields,
+  purchaseSpotlightBoostAction,
+} from "@/lib/platform/commercial-enforcement";
+import { addCredits } from "@/lib/platform/listing-credits";
 
 const PRODUCT_TYPES = new Set([
   "supply",
@@ -37,7 +46,7 @@ const PRODUCT_STOCK_MODES = new Set(["in_stock", "made_to_order"]);
 
 const WORKSHOP_FORMATS = new Set(["physical", "online", "hybrid"]);
 const WORKSHOP_DIFFICULTY = new Set(["beginner", "intermediate", "advanced"]);
-const WORKSHOP_BOOKING_MODES = new Set(["request", "external_link", "internal_booking"]);
+const WORKSHOP_BOOKING_MODES = new Set(["request", "external_link"]);
 const EVENT_TYPES = new Set([
   "handmade_market",
   "hobby_fair",
@@ -45,7 +54,7 @@ const EVENT_TYPES = new Set([
   "open_atelier",
   "workshop_day",
 ]);
-const EVENT_TICKETING_MODES = new Set(["none", "external_link", "internal_ticket"]);
+const EVENT_TICKETING_MODES = new Set(["none", "external_link"]);
 const BOOKING_REQUEST_STATUSES = new Set([
   "new",
   "contacted",
@@ -181,9 +190,20 @@ async function getRequiredCreator() {
   }
 
   if (!sellerLink?.seller_id) {
-    throw new Error(
-      "Creator seller ontbreekt. Herregistreer via /register/creator."
+    const ensured = await ensureCreatorSellerLinked(
+      user.id,
+      user.email ?? "",
+      creator
     );
+
+    if (!ensured.ok || !ensured.sellerId) {
+      throw new Error(
+        ensured.error ??
+          "Creator seller ontbreekt. Herregistreer via /register/creator."
+      );
+    }
+
+    return { user, creator, sellerId: ensured.sellerId };
   }
 
   return { user, creator, sellerId: sellerLink.seller_id as string };
@@ -224,6 +244,53 @@ function fail(path: string, message: string): never {
 
 function ok(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
+}
+
+function sanitizeCreatorTypes(values: string[]): string[] {
+  const allowed = new Set([
+    "maker",
+    "workshopgever",
+    "supplier",
+    "content_creator",
+    "organizer",
+  ]);
+  const normalized = Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => allowed.has(value))
+    )
+  );
+  return normalized.length > 0 ? normalized : ["maker"];
+}
+
+async function syncCreatorAccountRoles(
+  userId: string,
+  creatorTypes: string[],
+  supabase: ReturnType<typeof createPlatformClient>
+): Promise<string | null> {
+  const roles = new Set<string>(["creator"]);
+  if (creatorTypes.includes("workshopgever")) {
+    roles.add("workshop_host");
+  }
+  if (creatorTypes.includes("organizer")) {
+    roles.add("organizer");
+  }
+
+  for (const role of roles) {
+    const { error } = await supabase.from("user_account_roles").upsert(
+      {
+        user_id: userId,
+        role,
+      },
+      { onConflict: "user_id,role" }
+    );
+    if (error) {
+      return error.message;
+    }
+  }
+
+  return null;
 }
 
 async function syncCreatorDomains(
@@ -513,9 +580,11 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     const preferredSlug = parseOptionalString(formData, "slug") ?? displayName;
     const slug = await ensureUniqueSlug("creators", preferredSlug);
     const selectedDomainIds = parseUuidValues(formData, "domain_ids");
-    const creatorTypes = (formData.getAll("creator_types") ?? [])
-      .map((value) => value.toString())
-      .filter(Boolean);
+    const creatorTypes = sanitizeCreatorTypes(
+      (formData.getAll("creator_types") ?? [])
+        .map((value) => value.toString())
+        .filter(Boolean)
+    );
 
     const existing = await getCreatorByUserId(user.id);
     const avatarUrl = await resolveUploadedOrExistingUrl(
@@ -531,6 +600,16 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       `creators/${user.id}/banner`
     );
 
+    const socialUrls = await enforceCreatorSocialUrls(
+      existing?.id ?? "",
+      creatorTypes,
+      {
+        website_url: parseOptionalString(formData, "website_url"),
+        instagram_url: parseOptionalString(formData, "instagram_url"),
+        facebook_url: parseOptionalString(formData, "facebook_url"),
+      }
+    );
+
     const payload = {
       user_id: user.id,
       slug,
@@ -539,19 +618,15 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       bio: parseOptionalString(formData, "bio"),
       avatar_url: avatarUrl,
       banner_url: bannerUrl,
-      website_url: parseOptionalString(formData, "website_url"),
-      instagram_url: parseOptionalString(formData, "instagram_url"),
-      facebook_url: parseOptionalString(formData, "facebook_url"),
+      website_url: socialUrls.website_url,
+      instagram_url: socialUrls.instagram_url,
+      facebook_url: socialUrls.facebook_url,
       city: parseOptionalString(formData, "city"),
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
-      creator_types: creatorTypes.length > 0 ? creatorTypes : ["maker"],
+      creator_types: creatorTypes,
     };
 
-    const accessToken = await getAuthAccessToken();
-    if (!accessToken) {
-      fail("/login?next=/dashboard/creator", "Je sessie is verlopen. Meld je opnieuw aan.");
-    }
-    const supabase = createAuthenticatedPlatformClient(accessToken);
+    const supabase = createPlatformClient();
 
     let finalCreatorSlug = payload.slug;
 
@@ -610,18 +685,15 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       }
     }
 
-    const { error: roleError } = await supabase.from("user_account_roles").upsert(
-      {
-        user_id: user.id,
-        role: "creator",
-      },
-      { onConflict: "user_id,role" }
+    const roleSyncError = await syncCreatorAccountRoles(
+      user.id,
+      creatorTypes,
+      supabase
     );
-    if (roleError) {
-      console.error("Failed to assign creator role", {
+    if (roleSyncError) {
+      console.error("Failed to assign creator roles", {
         userId: user.id,
-        code: roleError.code,
-        message: roleError.message,
+        message: roleSyncError,
       });
       fail("/dashboard/creator", "Creator-rol kon niet worden opgeslagen.");
     }
@@ -1256,6 +1328,23 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", "Prijs (in cent) is verplicht.");
     }
 
+    const isActive = !!formData.get("is_active");
+    const creditCheck = await enforceHandmadePublishCredits(
+      creator.id,
+      creator.creator_types ?? [],
+      isActive,
+      false
+    );
+    if (!creditCheck.ok) {
+      fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
+    }
+
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      pathPrefix: `creators/${creator.id}/products`,
+    });
+
     const result = await createCreatorMarketplaceProduct({
       sellerId,
       platformCreatorId: creator.id,
@@ -1263,7 +1352,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       slug: parseOptionalString(formData, "slug"),
       shortDescription: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
-      featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+      featuredImageUrl,
       conditionType:
         (conditionType as "new" | "handmade" | "made_to_order" | "used" | null) ??
         null,
@@ -1271,7 +1360,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       estimatedDispatchDays,
       platformDomainId: domainId,
       platformCategoryId: categoryId,
-      isActive: !!formData.get("is_active"),
+      isActive,
       manageInventory: stockMode === "in_stock",
       allowBackorder: stockMode !== "in_stock",
       priceCents,
@@ -1289,7 +1378,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     revalidatePath(`/creator/${creator.slug}`);
     ok(
       "/dashboard/products",
-      "Product aangemaakt. Het kan enkele seconden duren voor het zichtbaar is."
+      "Product aangemaakt. De afbeelding kan enkele seconden duren voordat ze zichtbaar is op de site — zet het product op actief om het te publiceren."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1335,7 +1424,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     );
     const { data: existingProduct, error: existingError } = await supabase
       .from("products")
-      .select("id,medusa_product_id")
+      .select("id,medusa_product_id,featured_image_url")
       .eq("id", productId)
       .eq("creator_id", creator.id)
       .maybeSingle();
@@ -1355,6 +1444,13 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         );
       }
 
+      const featuredImageUrl = await resolveProductImageUrl(formData, {
+        fileField: "featured_image_file",
+        urlField: "featured_image_url",
+        existingUrl: existingProduct.featured_image_url,
+        pathPrefix: `creators/${creator.id}/products`,
+      });
+
       const result = await updateCreatorMarketplaceProduct({
         sellerId,
         medusaProductId,
@@ -1363,7 +1459,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         slug: parseOptionalString(formData, "slug"),
         shortDescription: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
-        featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+        featuredImageUrl,
         conditionType:
           (conditionType as
             | "new"
@@ -1399,6 +1495,12 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("products", preferredSlug, productId);
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      existingUrl: existingProduct.featured_image_url,
+      pathPrefix: `creators/${creator.id}/products`,
+    });
 
     const { error } = await supabase
       .from("products")
@@ -1407,7 +1509,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         title,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
-        featured_image_url: parseOptionalString(formData, "featured_image_url"),
+        featured_image_url: featuredImageUrl,
         domain_id: domainId,
         category_id: categoryId,
         condition_type: conditionType,
@@ -1583,6 +1685,20 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", "Ongeldige boekingsmethode.");
     }
 
+    const isActive = !!formData.get("is_active");
+    const enforced = await enforceWorkshopBookingFields(
+      creator.id,
+      creator.creator_types ?? [],
+      {
+        booking_mode: bookingMode,
+        booking_url: parseOptionalString(formData, "booking_url"),
+        is_active: isActive,
+      }
+    );
+    if (enforced.error) {
+      fail("/dashboard/workshops", enforced.error);
+    }
+
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("workshops", preferredSlug);
     const supabase = createPlatformClient();
@@ -1596,15 +1712,15 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       featured_image_url: parseOptionalString(formData, "featured_image_url"),
       format_type: formatType,
       difficulty_level: difficultyLevel,
-      booking_mode: bookingMode,
-      booking_url: parseOptionalString(formData, "booking_url"),
+      booking_mode: enforced.booking_mode,
+      booking_url: enforced.booking_url,
       city: parseOptionalString(formData, "city"),
       location_name: parseOptionalString(formData, "location_name"),
       duration_minutes: parseOptionalInt(formData, "duration_minutes"),
       capacity: parseOptionalInt(formData, "capacity"),
       price_cents: parseOptionalInt(formData, "price_cents") ?? 0,
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
-      is_active: !!formData.get("is_active"),
+      is_active: isActive,
     });
 
     if (error) {
@@ -1641,6 +1757,21 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", "Ongeldige boekingsmethode.");
     }
 
+    const isActive = !!formData.get("is_active");
+    const enforced = await enforceWorkshopBookingFields(
+      creator.id,
+      creator.creator_types ?? [],
+      {
+        booking_mode: bookingMode,
+        booking_url: parseOptionalString(formData, "booking_url"),
+        is_active: isActive,
+        excludeWorkshopId: workshopId,
+      }
+    );
+    if (enforced.error) {
+      fail("/dashboard/workshops", enforced.error);
+    }
+
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("workshops", preferredSlug, workshopId);
     const supabase = createPlatformClient();
@@ -1655,15 +1786,15 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
         featured_image_url: parseOptionalString(formData, "featured_image_url"),
         format_type: formatType,
         difficulty_level: difficultyLevel,
-        booking_mode: bookingMode,
-        booking_url: parseOptionalString(formData, "booking_url"),
+        booking_mode: enforced.booking_mode,
+        booking_url: enforced.booking_url,
         city: parseOptionalString(formData, "city"),
         location_name: parseOptionalString(formData, "location_name"),
         duration_minutes: parseOptionalInt(formData, "duration_minutes"),
         capacity: parseOptionalInt(formData, "capacity"),
         price_cents: parseOptionalInt(formData, "price_cents") ?? 0,
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
-        is_active: !!formData.get("is_active"),
+        is_active: isActive,
       })
       .eq("id", workshopId)
       .eq("creator_id", creator.id);
@@ -1699,11 +1830,23 @@ export async function createEventAction(formData: FormData): Promise<void> {
       fail("/dashboard/events", "Ongeldige ticketmodus.");
     }
 
+    const enforcedTicketing = await enforceEventTicketingFields(
+      creator.id,
+      creator.creator_types ?? [],
+      null,
+      {
+        ticketing_mode: ticketingMode,
+        ticket_url: parseOptionalString(formData, "ticket_url"),
+      }
+    );
+
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("events", preferredSlug);
     const supabase = createPlatformClient();
 
-    const { error } = await supabase.from("events").insert({
+    const { data: createdEvent, error } = await supabase
+      .from("events")
+      .insert({
       slug,
       title,
       short_description: parseOptionalString(formData, "short_description"),
@@ -1717,17 +1860,21 @@ export async function createEventAction(formData: FormData): Promise<void> {
       address_line_1: parseOptionalString(formData, "address_line_1"),
       postal_code: parseOptionalString(formData, "postal_code"),
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
-      ticketing_mode: ticketingMode,
-      ticket_url: parseOptionalString(formData, "ticket_url"),
+      ticketing_mode: enforcedTicketing.ticketing_mode,
+      ticket_url: enforcedTicketing.ticket_url,
       ticket_price_cents: parseOptionalInt(formData, "ticket_price_cents"),
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
       featured_image_url: parseOptionalString(formData, "featured_image_url"),
       is_active: !!formData.get("is_active"),
-    });
+    })
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !createdEvent?.id) {
       fail("/dashboard/events", "Event aanmaken mislukt.");
     }
+
+    await attachDefaultEventPlan(createdEvent.id as string);
 
     revalidatePath("/dashboard/events");
     ok("/dashboard/events", "Event aangemaakt.");
@@ -1757,6 +1904,20 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       fail("/dashboard/events", "Ongeldige ticketmodus.");
     }
 
+    const { getEventCommercialEntitlements } = await import(
+      "@/lib/platform/commercial-entitlements"
+    );
+    const eventEntitlements = await getEventCommercialEntitlements(eventId);
+    const enforcedTicketing = await enforceEventTicketingFields(
+      creator.id,
+      creator.creator_types ?? [],
+      eventEntitlements.externalLinksAllowed,
+      {
+        ticketing_mode: ticketingMode,
+        ticket_url: parseOptionalString(formData, "ticket_url"),
+      }
+    );
+
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("events", preferredSlug, eventId);
     const supabase = createPlatformClient();
@@ -1776,8 +1937,8 @@ export async function updateEventAction(formData: FormData): Promise<void> {
         address_line_1: parseOptionalString(formData, "address_line_1"),
         postal_code: parseOptionalString(formData, "postal_code"),
         country_code: parseOptionalString(formData, "country_code") ?? "BE",
-        ticketing_mode: ticketingMode,
-        ticket_url: parseOptionalString(formData, "ticket_url"),
+        ticketing_mode: enforcedTicketing.ticketing_mode,
+        ticket_url: enforcedTicketing.ticket_url,
         ticket_price_cents: parseOptionalInt(formData, "ticket_price_cents"),
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         featured_image_url: parseOptionalString(formData, "featured_image_url"),
@@ -1830,6 +1991,183 @@ export async function updateBookingRequestStatusAction(
     if (isNextRedirectError(error)) throw error;
     fail(
       "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function linkWorkshopProductAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const workshopId = parseRequiredUuid(formData, "workshop_id");
+    const productId = parseRequiredUuid(formData, "product_id");
+    const isRequired = !!formData.get("is_required");
+    const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
+
+    const supabase = createPlatformClient();
+    const { data: workshop } = await supabase
+      .from("workshops")
+      .select("id, slug")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (!workshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const { data: productRow } = await supabase
+      .from("products")
+      .select("product_type, creator_id")
+      .eq("id", productId)
+      .maybeSingle();
+
+    const ownsProduct = productRow?.creator_id === creator.id;
+    const isMaterialProduct =
+      productRow &&
+      ["supply", "workshop_kit", "supplies"].includes(productRow.product_type);
+
+    if (!ownsProduct && !isMaterialProduct) {
+      fail(
+        "/dashboard/workshops",
+        "Je kan alleen je eigen producten of materialen (supply/workshop_kit) koppelen."
+      );
+    }
+
+    const { error } = await supabase.from("workshop_required_products").upsert(
+      {
+        workshop_id: workshopId,
+        product_id: productId,
+        is_required: isRequired,
+        sort_order: sortOrder,
+      },
+      { onConflict: "workshop_id,product_id" }
+    );
+
+    if (error) {
+      fail("/dashboard/workshops", "Materiaal koppelen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${workshop.slug}`);
+    ok("/dashboard/workshops", "Materiaal gekoppeld aan workshop.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function unlinkWorkshopProductAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const workshopId = parseRequiredUuid(formData, "workshop_id");
+    const productId = parseRequiredUuid(formData, "product_id");
+
+    const supabase = createPlatformClient();
+    const { data: workshop } = await supabase
+      .from("workshops")
+      .select("slug")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (!workshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("workshop_required_products")
+      .delete()
+      .eq("workshop_id", workshopId)
+      .eq("product_id", productId);
+
+    if (error) {
+      fail("/dashboard/workshops", "Materiaal ontkoppelen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${workshop.slug}`);
+    ok("/dashboard/workshops", "Materiaal ontkoppeld.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function purchaseSpotlightBoostFormAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const entityType = parseRequiredString(formData, "entity_type") as
+      | "creator"
+      | "product"
+      | "workshop"
+      | "event";
+    const entityId = parseRequiredUuid(formData, "entity_id");
+    const boostType =
+      parseOptionalString(formData, "boost_type") === "homepage"
+        ? "homepage"
+        : "spotlight";
+
+    const result = await purchaseSpotlightBoostAction({
+      creatorId: creator.id,
+      entityType,
+      entityId,
+      boostType,
+    });
+
+    if (!result.ok) {
+      fail("/dashboard/creator", result.error ?? "Spotlight aankoop mislukt.");
+    }
+
+    revalidatePath("/dashboard/creator");
+    ok("/dashboard/creator", "Spotlight geactiveerd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function addListingCreditsAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreator();
+    const packCode = parseRequiredString(formData, "pack_code");
+    const supabase = createPlatformClient();
+    const { data: pack } = await supabase
+      .from("listing_credit_products")
+      .select("credits, name")
+      .eq("pack_code", packCode)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!pack) {
+      fail("/dashboard/products", "Creditpakket niet gevonden.");
+    }
+
+    const result = await addCredits(creator.id, pack.credits, "purchase", {
+      pack_code: packCode,
+    });
+
+    if (!result.ok) {
+      fail("/dashboard/products", result.error ?? "Credits toevoegen mislukt.");
+    }
+
+    revalidatePath("/dashboard/products");
+    ok("/dashboard/products", `${pack.credits} credits toegevoegd (${pack.name}).`);
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/products",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }

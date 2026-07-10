@@ -1,5 +1,7 @@
 # Hobbysalon — Agent Rules (Cursor)
 
+> **Canonical agent context:** see [AGENTS.md](../AGENTS.md) at the repo root.
+
 Rules and context for AI-assisted development.
 
 ---
@@ -43,3 +45,13 @@ Rules and context for AI-assisted development.
 ## Product Types (Platform)
 
 Valid `product_type` values: `supply`, `handmade`, `event_listing`, `event_ticket`, `workshop_ticket`, `workshop_kit`.
+
+---
+
+## External references (Mercur / Medusa)
+
+- **Mercur MCP** — configured in `.cursor/mcp.json`; search live docs via `SearchMercurJsDocumentation`. Setup: [MCP Server](https://docs.mercurjs.com/ai-development/mcp)
+- **llms.txt** — full doc index for tools without MCP: [docs.mercurjs.com/llms.txt](https://docs.mercurjs.com/llms.txt)
+- **Migration overview** — when evaluating Mercur 2.x upgrades: [migrations/overview](https://docs.mercurjs.com/migrations/overview)
+
+**Version note:** This repo runs **Mercur 1.5.4** (Medusa 2.11.3). MCP and llms.txt describe **Mercur 2.x**. Adapt patterns to our layout (`apps/backend`, `packages/modules/*`), not 2.x paths (`packages/api`, blocks CLI).
