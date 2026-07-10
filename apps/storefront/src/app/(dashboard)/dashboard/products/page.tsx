@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import type { Product } from "@/types/platform";
 
 type Props = {
@@ -113,7 +114,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
       ) : (
         <>
           <CardShell variant="default" padding="lg" className="mb-8">
-            <form action={createProductAction}>
+            <form action={createProductAction} encType="multipart/form-data">
               <h2 className="text-lg font-semibold">Nieuw product</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
@@ -175,14 +176,19 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   type="number"
                   min={0}
                 />
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
+                  <ImageUploadField
+                    name="featured_image_file"
+                    label="Productfoto"
+                    hint="Kies een foto vanaf je computer of telefoon. Deze foto wordt gebruikt als hoofdafbeelding van je product."
+                  />
                   <Input
                     name="featured_image_url"
-                    label="Afbeelding URL"
-                    placeholder="https://..."
+                    label="Of plak een directe afbeeldingslink"
+                    placeholder="https://voorbeeld.be/foto.jpg"
                   />
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    Plak hier een directe link naar een afbeelding (bijv. eindigend op .jpg/.png).
+                  <p className="text-xs text-[var(--muted)]">
+                    Een geüploade foto krijgt voorrang op een geplakte link. Gebruik enkel een directe link naar een JPG, PNG, WebP of GIF, niet een link naar een webpagina of Google Drive-preview.
                   </p>
                 </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
@@ -226,7 +232,11 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       ({product.product_type}){product.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
-                  <form action={updateProductAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <form
+                    action={updateProductAction}
+                    encType="multipart/form-data"
+                    className="mt-4 grid gap-4 sm:grid-cols-2"
+                  >
                     <input type="hidden" name="id" value={product.id} />
                     <input
                       type="hidden"
@@ -309,15 +319,21 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       min={0}
                       defaultValue={product.estimated_dispatch_days ?? ""}
                     />
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
+                      <ImageUploadField
+                        name="featured_image_file"
+                        label="Productfoto vervangen"
+                        currentUrl={product.featured_image_url}
+                        hint="Kies alleen een nieuwe foto als je de huidige wilt vervangen."
+                      />
                       <Input
                         name="featured_image_url"
-                        label="Afbeelding URL"
-                        placeholder="https://..."
+                        label="Of gebruik een directe afbeeldingslink"
+                        placeholder="https://voorbeeld.be/foto.jpg"
                         defaultValue={product.featured_image_url ?? ""}
                       />
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        Plak hier een directe link naar een afbeelding (bijv. eindigend op .jpg/.png).
+                      <p className="text-xs text-[var(--muted)]">
+                        Een geüploade foto krijgt voorrang op een geplakte link. Laat beide velden ongemoeid om je huidige foto te behouden.
                       </p>
                     </div>
                     <Input

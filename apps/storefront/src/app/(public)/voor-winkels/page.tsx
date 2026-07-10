@@ -39,7 +39,7 @@ const SOLUTION_ITEMS = [
 const PLANS = [
   {
     title: "Basis verkoper",
-    price: "Marketplace verkoop",
+    price: "€0 / maand",
     features: [
       "Winkelprofiel",
       "Producten verkopen via Hobbysalon",
@@ -51,7 +51,7 @@ const PLANS = [
   },
   {
     title: "Premium winkel",
-    price: "Extra zichtbaarheid",
+    price: "€29 / maand",
     featured: true,
     features: [
       "Meer productzichtbaarheid",
@@ -64,7 +64,7 @@ const PLANS = [
   },
   {
     title: "Pro / categoriepartner",
-    price: "Op maat",
+    price: "Prijs op maat",
     features: [
       "Categorieboost",
       "Sponsored tutorial",
