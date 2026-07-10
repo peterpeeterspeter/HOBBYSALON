@@ -2,6 +2,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+// @ts-expect-error Node's TypeScript script runner requires the extension.
+import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env.ts";
 
 type Args = {
   authorCreatorId: string;
@@ -86,7 +88,7 @@ function byFeaturedAndRecent<T extends { is_featured: boolean; updated_at?: stri
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl = resolveSupabaseUrl(process.env);
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const key = serviceKey ?? anonKey;
