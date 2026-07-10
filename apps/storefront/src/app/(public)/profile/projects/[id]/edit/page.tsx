@@ -156,6 +156,9 @@ export default async function ProfileProjectEditPage({ params, searchParams }: P
               label="Hoofdafbeelding"
               hint="Upload een nieuwe foto om de huidige te vervangen."
               currentUrl={project.featured_image_url}
+              urlFieldName="featured_image_url"
+              urlDefaultValue={project.featured_image_url ?? ""}
+              uploadPathPrefix={`projects/${user.id}/${project.id}/featured`}
             />
             <input type="hidden" name="currency_code" value={project.currency_code} />
             <Button type="submit">Opslaan</Button>
@@ -295,7 +298,13 @@ export default async function ProfileProjectEditPage({ params, searchParams }: P
             className="mt-4 max-w-md"
           >
             <input type="hidden" name="project_id" value={project.id} />
-            <ImageUploadField name="image_file" label="Foto *" required />
+            <ImageUploadField
+              name="image_file"
+              label="Foto *"
+              required
+              urlFieldName="image_url"
+              uploadPathPrefix={`projects/${user.id}/${project.id}/gallery`}
+            />
             <Input name="alt_text" label="Alt tekst" />
             <input type="hidden" name="sort_order" value={galleryImages.length} />
             <Button type="submit" variant="secondary" size="sm" className="mt-2">

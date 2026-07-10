@@ -1,15 +1,15 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import { createPlatformClient } from "@/lib/platform/client";
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  MAX_IMAGE_BYTES,
+} from "./image-constants";
 
+export { MAX_IMAGE_BYTES, ALLOWED_IMAGE_MIME_TYPES } from "./image-constants";
 export const MEDIA_BUCKET = "media";
-const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
+const MAX_BYTES = MAX_IMAGE_BYTES;
+const ALLOWED_MIME = ALLOWED_IMAGE_MIME_TYPES;
 
 function extensionForMime(mime: string): string {
   switch (mime) {
@@ -26,6 +26,28 @@ function extensionForMime(mime: string): string {
   }
 }
 
+function extensionForFilename(filename: string): string | null {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (!ext) return null;
+  if (ext === "jpg" || ext === "jpeg") return "jpg";
+  if (ext === "png" || ext === "webp" || ext === "gif") return ext;
+  return null;
+}
+
+function resolveImageMime(file: File): string | null {
+  if (file.type && ALLOWED_MIME.has(file.type)) {
+    return file.type;
+  }
+
+  const fromName = extensionForFilename(file.name);
+  if (fromName === "jpg") return "image/jpeg";
+  if (fromName === "png") return "image/png";
+  if (fromName === "webp") return "image/webp";
+  if (fromName === "gif") return "image/gif";
+
+  return null;
+}
+
 export function getFileFromFormData(formData: FormData, field: string): File | null {
   const value = formData.get(field);
   if (!(value instanceof File) || value.size === 0) {
@@ -35,20 +57,25 @@ export function getFileFromFormData(formData: FormData, field: string): File | n
 }
 
 export async function uploadImageFile(file: File, pathPrefix: string): Promise<string> {
-  if (!ALLOWED_MIME.has(file.type)) {
-    throw new Error("Alleen JPEG, PNG, WebP of GIF zijn toegestaan.");
+  const mime = resolveImageMime(file);
+  if (!mime) {
+    throw new Error(
+      "Alleen JPEG, PNG, WebP of GIF zijn toegestaan. iPhone: zet Camera op 'Meest compatibel (JPEG)' of exporteer de foto opnieuw."
+    );
   }
   if (file.size > MAX_BYTES) {
-    throw new Error("Afbeelding mag maximaal 5 MB zijn.");
+    throw new Error(
+      `Afbeelding is te groot (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum is ${MAX_BYTES / (1024 * 1024)} MB.`
+    );
   }
 
-  const ext = extensionForMime(file.type);
+  const ext = extensionForMime(mime);
   const path = `${pathPrefix}/${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const supabase = createPlatformClient();
 
   const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buffer, {
-    contentType: file.type,
+    contentType: mime,
     upsert: false,
   });
 
@@ -83,4 +110,36 @@ export async function requireUploadedImageUrl(
     throw new Error("Kies een afbeelding om te uploaden.");
   }
   return uploadImageFile(file, pathPrefix);
+}
+
+function parseOptionalUrlFromFormData(
+  formData: FormData,
+  field: string
+): string | null {
+  const value = formData.get(field);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+export async function resolveProductImageUrl(
+  formData: FormData,
+  options: {
+    fileField: string;
+    urlField: string;
+    existingUrl?: string | null;
+    pathPrefix: string;
+  }
+): Promise<string | null> {
+  const file = getFileFromFormData(formData, options.fileField);
+  if (file) {
+    return uploadImageFile(file, options.pathPrefix);
+  }
+
+  const url = parseOptionalUrlFromFormData(formData, options.urlField);
+  if (url) {
+    return url;
+  }
+
+  return options.existingUrl ?? null;
 }

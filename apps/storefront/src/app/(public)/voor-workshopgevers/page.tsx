@@ -100,7 +100,7 @@ const FAQ_ITEMS = [
   {
     question: "Moet ik jullie bookingtool gebruiken?",
     answer:
-      "Nee, bij launch werken we met een aanvraagflow. Booking kan later optioneel worden.",
+      "Nee. Bezoekers sturen een aanvraag via Hobbysalon en jij neemt daarna zelf contact op om de inschrijving af te ronden (bijv. via mail, je eigen website of betaling ter plaatse). Een ingebouwde boekings- en betaalmodule komt later optioneel bij.",
   },
   {
     question: "Kan ik een externe boekingslink tonen?",

@@ -10,7 +10,7 @@ import {
   insertProjectSoughtMaterial,
   deleteProjectSoughtMaterial,
 } from "@/lib/platform/queries/projects";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
+import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
 
 const DIFFICULTY_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 
@@ -111,12 +111,11 @@ export async function createProjectAction(formData: FormData): Promise<void> {
     const budgetMin = parseOptionalInt(formData, "budget_min_cents");
     const budgetMax = parseOptionalInt(formData, "budget_max_cents");
     const currencyCode = parseOptionalString(formData, "currency_code") ?? "EUR";
-    const featuredImageUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "featured_image_file",
-      null,
-      `projects/${user.id}/featured`
-    );
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      pathPrefix: `projects/${user.id}/featured`,
+    });
 
     if (!DIFFICULTY_LEVELS.has(difficultyLevel)) {
       fail("/profile/projects/new", "Ongeldige moeilijkheidsgraad.");
@@ -190,12 +189,12 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
     const budgetMin = parseOptionalInt(formData, "budget_min_cents");
     const budgetMax = parseOptionalInt(formData, "budget_max_cents");
     const currencyCode = parseOptionalString(formData, "currency_code") ?? "EUR";
-    const featuredImageUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "featured_image_file",
-      project.featured_image_url,
-      `projects/${user.id}/${projectId}/featured`
-    );
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      existingUrl: project.featured_image_url,
+      pathPrefix: `projects/${user.id}/${projectId}/featured`,
+    });
 
     if (!DIFFICULTY_LEVELS.has(difficultyLevel)) {
       fail(`/profile/projects/${projectId}/edit`, "Ongeldige moeilijkheidsgraad.");
@@ -449,11 +448,15 @@ export async function createProfileProjectGalleryImageAction(
       fail("/profile/projects", "Project niet gevonden of geen rechten.");
     }
 
-    const imageUrl = await requireUploadedImageUrl(
-      formData,
-      "image_file",
-      `projects/${user.id}/${projectId}/gallery`
-    );
+    const imageUrl = await resolveProductImageUrl(formData, {
+      fileField: "image_file",
+      urlField: "image_url",
+      pathPrefix: `projects/${user.id}/${projectId}/gallery`,
+    });
+
+    if (!imageUrl) {
+      fail(`/profile/projects/${projectId}/edit`, "Kies een foto om te uploaden.");
+    }
 
     const supabase = createPlatformClient();
     const { error } = await supabase.from("project_gallery_images").insert({
