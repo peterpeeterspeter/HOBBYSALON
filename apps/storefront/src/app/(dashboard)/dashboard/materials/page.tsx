@@ -335,10 +335,17 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
 
       <CardShell variant="featured" padding="lg">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Force projection sync
+          Producten synchroniseren met de site
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Queues batches via <code>/admin/platform/products/projection/sync</code>.
+          Zet Medusa-producten door naar de Hobbysalon-catalogus. Laat{" "}
+          <strong>Seller ID</strong> leeg om alle winkels te synchroniseren, of kies
+          één winkel via de tabel hieronder (knop <strong>Sync seller</strong>).
+        </p>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Je <strong>Seller ID</strong> staat onder elke winkelnaam in de tabel
+          &quot;Merchant readiness&quot; (formaat <code>sel_…</code>). Klik op{" "}
+          <strong>Details</strong> om alle instellingen van die winkel te openen.
         </p>
 
         {!canTriggerSync ? (
@@ -352,27 +359,41 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <Input
                 name="seller_id"
-                label="Seller ID (optional)"
-                placeholder="sel_..."
+                label="Seller ID (optioneel)"
+                placeholder="sel_01… (zie tabel hieronder)"
               />
               <Input
                 name="limit"
-                label="Batch size (optional, max 500)"
+                label="Aantal producten per batch (max. 500)"
                 defaultValue="200"
               />
             </div>
-            <Button type="submit">Queue Sync</Button>
+            <Button type="submit">Synchronisatie starten</Button>
           </form>
         )}
       </CardShell>
 
       <CardShell variant="default" padding="lg">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Approval & import rules
+          Goedkeuring &amp; import
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          P1 controls for merchant product auto-approval and import availability.
+          Deze instellingen gelden voor de hele marketplace — niet per winkel.
         </p>
+        <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--section-alt)] px-4 py-3 text-sm text-[var(--foreground)]">
+          <p className="font-medium">Wie keurt producten goed?</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--muted)]">
+            <li>
+              <strong>Goedkeuring uit</strong> (standaard): nieuwe producten worden
+              automatisch gepubliceerd na aanmaak.
+            </li>
+            <li>
+              <strong>Goedkeuring aan</strong>: verkopers kunnen niet zelf publiceren.
+              Het Hobbysalon-team controleert en keurt producten goed in Medusa/admin
+              voordat ze op de site verschijnen.
+            </li>
+          </ul>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {requireProductApprovalRule ? (
             <form
@@ -382,11 +403,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
               <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <input type="hidden" name="rule_id" value={requireProductApprovalRule.id} />
-              <p className="font-medium">Require product approval</p>
+              <p className="font-medium">Productgoedkeuring verplicht</p>
               <p className="text-xs text-[var(--muted)] mt-1">
                 {requireProductApprovalRule.is_enabled
-                  ? "Enabled: nieuwe producten vereisen approval."
-                  : "Disabled: auto-approval actief."}
+                  ? "Aan: nieuwe producten wachten op goedkeuring door Hobbysalon."
+                  : "Uit: producten worden automatisch gepubliceerd."}
               </p>
               <label className="mt-3 inline-flex items-center gap-2 text-sm">
                 <input
@@ -394,11 +415,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                   name="is_enabled"
                   defaultChecked={requireProductApprovalRule.is_enabled}
                 />
-                Rule enabled
+                Regel actief
               </label>
               <div className="mt-3">
                 <Button type="submit" size="sm" variant="secondary">
-                  Save rule
+                  Opslaan
                 </Button>
               </div>
             </form>
@@ -416,11 +437,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
               <input type="hidden" name="seller_id" value={selectedSellerId ?? ""} />
               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
               <input type="hidden" name="rule_id" value={productImportEnabledRule.id} />
-              <p className="font-medium">Product import enabled</p>
+              <p className="font-medium">Productimport toegestaan</p>
               <p className="text-xs text-[var(--muted)] mt-1">
                 {productImportEnabledRule.is_enabled
-                  ? "Enabled: CSV/feed import toegestaan."
-                  : "Disabled: import route geblokkeerd."}
+                  ? "Aan: verkopers mogen CSV/feed-import gebruiken in het verkopersportaal."
+                  : "Uit: import via het verkopersportaal is geblokkeerd."}
               </p>
               <label className="mt-3 inline-flex items-center gap-2 text-sm">
                 <input
@@ -428,11 +449,11 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                   name="is_enabled"
                   defaultChecked={productImportEnabledRule.is_enabled}
                 />
-                Rule enabled
+                Regel actief
               </label>
               <div className="mt-3">
                 <Button type="submit" size="sm" variant="secondary">
-                  Save rule
+                  Opslaan
                 </Button>
               </div>
             </form>
@@ -447,14 +468,14 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
       <CardShell variant="default" padding="lg">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Merchant readiness
+            Winkels &amp; seller ID&apos;s
           </h2>
           <form method="GET" className="flex items-end gap-2">
             <Input
               name="merchant_q"
-              label="Search merchant"
+              label="Zoek winkel"
               defaultValue={merchantQ ?? ""}
-              placeholder="name or handle"
+              placeholder="naam of handle"
             />
             <Button type="submit" variant="secondary" size="sm">
               Filter
@@ -499,8 +520,9 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                           {merchant.seller_name || merchant.seller_handle || merchant.seller_id}
                         </div>
                         <div className="text-xs text-[var(--muted)]">
-                          {merchant.seller_id} · {merchant.store_status || "unknown"} ·{" "}
-                          {ready ? "ready" : "needs setup"}
+                          Seller ID: <code>{merchant.seller_id}</code> ·{" "}
+                          {merchant.store_status || "onbekend"} ·{" "}
+                          {ready ? "klaar" : "setup nodig"}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button asChild variant="ghost" size="sm">
@@ -518,7 +540,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                               <input type="hidden" name="merchant_q" value={merchantQ ?? ""} />
                               <input type="hidden" name="limit" value="200" />
                               <Button type="submit" variant="secondary" size="sm">
-                                Sync seller
+                                Sync deze winkel
                               </Button>
                             </form>
                           )}

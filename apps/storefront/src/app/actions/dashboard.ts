@@ -17,7 +17,7 @@ import {
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
 import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl } from "@/lib/storage/upload-image";
+import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
@@ -1339,6 +1339,12 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
     }
 
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      pathPrefix: `creators/${creator.id}/products`,
+    });
+
     const result = await createCreatorMarketplaceProduct({
       sellerId,
       platformCreatorId: creator.id,
@@ -1346,7 +1352,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       slug: parseOptionalString(formData, "slug"),
       shortDescription: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
-      featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+      featuredImageUrl,
       conditionType:
         (conditionType as "new" | "handmade" | "made_to_order" | "used" | null) ??
         null,
@@ -1372,7 +1378,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     revalidatePath(`/creator/${creator.slug}`);
     ok(
       "/dashboard/products",
-      "Product aangemaakt. Het kan enkele seconden duren voor het zichtbaar is."
+      "Product aangemaakt. De afbeelding kan enkele seconden duren voordat ze zichtbaar is op de site — zet het product op actief om het te publiceren."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1418,7 +1424,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     );
     const { data: existingProduct, error: existingError } = await supabase
       .from("products")
-      .select("id,medusa_product_id")
+      .select("id,medusa_product_id,featured_image_url")
       .eq("id", productId)
       .eq("creator_id", creator.id)
       .maybeSingle();
@@ -1438,6 +1444,13 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         );
       }
 
+      const featuredImageUrl = await resolveProductImageUrl(formData, {
+        fileField: "featured_image_file",
+        urlField: "featured_image_url",
+        existingUrl: existingProduct.featured_image_url,
+        pathPrefix: `creators/${creator.id}/products`,
+      });
+
       const result = await updateCreatorMarketplaceProduct({
         sellerId,
         medusaProductId,
@@ -1446,7 +1459,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         slug: parseOptionalString(formData, "slug"),
         shortDescription: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
-        featuredImageUrl: parseOptionalString(formData, "featured_image_url"),
+        featuredImageUrl,
         conditionType:
           (conditionType as
             | "new"
@@ -1482,6 +1495,12 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
     const slug = await ensureUniqueSlug("products", preferredSlug, productId);
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_url",
+      existingUrl: existingProduct.featured_image_url,
+      pathPrefix: `creators/${creator.id}/products`,
+    });
 
     const { error } = await supabase
       .from("products")
@@ -1490,7 +1509,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         title,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
-        featured_image_url: parseOptionalString(formData, "featured_image_url"),
+        featured_image_url: featuredImageUrl,
         domain_id: domainId,
         category_id: categoryId,
         condition_type: conditionType,

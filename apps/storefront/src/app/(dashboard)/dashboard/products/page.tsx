@@ -15,6 +15,7 @@ import {
 } from "@/app/actions/dashboard";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -113,7 +114,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
       ) : (
         <>
           <CardShell variant="default" padding="lg" className="mb-8">
-            <form action={createProductAction}>
+            <form action={createProductAction} encType="multipart/form-data">
               <h2 className="text-lg font-semibold">Nieuw product</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
@@ -176,14 +177,13 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   min={0}
                 />
                 <div className="sm:col-span-2">
-                  <Input
-                    name="featured_image_url"
-                    label="Afbeelding URL"
-                    placeholder="https://..."
+                  <ImageUploadField
+                    name="featured_image_file"
+                    label="Productafbeelding"
+                    urlFieldName="featured_image_url"
+                    uploadPathPrefix={`creators/${creator.id}/products`}
+                    hint="Upload een foto of plak een directe link. Zet het product op actief om het te publiceren — concepten tonen geen afbeelding op de site."
                   />
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    Plak hier een directe link naar een afbeelding (bijv. eindigend op .jpg/.png).
-                  </p>
                 </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
                 <div className="sm:col-span-2">
@@ -226,7 +226,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       ({product.product_type}){product.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
-                  <form action={updateProductAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <form action={updateProductAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={product.id} />
                     <input
                       type="hidden"
@@ -310,15 +310,14 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       defaultValue={product.estimated_dispatch_days ?? ""}
                     />
                     <div className="sm:col-span-2">
-                      <Input
-                        name="featured_image_url"
-                        label="Afbeelding URL"
-                        placeholder="https://..."
-                        defaultValue={product.featured_image_url ?? ""}
+                      <ImageUploadField
+                        name="featured_image_file"
+                        label="Productafbeelding"
+                        currentUrl={product.featured_image_url}
+                        urlFieldName="featured_image_url"
+                        urlDefaultValue={product.featured_image_url ?? ""}
+                        uploadPathPrefix={`creators/${creator.id}/products`}
                       />
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        Plak hier een directe link naar een afbeelding (bijv. eindigend op .jpg/.png).
-                      </p>
                     </div>
                     <Input
                       name="short_description"
