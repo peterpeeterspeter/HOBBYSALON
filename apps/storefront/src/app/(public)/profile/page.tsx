@@ -12,6 +12,8 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import type { EntityType } from "@/types/platform";
+import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
+import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
 
 const EVENT_LABELS: Record<string, string> = {
   project_view: "Project bekeken",
@@ -60,9 +62,10 @@ export default async function ProfilePage() {
     redirect("/login?next=/profile");
   }
 
-  const [passport, locationPreference] = await Promise.all([
+  const [passport, locationPreference, favoriteFeed] = await Promise.all([
     getHobbyPassportData(user.id),
     getLocationPreferenceFromCookies(),
+    listFavoriteFeed(user.id, 6),
   ]);
 
   return (
@@ -155,6 +158,25 @@ export default async function ProfilePage() {
           Naar mijn projecten
         </Link>
       </CardShell>
+
+      <section className="mt-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-semibold text-[var(--foreground)]">Verder met je bewaarde ideeën</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Start een patroon, artikel of project wanneer jij er klaar voor bent.</p>
+          </div>
+          <Link href="/favorites" className="text-sm font-semibold text-[var(--accent)] hover:underline">Alle favorieten bekijken</Link>
+        </div>
+        {favoriteFeed.length === 0 ? (
+          <CardShell variant="default" padding="lg" className="mt-4">
+            <p className="text-[var(--muted)]">Bewaar een patroon, artikel, workshop of materiaal. Hier verschijnt daarna jouw persoonlijke ideeënfeed.</p>
+          </CardShell>
+        ) : (
+          <GridLayout cols={3} gap="lg" className="mt-4">
+            {favoriteFeed.map((item) => <SavedFeedCard key={`${item.entityType}:${item.id}`} item={item} />)}
+          </GridLayout>
+        )}
+      </section>
 
       <CardShell variant="default" padding="lg" className="mt-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Voortgang per domein</h2>

@@ -16,7 +16,11 @@ type ActivityEventName =
   | "checkout_started"
   | "checkout_completed"
   | "workshop_booking_request_submitted"
-  | "newsletter_signup";
+  | "newsletter_signup"
+  | "project_started"
+  | "project_item_completed"
+  | "project_item_reopened"
+  | "project_completed";
 
 type UserActivityRow = {
   id: string;
@@ -103,11 +107,16 @@ const ACTIVITY_POINT_WEIGHTS: Record<string, number> = {
   checkout_completed: 30,
   workshop_booking_request_submitted: 24,
   newsletter_signup: 3,
+  project_started: 6,
+  project_item_completed: 3,
+  project_item_reopened: 0,
+  project_completed: 25,
 };
 
 const COMPLETION_EVENTS = new Set<string>([
   "checkout_completed",
   "workshop_booking_request_submitted",
+  "project_completed",
 ]);
 
 const FAVORITE_SIGNAL_WEIGHTS: Record<EntityType, number> = {
@@ -162,6 +171,13 @@ const BADGE_RULES: BadgeRule[] = [
     description: "Verzamel 20 activiteiten in je paspoort.",
     target: 20,
     progress: (context) => context.activityCount,
+  },
+  {
+    key: "project_finisher",
+    name: "Project afgerond",
+    description: "Rond je eerste bewaarde project af.",
+    target: 1,
+    progress: (context) => context.eventCounts.project_completed ?? 0,
   },
 ];
 
