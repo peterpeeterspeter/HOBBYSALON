@@ -18,25 +18,38 @@ const lato = Lato({
 });
 
 export const metadata: Metadata = {
-  title: "Hobbysalon",
-  description: "Creatief platform voor hobbyisten — handmade, workshops, evenementen",
+  title: {
+    default: "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
+    template: "%s | Hobbysalon",
+  },
+  description:
+    "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
   metadataBase: new URL(getSiteUrl()),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
-    title: "Hobbysalon",
-    description: "Creatief platform voor hobbyisten — handmade, workshops, evenementen",
+    title:
+      "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
+    description:
+      "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
     url: "/",
     siteName: "Hobbysalon",
     locale: "nl_BE",
-    images: ["/logo.png"],
+    images: [{ url: "/landing/hero.jpg", width: 1200, height: 630 }],
   },
   twitter: {
-    card: "summary",
-    title: "Hobbysalon",
-    description: "Creatief platform voor hobbyisten — handmade, workshops, evenementen",
+    card: "summary_large_image",
+    title:
+      "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
+    description:
+      "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
+    images: ["/landing/hero.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

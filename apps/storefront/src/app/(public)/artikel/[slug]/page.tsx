@@ -15,6 +15,11 @@ import { GridLayout } from "@/components/layout/grid-layout";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
+import {
+  buildBreadcrumbSchema,
+  buildFaqSchema,
+  buildHowToSchema,
+} from "@/lib/schema";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -74,15 +79,42 @@ export default async function ArticlePage({ params }: Props) {
     author: author
       ? { "@type": "Person", name: author.display_name }
       : { "@type": "Organization", name: "Hobbysalon" },
+    publisher: {
+      "@type": "Organization",
+      name: "Hobbysalon",
+      url: absoluteUrl("/"),
+    },
     mainEntityOfPage: {
       "@type": "WebPage",
       "@id": absoluteUrl(`/artikel/${article.slug}`),
     },
   };
 
+  // Breadcrumb schema (visual breadcrumbs already in layout, add structured data)
+  const breadcrumbJsonLd = buildBreadcrumbSchema([
+    { name: "Home", path: "/" },
+    { name: "Artikelen", path: "/artikelen" },
+    { name: article.title, path: `/artikel/${article.slug}` },
+  ]);
+
+  // Collect all schemas — BlogPosting always, Breadcrumb always, FAQ/HowTo when available
+  const allSchemas: Record<string, unknown>[] = [articleJsonLd, breadcrumbJsonLd];
+
+  if (article.body_markdown) {
+    const faqSchema = buildFaqSchema(article.body_markdown);
+    if (faqSchema) allSchemas.push(faqSchema);
+
+    const howToSchema = buildHowToSchema(
+      article.body_markdown,
+      article.title,
+      article.featured_image_url
+    );
+    if (howToSchema) allSchemas.push(howToSchema);
+  }
+
   return (
     <>
-      <JsonLd data={articleJsonLd} />
+      <JsonLd data={allSchemas} />
 
       {/* Hero */}
       <div className="relative h-[320px] overflow-hidden sm:h-[380px] lg:h-[420px]">

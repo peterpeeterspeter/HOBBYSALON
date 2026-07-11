@@ -21,7 +21,8 @@ import { Container } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { Section } from "@/components/layout/section";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildPageMetadata, absoluteUrl } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import type { CreatorWithStats } from "@/lib/platform/queries/creators";
 
@@ -30,6 +31,7 @@ export const metadata = buildPageMetadata({
   description:
     "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
   path: "/",
+  image: "/landing/hero.jpg",
 });
 export const revalidate = 300;
 
@@ -405,8 +407,40 @@ export default async function HomePage() {
     data.creatorsOfTheMonth.length > 0 ||
     data.featuredProjects.length > 0;
 
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Hobbysalon",
+    url: absoluteUrl("/"),
+    logo: absoluteUrl("/logo.png"),
+    description:
+      "Creatief platform voor workshops, makers, hobbywinkels, evenementen en creatieve inspiratie in België en Nederland.",
+    areaServed: ["BE", "NL"],
+    sameAs: [
+      "https://www.facebook.com/hobbysalon",
+      "https://www.instagram.com/hobbysalon",
+    ],
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Hobbysalon",
+    url: absoluteUrl("/"),
+    inLanguage: "nl-BE",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: absoluteUrl("/zoeken?q={search_term_string}"),
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <>
+      <JsonLd data={[orgSchema, websiteSchema]} />
       <TrackOnMount
         event="home_recommendations_viewed"
         payload={{
