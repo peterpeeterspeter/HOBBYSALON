@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
 import { createPlatformClient } from "@/lib/platform/client";
-import { isStartableFavoriteType } from "@/lib/profile/saved-project-source";
+import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/saved-project-source";
+import { getProjectRunState, isProjectReadyToComplete } from "@/lib/profile/project-run-state";
 import type { EntityType } from "@/types/platform";
 
 function readStartableType(value: FormDataEntryValue | null): "article" | "project" {
@@ -38,6 +39,17 @@ export async function toggleSavedProjectItemAction(formData:FormData){
   await logEvent(user.id,completed?"project_item_reopened":"project_item_completed",type,id,itemKey); revalidatePath(`/profile/start/${type}/${id}`); revalidatePath("/profile");
 }
 export async function completeSavedProjectAction(formData:FormData){
-  const type=readStartableType(formData.get("entity_type")); const id=readId(formData.get("entity_id")); const {user}=await requireSavedSource(type,id);
-  await logEvent(user.id,"project_completed",type,id); revalidatePath(`/profile/start/${type}/${id}`); revalidatePath("/profile");
+  const type=readStartableType(formData.get("entity_type"));
+  const id=readId(formData.get("entity_id"));
+  const {user,supabase}=await requireSavedSource(type,id);
+  const source=await getSavedProjectSource(type,id);
+  if(!source) throw new Error("Dit project is niet meer beschikbaar.");
+  const {data:events}=await supabase.from("user_activity_log").select("event_name,occurred_at,metadata").eq("user_id",user.id).eq("entity_type",type).eq("entity_id",id).in("event_name",["project_started","project_item_completed","project_item_reopened","project_completed"]).order("occurred_at",{ascending:true});
+  const requiredKeys=source.items.filter((item)=>item.kind==="material"||item.kind==="step").map((item)=>item.key);
+  const state=getProjectRunState((events??[]).map((event)=>({eventName:event.event_name,occurredAt:event.occurred_at,itemKey:(event.metadata as Record<string,unknown>|null)?.item_key as string|null ?? null})),requiredKeys);
+  if(state.status==="completed") return;
+  if(!isProjectReadyToComplete(state.completedItemKeys,requiredKeys)) throw new Error("Bevestig eerst je benodigdheden en stappen.");
+  await logEvent(user.id,"project_completed",type,id);
+  revalidatePath(`/profile/start/${type}/${id}`);
+  revalidatePath("/profile");
 }

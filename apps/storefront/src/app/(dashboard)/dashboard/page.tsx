@@ -24,53 +24,54 @@ export default async function DashboardHomePage() {
   const user = await getAuthUser();
   const creator = user ? await getCreatorByUserId(user.id) : null;
 
-  const productCount = creator
-    ? await getCount("products", "creator_id", creator.id)
-    : 0;
-  const workshopCount = creator
-    ? await getCount("workshops", "creator_id", creator.id)
-    : 0;
-  const eventCount = creator
-    ? await getCount("events", "organizer_creator_id", creator.id)
-    : 0;
+  const [productCount, workshopCount, eventCount] = creator
+    ? await Promise.all([
+        getCount("products", "creator_id", creator.id),
+        getCount("workshops", "creator_id", creator.id),
+        getCount("events", "organizer_creator_id", creator.id),
+      ])
+    : [0, 0, 0];
 
   return (
     <section className="space-y-6">
-      <h1 className="text-3xl font-bold text-[var(--foreground)]">Dashboard</h1>
-      <p className="mt-2 text-[var(--muted)]">
-        Beheer je creator-profiel, producten, workshops en events.
-      </p>
+      <header className="rounded-2xl border border-[var(--border)] bg-[var(--hero-bg)] p-6 sm:p-8">
+        <p className="text-sm font-bold uppercase tracking-widest text-[var(--accent)]">Creator dashboard</p>
+        <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">Je creatieve overzicht</h1>
+        <p className="mt-2 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">Beheer je profiel, aanbod en workshops. Kies hieronder de volgende stap die je vandaag wilt zetten.</p>
+      </header>
 
       {!creator ? (
         <CardShell variant="default" padding="lg">
-          <p className="text-[var(--foreground)]">
-            Je hebt nog geen creator-profiel. Maak dit eerst aan.
-          </p>
-          <Button asChild variant="secondary" size="sm" className="mt-3">
-            <Link href="/dashboard/creator">Naar creator-profiel</Link>
+          <p className="text-lg font-semibold text-[var(--foreground)]">Begin met je creator-profiel</p>
+          <p className="mt-2 max-w-xl leading-relaxed text-[var(--muted)]">Je profiel is de basis voor workshops, events en producten. Vul eerst je naam, locatie en creatieve aanbod aan.</p>
+          <Button asChild className="mt-5">
+            <Link href="/dashboard/creator">Creator-profiel instellen</Link>
           </Button>
         </CardShell>
       ) : (
         <GridLayout cols={3}>
           <CardShell variant="default" padding="lg">
-            <p className="text-sm text-[var(--muted)]">Producten</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{productCount}</p>
-            <Button asChild variant="ghost" size="sm" className="mt-2">
-              <Link href="/dashboard/products">Beheren</Link>
+            <p className="text-sm font-semibold text-[var(--muted)]">PRODUCTEN</p>
+            <p className="mt-1 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">{productCount}</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Materialen en handgemaakte creaties die je aanbiedt.</p>
+            <Button asChild variant="secondary" size="sm" className="mt-4">
+              <Link href="/dashboard/products">Producten beheren</Link>
             </Button>
           </CardShell>
           <CardShell variant="default" padding="lg">
-            <p className="text-sm text-[var(--muted)]">Workshops</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{workshopCount}</p>
-            <Button asChild variant="ghost" size="sm" className="mt-2">
-              <Link href="/dashboard/workshops">Beheren</Link>
+            <p className="text-sm font-semibold text-[var(--muted)]">WORKSHOPS</p>
+            <p className="mt-1 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">{workshopCount}</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Lessen en sessies die deelnemers kunnen ontdekken.</p>
+            <Button asChild variant="secondary" size="sm" className="mt-4">
+              <Link href="/dashboard/workshops">Workshops beheren</Link>
             </Button>
           </CardShell>
           <CardShell variant="default" padding="lg">
-            <p className="text-sm text-[var(--muted)]">Events</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{eventCount}</p>
-            <Button asChild variant="ghost" size="sm" className="mt-2">
-              <Link href="/dashboard/events">Beheren</Link>
+            <p className="text-sm font-semibold text-[var(--muted)]">EVENTS</p>
+            <p className="mt-1 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">{eventCount}</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Markten, open ateliers en creatieve dagen die je organiseert.</p>
+            <Button asChild variant="secondary" size="sm" className="mt-4">
+              <Link href="/dashboard/events">Events beheren</Link>
             </Button>
           </CardShell>
         </GridLayout>

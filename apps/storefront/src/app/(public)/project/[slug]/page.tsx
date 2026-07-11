@@ -156,7 +156,7 @@ export default async function ProjectPage({ params }: Props) {
           {bundleItems.length > 0 && (
             <div>
               <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">
-                Startbundel materialen
+                Alles voor je start
               </h2>
           {bundleTotalCents > 0 && (
             <p className="mb-3 text-sm text-[var(--muted)]">
@@ -172,9 +172,7 @@ export default async function ProjectPage({ params }: Props) {
           )}
           {soughtMaterials.length > 0 && (
             <div>
-              <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">
-                Materialen gezocht
-              </h2>
+              <h2 className="mb-3 text-xl font-semibold text-[var(--foreground)]">Nog te vinden</h2>
               <p className="mb-3 text-sm text-[var(--muted)]">
                 Dit project gebruikt onderstaande materialen die niet (meer) in de webshop staan.
               </p>
@@ -241,7 +239,7 @@ export default async function ProjectPage({ params }: Props) {
 
       {relatedProducts.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Benodigde producten</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Dit heb je nodig</h2>
           <GridLayout cols={4}>
             {relatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
@@ -252,7 +250,7 @@ export default async function ProjectPage({ params }: Props) {
 
       {relatedWorkshops.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Relevante workshops</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Leer dit in een workshop</h2>
           <GridLayout cols={3}>
             {relatedWorkshops.map((workshop) => (
               <WorkshopCard key={workshop.id} workshop={workshop} />
@@ -263,7 +261,7 @@ export default async function ProjectPage({ params }: Props) {
 
       {relatedEvents.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Gerelateerde events</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Ontdek het in het echt</h2>
           <GridLayout cols={3}>
             {relatedEvents.map((event) => (
               <EventCard key={event.id} event={event} />

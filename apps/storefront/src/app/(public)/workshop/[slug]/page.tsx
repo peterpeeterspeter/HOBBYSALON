@@ -260,45 +260,37 @@ export default async function WorkshopPage({ params }: Props) {
             </section>
           )}
 
-          <EntityLinkBlock
-            title="Benodigde materialen"
-            isEmpty={requiredProducts.length === 0}
-            emptyMessage="Geen verplichte materialen opgegeven."
-          >
-            {requiredProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </EntityLinkBlock>
+          {requiredProducts.length > 0 && (
+            <EntityLinkBlock title="Goed voorbereid: dit heb je nodig" isEmpty={false}>
+              {requiredProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </EntityLinkBlock>
+          )}
 
-          <EntityLinkBlock
-            title="Aanbevolen materialen"
-            isEmpty={optionalProducts.length === 0}
-            emptyMessage="Geen extra materialen."
-          >
-            {optionalProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </EntityLinkBlock>
+          {optionalProducts.length > 0 && (
+            <EntityLinkBlock title="Handig om mee te nemen" isEmpty={false}>
+              {optionalProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </EntityLinkBlock>
+          )}
 
-          <EntityLinkBlock
-            title="Gerelateerde evenementen"
-            isEmpty={data.relatedEvents.length === 0}
-            emptyMessage="Geen gerelateerde evenementen."
-          >
-            {data.relatedEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </EntityLinkBlock>
+          {data.relatedEvents.length > 0 && (
+            <EntityLinkBlock title="Ontdek het in het echt" isEmpty={false}>
+              {data.relatedEvents.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </EntityLinkBlock>
+          )}
 
-          <EntityLinkBlock
-            title="Gerelateerde artikelen"
-            isEmpty={data.relatedArticles.length === 0}
-            emptyMessage="Geen gerelateerde artikelen."
-          >
-            {data.relatedArticles.map((article) => (
-              <ArticleCard key={article.id} article={article} />
-            ))}
-          </EntityLinkBlock>
+          {data.relatedArticles.length > 0 && (
+            <EntityLinkBlock title="Lees en maak verder" isEmpty={false}>
+              {data.relatedArticles.map((article) => (
+                <ArticleCard key={article.id} article={article} />
+              ))}
+            </EntityLinkBlock>
+          )}
         </div>
 
         {/* Sticky booking card */}

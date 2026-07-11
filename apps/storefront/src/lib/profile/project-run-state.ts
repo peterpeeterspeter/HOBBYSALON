@@ -11,6 +11,13 @@ export type ProjectRunState = {
   completedAt: string | null;
 };
 
+export function isProjectReadyToComplete(
+  completedItemKeys: Set<string>,
+  requiredItemKeys: string[]
+): boolean {
+  return requiredItemKeys.every((key) => completedItemKeys.has(key));
+}
+
 export function getProjectRunState(
   events: ProjectRunEvent[],
   itemKeys: string[]

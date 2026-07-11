@@ -11,6 +11,7 @@ import {
   type FilterChip,
 } from "@/components/materials/ActiveFilterChips";
 import { CreatorsSidebar } from "@/components/creators/CreatorsSidebar";
+import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
 
 export const metadata: Metadata = {
   title: "Makers | Hobbysalon",
@@ -98,14 +99,15 @@ export default async function CreatorsPage({
 
   return (
     <Container className="py-8">
-      <header className="mb-6">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-          Makers
-        </h1>
-        <p className="mt-1 text-lg text-[var(--muted)]">
-          Makers, leveranciers en workshopgevers van de Hobbysalon community.
-        </p>
-      </header>
+      <DiscoveryHero
+        title="Ontmoet de mensen achter je hobby"
+        description="Ontdek makers, leveranciers en workshopgevers. Kijk wat ze maken, geven of verkopen en volg je volgende creatieve stap."
+        searchAction="/creators"
+        searchPlaceholder="Zoek op naam, techniek of hobby"
+        resetHref="/creators"
+        primaryHref="/voor-makers"
+        primaryLabel="Zelf maker worden"
+      />
 
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
         <CreatorsSidebar

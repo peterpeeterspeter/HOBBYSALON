@@ -28,7 +28,7 @@ export default async function CartPage() {
     return (
       <PageLayout title="Winkelwagen" description="Je winkelwagen is leeg. Ontdek onze producten en voeg iets toe." size="narrow">
         <Button asChild>
-          <Link href="/crochet">Verder winkelen</Link>
+          <Link href="/materials">Verder winkelen</Link>
         </Button>
       </PageLayout>
     );
@@ -40,7 +40,7 @@ export default async function CartPage() {
     return (
       <PageLayout title="Winkelwagen" description="Je winkelwagen is leeg. Ontdek onze producten en voeg iets toe." size="narrow">
         <Button asChild>
-          <Link href="/crochet">Verder winkelen</Link>
+          <Link href="/materials">Verder winkelen</Link>
         </Button>
       </PageLayout>
     );
@@ -123,7 +123,7 @@ export default async function CartPage() {
             <Link href="/checkout">Afrekenen</Link>
           </Button>
           <Button variant="secondary" asChild>
-            <Link href="/crochet">Verder winkelen</Link>
+            <Link href="/materials">Verder winkelen</Link>
           </Button>
         </div>
       </CardShell>

@@ -231,7 +231,7 @@ export default async function ArticlePage({ params }: Props) {
           {relatedWorkshops.length > 0 && (
             <GraphSection
               tag="Workshops"
-              title="Workshops uit dit artikel"
+              title="Leer dit in een workshop"
               seeAllHref="/workshops"
             >
               <GridLayout cols={3} gap="md">
@@ -245,7 +245,7 @@ export default async function ArticlePage({ params }: Props) {
           {relatedProducts.length > 0 && (
             <GraphSection
               tag="Materialen"
-              title="Benodigdheden & materialen"
+              title="Dit heb je nodig"
               seeAllHref="/materials"
             >
               <GridLayout cols={4} gap="md">
@@ -259,7 +259,7 @@ export default async function ArticlePage({ params }: Props) {
           {relatedCreators.length > 0 && (
             <GraphSection
               tag="Creators"
-              title="Makers in dit artikel"
+              title="Van deze makers"
               seeAllHref="/creators"
             >
               <GridLayout cols={4} gap="md">
@@ -273,7 +273,7 @@ export default async function ArticlePage({ params }: Props) {
           {relatedEvents.length > 0 && (
             <GraphSection
               tag="Agenda"
-              title="Gerelateerde evenementen"
+              title="Ontdek het in het echt"
               seeAllHref="/agenda"
             >
               <GridLayout cols={3} gap="md">

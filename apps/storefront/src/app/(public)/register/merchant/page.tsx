@@ -6,9 +6,11 @@ import {
 } from "@/app/actions/auth";
 import { MerchantRegisterForm } from "@/components/auth/MerchantRegisterForm";
 import { MerchantUpgradeForm } from "@/components/auth/MerchantUpgradeForm";
+import { AccountChoiceCards } from "@/components/auth/AccountChoiceCards";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { getAuthUser } from "@/lib/auth/session";
+import { getSafeInternalPath } from "@/lib/auth/account-paths";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import type { Metadata } from "next";
 
@@ -25,7 +27,7 @@ type Props = {
 export default async function RegisterMerchantPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, error } = await searchParams;
-  const nextPath = next?.startsWith("/") ? next : "/dashboard/verkoper";
+  const nextPath = getSafeInternalPath(next, "/dashboard/verkoper");
 
   if (user) {
     const context = await getUserRegistrationContext(user.id);
@@ -75,16 +77,7 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
             .
           </p>
 
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Gewone gebruiker?{" "}
-            <Link
-              href={`/register?next=${encodeURIComponent("/dashboard")}`}
-              className="text-[var(--accent)] underline"
-            >
-              Gebruik standaard registratie
-            </Link>
-            .
-          </p>
+          <AccountChoiceCards nextPath={nextPath} current="merchant" />
         </>
       )}
     </PageLayout>
