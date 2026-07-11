@@ -12,8 +12,8 @@ export const STATIC_LINKS = {
   ],
   inspiratie: [
     { href: "/tools", label: "Tools" },
-    { href: "/crochet/artikels", label: "Artikelen" },
-    { href: "/gratis-haakpatronen", label: "Patronen" },
+    { href: "/artikelen", label: "Artikelen" },
+    { href: "/patronen", label: "Patronen" },
   ],
   account: [
     { href: "/profile", label: "Profiel" },
@@ -29,7 +29,7 @@ export const FOOTER_SECTIONS = {
     { href: "/agenda", label: "Evenementen" },
     { href: "/materials", label: "Materialen" },
     { href: "/creators", label: "Makers" },
-    { href: "/gratis-haakpatronen", label: "Patronen" },
+    { href: "/patronen", label: "Patronen" },
     { href: "/tools", label: "Tools" },
   ],
   meedoen: [

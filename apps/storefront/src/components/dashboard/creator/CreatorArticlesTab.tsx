@@ -46,8 +46,8 @@ export function CreatorArticlesTab({
     <CardShell variant="default" padding="lg">
       <h2 className="text-xl font-semibold text-[var(--foreground)]">Artikels</h2>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        Schrijf tutorials en inspiratie. We stellen automatisch koppelingen voor naar je
-        producten, workshops en events.
+        Schrijf tutorials, gidsen en patronen. We stellen koppelingen voor naar
+        materialen, workshops en events; je makerprofiel verschijnt automatisch bij je content.
       </p>
 
       <form

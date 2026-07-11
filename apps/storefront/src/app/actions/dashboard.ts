@@ -27,6 +27,7 @@ import {
   purchaseSpotlightBoostAction,
 } from "@/lib/platform/commercial-enforcement";
 import { addCredits } from "@/lib/platform/listing-credits";
+import { isAuthorableArticleType } from "@/lib/content/article-types";
 
 const PRODUCT_TYPES = new Set([
   "supply",
@@ -67,12 +68,6 @@ const ENTITY_LINK_TARGET_TYPES = new Set([
   "event",
   "article",
   "project",
-]);
-const ARTICLE_TYPES = new Set([
-  "tutorial",
-  "inspiration",
-  "guide",
-  "news",
 ]);
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1086,7 +1081,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
     const bodyMarkdown = parseOptionalString(formData, "body_markdown");
     const domainId = parseOptionalUuid(formData, "domain_id");
 
-    if (!ARTICLE_TYPES.has(articleType)) {
+    if (!isAuthorableArticleType(articleType)) {
       fail("/dashboard/creator", "Ongeldig artikeltype.");
     }
 
@@ -1141,7 +1136,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
     const bodyMarkdown = parseOptionalString(formData, "body_markdown");
     const domainId = parseOptionalUuid(formData, "domain_id");
 
-    if (!ARTICLE_TYPES.has(articleType)) {
+    if (!isAuthorableArticleType(articleType)) {
       fail("/dashboard/creator", "Ongeldig artikeltype.");
     }
 

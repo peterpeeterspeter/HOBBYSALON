@@ -1,4 +1,5 @@
 import type { Domain } from "@/types/platform";
+export { ARTICLE_TYPE_OPTIONS } from "@/lib/content/article-types";
 
 export type CreatorTab = "profiel" | "artikels" | "portfolio";
 
@@ -47,13 +48,6 @@ export const CREATOR_TYPES: Array<{
     description: "Je organiseert events of beurzen.",
   },
 ];
-
-export const ARTICLE_TYPE_OPTIONS = [
-  { value: "tutorial", label: "Tutorial" },
-  { value: "inspiration", label: "Inspiratie" },
-  { value: "guide", label: "Gids" },
-  { value: "news", label: "Nieuws" },
-] as const;
 
 export const RELATION_TYPE_LABELS: Record<string, string> = {
   related: "Gerelateerd",
