@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { registerCreatorAction } from "@/app/actions/auth";
 import { CreatorRegisterForm } from "@/components/auth/CreatorRegisterForm";
+import { AccountChoiceCards } from "@/components/auth/AccountChoiceCards";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { getAuthUser } from "@/lib/auth/session";
+import { getSafeInternalPath } from "@/lib/auth/account-paths";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -20,7 +22,7 @@ type Props = {
 export default async function RegisterCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next } = await searchParams;
-  const nextPath = next?.startsWith("/") ? next : "/dashboard/creator";
+  const nextPath = getSafeInternalPath(next, "/dashboard/creator");
 
   if (user) {
     redirect(nextPath);
@@ -47,16 +49,7 @@ export default async function RegisterCreatorPage({ searchParams }: Props) {
         .
       </p>
 
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Gewone gebruiker?{" "}
-        <Link
-          href={`/register?next=${encodeURIComponent(nextPath)}`}
-          className="text-[var(--accent)] underline"
-        >
-          Gebruik standaard registratie
-        </Link>
-        .
-      </p>
+      <AccountChoiceCards nextPath={nextPath} current="creator" />
     </PageLayout>
   );
 }

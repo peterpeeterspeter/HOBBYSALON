@@ -13,6 +13,7 @@ import {
 import { MaterialsToolbar } from "@/components/materials/MaterialsToolbar";
 import { MaterialProductRow } from "@/components/materials/MaterialProductRow";
 import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
+import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
 import { getLocationPreference } from "@/lib/location/preference";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
@@ -267,6 +268,17 @@ export default async function MaterialsMarketplacePage({
         )}
       </nav>
 
+      <DiscoveryHero
+        title={activeCategoryLabel ?? "Vind materialen voor je volgende project"}
+        description="Ontdek benodigdheden van makers en leveranciers. Bewaar wat past, of ga meteen verder naar een workshop die je op weg helpt."
+        searchAction="/materials"
+        searchPlaceholder="Zoek bijvoorbeeld garen, klei of verf"
+        locationLabel={locationPreference.hasPreference ? locationPreference.label : null}
+        resetHref="/materials"
+        primaryHref="/workshops"
+        primaryLabel="Eerst leren in een workshop"
+      />
+
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
         <MaterialsSidebar
           domains={domains}
@@ -282,29 +294,6 @@ export default async function MaterialsMarketplacePage({
         />
 
         <div className="min-w-0 flex-1">
-          {/* Page header — inside the main column, beside the sidebar (per design) */}
-          <header className="mb-5">
-            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-              {activeCategoryLabel ?? "Hobbymaterialen"}
-            </h1>
-            <p className="mt-1 text-[15px] text-[var(--muted)]">
-              Materialen van makers en leveranciers — direct bestellen, snel in huis.
-            </p>
-            {locationPreference.hasPreference && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
-                  Lokale prioriteit: {locationPreference.label}
-                </span>
-                <Link
-                  href="/materials"
-                  className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-                >
-                  Reset filters
-                </Link>
-              </div>
-            )}
-          </header>
-
           <CategoryCircles
             domains={domains}
             activeDomain={params.domain}

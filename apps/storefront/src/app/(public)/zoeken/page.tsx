@@ -44,7 +44,7 @@ const QUICK_LINKS = [
   { href: "/agenda", label: "Evenementen", icon: CalendarDays },
   { href: "/creators", label: "Creators", icon: Users },
   { href: "/gratis-haakpatronen", label: "Patronen", icon: Scissors },
-  { href: "/artikel", label: "Artikelen", icon: Newspaper },
+  { href: "/artikelen", label: "Artikelen", icon: Newspaper },
 ] as const;
 
 export default async function SearchPage({

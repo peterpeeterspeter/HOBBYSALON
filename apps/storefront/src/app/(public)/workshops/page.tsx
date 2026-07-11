@@ -13,6 +13,7 @@ import { MaterialsPagination } from "@/components/materials/MaterialsPagination"
 import { WorkshopsSidebar } from "@/components/workshops/WorkshopsSidebar";
 import { WorkshopsToolbar } from "@/components/workshops/WorkshopsToolbar";
 import { WorkshopRow } from "@/components/workshops/WorkshopRow";
+import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
 import { getLocationPreference } from "@/lib/location/preference";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listAllWorkshops } from "@/lib/platform/queries/workshops";
@@ -193,27 +194,16 @@ export default async function WorkshopsPage({
 
   return (
     <Container className="py-8">
-      <header className="mb-6">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-          Workshops
-        </h1>
-        <p className="mt-1 text-lg text-[var(--muted)]">
-          Leer nieuwe technieken van ervaren instructeurs — fysiek of online.
-        </p>
-        {locationPreference.hasPreference && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
-              Lokale prioriteit: {locationPreference.label}
-            </span>
-            <Link
-              href="/workshops"
-              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              Reset filters
-            </Link>
-          </div>
-        )}
-      </header>
+      <DiscoveryHero
+        title="Kies een workshop en leer iets nieuws"
+        description="Vind een rustige eerste les of verdiep je techniek bij ervaren workshopgevers, online of bij jou in de buurt."
+        searchAction="/workshops"
+        searchPlaceholder="Zoek bijvoorbeeld haken, keramiek of Gent"
+        locationLabel={locationPreference.hasPreference ? locationPreference.label : null}
+        resetHref="/workshops"
+        primaryHref="/agenda"
+        primaryLabel="Bekijk creatieve events"
+      />
 
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
         <WorkshopsSidebar

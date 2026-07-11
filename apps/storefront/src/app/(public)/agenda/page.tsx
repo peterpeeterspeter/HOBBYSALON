@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EventCard } from "@/components/cards";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { Container } from "@/components/ui/container";
@@ -11,6 +10,8 @@ import {
 } from "@/components/materials/ActiveFilterChips";
 import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
 import { AgendaSidebar } from "@/components/events/AgendaSidebar";
+import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
+import { getDiscoveryResultLabel } from "@/components/discovery/discovery-copy";
 import { getLocationPreference } from "@/lib/location/preference";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listEvents } from "@/lib/platform/queries/events";
@@ -170,27 +171,15 @@ export default async function AgendaPage({
 
   return (
     <Container className="py-8">
-      <header className="mb-6">
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-          Agenda
-        </h1>
-        <p className="mt-1 text-lg text-[var(--muted)]">
-          Handmade markten, hobbybeurzen, pop-ups en meer bij jou in de buurt.
-        </p>
-        {locationPreference.hasPreference && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[var(--card)] px-3 py-1 text-sm text-[var(--foreground)]">
-              Lokale prioriteit: {locationPreference.label}
-            </span>
-            <Link
-              href="/agenda"
-              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              Reset filters
-            </Link>
-          </div>
-        )}
-      </header>
+      <DiscoveryHero
+        title="Ga eropuit voor je hobby"
+        description="Vind een makersmarkt, hobbybeurs of open atelier. Kies een datum en ontdek wat er binnenkort bij jou gebeurt."
+        searchPlaceholder=""
+        locationLabel={locationPreference.hasPreference ? locationPreference.label : null}
+        resetHref="/agenda"
+        primaryHref="/workshops"
+        primaryLabel="Liever zelf leren?"
+      />
 
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
         <AgendaSidebar
@@ -218,11 +207,7 @@ export default async function AgendaPage({
           <ActiveFilterChips chips={chips} clearHref="/agenda" />
 
           <div className="mb-4 flex items-center justify-between gap-4">
-            <p className="text-[15px] text-[var(--muted)]">
-              {totalCount === 0
-                ? "Geen evenementen gevonden"
-                : `${totalCount} evenement${totalCount !== 1 ? "en" : ""}`}
-            </p>
+            <p className="text-[15px] text-[var(--muted)]">{getDiscoveryResultLabel(totalCount, "event")}</p>
           </div>
 
           {pagedEvents.length === 0 ? (

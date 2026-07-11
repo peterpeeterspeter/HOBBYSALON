@@ -70,7 +70,7 @@ export default async function CheckoutSuccessPage({
       />
       <div className="flex justify-center">
         <Button asChild>
-          <Link href="/crochet">Verder winkelen</Link>
+          <Link href="/materials">Verder winkelen</Link>
         </Button>
       </div>
     </PageLayout>

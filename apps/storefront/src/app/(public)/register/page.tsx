@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { AccountChoiceCards } from "@/components/auth/AccountChoiceCards";
 import { registerAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
+import { getSafeInternalPath } from "@/lib/auth/account-paths";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import type { Metadata } from "next";
@@ -20,7 +22,7 @@ type Props = {
 export default async function RegisterPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next } = await searchParams;
-  const nextPath = next?.startsWith("/") ? next : "";
+  const nextPath = getSafeInternalPath(next, "");
 
   if (user) {
     redirect(nextPath || "/");
@@ -49,26 +51,7 @@ export default async function RegisterPage({ searchParams }: Props) {
         .
       </p>
 
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Ben je maker, workshopgever of organisator?{" "}
-        <Link
-          href={`/register/creator?next=${encodeURIComponent("/dashboard/creator")}`}
-          className="text-[var(--accent)] underline"
-        >
-          Registreer als creator
-        </Link>
-        .
-      </p>
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Verkoop je hobbymaterialen?{" "}
-        <Link
-          href={`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`}
-          className="text-[var(--accent)] underline"
-        >
-          Registreer als merchant
-        </Link>
-        .
-      </p>
+      <AccountChoiceCards nextPath={nextPath} current="member" />
     </PageLayout>
   );
 }

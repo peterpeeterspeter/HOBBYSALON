@@ -14,6 +14,8 @@ import { getAuthUser } from "@/lib/auth/session";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { PriceDisplay } from "@/components/domain/price-display";
+import { CheckoutProgress } from "@/components/checkout/CheckoutProgress";
+import { getCheckoutStep } from "@/lib/commerce/checkout-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +104,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const shippingOptions = hasAddress ? await getShippingOptions(cartId) : null;
   const selectedShippingId = c.shipping_methods?.[0]?.shipping_option_id;
   const hasShipping = !!selectedShippingId;
+  const currentStep = getCheckoutStep({ hasAddress, hasShipping });
 
   const items = (c.items ?? []) as CheckoutPageCartItem[];
   const subtotal = items.reduce((sum, item) => {
@@ -119,7 +122,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const primaryBundleId = bundleIds[0] ?? null;
 
   return (
-    <PageLayout title="Afrekenen" size="narrow">
+    <PageLayout title="Afrekenen" description="Rond je bestelling rustig stap voor stap af." size="narrow">
       <TrackOnMount
         event="checkout_started"
         payload={{
@@ -133,6 +136,8 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           user_id: viewer?.id ?? null,
         }}
       />
+
+      <CheckoutProgress current={currentStep} />
 
       <CardShell variant="default" padding="md" className="mb-8">
         <p className="font-medium text-[var(--foreground)] mb-2">
@@ -216,7 +221,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           <CardShell variant="default" padding="lg">
             {paymentError && (
               <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200">
-                De betaling is mislukt. Probeer een andere kaart of betaalmethode. Voor testbetalingen gebruik 4242 4242 4242 4242.
+                De betaling is mislukt. Controleer je betaalgegevens of probeer een andere betaalmethode.
               </div>
             )}
             <CheckoutPaymentForm total={total} currencyCode={currencyCode} />

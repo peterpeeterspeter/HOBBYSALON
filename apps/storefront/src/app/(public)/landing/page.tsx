@@ -78,7 +78,7 @@ export default function LandingPage() {
                 imageAlt: "Handgemaakte producten",
                 title: "Handgemaakt & benodigdheden",
                 description: "Vind unieke producten van makers en betrouwbare leveranciers.",
-                linkHref: "/crochet",
+                linkHref: "/materials",
                 linkText: "Verken producten",
               },
               {
@@ -134,21 +134,28 @@ export default function LandingPage() {
         </Container>
       </Section>
 
-      {/* Stats */}
+      {/* How it works */}
       <Section variant="alt" spacing="md" divider>
         <Container>
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-center text-3xl font-bold text-[var(--foreground)] font-[family-name:var(--font-heading)]">
+              Zo maak je je volgende creatieve stap
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-lg text-[var(--muted)]">
+              Bewaar wat je inspireert, zet het om in een project en ontdek wat je helpt om verder te maken.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
             {[
-              { value: "500+", label: "Makers & leveranciers" },
-              { value: "15+", label: "Creatieve domeinen" },
-              { value: "200+", label: "Workshops per jaar" },
-              { value: "10K+", label: "Leden" },
+              { value: "1", label: "Ontdek inspiratie, makers en workshops" },
+              { value: "2", label: "Bewaar een idee dat bij je past" },
+              { value: "3", label: "Start rustig met materialen en stappen" },
             ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-3xl font-bold text-[var(--accent)] font-[family-name:var(--font-heading)] md:text-4xl">
+              <div key={stat.label} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 text-center">
+                <p className="text-2xl font-bold text-[var(--accent)] font-[family-name:var(--font-heading)]">
                   {stat.value}
                 </p>
-                <p className="mt-1 text-sm text-[var(--muted)]">{stat.label}</p>
+                <p className="mt-2 font-semibold text-[var(--foreground)]">{stat.label}</p>
               </div>
             ))}
           </div>
