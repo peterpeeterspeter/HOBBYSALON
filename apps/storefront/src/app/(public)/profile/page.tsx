@@ -24,6 +24,10 @@ const EVENT_LABELS: Record<string, string> = {
   checkout_completed: "Bestelling geplaatst",
   workshop_booking_request_submitted: "Workshop-aanvraag verstuurd",
   newsletter_signup: "Nieuwsbriefinschrijving",
+  project_started: "Project gestart",
+  project_item_completed: "Onderdeel afgevinkt",
+  project_item_reopened: "Onderdeel opnieuw geopend",
+  project_completed: "Project afgerond",
 };
 
 const FAVORITE_LABELS: Record<EntityType, string> = {
