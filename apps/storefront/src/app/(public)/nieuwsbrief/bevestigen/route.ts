@@ -51,10 +51,11 @@ export async function GET(request: NextRequest) {
     confirmedAt: event.confirmed_at ?? new Date().toISOString(),
   });
 
+  const deliveryUrl = leadMagnet.file_url.replace("{{token}}", encodeURIComponent(token!));
   const sent = await sendNewsletterEmail({
     to: payload.email,
     subject: `Je download: ${leadMagnet.title}`,
-    html: `<p>Bedankt voor je bevestiging.</p><p><a href="${leadMagnet.file_url}">Download ${leadMagnet.title}</a></p>`,
+    html: `<p>Bedankt voor je bevestiging.</p><p><a href="${deliveryUrl}">Download ${leadMagnet.title}</a></p>`,
   });
   return sent
     ? confirmationResponse(request, "Bedankt! Je downloadlink is naar je inbox gestuurd.")
