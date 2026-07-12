@@ -1,3 +1,5 @@
+import type { DifficultyLevel } from "@/lib/content/difficulty";
+
 export type Domain = {
   id: string;
   slug: string;
@@ -227,6 +229,7 @@ export type Article = {
   body_markdown: string | null;
   featured_image_url: string | null;
   article_type: string;
+  difficulty_level: DifficultyLevel | null;
   reading_time_minutes: number | null;
   published_at: string | null;
   is_published: boolean;

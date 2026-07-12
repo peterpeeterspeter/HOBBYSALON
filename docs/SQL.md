@@ -440,6 +440,7 @@ create table if not exists public.articles (
   body_markdown text,
   featured_image_url text,
   article_type text not null default 'tutorial',
+  difficulty_level text,
   reading_time_minutes integer,
   published_at timestamptz,
   is_published boolean not null default false,

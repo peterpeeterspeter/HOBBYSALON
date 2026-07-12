@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
 import { Badge } from "@/components/ui/badge";
+import { DifficultyBadge } from "@/components/content/DifficultyBadge";
 import { Clock } from "lucide-react";
 import type { Article } from "@/types/platform";
 
@@ -33,7 +34,7 @@ function ArticleCard({ article, className }: ArticleCardProps) {
           fallbackImage="placeholderArticle"
           className="-mx-4 -mt-4 mb-3"
         />
-        <Badge variant="domain">{typeLabel}</Badge>
+        <div className="flex flex-wrap gap-2"><Badge variant="domain">{typeLabel}</Badge><DifficultyBadge difficulty={article.difficulty_level} /></div>
         <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)] line-clamp-2">
           {article.title}
         </h3>

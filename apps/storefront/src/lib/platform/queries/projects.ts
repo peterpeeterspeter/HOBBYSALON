@@ -9,6 +9,47 @@ import type {
   ProjectSoughtMaterial,
   ProjectStep,
 } from "@/types/platform";
+import {
+  groupCommunityGalleryImages,
+  type CommunityGalleryProject,
+} from "@/lib/content/community-gallery";
+
+export async function listApprovedCommunityGalleryForArticle(
+  articleId: string
+): Promise<CommunityGalleryProject[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("article_project_showcase_submissions")
+    .select("project_id, projects!inner(title, slug, project_gallery_images(id, image_url, alt_text))")
+    .eq("article_id", articleId)
+    .eq("status", "approved")
+    .order("approved_at", { ascending: false })
+    .limit(12);
+
+  if (error || !data) return [];
+
+  const rows = (data as unknown as Array<{
+    project_id: string;
+    projects: Array<{
+      title: string;
+      slug: string;
+      project_gallery_images: Array<{ id: string; image_url: string; alt_text: string | null }>;
+    }>;
+  }>).flatMap((submission) =>
+    submission.projects.flatMap((project) =>
+      project.project_gallery_images.map((image) => ({
+        projectId: submission.project_id,
+        projectTitle: project.title,
+        projectSlug: project.slug,
+        imageId: image.id,
+        imageUrl: image.image_url,
+        altText: image.alt_text,
+      }))
+    )
+  );
+
+  return groupCommunityGalleryImages(rows);
+}
 
 export async function getProjectBySlug(slug: string): Promise<Project | null> {
   const supabase = createPlatformClient();
