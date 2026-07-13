@@ -7,10 +7,26 @@ type FeatureJourneyBannerProps = {
 };
 
 const FEATURES = [
-  { icon: BookOpen, title: "Bewaar inspiratie", body: "Houd patronen, artikelen en workshops bij elkaar." },
-  { icon: ClipboardCheck, title: "Maak stap voor stap", body: "Start een project, vink benodigdheden af en bewaar notities." },
-  { icon: PackageCheck, title: "Ken je materialenkast", body: "Zie wat je voor je eigen projecten al in huis hebt." },
-  { icon: MapPin, title: "Ontdek dichtbij", body: "Vind creatieve events op basis van je vrijwillige locatie." },
+  {
+    icon: BookOpen,
+    title: "Bewaar inspiratie",
+    body: "Al je patronen, artikels en workshops netjes bij elkaar.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Maak stap voor stap",
+    body: "Start een project, vink af wat je hebt en noteer wat je leert.",
+  },
+  {
+    icon: PackageCheck,
+    title: "Ken je materialenkast",
+    body: "Nooit meer dubbel wol kopen. Zie in één oogopslag wat je al in huis hebt.",
+  },
+  {
+    icon: MapPin,
+    title: "Ontdek dichtbij",
+    body: "Creatieve events in jouw buurt, zonder zoeken.",
+  },
 ];
 
 export function FeatureJourneyBanner({ context }: FeatureJourneyBannerProps) {
@@ -24,7 +40,8 @@ export function FeatureJourneyBanner({ context }: FeatureJourneyBannerProps) {
             Meer dan inspiratie alleen.
           </h2>
           <p className="mt-3 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
-            Hobbysalon helpt je ideeën rustig omzetten in een project dat je kunt bewaren, voorbereiden en opnieuw oppakken.
+            Van &apos;ooit eens proberen&apos; naar &apos;dit weekend maken&apos;. Bewaar, plan en pak je
+            projecten weer op — in je eigen tempo.
           </p>
           <Link
             href={isHome ? "/register" : "/favorites"}

@@ -93,18 +93,34 @@ export async function getProjectByIdForOwner(
   return data as Project;
 }
 
+const TEST_PROJECT_MARKERS = ["testproduct", "edzzed", "prject"];
+
+function isLikelyTestProject(project: Project): boolean {
+  const haystack = `${project.title} ${project.slug}`.toLowerCase();
+  if (TEST_PROJECT_MARKERS.some((marker) => haystack.includes(marker))) {
+    return true;
+  }
+  if (/^test\b/.test(haystack) || haystack.startsWith("test ")) {
+    return true;
+  }
+  return project.title.trim().length < 3;
+}
+
 export async function listFeaturedProjects(limit = 6): Promise<Project[]> {
   const supabase = createPlatformClient();
+  const fetchLimit = Math.max(limit * 4, limit);
   const { data, error } = await supabase
     .from("projects")
     .select("*")
     .eq("is_active", true)
     .order("is_featured", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(fetchLimit);
 
   if (error) return [];
-  return (data ?? []) as Project[];
+  return ((data ?? []) as Project[])
+    .filter((project) => !isLikelyTestProject(project))
+    .slice(0, limit);
 }
 
 export async function listProjectsByIds(ids: string[]): Promise<Project[]> {

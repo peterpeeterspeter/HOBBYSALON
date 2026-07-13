@@ -61,24 +61,24 @@ const ARTICLE_TYPE_LABELS: Record<string, string> = {
 
 const HERO_VISUALS = [
   {
-    title: "Leer iets nieuws",
-    body: "Boek een keramiekles, haakworkshop of creatieve dag bij mensen die hun vak met plezier delen.",
+    title: "Leer het van iemand die het graag doet",
+    body: "Boek een les bij makers die hun vak met plezier delen. Geen voorkennis nodig, wel zin om te beginnen.",
     image: "/landing/workshop.jpg",
     alt: "Deelnemers tijdens een gezellige keramiekworkshop",
     href: "/workshops",
     icon: CalendarDays,
   },
   {
-    title: "Vind je materiaal",
-    body: "Ontdek wol, klei, papier, kits en mooie vondsten van winkels en makers uit de buurt.",
+    title: "Materiaal met een verhaal",
+    body: "Wol die je wil vasthouden, klei die wacht op je handen. Ontdek mooie vondsten van winkels en makers dichtbij.",
     image: "/landing/crafts-grid.jpg",
     alt: "Handgemaakte keramiek, wol en macramé materiaal op tafel",
     href: "/materials",
     icon: Store,
   },
   {
-    title: "Ga eropuit",
-    body: "Plan een makers market, beurs of open atelier waar je inspiratie mee naar huis neemt.",
+    title: "Maak er een uitje van",
+    body: "Struin over een makers market, snuffel op een beurs of stap een open atelier binnen. Inspiratie neem je gratis mee naar huis.",
     image: "/landing/products/event-ambachtsmarkt-gent.jpg",
     alt: "Ambachtsmarkt met creatieve standen en bezoekers",
     href: "/agenda",
@@ -123,38 +123,38 @@ const PLATFORM_PILLARS = [
 
 const AUDIENCES = [
   {
-    title: "Ik zoek iets om te doen",
-    body: "Bekijk workshops, winkels en evenementen zonder zelf tientallen websites af te gaan.",
+    title: "Ik wil iets creatiefs doen",
+    body: "Alle workshops, winkels en events op één plek. Geen twintig tabbladen meer nodig.",
     href: "/workshops",
     cta: "Vind iets leuks",
   },
   {
-    title: "Ik geef workshops",
-    body: "Laat zien wat je organiseert, ontvang aanvragen en bouw vertrouwen op met je profiel.",
+    title: "Ik deel graag mijn vak",
+    body: "Toon wat je organiseert, ontvang aanvragen en laat je werk voor zich spreken.",
     href: "/voor-workshopgevers",
     cta: "Word aanbieder",
   },
   {
     title: "Ik heb een hobbywinkel",
-    body: "Breng je winkel, materialen, lessen en nieuws onder de aandacht van creatieve klanten.",
+    body: "Breng je materialen en lessen onder de ogen van mensen die er écht naar zoeken.",
     href: "/voor-winkels",
     cta: "Toon je winkel",
   },
   {
     title: "Ik organiseer een event",
-    body: "Zet je beurs, markt of open atelier in de agenda waar hobbyisten actief zoeken.",
+    body: "Zet je markt of beurs in dé agenda waar hobbyisten actief plannen.",
     href: "/voor-organisatoren",
     cta: "Promoot je event",
   },
 ];
 
 const GRAPH_EXAMPLES = [
-  "Macramé workshops in Antwerpen",
-  "Haakworkshops voor beginners",
-  "Keramiek workshops in Limburg",
-  "Hobbywinkels voor scrapbooking",
-  "Workshops met wol",
-  "Makers markets dit weekend",
+  { label: "Macramé workshops in Antwerpen", query: "Macramé workshops Antwerpen" },
+  { label: "Haakworkshops voor beginners", query: "Haakworkshops beginners" },
+  { label: "Keramiek workshops in Limburg", query: "Keramiek workshops Limburg" },
+  { label: "Hobbywinkels voor scrapbooking", query: "Hobbywinkels scrapbooking" },
+  { label: "Workshops met wol", query: "Workshops wol" },
+  { label: "Makers markets dit weekend", query: "Makers markets weekend" },
 ];
 
 const FALLBACK_HOME_DATA: Awaited<ReturnType<typeof getHomePageData>> = {
@@ -218,11 +218,12 @@ function HeroSection({ domainCount }: { domainCount: number }) {
           <p className="mb-4 inline-flex rounded-full border border-[var(--border-strong)] bg-[var(--card)] px-4 py-2 text-sm font-bold text-[var(--accent)] shadow-[var(--shadow-sm)]">
             Creatief platform voor België en Nederland
           </p>
-          <h1 className="max-w-[12ch] font-display text-5xl font-black leading-[0.98] tracking-[-0.055em] text-[var(--foreground)] sm:text-6xl lg:text-7xl">
-            Waar creatieve plannen beginnen.
+          <h1 className="max-w-[14ch] font-display text-5xl font-black leading-[0.98] tracking-[-0.055em] text-[var(--foreground)] sm:text-6xl lg:text-7xl">
+            Zin om iets moois te maken?
           </h1>
           <p className="mt-5 max-w-2xl text-xl leading-relaxed text-[var(--muted)]">
-            Ontdek wat je kunt maken, leren en bezoeken in België en Nederland.
+            Vind workshops, materialen en makers bij jou in de buurt — van je eerste haaksteek tot je
+            mooiste keramiekschaal.
           </p>
 
           <form action="/zoeken" role="search" className="mt-7 max-w-2xl">
@@ -240,7 +241,7 @@ function HeroSection({ domainCount }: { domainCount: number }) {
                   id="home-search"
                   type="search"
                   name="q"
-                  placeholder="Zoek bijvoorbeeld keramiek, haken of Gent"
+                  placeholder="Probeer 'keramiek in Gent' of 'haken voor beginners'"
                   className="min-h-[58px] w-full rounded-[1rem] bg-transparent pl-12 pr-4 text-lg text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]/70"
                 />
               </div>
@@ -255,10 +256,10 @@ function HeroSection({ domainCount }: { domainCount: number }) {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link className="home-primary-cta" href="/workshops">
-              Zoek inspiratie
+              Ontdek inspiratie
             </Link>
-            <Link className="home-secondary-cta" href="/voor-workshopgevers">
-              Word aanbieder
+            <Link className="home-secondary-cta" href="/voor-makers">
+              Deel jouw vak
             </Link>
           </div>
         </div>
@@ -308,7 +309,8 @@ function PlatformPillars() {
         <div className="max-w-3xl">
           <h2 className="home-section-title">Niet wachten tot de volgende beurs.</h2>
           <p className="home-section-copy">
-            Hobbysalon helpt je het hele jaar door iets nieuws te leren, een maker te volgen of een gezellig creatief uitje te plannen.
+            Waarom één keer per jaar genieten? Met Hobbysalon vind je het hele jaar door iets om te
+            maken, te leren of te bezoeken.
           </p>
         </div>
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -371,9 +373,14 @@ function GraphSection() {
               Zoek je naar macramé, keramiek of haken? Dan brengt Hobbysalon workshops, materialen, winkels, makers en artikels vanzelf dichter bij elkaar.
             </p>
           </div>
-          <div className="home-graph-cluster" aria-label="Voorbeelden van graph-gedreven pagina&apos;s">
+          <div className="home-graph-cluster" aria-label="Zoeksuggesties">
             {GRAPH_EXAMPLES.map((example) => (
-              <span key={example}>{example}</span>
+              <Link
+                key={example.label}
+                href={`/zoeken?q=${encodeURIComponent(example.query)}`}
+              >
+                {example.label}
+              </Link>
             ))}
           </div>
         </div>
@@ -544,7 +551,7 @@ export default async function HomePage() {
         </Section>
       )}
 
-      {data.discoveryFeed.length > 0 && (
+      {(data.discoveryFeed?.length ?? 0) > 0 && (
         <Section spacing="lg">
           <Container size="wide">
             <SectionHeader
@@ -601,8 +608,8 @@ export default async function HomePage() {
         <Section variant="alt" spacing="lg">
           <Container size="wide">
             <SectionHeader
-              title="Mooie materialen en vondsten"
-              description="Alles voor je volgende project, van garen en klei tot handgemaakte stukken met een verhaal."
+              title="Alles voor je volgende project"
+              description="Van zachte merinowol tot handgemaakte stukken met een verhaal. Gemaakt en gekozen door mensen die hun vak kennen."
               href="/materials"
               linkText="Bekijk materialen"
             />
@@ -621,8 +628,8 @@ export default async function HomePage() {
         <Section spacing="lg">
           <Container size="wide">
             <SectionHeader
-              title="De mensen achter het werk"
-              description="Maak kennis met ateliers, ontwerpers en lesgevers die de creatieve wereld dichterbij brengen."
+              title="De handen achter het werk"
+              description="Ontmoet de ateliers, ontwerpers en lesgevers die je project tot leven brengen."
               href="/creators"
               linkText="Bekijk makers"
             />
@@ -738,8 +745,12 @@ export default async function HomePage() {
           <div className="mx-auto grid max-w-4xl gap-8 rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-md)] md:grid-cols-[minmax(0,1fr)_minmax(21rem,0.9fr)] md:p-8">
             <div>
               <p className="home-kicker">Creatieve inspiratie</p>
-              <h2 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">Een rustig creatief idee in je inbox</h2>
-              <p className="mt-3 text-lg leading-relaxed text-[var(--muted)]">Ontvang praktische maaktips, nieuwe workshops en inspiratie. Je schrijft je met één klik weer uit.</p>
+              <h2 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
+                Elke week één rustig, creatief idee in je inbox
+              </h2>
+              <p className="mt-3 text-lg leading-relaxed text-[var(--muted)]">
+                Een maaktip, een nieuwe workshop of gewoon iets moois. Uitschrijven kan met één klik.
+              </p>
             </div>
             <NewsletterSignupForm />
           </div>
@@ -750,9 +761,10 @@ export default async function HomePage() {
         <Container size="wide" className="home-final-cta-inner">
           <div>
             <span className="home-kicker">Voor aanbieders</span>
-            <h2>Laat creatieve mensen je makkelijker vinden.</h2>
+            <h2>Jouw vak verdient publiek</h2>
             <p>
-              Geef workshops, toon je winkel, promoot je event of deel je verhaal met de Hobbysalon-community.
+              Geef workshops, toon je winkel of promoot je event. Hobbysalon brengt je bij mensen die
+              al zin hebben om te beginnen.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">

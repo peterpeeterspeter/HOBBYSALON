@@ -264,15 +264,15 @@ async function syncCreatorAccountRoles(
   creatorTypes: string[],
   supabase: ReturnType<typeof createPlatformClient>
 ): Promise<string | null> {
-  const roles = new Set<string>(["creator"]);
+  const desiredRoles = new Set<string>(["creator"]);
   if (creatorTypes.includes("workshopgever")) {
-    roles.add("workshop_host");
+    desiredRoles.add("workshop_host");
   }
   if (creatorTypes.includes("organizer")) {
-    roles.add("organizer");
+    desiredRoles.add("organizer");
   }
 
-  for (const role of roles) {
+  for (const role of desiredRoles) {
     const { error } = await supabase.from("user_account_roles").upsert(
       {
         user_id: userId,
@@ -280,6 +280,25 @@ async function syncCreatorAccountRoles(
       },
       { onConflict: "user_id,role" }
     );
+    if (error) {
+      return error.message;
+    }
+  }
+
+  const rolesToRemove: Array<"workshop_host" | "organizer"> = [];
+  if (!desiredRoles.has("workshop_host")) {
+    rolesToRemove.push("workshop_host");
+  }
+  if (!desiredRoles.has("organizer")) {
+    rolesToRemove.push("organizer");
+  }
+
+  if (rolesToRemove.length > 0) {
+    const { error } = await supabase
+      .from("user_account_roles")
+      .delete()
+      .eq("user_id", userId)
+      .in("role", rolesToRemove);
     if (error) {
       return error.message;
     }
@@ -695,6 +714,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/creator");
+    revalidatePath("/dashboard/account");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
     ok("/dashboard/creator", "Creator-profiel opgeslagen.");

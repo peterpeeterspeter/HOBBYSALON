@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { completeRegistrationProfileAction } from "@/app/actions/auth";
 import { RegistrationProfileForm } from "@/components/auth/RegistrationProfileForm";
 import { CardShell } from "@/components/ui/card-shell";
@@ -22,10 +23,13 @@ export default async function DashboardOnboardingPage({ searchParams }: Props) {
   return (
     <section className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Onboarding vervolledigen</h1>
+        <h1 className="text-3xl font-bold text-[var(--foreground)]">Voorkeuren</h1>
         <p className="mt-2 text-[var(--muted)]">
-          Werk je voorkeuren bij zodat workshops, events en materialen beter lokaal en op interesse
-          afgestemd zijn.
+          Werk je interesses en locatie bij. Voor rollen en winkel-activatie ga naar{" "}
+          <Link href="/dashboard/account" className="text-[var(--accent)] underline">
+            Account & rollen
+          </Link>
+          .
         </p>
       </header>
 

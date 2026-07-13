@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   clearAuthSession,
@@ -506,12 +507,55 @@ export async function onboardMerchantForLoggedInUserAction(
     };
   }
 
+  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard/materials");
+
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
     defaultPath: "/dashboard/materials",
   });
   redirect(redirectPath);
+}
+
+export async function updateAccountPreferencesAction(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const user = await getAuthUser();
+  if (!user) {
+    return {
+      success: false,
+      message: "Meld je eerst aan.",
+    };
+  }
+
+  const postalCode = formData.get("postal_code")?.toString() ?? null;
+  const countryCode = formData.get("country_code")?.toString() ?? null;
+  const interestTypes = parseInterestTypes(formData);
+
+  const result = await persistUserRegistrationProfile({
+    userId: user.id,
+    postalCode,
+    countryCode,
+    interestTypes,
+  });
+
+  if (!result.ok) {
+    return {
+      success: false,
+      message: "Opslaan van voorkeuren mislukt.",
+    };
+  }
+
+  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard/onboarding");
+  revalidatePath("/profile");
+
+  return {
+    success: true,
+    message: "Voorkeuren opgeslagen.",
+  };
 }
 
 export async function completeRegistrationProfileAction(

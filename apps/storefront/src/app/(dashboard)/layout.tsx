@@ -59,6 +59,9 @@ export default async function DashboardLayout({
                 <Link href="/dashboard/creator" className="hover:text-[var(--accent)] transition-colors">
                   Mijn profiel
                 </Link>
+                <Link href="/dashboard/account" className="hover:text-[var(--accent)] transition-colors">
+                  Account
+                </Link>
                 <Link href="/dashboard/products" className="hover:text-[var(--accent)] transition-colors">
                   Producten
                 </Link>

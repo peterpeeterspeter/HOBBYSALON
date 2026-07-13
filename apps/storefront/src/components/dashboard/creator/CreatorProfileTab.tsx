@@ -131,6 +131,9 @@ export function CreatorProfileTab({
           <legend className="text-sm font-medium text-[var(--foreground)]">
             Wat doe je op Hobbysalon?
           </legend>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Je kunt dit later altijd aanpassen onder Account & rollen.
+          </p>
           <div className="mt-3 space-y-2">
             {CREATOR_TYPES.map((type) => (
               <label
@@ -161,13 +164,19 @@ export function CreatorProfileTab({
           {showSupplierHint && (
             <p className="mt-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900">
               Verkoop je garen, stof of hobbybenodigdheden?{" "}
-              <Link
-                href={`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`}
-                className="font-medium underline"
-              >
+              <Link href="/dashboard/account" className="font-medium underline">
                 Activeer je winkel
               </Link>{" "}
               om producten te importeren en te verkopen.
+            </p>
+          )}
+          {!hasMerchantRole && (
+            <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--muted)]">
+              Wil je een materiaalwinkel runnen? Ga naar{" "}
+              <Link href="/dashboard/account" className="font-medium text-[var(--accent)] underline">
+                Account & rollen
+              </Link>{" "}
+              om verkoper te worden — ook zonder leverancier-tag hierboven.
             </p>
           )}
         </fieldset>
