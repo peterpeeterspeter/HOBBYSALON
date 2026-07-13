@@ -25,6 +25,7 @@ import { buildPageMetadata, absoluteUrl } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
+import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
 import type { CreatorWithStats } from "@/lib/platform/queries/creators";
 
 export const metadata = buildPageMetadata({
@@ -456,6 +457,9 @@ export default async function HomePage() {
       <PlatformPillars />
       <AudienceSection />
       <GraphSection />
+      <Section spacing="md" variant="alt">
+        <Container size="wide"><FeatureJourneyBanner context="home" /></Container>
+      </Section>
 
       {data.popularDomains.length > 0 && (
         <Section spacing="sm" className="border-y border-[var(--border)] bg-[var(--card)]">

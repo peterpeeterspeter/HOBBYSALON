@@ -15,10 +15,17 @@ import type { EntityType } from "@/types/platform";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
 import { EventCard } from "@/components/cards";
+import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
 import { listEvents } from "@/lib/platform/queries/events";
 import { createPlatformClient } from "@/lib/platform/client";
-import { getSavedProjectSource } from "@/lib/profile/saved-project-source";
+import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/saved-project-source";
 import { getResumableProjectRuns } from "@/lib/profile/resumable-project-runs";
+import { getMaterialCupboardEntries } from "@/lib/profile/material-cupboard";
+import { listConfirmedNewsletterGuides } from "@/lib/platform/queries/confirmed-newsletter-guides";
+import {
+  createConfirmationToken,
+  normalizeNewsletterEmail,
+} from "@/lib/newsletter/lead-magnet";
 
 const EVENT_LABELS: Record<string, string> = {
   project_view: "Project bekeken",
@@ -73,7 +80,8 @@ export default async function ProfilePage() {
 
   const locationPreference = await getLocationPreferenceFromCookies();
   const supabase = createPlatformClient();
-  const [passport, favoriteFeed, activityResult, savedFavorites, localEvents] = await Promise.all([
+  const normalizedEmail = user.email ? normalizeNewsletterEmail(user.email) : null;
+  const [passport, favoriteFeed, activityResult, savedFavorites, materialActivityResult, localEvents, confirmedGuides] = await Promise.all([
     getHobbyPassportData(user.id),
     listFavoriteFeed(user.id, 6),
     supabase
@@ -88,13 +96,30 @@ export default async function ProfilePage() {
         "project_note_updated",
       ]),
     listFavoriteFeed(user.id, 80),
+    supabase
+      .from("user_activity_log")
+      .select("event_name,entity_type,entity_id,occurred_at,metadata")
+      .eq("user_id", user.id)
+      .in("event_name", ["project_item_completed", "project_item_reopened"]),
     listEvents({
       preferred_city: locationPreference.city ?? undefined,
       preferred_country_code: locationPreference.countryCode ?? undefined,
       from_date: new Date().toISOString(),
       limit: 3,
     }),
-  ]);
+    listConfirmedNewsletterGuides(normalizedEmail),
+  ] as const);
+  const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
+  const guidesWithDownloads = confirmedGuides.map((guide) => ({
+    ...guide,
+    token:
+      normalizedEmail && confirmationSecret
+        ? createConfirmationToken(
+            { email: normalizedEmail, leadMagnetCode: guide.code },
+            confirmationSecret
+          )
+        : null,
+  }));
   const savedStartableKeys = new Set(
     savedFavorites
       .filter((item) => item.canStartProject)
@@ -116,6 +141,31 @@ export default async function ProfilePage() {
       })
     )
   ).filter((item): item is NonNullable<typeof item> => item !== null);
+  const startableFavoriteSources = savedFavorites.flatMap((item) => {
+    const entityType = item.entityType;
+    if (!item.canStartProject || !isStartableFavoriteType(entityType)) return [];
+    return [{ entityType, entityId: item.id }];
+  });
+  const cupboardSources = (
+    await Promise.all(
+      startableFavoriteSources.map((source) =>
+        getSavedProjectSource(source.entityType, source.entityId)
+      )
+    )
+  ).filter((source): source is NonNullable<typeof source> => source !== null);
+  const materialCupboardEntries = getMaterialCupboardEntries(
+    cupboardSources,
+    (materialActivityResult.data ?? []).map((event) => {
+      const metadata = event.metadata as Record<string, unknown> | null;
+      return {
+        eventName: event.event_name,
+        entityType: event.entity_type,
+        entityId: event.entity_id,
+        occurredAt: event.occurred_at,
+        itemKey: typeof metadata?.item_key === "string" ? metadata.item_key : null,
+      };
+    })
+  );
 
   return (
     <PageLayout title="Mijn profiel" description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}>
@@ -152,6 +202,10 @@ export default async function ProfilePage() {
           </CardShell>
         </GridLayout>
       </CardShell>
+
+      <section className="mt-8" aria-label="Wat je met je profiel kunt doen">
+        <FeatureJourneyBanner context="profile" />
+      </section>
 
       <CardShell variant="default" padding="lg" className="mt-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Locatie</h2>
@@ -261,6 +315,61 @@ export default async function ProfilePage() {
               </article>
             ))}
           </div>
+        </section>
+      )}
+
+      {materialCupboardEntries.length > 0 && (
+        <section className="mt-8" aria-labelledby="material-cupboard-heading">
+          <CardShell variant="default" padding="lg">
+            <h2 id="material-cupboard-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+              Mijn materialenkast
+            </h2>
+            <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+              Materialen die je bij je bewaarde projecten als in huis hebt bevestigd.
+            </p>
+            <ul className="mt-5 divide-y divide-[var(--border)]" aria-label="Bevestigde materialen">
+              {materialCupboardEntries.map((material) => (
+                <li key={material.key} className="flex min-h-14 flex-wrap items-center justify-between gap-2 py-3">
+                  <span className="text-lg font-semibold text-[var(--foreground)]">{material.title}</span>
+                  <span className="text-base text-[var(--muted)]">
+                    {material.activeProjectCount === 1
+                      ? "1 gekoppeld actief project"
+                      : `${material.activeProjectCount} gekoppelde actieve projecten`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardShell>
+        </section>
+      )}
+
+      {guidesWithDownloads.length > 0 && (
+        <section className="mt-8" aria-labelledby="mijn-gidsen-heading">
+          <CardShell variant="default" padding="lg">
+            <h2 id="mijn-gidsen-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+              Mijn gidsen
+            </h2>
+            <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+              Je bevestigde downloads staan hier rustig voor je klaar.
+            </p>
+            <ul className="mt-5 divide-y divide-[var(--border)]" aria-label="Mijn bevestigde gidsen">
+              {guidesWithDownloads.map((guide) => (
+                <li key={guide.id} className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
+                  <span className="text-lg font-semibold text-[var(--foreground)]">{guide.title}</span>
+                  {guide.token ? (
+                    <Link
+                      href={`/nieuwsbrief/download/${encodeURIComponent(guide.code)}?token=${encodeURIComponent(guide.token)}`}
+                      className="inline-flex min-h-11 items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                    >
+                      Download gids
+                    </Link>
+                  ) : (
+                    <span className="text-base text-[var(--muted)]">Download tijdelijk niet beschikbaar</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardShell>
         </section>
       )}
 
