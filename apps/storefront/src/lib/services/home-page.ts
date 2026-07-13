@@ -18,6 +18,10 @@ import {
 import { getMedusaProductsByIds } from "@/lib/commerce/medusa/products";
 import { logServerPerf, timeAsync } from "@/lib/perf/server-timing";
 import { withTimeout } from "@/lib/perf/with-timeout";
+import {
+  createDiscoveryFeed,
+  type DiscoveryFeedItem,
+} from "@/lib/services/discovery-feed";
 import type {
   Domain,
   Workshop,
@@ -34,6 +38,13 @@ type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
 };
 
+export type HomeDiscoveryFeedItem = DiscoveryFeedItem<
+  Article,
+  ProductWithPrice,
+  Workshop,
+  Event
+>;
+
 export type HomePageData = {
   popularDomains: Domain[];
   upcomingWorkshops: Workshop[];
@@ -41,6 +52,7 @@ export type HomePageData = {
   featuredSupplies: ProductWithPrice[];
   upcomingEvents: Event[];
   latestArticles: Article[];
+  discoveryFeed: HomeDiscoveryFeedItem[];
   creatorsOfTheMonth: CreatorWithStats[];
   featuredProjects: Project[];
   recommendedProjects: RecommendedProject[];
@@ -56,6 +68,7 @@ const EMPTY_HOME_PAGE_DATA: HomePageData = {
   featuredSupplies: [],
   upcomingEvents: [],
   latestArticles: [],
+  discoveryFeed: [],
   creatorsOfTheMonth: [],
   featuredProjects: [],
   recommendedProjects: [],
@@ -158,6 +171,15 @@ async function loadHomePageData(): Promise<HomePageData> {
     featuredSupplies: suppliesWithPrices,
     upcomingEvents,
     latestArticles,
+    discoveryFeed: createDiscoveryFeed(
+      {
+        articles: latestArticles,
+        supplies: suppliesWithPrices,
+        workshops: upcomingWorkshops,
+        events: upcomingEvents,
+      },
+      8,
+    ),
     creatorsOfTheMonth: creatorsWithStats,
     featuredProjects,
     recommendedProjects: recommendationResult.projects,
