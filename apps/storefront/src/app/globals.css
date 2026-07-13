@@ -753,4 +753,26 @@ details > summary::-webkit-details-marker {
     max-width: none;
     color: #000;
   }
+
+  body:has(.project-print-page) {
+    background: #fff;
+    color: #000;
+    font-size: 12pt;
+  }
+
+  body:has(.project-print-page)::before,
+  body:has(.project-print-page) header,
+  body:has(.project-print-page) footer,
+  body:has(.project-print-page) nav,
+  body:has(.project-print-page) .project-print-action,
+  body:has(.project-print-page) button,
+  body:has(.project-print-page) form,
+  body:has(.project-print-page) a {
+    display: none !important;
+  }
+
+  body:has(.project-print-page) main,
+  body:has(.project-print-page) [class*="max-w"] {
+    max-width: none !important;
+  }
 }
