@@ -7,12 +7,13 @@ import {
   Store,
   Users,
 } from "lucide-react";
-import { getHomePageData } from "@/lib/services/home-page";
+import { getHomePageData, type HomeDiscoveryFeedItem } from "@/lib/services/home-page";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CardShell } from "@/components/ui/card-shell";
 import {
   ProductCard,
+  ArticleCard,
   WorkshopCard,
   EventCard,
   ProjectCard,
@@ -158,6 +159,7 @@ const FALLBACK_HOME_DATA: Awaited<ReturnType<typeof getHomePageData>> = {
   featuredSupplies: [],
   upcomingEvents: [],
   latestArticles: [],
+  discoveryFeed: [],
   creatorsOfTheMonth: [],
   featuredProjects: [],
   recommendedProjects: [],
@@ -391,6 +393,19 @@ function EmptyPlatformPreview() {
   );
 }
 
+function DiscoveryFeedCard({ item }: { item: HomeDiscoveryFeedItem }) {
+  switch (item.type) {
+    case "article":
+      return <ArticleCard article={item.item} />;
+    case "supply":
+      return <ProductCard product={item.item} />;
+    case "workshop":
+      return <WorkshopCard workshop={item.item} />;
+    case "event":
+      return <EventCard event={item.item} />;
+  }
+}
+
 export default async function HomePage() {
   let data: Awaited<ReturnType<typeof getHomePageData>> = FALLBACK_HOME_DATA;
 
@@ -454,6 +469,23 @@ export default async function HomePage() {
       />
 
       <HeroSection domainCount={data.popularDomains.length} />
+
+      {data.discoveryFeed.length > 0 && (
+        <Section spacing="lg">
+          <Container size="wide">
+            <SectionHeader
+              title="Ontdek vandaag"
+              description="Een rustige selectie van inspiratie, materialen, workshops en creatieve uitstappen."
+            />
+            <GridLayout cols={4} gap="md">
+              {data.discoveryFeed.map((item) => (
+                <DiscoveryFeedCard key={`${item.type}-${item.item.id}`} item={item} />
+              ))}
+            </GridLayout>
+          </Container>
+        </Section>
+      )}
+
       <PlatformPillars />
       <AudienceSection />
       <GraphSection />
