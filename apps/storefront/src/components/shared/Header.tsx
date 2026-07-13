@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, ShoppingCart, Heart, ChevronDown, Search } from "lucide-react";
+import { ShoppingCart, Heart, ChevronDown, Search } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
+import { MobileMenu } from "@/components/shared/MobileMenu";
 import { buttonVariants } from "@/components/ui/button";
 import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { hasAuthSessionCookie } from "@/lib/auth/session";
@@ -55,7 +56,7 @@ export async function Header() {
         </Link>
 
         {/* Search — left-aligned next to the logo; grows to push the nav to the right */}
-        <div className="min-w-0 flex-1">
+        <div className="pointer-events-none min-w-0 flex-1 md:pointer-events-auto">
           <form
             action="/zoeken"
             role="search"
@@ -122,7 +123,6 @@ export async function Header() {
             domainLinks={mobileDomainLinks.map((d) => ({ href: `/${d.slug}`, label: d.name }))}
             inspiratieLinks={[...STATIC_LINKS.inspiratie]}
             user={hasSession}
-            logoutAction={logoutAction}
             mobileLinkClass={mobileLinkClass}
             iconBtnClass={iconBtnClass}
           />
@@ -196,106 +196,6 @@ function ContentDropdown({ navLinkClass }: { navLinkClass: string }) {
           ))}
         </div>
       </div>
-    </details>
-  );
-}
-
-function MobileMenu({
-  mainLinks,
-  domainLinks,
-  inspiratieLinks,
-  user,
-  logoutAction,
-  mobileLinkClass,
-  iconBtnClass,
-}: {
-  mainLinks: Array<{ href: string; label: string }>;
-  domainLinks: Array<{ href: string; label: string }>;
-  inspiratieLinks: Array<{ href: string; label: string }>;
-  user: boolean;
-  logoutAction: typeof import("@/app/actions/auth").logoutAction;
-  mobileLinkClass: string;
-  iconBtnClass: string;
-}) {
-  return (
-    <details className="group relative xl:hidden">
-      <summary className={`${iconBtnClass} list-none cursor-pointer`}>
-        <Menu size={22} aria-hidden className="group-open:hidden" />
-        <X size={22} aria-hidden className="hidden group-open:block" />
-      </summary>
-      <nav
-        aria-label="Mobiele navigatie"
-        className="absolute right-0 top-full z-50 mt-1 w-72 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-lg"
-      >
-        <div className="space-y-0.5">
-          {mainLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={mobileLinkClass}>
-              {link.label}
-            </Link>
-          ))}
-        </div>
-        {domainLinks.length > 0 && (
-          <>
-            <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Per Hobby</p>
-            <div className="mt-1 space-y-0.5">
-              {domainLinks.map((link) => (
-                <Link key={link.href} href={link.href} className={mobileLinkClass}>
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </>
-        )}
-        {inspiratieLinks.length > 0 && (
-          <>
-            <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Inspiratie</p>
-            <div className="mt-1 space-y-0.5">
-              {inspiratieLinks.map((link) => (
-                <Link key={link.href} href={link.href} className={mobileLinkClass}>
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </>
-        )}
-        <div className="my-2 border-t border-[var(--border)]" />
-        <div className="space-y-0.5">
-          <Link href="/cart" className={mobileLinkClass}>
-            Winkelwagen
-          </Link>
-          <Link href="/favorites" className={mobileLinkClass}>
-            Favorieten
-          </Link>
-        </div>
-        {user ? (
-          <>
-            <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Account</p>
-            <div className="mt-1 space-y-0.5">
-              <Link href="/profile" className={mobileLinkClass}>
-                Profiel
-              </Link>
-              <Link href="/dashboard" className={mobileLinkClass}>
-                Dashboard
-              </Link>
-              <form action={logoutAction}>
-                <button type="submit" className={`${mobileLinkClass} w-full text-left`}>
-                  Uitloggen
-                </button>
-              </form>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="my-2 border-t border-[var(--border)]" />
-            <Link href="/register" className={mobileLinkClass}>
-              Registreer
-            </Link>
-            <Link href="/login" className={mobileLinkClass}>
-              Inloggen
-            </Link>
-          </>
-        )}
-      </nav>
     </details>
   );
 }
