@@ -14,6 +14,11 @@ import { CardShell } from "@/components/ui/card-shell";
 import type { EntityType } from "@/types/platform";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
+import { EventCard } from "@/components/cards";
+import { listEvents } from "@/lib/platform/queries/events";
+import { createPlatformClient } from "@/lib/platform/client";
+import { getSavedProjectSource } from "@/lib/profile/saved-project-source";
+import { getResumableProjectRuns } from "@/lib/profile/resumable-project-runs";
 
 const EVENT_LABELS: Record<string, string> = {
   project_view: "Project bekeken",
@@ -66,11 +71,51 @@ export default async function ProfilePage() {
     redirect("/login?next=/profile");
   }
 
-  const [passport, locationPreference, favoriteFeed] = await Promise.all([
+  const locationPreference = await getLocationPreferenceFromCookies();
+  const supabase = createPlatformClient();
+  const [passport, favoriteFeed, activityResult, savedFavorites, localEvents] = await Promise.all([
     getHobbyPassportData(user.id),
-    getLocationPreferenceFromCookies(),
     listFavoriteFeed(user.id, 6),
+    supabase
+      .from("user_activity_log")
+      .select("event_name,entity_type,entity_id,occurred_at")
+      .eq("user_id", user.id)
+      .in("event_name", [
+        "project_started",
+        "project_item_completed",
+        "project_item_reopened",
+        "project_completed",
+        "project_note_updated",
+      ]),
+    listFavoriteFeed(user.id, 80),
+    listEvents({
+      preferred_city: locationPreference.city ?? undefined,
+      preferred_country_code: locationPreference.countryCode ?? undefined,
+      from_date: new Date().toISOString(),
+      limit: 3,
+    }),
   ]);
+  const savedStartableKeys = new Set(
+    savedFavorites
+      .filter((item) => item.canStartProject)
+      .map((item) => `${item.entityType}:${item.id}`)
+  );
+  const resumableRuns = getResumableProjectRuns(
+    (activityResult.data ?? []).map((event) => ({
+      eventName: event.event_name,
+      entityType: event.entity_type,
+      entityId: event.entity_id,
+      occurredAt: event.occurred_at,
+    }))
+  ).filter((run) => savedStartableKeys.has(`${run.entityType}:${run.entityId}`));
+  const resumableProjects = (
+    await Promise.all(
+      resumableRuns.map(async (run) => {
+        const source = await getSavedProjectSource(run.entityType, run.entityId);
+        return source ? { ...run, source } : null;
+      })
+    )
+  ).filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
     <PageLayout title="Mijn profiel" description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}>
@@ -150,6 +195,19 @@ export default async function ProfilePage() {
         )}
       </CardShell>
 
+      {locationPreference.hasPreference && localEvents.length > 0 && (
+        <section className="mt-8" aria-labelledby="local-events-heading">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="local-events-heading" className="text-2xl font-semibold text-[var(--foreground)]">Creatief bij jou in de buurt</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">Evenementen gerangschikt voor {locationPreference.label}.</p>
+            </div>
+            <Link href="/agenda" className="text-sm font-semibold text-[var(--accent)] hover:underline">Bekijk agenda</Link>
+          </div>
+          <GridLayout cols={3} gap="lg" className="mt-4">{localEvents.map((event) => <EventCard key={event.id} event={event} />)}</GridLayout>
+        </section>
+      )}
+
       <CardShell variant="default" padding="lg" className="mt-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Mijn projecten</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -162,6 +220,49 @@ export default async function ProfilePage() {
           Naar mijn projecten
         </Link>
       </CardShell>
+
+      {resumableProjects.length > 0 && (
+        <section className="mt-8" aria-labelledby="pak-weer-op-heading">
+          <div>
+            <h2 id="pak-weer-op-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+              Pak weer op
+            </h2>
+            <p className="mt-1 text-base leading-relaxed text-[var(--muted)]">
+              Je was hier al aan begonnen. Ga rustig verder wanneer het jou past.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {resumableProjects.map((run) => (
+              <article
+                key={`${run.entityType}:${run.entityId}`}
+                className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)]"
+              >
+                {run.source.imageUrl && (
+                  <img
+                    src={run.source.imageUrl}
+                    alt=""
+                    className="aspect-[16/7] w-full object-cover"
+                  />
+                )}
+                <div className="p-5">
+                  <p className="text-sm font-medium text-[var(--muted)]">
+                    {run.entityType === "article" ? "Artikel of patroon" : "Project"} · Laatst bezig op {formatDate(run.lastActivityAt)}
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-[var(--foreground)]">
+                    {run.source.title}
+                  </h3>
+                  <Link
+                    href={`/profile/start/${run.entityType}/${run.entityId}`}
+                    className="mt-4 inline-flex min-h-11 items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                  >
+                    Verder met dit project
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-8">
         <div className="flex flex-wrap items-end justify-between gap-3">

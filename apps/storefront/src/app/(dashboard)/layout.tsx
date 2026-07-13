@@ -6,6 +6,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { isModerator } from "@/lib/platform/queries/community-showcase";
 import { MerchantUpsellBanner } from "@/components/dashboard/MerchantUpsellBanner";
 import { Container } from "@/components/ui/container";
 import { CardShell } from "@/components/ui/card-shell";
@@ -21,9 +22,10 @@ export default async function DashboardLayout({
     redirect("/login?next=/dashboard");
   }
 
-  const [creator, registrationContext] = await Promise.all([
+  const [creator, registrationContext, userIsModerator] = await Promise.all([
     getCreatorByUserId(user.id),
     getUserRegistrationContext(user.id),
+    isModerator(user.id),
   ]);
   const hasCreatorRole = registrationContext.roles.some((role) =>
     ["creator", "workshop_host", "organizer"].includes(role)
@@ -87,6 +89,11 @@ export default async function DashboardLayout({
                 <Link href="/dashboard/analytics" className="hover:text-[var(--accent)] transition-colors">
                   Analytics
                 </Link>
+                {userIsModerator && (
+                  <Link href="/dashboard/moderatie/community" className="hover:text-[var(--accent)] transition-colors">
+                    Communitymoderatie
+                  </Link>
+                )}
               </nav>
               <form action={logoutAction}>
                 <Button type="submit" variant="secondary" size="sm">

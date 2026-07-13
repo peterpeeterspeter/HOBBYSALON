@@ -6,6 +6,10 @@ import { GridLayout } from "@/components/layout/grid-layout";
 import { Container } from "@/components/ui/container";
 import { EmptyState } from "@/components/ui/empty-state";
 import { listFreeDutchCrochetPatternArticles } from "@/lib/platform/queries/articles";
+import { LeadMagnetCallout } from "@/components/shared/LeadMagnetCallout";
+import { getActiveNewsletterLeadMagnet } from "@/lib/platform/queries/newsletter-lead-magnets";
+
+const HAAK_STARTPAKKET_CAMPAIGN_CODE = "haak-startpakket-v1";
 
 export const metadata: Metadata = {
   title: "Gratis Nederlandstalige haakpatronen | Hobbysalon",
@@ -14,7 +18,10 @@ export const metadata: Metadata = {
 };
 
 export default async function FreeDutchCrochetPatternsPage() {
-  const articles = await listFreeDutchCrochetPatternArticles(120);
+  const [articles, leadMagnet] = await Promise.all([
+    listFreeDutchCrochetPatternArticles(120),
+    getActiveNewsletterLeadMagnet(HAAK_STARTPAKKET_CAMPAIGN_CODE),
+  ]);
 
   return (
     <>
@@ -58,6 +65,15 @@ export default async function FreeDutchCrochetPatternsPage() {
 
       {/* Content */}
       <Container className="py-10">
+        {leadMagnet?.code === HAAK_STARTPAKKET_CAMPAIGN_CODE && (
+          <div className="mb-10">
+            <LeadMagnetCallout
+              campaign={leadMagnet}
+              sourcePath="/gratis-haakpatronen"
+            />
+          </div>
+        )}
+
         {articles.length === 0 ? (
           <EmptyState
             title="Nog geen patronen toegevoegd"

@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { completeSavedProjectAction, toggleSavedProjectItemAction } from "@/app/actions/saved-projects";
+import { completeSavedProjectAction, toggleSavedProjectItemAction, updateSavedProjectNoteAction } from "@/app/actions/saved-projects";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button } from "@/components/ui/button";
 import { CardShell } from "@/components/ui/card-shell";
+import { PrintProjectButton } from "@/components/profile/PrintProjectButton";
 import { getAuthUser } from "@/lib/auth/session";
 import { createPlatformClient } from "@/lib/platform/client";
 import { groupProjectRequirements } from "@/lib/profile/project-requirements";
 import { getProjectRunState, isProjectReadyToComplete } from "@/lib/profile/project-run-state";
+import { getLatestProjectNote } from "@/lib/profile/project-notes";
 import { getSavedProjectSource, isStartableFavoriteType, type SavedProjectItem } from "@/lib/profile/saved-project-source";
 
 type Props = { params: Promise<{ entityType: string; entityId: string }> };
@@ -97,7 +99,7 @@ export default async function SavedProjectRunPage({ params }: Props) {
     .eq("user_id", user.id)
     .eq("entity_type", entityType)
     .eq("entity_id", entityId)
-    .in("event_name", ["project_started", "project_item_completed", "project_item_reopened", "project_completed"])
+    .in("event_name", ["project_started", "project_item_completed", "project_item_reopened", "project_completed", "project_note_updated"])
     .order("occurred_at", { ascending: true });
 
   const grouped = groupProjectRequirements(source.items);
@@ -111,9 +113,14 @@ export default async function SavedProjectRunPage({ params }: Props) {
     requiredKeys
   );
   const readyToComplete = isProjectReadyToComplete(state.completedItemKeys, requiredKeys);
+  const latestNote = getLatestProjectNote((events ?? []).map((event) => ({
+    eventName: event.event_name,
+    occurredAt: event.occurred_at,
+    metadata: event.metadata as Record<string, unknown> | null,
+  })));
 
   return (
-    <PageLayout title={source.title} description={source.description ?? "Jouw persoonlijke projectoverzicht."} breadcrumbs={[{ label: "Mijn profiel", href: "/profile" }, { label: "Project starten" }]}>
+    <PageLayout className="project-print-page" title={source.title} description={source.description ?? "Jouw persoonlijke projectoverzicht."} breadcrumbs={[{ label: "Mijn profiel", href: "/profile" }, { label: "Project starten" }]}>
       <CardShell variant="default" padding="lg" className="mb-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           {source.imageUrl && <img src={source.imageUrl} alt="" className="h-32 w-full rounded-lg object-cover sm:w-48" />}
@@ -121,9 +128,25 @@ export default async function SavedProjectRunPage({ params }: Props) {
             <p className="text-sm font-semibold text-[var(--accent)]">{state.status === "completed" ? "Afgerond" : "Jouw maakproject"}</p>
             <h2 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">{state.progressPercent}% voorbereid</h2>
             <p className="mt-1 max-w-2xl text-[var(--muted)]">Bevestig wat je al in huis hebt. De graph toont daarna passende materialen, workshops en momenten om verder te gaan.</p>
+            <div className="project-print-action mt-4"><PrintProjectButton /></div>
           </div>
         </div>
       </CardShell>
+
+      <section aria-labelledby="project-note-heading" className="mb-8">
+        <CardShell variant="default" padding="lg">
+          <h2 id="project-note-heading" className="text-xl font-semibold text-[var(--foreground)]">Mijn notitie</h2>
+          <p className="mt-1 text-[var(--muted)]">Schrijf hier je eigen herinnering bij dit project. Alleen jij ziet deze notitie.</p>
+          <form action={updateSavedProjectNoteAction} className="mt-4 space-y-3">
+            <input type="hidden" name="entity_type" value={entityType} />
+            <input type="hidden" name="entity_id" value={entityId} />
+            <label htmlFor="project-note" className="block font-semibold text-[var(--foreground)]">Persoonlijke notitie</label>
+            <textarea id="project-note" name="note" defaultValue={latestNote} required maxLength={500} rows={4} className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]" aria-describedby="project-note-help" />
+            <p id="project-note-help" className="text-sm text-[var(--muted)]">Maximaal 500 tekens.</p>
+            <Button type="submit">Notitie opslaan</Button>
+          </form>
+        </CardShell>
+      </section>
 
       <section>
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Dit heb je nodig</h2>

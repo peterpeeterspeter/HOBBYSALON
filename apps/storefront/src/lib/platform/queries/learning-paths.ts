@@ -159,6 +159,71 @@ export async function listLearningPathStepsByPathIds(
     .filter((step): step is LearningPathStep => !!step);
 }
 
+/**
+ * Returns the first later article in every active learning path that contains
+ * the current article. Learning-path step order, rather than article prose or
+ * graph heuristics, defines the suggested next step.
+ */
+export async function listNextLearningPathArticleIds(articleId: string): Promise<string[]> {
+  const supabase = createPlatformClient();
+  const { data: currentRows, error: currentError } = await supabase
+    .from("learning_path_steps")
+    .select("learning_path_id, step_order")
+    .eq("related_entity_type", "article")
+    .eq("related_entity_id", articleId);
+
+  if (currentError || !currentRows?.length) return [];
+
+  const currentStepByPathId = new Map<string, number>();
+  for (const row of currentRows as Array<{ learning_path_id: string; step_order: number }>) {
+    const existing = currentStepByPathId.get(row.learning_path_id);
+    if (existing === undefined || row.step_order < existing) {
+      currentStepByPathId.set(row.learning_path_id, row.step_order);
+    }
+  }
+
+  const pathIds = [...currentStepByPathId.keys()];
+  const { data: activePaths, error: pathError } = await supabase
+    .from("learning_paths")
+    .select("id, sort_order")
+    .in("id", pathIds)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (pathError || !activePaths?.length) return [];
+
+  const activePathIds = (activePaths as Array<{ id: string }>).map((path) => path.id);
+  const { data: steps, error: stepsError } = await supabase
+    .from("learning_path_steps")
+    .select("learning_path_id, step_order, related_entity_id")
+    .in("learning_path_id", activePathIds)
+    .eq("related_entity_type", "article")
+    .order("learning_path_id", { ascending: true })
+    .order("step_order", { ascending: true });
+
+  if (stepsError || !steps) return [];
+
+  const nextArticleIds: string[] = [];
+  for (const pathId of activePathIds) {
+    const currentStepOrder = currentStepByPathId.get(pathId);
+    const nextStep = (steps as Array<{
+      learning_path_id: string;
+      step_order: number;
+      related_entity_id: string;
+    }>).find(
+      (step) =>
+        step.learning_path_id === pathId &&
+        currentStepOrder !== undefined &&
+        step.step_order > currentStepOrder
+    );
+    if (nextStep && !nextArticleIds.includes(nextStep.related_entity_id)) {
+      nextArticleIds.push(nextStep.related_entity_id);
+    }
+  }
+
+  return nextArticleIds;
+}
+
 export async function resolveLearningPathStepTargets(
   steps: LearningPathStep[]
 ): Promise<Map<string, LearningPathStepTarget>> {

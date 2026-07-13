@@ -7,13 +7,21 @@ import {
   WorkshopCard,
   CreatorCard,
   EventCard,
+  ArticleCard,
 } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { MarkdownContent } from "@/components/content/markdown-content";
+import { DifficultyBadge } from "@/components/content/DifficultyBadge";
+import { PrintArticleButton } from "@/components/content/PrintArticleButton";
+import { CommunityGallery } from "@/components/content/CommunityGallery";
+import { CommunityProjectSubmission } from "@/components/content/CommunityProjectSubmission";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { getAuthUser } from "@/lib/auth/session";
+import { isPrintableArticleType } from "@/lib/content/printable-article";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { listProjectsByUserId } from "@/lib/platform/queries/projects";
+import { listOwnerCommunitySubmissionsForArticle } from "@/lib/platform/queries/community-showcase";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import {
   buildBreadcrumbSchema,
@@ -56,15 +64,35 @@ export default async function ArticlePage({ params }: Props) {
   const data = await getArticlePageData(slug);
   if (!data.article) notFound();
 
-  const { article, author, relatedProducts, relatedWorkshops, relatedCreators, relatedEvents } = data;
+  const {
+    article,
+    author,
+    requiredMaterials,
+    requiredTools,
+    optionalMaterials,
+    relatedProducts,
+    nextSteps,
+    relatedArticles,
+    relatedWorkshops,
+    relatedCreators,
+    relatedEvents,
+    communityProjects,
+  } = data;
 
   const user = await getAuthUser();
   const articleIsFavorite = user
     ? await isFavorite(user.id, "article", article.id)
     : false;
+  const [userProjects, ownerCommunitySubmissions] = user
+    ? await Promise.all([
+        listProjectsByUserId(user.id),
+        listOwnerCommunitySubmissionsForArticle(article.id, user.id),
+      ])
+    : [[], []];
 
   const typeLabel = ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type;
   const publishDate = article.published_at ?? article.created_at;
+  const isPrintable = isPrintableArticleType(article.article_type);
 
   const articleJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -113,11 +141,11 @@ export default async function ArticlePage({ params }: Props) {
   }
 
   return (
-    <>
-      <JsonLd data={allSchemas} />
+    <div className={isPrintable ? "printable-article-page" : undefined}>
+      <JsonLd data={articleJsonLd} />
 
       {/* Hero */}
-      <div className="relative h-[320px] overflow-hidden sm:h-[380px] lg:h-[420px]">
+      <div className="article-print-hero relative h-[320px] overflow-hidden sm:h-[380px] lg:h-[420px]">
         {article.featured_image_url ? (
           <img
             src={article.featured_image_url}
@@ -127,8 +155,8 @@ export default async function ArticlePage({ params }: Props) {
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-[var(--color-amber-500)] to-[var(--color-amber-700)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(77,59,42,0.90)] via-[rgba(77,59,42,0.30)] to-transparent" />
-        <div className="absolute inset-x-0 bottom-0">
+        <div className="article-print-hero-overlay absolute inset-0 bg-gradient-to-t from-[rgba(77,59,42,0.90)] via-[rgba(77,59,42,0.30)] to-transparent" />
+        <div className="article-print-hero-content absolute inset-x-0 bottom-0">
           <div className="mx-auto max-w-3xl px-4 pb-8 sm:pb-9">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--accent-light)]">
               {typeLabel}
@@ -174,7 +202,9 @@ export default async function ArticlePage({ params }: Props) {
               {article.reading_time_minutes} min lezen
             </span>
           )}
-          <div className="ml-auto">
+          <DifficultyBadge difficulty={article.difficulty_level} />
+          <div className="article-print-interactions ml-auto flex items-center gap-2">
+            {isPrintable && <PrintArticleButton />}
             <FavoriteToggleButton
               entityType="article"
               entityId={article.id}
@@ -190,6 +220,11 @@ export default async function ArticlePage({ params }: Props) {
             {article.excerpt}
           </p>
         )}
+        <CommunityProjectSubmission
+          articleId={article.id}
+          projects={userProjects}
+          submissions={ownerCommunitySubmissions}
+        />
 
         {/* Body */}
         {article.body_markdown ? (
@@ -202,7 +237,7 @@ export default async function ArticlePage({ params }: Props) {
         {/* Breadcrumb trail */}
         <nav
           aria-label="Breadcrumb"
-          className="mt-10 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]"
+          className="article-print-breadcrumb mt-10 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]"
         >
           <ol className="flex flex-wrap gap-2">
             <li>
@@ -223,11 +258,68 @@ export default async function ArticlePage({ params }: Props) {
       </div>
 
       {/* Graph sections */}
-      {(relatedWorkshops.length > 0 ||
+      {(requiredMaterials.length > 0 ||
+        requiredTools.length > 0 ||
+        optionalMaterials.length > 0 ||
         relatedProducts.length > 0 ||
+        nextSteps.length > 0 ||
+        relatedArticles.length > 0 ||
+        relatedWorkshops.length > 0 ||
         relatedCreators.length > 0 ||
-        relatedEvents.length > 0) && (
-        <div className="mx-auto max-w-6xl px-4 pb-12">
+        relatedEvents.length > 0 ||
+        communityProjects.length > 0) && (
+        <div className="article-print-recommendations mx-auto max-w-6xl px-4 pb-12">
+          <CommunityGallery projects={communityProjects} />
+          {requiredMaterials.length > 0 && (
+            <GraphSection tag="Benodigd" title="Dit heb je nodig" seeAllHref="/materials">
+              <GridLayout cols={4} gap="md">
+                {requiredMaterials.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
+
+          {requiredTools.length > 0 && (
+            <GraphSection tag="Gereedschap" title="Benodigd gereedschap" seeAllHref="/materials">
+              <GridLayout cols={4} gap="md">
+                {requiredTools.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
+
+          {optionalMaterials.length > 0 && (
+            <GraphSection tag="Optioneel" title="Handig om erbij te hebben" seeAllHref="/materials">
+              <GridLayout cols={4} gap="md">
+                {optionalMaterials.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
+
+          {nextSteps.length > 0 && (
+            <GraphSection tag="Volgende stap" title="Ga verder met deze stap">
+              <GridLayout cols={3} gap="md">
+                {nextSteps.map((nextArticle) => (
+                  <ArticleCard key={nextArticle.id} article={nextArticle} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
+
+          {relatedArticles.length > 0 && (
+            <GraphSection tag="Lees ook" title="Meer over dit onderwerp" seeAllHref="/artikelen">
+              <GridLayout cols={3} gap="md">
+                {relatedArticles.map((relatedArticle) => (
+                  <ArticleCard key={relatedArticle.id} article={relatedArticle} />
+                ))}
+              </GridLayout>
+            </GraphSection>
+          )}
+
           {relatedWorkshops.length > 0 && (
             <GraphSection
               tag="Workshops"
@@ -285,7 +377,7 @@ export default async function ArticlePage({ params }: Props) {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }
 

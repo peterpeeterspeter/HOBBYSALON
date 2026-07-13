@@ -24,6 +24,7 @@ import { Section } from "@/components/layout/section";
 import { buildPageMetadata, absoluteUrl } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 import type { CreatorWithStats } from "@/lib/platform/queries/creators";
 
 export const metadata = buildPageMetadata({
@@ -625,6 +626,19 @@ export default async function HomePage() {
           </Container>
         </Section>
       )}
+
+      <Section variant="alt" spacing="lg">
+        <Container size="wide">
+          <div className="mx-auto grid max-w-4xl gap-8 rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-md)] md:grid-cols-[minmax(0,1fr)_minmax(21rem,0.9fr)] md:p-8">
+            <div>
+              <p className="home-kicker">Creatieve inspiratie</p>
+              <h2 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">Een rustig creatief idee in je inbox</h2>
+              <p className="mt-3 text-lg leading-relaxed text-[var(--muted)]">Ontvang praktische maaktips, nieuwe workshops en inspiratie. Je schrijft je met één klik weer uit.</p>
+            </div>
+            <NewsletterSignupForm />
+          </div>
+        </Container>
+      </Section>
 
       <section className="home-final-cta">
         <Container size="wide" className="home-final-cta-inner">

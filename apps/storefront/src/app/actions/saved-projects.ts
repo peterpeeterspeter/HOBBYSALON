@@ -6,6 +6,7 @@ import { getAuthUser } from "@/lib/auth/session";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/saved-project-source";
 import { getProjectRunState, isProjectReadyToComplete } from "@/lib/profile/project-run-state";
+import { readProjectNote } from "@/lib/profile/project-notes";
 import type { EntityType } from "@/types/platform";
 
 function readStartableType(value: FormDataEntryValue | null): "article" | "project" {
@@ -24,9 +25,9 @@ async function requireSavedSource(type: "article" | "project", id: string) {
   return { user, supabase };
 }
 
-async function logEvent(userId:string, eventName:string, type:"article"|"project", id:string, itemKey?:string){
+async function logEvent(userId:string, eventName:string, type:"article"|"project", id:string, metadata:Record<string,unknown>={}){
   const supabase=createPlatformClient();
-  const {error}=await supabase.from("user_activity_log").insert({user_id:userId,event_name:eventName,entity_type:type,entity_id:id,path:`/profile/start/${type}/${id}`,metadata:{source_key:sourceKey(type,id),item_key:itemKey ?? null}});
+  const {error}=await supabase.from("user_activity_log").insert({user_id:userId,event_name:eventName,entity_type:type,entity_id:id,path:`/profile/start/${type}/${id}`,metadata:{source_key:sourceKey(type,id),item_key:null,...metadata}});
   if(error) throw new Error("Je voortgang kon niet worden opgeslagen.");
 }
 
@@ -36,7 +37,16 @@ export async function startSavedProjectAction(formData:FormData){
 }
 export async function toggleSavedProjectItemAction(formData:FormData){
   const type=readStartableType(formData.get("entity_type")); const id=readId(formData.get("entity_id")); const itemKey=String(formData.get("item_key")??""); const completed=String(formData.get("completed")??"")==="true"; const {user}=await requireSavedSource(type,id);
-  await logEvent(user.id,completed?"project_item_reopened":"project_item_completed",type,id,itemKey); revalidatePath(`/profile/start/${type}/${id}`); revalidatePath("/profile");
+  await logEvent(user.id,completed?"project_item_reopened":"project_item_completed",type,id,{item_key:itemKey}); revalidatePath(`/profile/start/${type}/${id}`); revalidatePath("/profile");
+}
+export async function updateSavedProjectNoteAction(formData:FormData){
+  const type=readStartableType(formData.get("entity_type"));
+  const id=readId(formData.get("entity_id"));
+  const {user}=await requireSavedSource(type,id);
+  const note=readProjectNote(formData.get("note"));
+  await logEvent(user.id,"project_note_updated",type,id,{note});
+  revalidatePath(`/profile/start/${type}/${id}`);
+  revalidatePath("/profile");
 }
 export async function completeSavedProjectAction(formData:FormData){
   const type=readStartableType(formData.get("entity_type"));
@@ -44,7 +54,7 @@ export async function completeSavedProjectAction(formData:FormData){
   const {user,supabase}=await requireSavedSource(type,id);
   const source=await getSavedProjectSource(type,id);
   if(!source) throw new Error("Dit project is niet meer beschikbaar.");
-  const {data:events}=await supabase.from("user_activity_log").select("event_name,occurred_at,metadata").eq("user_id",user.id).eq("entity_type",type).eq("entity_id",id).in("event_name",["project_started","project_item_completed","project_item_reopened","project_completed"]).order("occurred_at",{ascending:true});
+  const {data:events}=await supabase.from("user_activity_log").select("event_name,occurred_at,metadata").eq("user_id",user.id).eq("entity_type",type).eq("entity_id",id).in("event_name",["project_started","project_item_completed","project_item_reopened","project_completed","project_note_updated"]).order("occurred_at",{ascending:true});
   const requiredKeys=source.items.filter((item)=>item.kind==="material"||item.kind==="step").map((item)=>item.key);
   const state=getProjectRunState((events??[]).map((event)=>({eventName:event.event_name,occurredAt:event.occurred_at,itemKey:(event.metadata as Record<string,unknown>|null)?.item_key as string|null ?? null})),requiredKeys);
   if(state.status==="completed") return;

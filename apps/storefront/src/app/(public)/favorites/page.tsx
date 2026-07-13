@@ -3,9 +3,8 @@ import type { Metadata } from "next";
 import { getAuthUser } from "@/lib/auth/session";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { PageLayout } from "@/components/layout/page-layout";
-import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
+import { FavoritesFeed } from "@/components/profile/FavoritesFeed";
 
 export const metadata: Metadata = {
   title: "Favorieten | Hobbysalon",
@@ -19,6 +18,6 @@ export default async function FavoritesPage() {
 
   return <PageLayout title="Mijn bewaarde ideeën" description="Alles wat je bewaart, op één rustige plek. Start een patroon, artikel of project wanneer jij er klaar voor bent.">
     {feed.length === 0 ? <EmptyState image="emptyCrafts" title="Nog niets bewaard" description="Bewaar een patroon, artikel, workshop of materiaal om hier je persoonlijke ideeënfeed op te bouwen." action={{label:"Ontdek patronen",href:"/patronen"}} /> :
-      <GridLayout cols={3} gap="lg">{feed.map((item)=><SavedFeedCard key={`${item.entityType}:${item.id}`} item={item}/>)}</GridLayout>}
+      <FavoritesFeed items={feed} />}
   </PageLayout>;
 }

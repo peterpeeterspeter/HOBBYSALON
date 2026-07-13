@@ -712,3 +712,67 @@ details > summary::-webkit-details-marker {
     letter-spacing: -0.04em;
   }
 }
+
+@media print {
+  body:has(.printable-article-page) {
+    background: #fff;
+    color: #000;
+    font-size: 12pt;
+  }
+
+  body:has(.printable-article-page)::before,
+  body:has(.printable-article-page) header,
+  body:has(.printable-article-page) footer,
+  body:has(.printable-article-page) .article-print-interactions,
+  body:has(.printable-article-page) .article-print-breadcrumb,
+  body:has(.printable-article-page) .article-print-recommendations {
+    display: none !important;
+  }
+
+  body:has(.printable-article-page) .article-print-hero {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+
+  body:has(.printable-article-page) .article-print-hero > img,
+  body:has(.printable-article-page) .article-print-hero-overlay {
+    display: none;
+  }
+
+  body:has(.printable-article-page) .article-print-hero-content {
+    position: static;
+  }
+
+  body:has(.printable-article-page) .article-print-hero h1,
+  body:has(.printable-article-page) .article-print-hero p {
+    color: #000;
+  }
+
+  body:has(.printable-article-page) .prose-article {
+    max-width: none;
+    color: #000;
+  }
+
+  body:has(.project-print-page) {
+    background: #fff;
+    color: #000;
+    font-size: 12pt;
+  }
+
+  body:has(.project-print-page)::before,
+  body:has(.project-print-page) header,
+  body:has(.project-print-page) footer,
+  body:has(.project-print-page) nav,
+  body:has(.project-print-page) .project-print-action,
+  body:has(.project-print-page) button,
+  body:has(.project-print-page) form,
+  body:has(.project-print-page) a {
+    display: none !important;
+  }
+
+  body:has(.project-print-page) main,
+  body:has(.project-print-page) [class*="max-w"] {
+    max-width: none !important;
+  }
+}

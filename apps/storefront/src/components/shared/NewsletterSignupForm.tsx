@@ -37,9 +37,17 @@ function SubscribeButton({ variant }: { variant?: "default" | "footer" }) {
 type NewsletterSignupFormProps = {
   /** "footer" renders white inputs on terracotta background */
   variant?: "default" | "footer";
+  /** Enables double opt-in and delivery for an active lead-magnet campaign. */
+  leadMagnetCode?: string;
+  /** Path recorded with the lead-magnet consent event. */
+  sourcePath?: string;
 };
 
-export function NewsletterSignupForm({ variant = "default" }: NewsletterSignupFormProps) {
+export function NewsletterSignupForm({
+  variant = "default",
+  leadMagnetCode,
+  sourcePath,
+}: NewsletterSignupFormProps) {
   const [state, formAction] = useActionState(
     subscribeNewsletterAction,
     INITIAL_STATE
@@ -51,14 +59,19 @@ export function NewsletterSignupForm({ variant = "default" }: NewsletterSignupFo
     if (state.success && !trackedSuccess.current) {
       trackedSuccess.current = true;
       trackEvent("newsletter_signup", {
-        signup_source: isFooter ? "footer_form" : "newsletter_form",
+        signup_source: leadMagnetCode
+          ? "lead_magnet_form"
+          : isFooter
+            ? "footer_form"
+            : "newsletter_form",
+        ...(leadMagnetCode ? { lead_magnet_code: leadMagnetCode } : {}),
       });
     }
 
     if (!state.success) {
       trackedSuccess.current = false;
     }
-  }, [state.success, isFooter]);
+  }, [state.success, isFooter, leadMagnetCode]);
 
   const inputClasses = cn(
     "rounded-lg px-3 py-2.5 text-sm min-h-[var(--touch-target-min)]",
@@ -69,6 +82,8 @@ export function NewsletterSignupForm({ variant = "default" }: NewsletterSignupFo
 
   return (
     <form action={formAction} className="space-y-3">
+      {leadMagnetCode && <input type="hidden" name="lead_magnet_code" value={leadMagnetCode} />}
+      {leadMagnetCode && sourcePath && <input type="hidden" name="source_path" value={sourcePath} />}
       {!isFooter && (
         <p className="text-sm font-medium text-[var(--foreground)]">Nieuwsbrief</p>
       )}

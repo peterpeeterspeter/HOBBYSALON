@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FOOTER_SECTIONS } from "@/config/nav";
+import { NewsletterSignupForm } from "./NewsletterSignupForm";
 
 export async function Footer() {
   const columns = [
@@ -25,6 +26,10 @@ export async function Footer() {
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/50">
             Dé creatieve marketplace voor workshops, handwerk, materialen en hobby-inspiratie in België en Nederland.
           </p>
+          <div className="mt-6 max-w-sm">
+            <p className="mb-2 text-sm font-semibold text-white">Creatieve inspiratie in je inbox</p>
+            <NewsletterSignupForm variant="footer" />
+          </div>
         </div>
 
         {/* Link columns */}

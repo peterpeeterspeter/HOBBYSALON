@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/layout/section";
+import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata = buildPageMetadata({
@@ -158,6 +159,19 @@ export default function LandingPage() {
                 <p className="mt-2 font-semibold text-[var(--foreground)]">{stat.label}</p>
               </div>
             ))}
+          </div>
+        </Container>
+      </Section>
+
+      <Section variant="alt" spacing="lg">
+        <Container>
+          <div className="mx-auto grid max-w-4xl gap-8 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-md)] md:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)] md:p-8">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[var(--accent)]">Creatieve inspiratie</p>
+              <h2 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">Een rustig creatief idee in je inbox</h2>
+              <p className="mt-3 text-lg leading-relaxed text-[var(--muted)]">Ontvang inspiratie, nieuwe workshops en praktische maaktips. Je schrijft je met één klik weer uit.</p>
+            </div>
+            <NewsletterSignupForm />
           </div>
         </Container>
       </Section>

@@ -604,6 +604,7 @@ Fields:
 - `body_markdown` (text)
 - `featured_image_url` (text)
 - `article_type` (text)
+- `difficulty_level` (text, nullable: `beginner`, `intermediate`, `advanced`)
 - `reading_time_minutes` (int)
 - `published_at` (timestamp, nullable)
 - `is_published` (boolean)
