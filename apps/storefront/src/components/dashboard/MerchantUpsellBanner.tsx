@@ -41,18 +41,15 @@ export function MerchantUpsellBanner({
   const isMaterialsPage = pathname.startsWith("/dashboard/materials");
 
   const shouldShow =
-    creatorHasSupplierRole || isProductsPage || isMaterialsPage;
+    creatorHasSupplierRole || isProductsPage || isMaterialsPage || isCreatorPage;
 
-  if (!shouldShow || isCreatorPage) return null;
+  if (!shouldShow) return null;
 
   return (
     <CardShell variant="featured" padding="md" className="mb-6 border-violet-300 bg-violet-50">
       <p className="text-sm text-violet-900">
         Verkoop je garen, stof of hobbybenodigdheden?{" "}
-        <Link
-          href={`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`}
-          className="underline font-medium"
-        >
+        <Link href="/dashboard/account" className="underline font-medium">
           Activeer je winkel
         </Link>{" "}
         om producten te importeren en te verkopen.

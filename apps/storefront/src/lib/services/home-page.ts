@@ -77,6 +77,28 @@ const EMPTY_HOME_PAGE_DATA: HomePageData = {
   viewerUserId: null,
 };
 
+function normalizeHomePageData(
+  data: Partial<HomePageData> | null | undefined
+): HomePageData {
+  return {
+    ...EMPTY_HOME_PAGE_DATA,
+    ...data,
+    popularDomains: data?.popularDomains ?? [],
+    upcomingWorkshops: data?.upcomingWorkshops ?? [],
+    featuredHandmade: data?.featuredHandmade ?? [],
+    featuredSupplies: data?.featuredSupplies ?? [],
+    upcomingEvents: data?.upcomingEvents ?? [],
+    latestArticles: data?.latestArticles ?? [],
+    discoveryFeed: data?.discoveryFeed ?? [],
+    creatorsOfTheMonth: data?.creatorsOfTheMonth ?? [],
+    featuredProjects: data?.featuredProjects ?? [],
+    recommendedProjects: data?.recommendedProjects ?? [],
+    recommendationSource: data?.recommendationSource ?? "cold_start",
+    recommendationLatencyMs: data?.recommendationLatencyMs ?? 0,
+    viewerUserId: data?.viewerUserId ?? null,
+  };
+}
+
 async function enrichProductsWithPrices(
   products: Product[]
 ): Promise<ProductWithPrice[]> {
@@ -192,16 +214,18 @@ async function loadHomePageData(): Promise<HomePageData> {
 const getHomePageDataCached = unstable_cache(
   async (): Promise<HomePageData> => {
     try {
-      return await withTimeout(
-        loadHomePageData(),
-        HOME_PAGE_FETCH_TIMEOUT_MS,
-        EMPTY_HOME_PAGE_DATA
+      return normalizeHomePageData(
+        await withTimeout(
+          loadHomePageData(),
+          HOME_PAGE_FETCH_TIMEOUT_MS,
+          EMPTY_HOME_PAGE_DATA
+        )
       );
     } catch {
       return EMPTY_HOME_PAGE_DATA;
     }
   },
-  ["home-page-data-v2"],
+  ["home-page-data-v3"],
   {
     revalidate: 60 * 5,
     tags: ["home-page"],
@@ -209,5 +233,5 @@ const getHomePageDataCached = unstable_cache(
 );
 
 export async function getHomePageData(): Promise<HomePageData> {
-  return getHomePageDataCached();
+  return normalizeHomePageData(await getHomePageDataCached());
 }

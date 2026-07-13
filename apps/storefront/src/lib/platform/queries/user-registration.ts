@@ -169,6 +169,34 @@ export async function ensureUserRole(
   };
 }
 
+export async function removeUserRoles(
+  userId: string,
+  roles: UserAccountRole[]
+): Promise<PersistResult> {
+  if (roles.length === 0) {
+    return { ok: true, errors: [] };
+  }
+
+  const supabase = createPlatformClient();
+  const { error } = await supabase
+    .from("user_account_roles")
+    .delete()
+    .eq("user_id", userId)
+    .in("role", roles);
+
+  if (error) {
+    return {
+      ok: false,
+      errors: [error.message],
+    };
+  }
+
+  return {
+    ok: true,
+    errors: [],
+  };
+}
+
 async function isStaleAuthUser(userId: string): Promise<boolean> {
   const supabase = createPlatformClient();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
