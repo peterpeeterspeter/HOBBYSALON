@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Quicksand, Lato } from "next/font/google";
 import "./globals.css";
 import { getSiteUrl } from "@/lib/seo";
@@ -61,6 +62,18 @@ export default function RootLayout({
   return (
     <html lang="nl" className={`${quicksand.variable} ${lato.variable}`}>
       <body className="antialiased font-sans" suppressHydrationWarning>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-KP9BXCEF2Z"
+          strategy="afterInteractive"
+        />
+        <Script id="ga4-hobbysalon" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-KP9BXCEF2Z');
+          `}
+        </Script>
         {children}
       </body>
     </html>
