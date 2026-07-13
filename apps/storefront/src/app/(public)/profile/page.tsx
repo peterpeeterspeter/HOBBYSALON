@@ -19,7 +19,7 @@ import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
 import { listEvents } from "@/lib/platform/queries/events";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/saved-project-source";
-import { getResumableProjectRuns } from "@/lib/profile/resumable-project-runs";
+import { resolveResumableSavedProjects } from "@/lib/profile/resumable-saved-project-service";
 import { getMaterialCupboardEntries } from "@/lib/profile/material-cupboard";
 import { listConfirmedNewsletterGuides } from "@/lib/platform/queries/confirmed-newsletter-guides";
 import {
@@ -120,27 +120,15 @@ export default async function ProfilePage() {
           )
         : null,
   }));
-  const savedStartableKeys = new Set(
-    savedFavorites
-      .filter((item) => item.canStartProject)
-      .map((item) => `${item.entityType}:${item.id}`)
-  );
-  const resumableRuns = getResumableProjectRuns(
+  const resumableProjects = await resolveResumableSavedProjects(
     (activityResult.data ?? []).map((event) => ({
       eventName: event.event_name,
       entityType: event.entity_type,
       entityId: event.entity_id,
       occurredAt: event.occurred_at,
-    }))
-  ).filter((run) => savedStartableKeys.has(`${run.entityType}:${run.entityId}`));
-  const resumableProjects = (
-    await Promise.all(
-      resumableRuns.map(async (run) => {
-        const source = await getSavedProjectSource(run.entityType, run.entityId);
-        return source ? { ...run, source } : null;
-      })
-    )
-  ).filter((item): item is NonNullable<typeof item> => item !== null);
+    })),
+    savedFavorites,
+  );
   const startableFavoriteSources = savedFavorites.flatMap((item) => {
     const entityType = item.entityType;
     if (!item.canStartProject || !isStartableFavoriteType(entityType)) return [];

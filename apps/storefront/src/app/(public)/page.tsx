@@ -7,13 +7,17 @@ import {
   Store,
   Users,
 } from "lucide-react";
-import { getHomePageData, type HomeDiscoveryFeedItem } from "@/lib/services/home-page";
+import { getHomePageData } from "@/lib/services/home-page";
+import { selectHomeRecommendationResult } from "@/lib/services/home-recommendation-selection";
+import { getProjectRecommendations } from "@/lib/platform/queries/recommendations";
+import { getAuthUser } from "@/lib/auth/session";
+import { listResumableSavedProjects } from "@/lib/profile/resumable-saved-project-service";
+import { withTimeout } from "@/lib/perf/with-timeout";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CardShell } from "@/components/ui/card-shell";
 import {
   ProductCard,
-  ArticleCard,
   WorkshopCard,
   EventCard,
   ProjectCard,
@@ -27,6 +31,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
 import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
+import { DiscoveryFeed } from "@/components/discovery/DiscoveryFeed";
 import type { CreatorWithStats } from "@/lib/platform/queries/creators";
 
 export const metadata = buildPageMetadata({
@@ -167,6 +172,8 @@ const FALLBACK_HOME_DATA: Awaited<ReturnType<typeof getHomePageData>> = {
   recommendationLatencyMs: 0,
   viewerUserId: null,
 };
+
+const HOME_RECOMMENDATIONS_TIMEOUT_MS = 15_000;
 
 function CreatorFeatureCard({ creator }: { creator: CreatorWithStats }) {
   const firstType = creator.creator_types?.[0];
@@ -393,19 +400,6 @@ function EmptyPlatformPreview() {
   );
 }
 
-function DiscoveryFeedCard({ item }: { item: HomeDiscoveryFeedItem }) {
-  switch (item.type) {
-    case "article":
-      return <ArticleCard article={item.item} />;
-    case "supply":
-      return <ProductCard product={item.item} />;
-    case "workshop":
-      return <WorkshopCard workshop={item.item} />;
-    case "event":
-      return <EventCard event={item.item} />;
-  }
-}
-
 export default async function HomePage() {
   let data: Awaited<ReturnType<typeof getHomePageData>> = FALLBACK_HOME_DATA;
 
@@ -414,6 +408,50 @@ export default async function HomePage() {
   } catch {
     data = FALLBACK_HOME_DATA;
   }
+
+  let user: Awaited<ReturnType<typeof getAuthUser>> = null;
+  try {
+    user = await getAuthUser();
+  } catch {
+    user = null;
+  }
+
+  let resumableProject: Awaited<ReturnType<typeof listResumableSavedProjects>>[number] | null = null;
+  if (user) {
+    try {
+      [resumableProject] = await listResumableSavedProjects(user.id);
+    } catch {
+      resumableProject = null;
+    }
+  }
+
+  let requestRecommendations: Awaited<ReturnType<typeof getProjectRecommendations>> | null = null;
+  try {
+    requestRecommendations = await withTimeout(
+      getProjectRecommendations({ userId: user?.id ?? null, limit: 6 }),
+      HOME_RECOMMENDATIONS_TIMEOUT_MS,
+      null,
+    );
+  } catch {
+    requestRecommendations = null;
+  }
+
+  const recommendations = selectHomeRecommendationResult(
+    {
+      recommendedProjects: data.recommendedProjects,
+      recommendationSource: data.recommendationSource,
+      recommendationLatencyMs: data.recommendationLatencyMs,
+      viewerUserId: data.viewerUserId,
+    },
+    requestRecommendations
+      ? {
+          recommendedProjects: requestRecommendations.projects,
+          recommendationSource: requestRecommendations.source,
+          recommendationLatencyMs: requestRecommendations.latencyMs,
+          viewerUserId: user?.id ?? null,
+        }
+      : null,
+  );
 
   const hasLiveSections =
     data.upcomingWorkshops.length > 0 ||
@@ -461,14 +499,50 @@ export default async function HomePage() {
       <TrackOnMount
         event="home_recommendations_viewed"
         payload={{
-          recommendation_source: data.recommendationSource,
-          item_count: data.recommendedProjects.length,
-          latency_ms: data.recommendationLatencyMs,
-          user_id: data.viewerUserId,
+          recommendation_source: recommendations.recommendationSource,
+          item_count: recommendations.recommendedProjects.length,
+          latency_ms: recommendations.recommendationLatencyMs,
+          user_id: recommendations.viewerUserId,
         }}
       />
 
       <HeroSection domainCount={data.popularDomains.length} />
+
+      {resumableProject && (
+        <Section spacing="sm">
+          <Container size="wide">
+            <section
+              aria-labelledby="verder-met-project-heading"
+              className="overflow-hidden rounded-[1.25rem] border border-[var(--border-strong)] bg-[var(--card)] shadow-[var(--shadow-sm)]"
+            >
+              <div className="flex flex-col sm:flex-row">
+                {resumableProject.source.imageUrl && (
+                  <img
+                    src={resumableProject.source.imageUrl}
+                    alt=""
+                    className="h-40 w-full object-cover sm:h-auto sm:w-52"
+                  />
+                )}
+                <div className="flex flex-1 flex-col justify-center p-5 sm:p-6">
+                  <p className="text-sm font-bold text-[var(--accent)]">Verder met je project</p>
+                  <h2 id="verder-met-project-heading" className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+                    {resumableProject.source.title}
+                  </h2>
+                  <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+                    Je was al begonnen. Ga rustig verder wanneer het jou past.
+                  </p>
+                  <Link
+                    href={`/profile/start/${resumableProject.entityType}/${resumableProject.entityId}`}
+                    className="mt-4 inline-flex min-h-11 w-fit items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                  >
+                    Verder met dit project
+                  </Link>
+                </div>
+              </div>
+            </section>
+          </Container>
+        </Section>
+      )}
 
       {data.discoveryFeed.length > 0 && (
         <Section spacing="lg">
@@ -477,11 +551,7 @@ export default async function HomePage() {
               title="Ontdek vandaag"
               description="Een rustige selectie van inspiratie, materialen, workshops en creatieve uitstappen."
             />
-            <GridLayout cols={4} gap="md">
-              {data.discoveryFeed.map((item) => (
-                <DiscoveryFeedCard key={`${item.type}-${item.item.id}`} item={item} />
-              ))}
-            </GridLayout>
+            <DiscoveryFeed items={data.discoveryFeed} />
           </Container>
         </Section>
       )}
@@ -621,23 +691,23 @@ export default async function HomePage() {
         </Section>
       )}
 
-      {data.recommendedProjects.length > 0 && (
+      {recommendations.recommendedProjects.length > 0 && (
         <Section variant="highlight" spacing="lg">
           <Container size="wide">
             <SectionHeader
               title={
-                data.recommendationSource === "personalized"
+                recommendations.recommendationSource === "personalized"
                   ? "Iets voor jou"
                   : "Projecten om mee te beginnen"
               }
               description={
-                data.recommendationSource === "personalized"
+                recommendations.recommendationSource === "personalized"
                   ? "Gekozen op basis van wat je bekijkt, bewaart en graag maakt."
                   : "Laagdrempelige ideeën uit de community om meteen mee aan de slag te gaan."
               }
             />
             <GridLayout cols={3}>
-              {data.recommendedProjects.map((item) => (
+              {recommendations.recommendedProjects.map((item) => (
                 <div key={item.project.id} className="space-y-2">
                   <ProjectCard project={item.project} />
                   <p className="text-sm text-[var(--muted)]">
