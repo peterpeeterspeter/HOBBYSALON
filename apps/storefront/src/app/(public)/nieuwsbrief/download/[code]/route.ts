@@ -3,6 +3,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { createPlatformClient } from "@/lib/platform/client";
 import { verifyConfirmationToken } from "@/lib/newsletter/lead-magnet";
+import { getRegisteredDeliveryAsset } from "@/lib/newsletter/delivery-registry.server";
 
 export const runtime = "nodejs";
 
@@ -35,12 +36,14 @@ export async function GET(request: NextRequest, { params }: Props) {
     .maybeSingle();
   if (!event) return new NextResponse("Bevestig eerst je inschrijving.", { status: 403 });
 
-  if (code !== "haak-startpakket-v1") return new NextResponse("Deze download is niet beschikbaar.", { status: 404 });
-  const file = await readFile(path.join(process.cwd(), "src/lib/newsletter/assets/haken-startgids-v1.pdf"));
+  const deliveryAsset = getRegisteredDeliveryAsset(code);
+  if (!deliveryAsset) return new NextResponse("Deze download is niet beschikbaar.", { status: 404 });
+
+  const file = await readFile(path.join(process.cwd(), deliveryAsset.assetPath));
   return new NextResponse(file, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="hobbysalon-startgids-haken.pdf"',
+      "Content-Disposition": `attachment; filename="${deliveryAsset.filename}"`,
       "Cache-Control": "private, no-store",
     },
   });

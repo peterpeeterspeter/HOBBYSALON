@@ -10,6 +10,7 @@ import {
   ArticleCard,
 } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
+import { StartSavedProjectButton } from "@/components/profile/StartSavedProjectButton";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { MarkdownContent } from "@/components/content/markdown-content";
 import { DifficultyBadge } from "@/components/content/DifficultyBadge";
@@ -220,6 +221,34 @@ export default async function ArticlePage({ params }: Props) {
             {article.excerpt}
           </p>
         )}
+
+        <section className="article-print-interactions mb-8 rounded-xl border border-[var(--accent)]/30 bg-[var(--section-highlight)] p-5" aria-labelledby="maakroute-heading">
+          <p className="text-sm font-semibold text-[var(--accent)]">Van inspiratie naar maken</p>
+          <h2 id="maakroute-heading" className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
+            {articleIsFavorite ? "Klaar om dit te maken?" : "Wil je dit later maken?"}
+          </h2>
+          <p className="mt-2 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
+            {articleIsFavorite
+              ? "Start je persoonlijke project. Daarna kun je benodigdheden afvinken en eigen notities bewaren."
+              : "Bewaar dit eerst. Daarna kun je het als persoonlijk project starten, materialen afvinken en notities toevoegen."}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {articleIsFavorite ? (
+              <StartSavedProjectButton entityType="article" entityId={article.id} />
+            ) : (
+              <FavoriteToggleButton
+                entityType="article"
+                entityId={article.id}
+                isFavorited={false}
+                nextPath={`/artikel/${article.slug}`}
+              />
+            )}
+            <Link href="/favorites" className="text-sm font-semibold text-[var(--accent)] underline underline-offset-4">
+              Bekijk bewaarde ideeën
+            </Link>
+          </div>
+        </section>
+
         <CommunityProjectSubmission
           articleId={article.id}
           projects={userProjects}

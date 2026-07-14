@@ -558,7 +558,7 @@ export default async function HomePage() {
               title="Ontdek vandaag"
               description="Een rustige selectie van inspiratie, materialen, workshops en creatieve uitstappen."
             />
-            <DiscoveryFeed items={data.discoveryFeed} />
+            <DiscoveryFeed items={data.discoveryFeed ?? []} />
           </Container>
         </Section>
       )}
