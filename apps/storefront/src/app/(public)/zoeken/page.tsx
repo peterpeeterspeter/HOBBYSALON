@@ -20,6 +20,7 @@ import {
   ArticleCard,
 } from "@/components/cards";
 import { searchAll } from "@/lib/services/search-page";
+import { getAuthUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Zoeken | Hobbysalon",
@@ -69,6 +70,13 @@ export default async function SearchPage({
   const activeType = TABS.some((t) => t.id === type) ? type : "all";
   const show = (section: string) =>
     activeType === "all" || activeType === section;
+  const hasArticleResults = hasQuery && results.total > 0 && results.articles.length > 0;
+  const user = hasArticleResults ? await getAuthUser().catch(() => null) : null;
+  const articleSearchParams = new URLSearchParams({ q: query, type: "articles" });
+  const articleResultsHref = `/zoeken?${articleSearchParams.toString()}#zoekresultaten-artikelen`;
+  const registerHref = `/register?next=${encodeURIComponent(
+    `/zoeken?${articleSearchParams.toString()}`
+  )}`;
 
   return (
     <>
@@ -175,6 +183,31 @@ export default async function SearchPage({
               })}
             </div>
 
+            {hasArticleResults && (
+              <aside className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--section-highlight)] px-5 py-5 sm:px-6">
+                <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+                  Van inspiratie naar maken
+                </h2>
+                <p className="mt-2 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
+                  U vindt hier niet alleen workshops en materialen, maar ook artikelen om rustig ideeën op te doen.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Link
+                    href={articleResultsHref}
+                    className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-4 py-2 text-base font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent)]/90"
+                  >
+                    Bekijk inspiratie over “{query}”
+                  </Link>
+                  <Link
+                    href={user ? "/favorites" : registerHref}
+                    className="inline-flex min-h-11 items-center rounded-lg px-2 py-2 text-base font-semibold text-[var(--accent)] hover:underline"
+                  >
+                    {user ? "Mijn bewaarde ideeën" : "Bewaar uw ideeën"}
+                  </Link>
+                </div>
+              </aside>
+            )}
+
             <div className="space-y-12">
               {show("workshops") && results.workshops.length > 0 && (
                 <ResultSection
@@ -238,6 +271,7 @@ export default async function SearchPage({
                   title="Artikelen"
                   count={results.articles.length}
                   href="/gratis-haakpatronen"
+                  headingId="zoekresultaten-artikelen"
                 >
                   <GridLayout cols={3} gap="md">
                     {results.articles.map((a) => (
@@ -259,12 +293,14 @@ function ResultSection({
   title,
   count,
   href,
+  headingId,
   children,
 }: {
   tag: string;
   title: string;
   count: number;
   href: string;
+  headingId?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -273,7 +309,10 @@ function ResultSection({
         <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
           {tag}
         </span>
-        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+        <h2
+          id={headingId}
+          className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
+        >
           {title}
         </h2>
         <span className="text-sm text-[var(--muted)]">{count}</span>
