@@ -111,8 +111,10 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-3xl font-bold text-[var(--foreground)]">Productbeheer</h1>
-      <p className="text-[var(--muted)]">Maak producten aan en beheer hun status.</p>
+      <h1 className="text-3xl font-bold text-[var(--foreground)]">Beheer je creaties</h1>
+      <p className="max-w-2xl text-[var(--muted)]">
+        Maak nieuwe producten aan, bewerk ze en bepaal zelf wanneer ze online komen in jouw shop.
+      </p>
 
       {success && (
         <p className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
@@ -127,13 +129,13 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
 
       {!creator ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Maak eerst een creator-profiel aan om producten te beheren.
+          Maak eerst je maker-pagina aan om creaties in je shop te plaatsen.
         </p>
       ) : (
         <>
           <CardShell variant="default" padding="lg" className="mb-8">
             <form action={createProductAction} encType="multipart/form-data">
-              <h2 className="text-lg font-semibold">Nieuw product</h2>
+              <h2 className="text-lg font-semibold">Nieuwe creatie</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
                 <Input name="slug" label="Slug" />
@@ -197,16 +199,10 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
                   <ImageUploadField
                     name="featured_image_file"
-                    label="Productfoto"
-                    urlFieldName="featured_image_url"
+                    label="Foto van je creatie"
                     uploadPathPrefix={`creators/${creator.id}/products`}
-                    hint="Kies een foto vanaf je computer of telefoon. Deze foto wordt gebruikt als hoofdafbeelding van je product."
+                    hint="Deze foto verschijnt als hoofdafbeelding in je shop."
                   />
-                  <p className="text-xs text-[var(--muted)]">
-                    Een geüploade foto krijgt voorrang op een geplakte link. Gebruik enkel een
-                    directe link naar JPG, PNG, WebP of GIF — niet een webpagina of
-                    Google Drive-preview.
-                  </p>
                 </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
                 <div className="sm:col-span-2">
@@ -219,7 +215,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 </div>
                 <label className="inline-flex items-center gap-2 sm:col-span-2">
                   <input type="checkbox" name="is_active" />
-                  <span className="text-sm">Direct actief publiceren</span>
+                  <span className="text-sm">Direct zichtbaar in je shop</span>
                 </label>
                 <label className="inline-flex items-center gap-2 sm:col-span-2">
                   <input type="checkbox" name="personalization_available" />
@@ -227,17 +223,17 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 </label>
               </div>
               <Button type="submit" className="mt-4">
-                Product aanmaken
+                Creatie toevoegen
               </Button>
             </form>
           </CardShell>
 
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Bestaande producten ({products.length})</h2>
+            <h2 className="text-lg font-semibold">In jouw shop ({products.length})</h2>
             {products.length === 0 ? (
               <EmptyState
-                title="Nog geen producten"
-                description="Maak je eerste product aan met het formulier hierboven."
+                title="Nog geen creaties in je shop"
+                description="Voeg je eerste creatie toe met het formulier hierboven."
               />
             ) : (
               products.map((product) => (
@@ -335,17 +331,11 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                     <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
                       <ImageUploadField
                         name="featured_image_file"
-                        label="Productfoto vervangen"
+                        label="Foto van je creatie"
                         currentUrl={product.featured_image_url}
-                        urlFieldName="featured_image_url"
-                        urlDefaultValue={product.featured_image_url ?? ""}
                         uploadPathPrefix={`creators/${creator.id}/products`}
-                        hint="Kies alleen een nieuwe foto als je de huidige wilt vervangen."
+                        hint="Laat leeg om de huidige foto te behouden."
                       />
-                      <p className="text-xs text-[var(--muted)]">
-                        Een geüploade foto krijgt voorrang op een geplakte link. Laat beide
-                        velden leeg om je huidige foto te behouden.
-                      </p>
                     </div>
                     <Input
                       name="short_description"
@@ -364,7 +354,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                     </div>
                     <label className="inline-flex items-center gap-2 sm:col-span-2">
                       <input type="checkbox" name="is_active" defaultChecked={product.is_active} />
-                      <span className="text-sm">Actief</span>
+                      <span className="text-sm">Zichtbaar in je shop</span>
                     </label>
                     <label className="inline-flex items-center gap-2 sm:col-span-2">
                       <input
@@ -384,7 +374,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                         variant="secondary"
                         size="sm"
                       >
-                        Depubliceer
+                        Uit shop halen
                       </Button>
                       <Button
                         type="submit"

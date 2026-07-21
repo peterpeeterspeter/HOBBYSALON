@@ -38,13 +38,13 @@ export function getCreatorProgressSteps(
       id: "profile",
       label: "Profiel ingevuld (naam + hobby)",
       done: hasName && hasDomains,
-      href: "/dashboard/creator?tab=profiel",
+      href: "/profile?tab=profiel#maker-pagina",
     },
     {
       id: "public-page",
       label: "Publieke pagina klaar",
       done: hasSlug,
-      href: creator?.slug ? `/creator/${creator.slug}` : "/dashboard/creator?tab=profiel",
+      href: creator?.slug ? `/creator/${creator.slug}` : "/profile?tab=profiel#maker-pagina",
     },
     {
       id: "content",

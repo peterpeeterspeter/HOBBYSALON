@@ -12,6 +12,10 @@ import {
   resolveSupabaseAccessToken,
 } from "@/lib/auth/session";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
+import { creatorTypesRequiringApproval } from "@/lib/auth/role-request-status";
+import {
+  ROLE_REQUEST_PENDING_MESSAGE,
+} from "@/lib/platform/queries/role-requests";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
   type RegistrationInterestType,
@@ -325,18 +329,22 @@ export async function registerCreatorAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: "/dashboard/creator",
+      defaultPath: "/profile?tab=profiel#maker-pagina",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
   }
 
   if (user) {
+    const needsApproval = creatorTypesRequiringApproval(creatorTypes).length > 0;
+    const approvalNote = needsApproval
+      ? ` ${ROLE_REQUEST_PENDING_MESSAGE}`
+      : "";
     return {
       success: true,
       message: profilePersisted && creatorProvisioned
-        ? "Controleer je e-mail en bevestig je creator-account voordat je inlogt."
-        : "Controleer je e-mail en bevestig je account. Daarna kun je je creatorshop verder instellen in je dashboard.",
+        ? `Controleer je e-mail en bevestig je creator-account voordat je inlogt.${approvalNote}`
+        : `Controleer je e-mail en bevestig je account. Daarna kun je je makerprofiel verder instellen.${approvalNote}`,
     };
   }
 
@@ -401,8 +409,10 @@ export async function registerMerchantAction(
       ? requestedNextPath
       : "/dashboard/verkoper";
 
+  let onboarding: Awaited<ReturnType<typeof completeMerchantOnboarding>> | null = null;
+
   if (registrationUserId) {
-    const onboarding = await completeMerchantOnboarding({
+    onboarding = await completeMerchantOnboarding({
       userId: registrationUserId,
       displayName,
       contactName,
@@ -431,11 +441,13 @@ export async function registerMerchantAction(
   }
 
   if (session) {
-    const redirectPath = await resolvePostAuthRedirectPath({
-      userId: registrationUserId ?? session.user?.id ?? null,
-      requestedNextPath,
-      defaultPath: "/dashboard/verkoper",
-    });
+    const redirectPath = onboarding?.pendingApproval
+      ? `/dashboard/account?success=${encodeURIComponent(onboarding.message)}`
+      : await resolvePostAuthRedirectPath({
+          userId: registrationUserId ?? session.user?.id ?? null,
+          requestedNextPath,
+          defaultPath: "/dashboard/verkoper",
+        });
     await persistAuthSession(session);
     redirect(redirectPath);
   }
@@ -443,8 +455,9 @@ export async function registerMerchantAction(
   if (user) {
     return {
       success: true,
-      message:
-        "Controleer je e-mail en bevestig je merchant-account voordat je inlogt.",
+      message: onboarding?.pendingApproval
+        ? `${onboarding.message} Bevestig ook je e-mail voordat je inlogt.`
+        : "Controleer je e-mail en bevestig je merchant-account voordat je inlogt.",
     };
   }
 
@@ -474,7 +487,6 @@ export async function onboardMerchantForLoggedInUserAction(
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
   const interestTypes = parseInterestTypes(formData);
-  const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!displayName) {
     return {
@@ -512,14 +524,10 @@ export async function onboardMerchantForLoggedInUserAction(
   }
 
   revalidatePath("/dashboard/account");
-  revalidatePath("/dashboard/verkoper");
 
-  const redirectPath = await resolvePostAuthRedirectPath({
-    userId: user.id,
-    requestedNextPath,
-    defaultPath: "/dashboard/verkoper",
-  });
-  redirect(redirectPath);
+  redirect(
+    `/dashboard/account?success=${encodeURIComponent(onboarding.message)}`
+  );
 }
 
 export async function updateAccountPreferencesAction(

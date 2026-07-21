@@ -14,6 +14,7 @@ import {
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import type { Workshop } from "@/types/platform";
 
 type BookingRequest = {
@@ -30,6 +31,11 @@ type BookingRequest = {
 type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
+
+function formatEuroFromCents(cents: number | null | undefined): string {
+  if (cents == null) return "";
+  return (cents / 100).toFixed(2);
+}
 
 const FORMAT_OPTIONS = [
   { value: "physical", label: "Fysiek" },
@@ -135,16 +141,12 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
       ) : (
         <>
           <CardShell variant="default" padding="lg">
-          <form action={createWorkshopAction}>
+          <form action={createWorkshopAction} encType="multipart/form-data">
             <h2 className="text-lg font-semibold">Nieuwe workshop</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label>
+              <label className="sm:col-span-2">
                 <span className="mb-1 block text-sm font-medium">Titel *</span>
                 <input name="title" required className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
-              <label>
-                <span className="mb-1 block text-sm font-medium">Slug</span>
-                <input name="slug" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
               <label>
                 <span className="mb-1 block text-sm font-medium">Format *</span>
@@ -166,7 +168,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                   ))}
                 </select>
               </label>
-              <label>
+              <label className="sm:col-span-2">
                 <span className="mb-1 block text-sm font-medium">Boekingsmode *</span>
                 <select name="booking_mode" defaultValue="request" className="w-full rounded-md border border-[var(--border)] px-3 py-2">
                   {BOOKING_MODE_OPTIONS.filter(
@@ -181,11 +183,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                 </select>
               </label>
               <label>
-                <span className="mb-1 block text-sm font-medium">Boekings URL</span>
-                <input name="booking_url" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
-              <label>
-                <span className="mb-1 block text-sm font-medium">Locatie</span>
+                <span className="mb-1 block text-sm font-medium">Locatie of zaal</span>
                 <input name="location_name" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
               <label>
@@ -193,12 +191,14 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                 <input name="city" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
               <label>
-                <span className="mb-1 block text-sm font-medium">Prijs (cent)</span>
+                <span className="mb-1 block text-sm font-medium">Prijs (€)</span>
                 <input
-                  name="price_cents"
+                  name="price_euro"
                   type="number"
                   min={0}
+                  step={0.01}
                   defaultValue={0}
+                  placeholder="0,00"
                   className="w-full rounded-md border border-[var(--border)] px-3 py-2"
                 />
               </label>
@@ -210,10 +210,14 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                 <span className="mb-1 block text-sm font-medium">Capaciteit</span>
                 <input name="capacity" type="number" min={0} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
-              <label>
-                <span className="mb-1 block text-sm font-medium">Afbeelding URL</span>
-                <input name="featured_image_url" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
+              <div className="sm:col-span-2">
+                <ImageUploadField
+                  name="featured_image_file"
+                  label="Workshopfoto"
+                  uploadPathPrefix={`creators/${creator.id}/workshops`}
+                  hint="Foto voor je workshoppagina. JPEG, PNG, WebP of GIF."
+                />
+              </div>
               <label className="sm:col-span-2">
                 <span className="mb-1 block text-sm font-medium">Korte omschrijving</span>
                 <input name="short_description" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
@@ -248,15 +252,11 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       ({workshop.format_type}){workshop.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
-                  <form action={updateWorkshopAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <form action={updateWorkshopAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={workshop.id} />
-                    <label>
+                    <label className="sm:col-span-2">
                       <span className="mb-1 block text-sm font-medium">Titel *</span>
                       <input name="title" required defaultValue={workshop.title} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-                    </label>
-                    <label>
-                      <span className="mb-1 block text-sm font-medium">Slug</span>
-                      <input name="slug" defaultValue={workshop.slug} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
                     <label>
                       <span className="mb-1 block text-sm font-medium">Format *</span>
@@ -278,10 +278,14 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         ))}
                       </select>
                     </label>
-                    <label>
+                    <label className="sm:col-span-2">
                       <span className="mb-1 block text-sm font-medium">Boekingsmode *</span>
                       <select name="booking_mode" defaultValue={workshop.booking_mode} className="w-full rounded-md border border-[var(--border)] px-3 py-2">
-                        {BOOKING_MODE_OPTIONS.map((option) => (
+                        {BOOKING_MODE_OPTIONS.filter(
+                          (option) =>
+                            option.value !== "external_link" ||
+                            commercialContext?.allowExternalBooking
+                        ).map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -289,11 +293,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       </select>
                     </label>
                     <label>
-                      <span className="mb-1 block text-sm font-medium">Boekings URL</span>
-                      <input name="booking_url" defaultValue={workshop.booking_url ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-                    </label>
-                    <label>
-                      <span className="mb-1 block text-sm font-medium">Locatie</span>
+                      <span className="mb-1 block text-sm font-medium">Locatie of zaal</span>
                       <input name="location_name" defaultValue={workshop.location_name ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
                     <label>
@@ -301,8 +301,15 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       <input name="city" defaultValue={workshop.city ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
                     <label>
-                      <span className="mb-1 block text-sm font-medium">Prijs (cent)</span>
-                      <input name="price_cents" type="number" min={0} defaultValue={workshop.price_cents} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
+                      <span className="mb-1 block text-sm font-medium">Prijs (€)</span>
+                      <input
+                        name="price_euro"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        defaultValue={formatEuroFromCents(workshop.price_cents)}
+                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                      />
                     </label>
                     <label>
                       <span className="mb-1 block text-sm font-medium">Duur (min)</span>
@@ -312,10 +319,15 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       <span className="mb-1 block text-sm font-medium">Capaciteit</span>
                       <input name="capacity" type="number" min={0} defaultValue={workshop.capacity ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
-                    <label>
-                      <span className="mb-1 block text-sm font-medium">Afbeelding URL</span>
-                      <input name="featured_image_url" defaultValue={workshop.featured_image_url ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-                    </label>
+                    <div className="sm:col-span-2">
+                      <ImageUploadField
+                        name="featured_image_file"
+                        label="Workshopfoto"
+                        currentUrl={workshop.featured_image_url}
+                        uploadPathPrefix={`creators/${creator.id}/workshops`}
+                        hint="Foto voor je workshoppagina. Laat leeg om de huidige foto te behouden."
+                      />
+                    </div>
                     <label className="sm:col-span-2">
                       <span className="mb-1 block text-sm font-medium">Korte omschrijving</span>
                       <input name="short_description" defaultValue={workshop.short_description ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />

@@ -142,12 +142,8 @@ export function buildRoleAwareDashboardNav(
     { href: "/dashboard", label: "Overzicht" },
   ];
 
-  if (caps.canViewCreatorPage) {
-    items.push({ href: "/dashboard/creator", label: "Mijn pagina" });
-  }
-
   if (caps.canManageProducts) {
-    items.push({ href: "/dashboard/products", label: "Producten" });
+    items.push({ href: "/dashboard/products", label: "Jouw Shop" });
   }
 
   if (caps.canManageWorkshops) {
@@ -175,7 +171,8 @@ export function buildRoleAwareDashboardNav(
   if (options?.userIsModerator) {
     items.push(
       { href: "/dashboard/materials", label: "Materials Ops" },
-      { href: "/dashboard/moderatie/community", label: "Moderatie" }
+      { href: "/dashboard/moderatie/community", label: "Moderatie" },
+      { href: "/dashboard/moderatie/roles", label: "Rolaanvragen" }
     );
   }
 

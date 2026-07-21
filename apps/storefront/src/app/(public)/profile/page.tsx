@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getHobbyPassportData } from "@/lib/platform/queries/hobby-passport";
 import { getLocationPreferenceFromCookies } from "@/lib/location/preference";
 import {
@@ -22,10 +25,16 @@ import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/sa
 import { resolveResumableSavedProjects } from "@/lib/profile/resumable-saved-project-service";
 import { getMaterialCupboardEntries } from "@/lib/profile/material-cupboard";
 import { listConfirmedNewsletterGuides } from "@/lib/platform/queries/confirmed-newsletter-guides";
+import { CreatorMakerSection } from "@/components/profile/CreatorMakerSection";
+import { loadCreatorMakerData } from "@/lib/profile/load-creator-maker-data";
 import {
   createConfirmationToken,
   normalizeNewsletterEmail,
 } from "@/lib/newsletter/lead-magnet";
+
+type Props = {
+  searchParams: Promise<{ success?: string; error?: string; tab?: string }>;
+};
 
 const EVENT_LABELS: Record<string, string> = {
   project_view: "Project bekeken",
@@ -72,16 +81,17 @@ export const metadata: Metadata = {
   description: "Jouw hobbyprofiel met progressie, badges, favorieten en activiteiten.",
 };
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: Props) {
   const user = await getAuthUser();
   if (!user) {
     redirect("/login?next=/profile");
   }
 
+  const { success, error, tab } = await searchParams;
   const locationPreference = await getLocationPreferenceFromCookies();
   const supabase = createPlatformClient();
   const normalizedEmail = user.email ? normalizeNewsletterEmail(user.email) : null;
-  const [passport, favoriteFeed, activityResult, savedFavorites, materialActivityResult, localEvents, confirmedGuides] = await Promise.all([
+  const [passport, favoriteFeed, activityResult, savedFavorites, materialActivityResult, localEvents, confirmedGuides, creator, registrationContext] = await Promise.all([
     getHobbyPassportData(user.id),
     listFavoriteFeed(user.id, 6),
     supabase
@@ -108,7 +118,16 @@ export default async function ProfilePage() {
       limit: 3,
     }),
     listConfirmedNewsletterGuides(normalizedEmail),
+    getCreatorByUserId(user.id),
+    getUserRegistrationContext(user.id),
   ] as const);
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
+  const showMakerSection = caps.canViewCreatorPage || caps.isHobbyistOnly;
+  const makerData = showMakerSection ? await loadCreatorMakerData(user, tab) : null;
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
   const guidesWithDownloads = confirmedGuides.map((guide) => ({
     ...guide,
@@ -194,6 +213,10 @@ export default async function ProfilePage() {
       <section className="mt-8" aria-label="Wat je met je profiel kunt doen">
         <FeatureJourneyBanner context="profile" />
       </section>
+
+      {makerData ? (
+        <CreatorMakerSection data={makerData} success={success} error={error} />
+      ) : null}
 
       <CardShell variant="default" padding="lg" className="mt-8">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Locatie</h2>

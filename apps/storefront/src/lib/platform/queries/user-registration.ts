@@ -55,6 +55,12 @@ export type UserRegistrationContext = {
     sellerType: UserSellerType;
   }>;
   hasCreatorProfile: boolean;
+  pendingRoleRequests: Array<{
+    id: string;
+    role: Extract<UserAccountRole, "merchant" | "workshop_host" | "organizer">;
+    status: "pending" | "rejected";
+    createdAt: string;
+  }>;
 };
 
 function sanitizePostalCode(value: string | null | undefined): string | null {
@@ -459,7 +465,7 @@ export async function getUserRegistrationContext(
 ): Promise<UserRegistrationContext> {
   const supabase = createPlatformClient();
 
-  const [rolesResult, preferenceResult, sellerLinksResult, creatorResult] =
+  const [rolesResult, preferenceResult, sellerLinksResult, creatorResult, roleRequestsResult] =
     await Promise.all([
       supabase.from("user_account_roles").select("role").eq("user_id", userId),
       supabase
@@ -477,6 +483,12 @@ export async function getUserRegistrationContext(
         .from("creators")
         .select("id", { head: true, count: "exact" })
         .eq("user_id", userId),
+      supabase
+        .from("role_requests")
+        .select("id, role, status, created_at")
+        .eq("user_id", userId)
+        .in("status", ["pending", "rejected"])
+        .order("created_at", { ascending: false }),
     ]);
 
   const roles = rolesResult.data
@@ -514,5 +526,15 @@ export async function getUserRegistrationContext(
     preference,
     sellerLinks,
     hasCreatorProfile: (creatorResult.count ?? 0) > 0,
+    pendingRoleRequests:
+      roleRequestsResult.data?.map((row) => ({
+        id: row.id,
+        role: row.role as Extract<
+          UserAccountRole,
+          "merchant" | "workshop_host" | "organizer"
+        >,
+        status: row.status as "pending" | "rejected",
+        createdAt: row.created_at,
+      })) ?? [],
   };
 }

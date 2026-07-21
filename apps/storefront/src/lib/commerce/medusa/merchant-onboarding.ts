@@ -1,15 +1,11 @@
 import "server-only";
 
 import type { RegistrationInterestType } from "@/lib/auth/registration-options";
+import { persistUserRegistrationProfile } from "@/lib/platform/queries/user-registration";
 import {
-  ensureUserRole,
-  linkUserToSeller,
-  persistUserRegistrationProfile,
-} from "@/lib/platform/queries/user-registration";
-import {
-  formatMerchantProvisionError,
-  provisionMerchantSeller,
-} from "./merchant-registration";
+  createRoleRequest,
+  ROLE_REQUEST_PENDING_MESSAGE,
+} from "@/lib/platform/queries/role-requests";
 
 export type MerchantOnboardingInput = {
   userId: string;
@@ -26,7 +22,7 @@ export type MerchantOnboardingInput = {
 
 export async function completeMerchantOnboarding(
   input: MerchantOnboardingInput
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; pendingApproval: boolean }> {
   const profileResult = await persistUserRegistrationProfile({
     userId: input.userId,
     postalCode: input.postalCode,
@@ -42,65 +38,37 @@ export async function completeMerchantOnboarding(
     return {
       ok: false,
       message: "Opslaan van profielgegevens mislukt.",
+      pendingApproval: false,
     };
   }
 
-  const roleResult = await ensureUserRole(input.userId, "merchant");
-  if (!roleResult.ok) {
-    console.error("Failed to ensure merchant role", {
-      userId: input.userId,
-      errors: roleResult.errors,
-    });
-    return {
-      ok: false,
-      message: "Merchant-rol toekennen mislukt.",
-    };
-  }
-
-  const merchantInput = {
+  const requestResult = await createRoleRequest(input.userId, "merchant", {
     displayName: input.displayName,
     businessName: input.displayName,
-    contactName: input.contactName,
+    contactName: input.contactName ?? undefined,
     email: input.email,
-    phone: input.phone,
-    city: input.city,
-    postalCode: input.postalCode,
-    countryCode: input.countryCode,
-  };
-
-  const merchantResult = await provisionMerchantSeller(merchantInput, {
-    supabaseAccessToken: input.supabaseAccessToken,
+    phone: input.phone ?? undefined,
+    city: input.city ?? undefined,
+    postalCode: input.postalCode ?? undefined,
+    countryCode: input.countryCode ?? undefined,
+    source: "merchant_onboarding",
   });
 
-  if (!merchantResult.ok || !merchantResult.sellerId) {
-    console.error("Failed to provision merchant seller", {
+  if (!requestResult.ok) {
+    console.error("Failed to create merchant role request", {
       userId: input.userId,
-      error: merchantResult.error,
+      errors: requestResult.errors,
     });
     return {
       ok: false,
-      message: formatMerchantProvisionError(merchantResult.error),
+      message: "Merchant-aanvraag indienen mislukt.",
+      pendingApproval: false,
     };
   }
 
-  const sellerLinkResult = await linkUserToSeller(
-    input.userId,
-    merchantResult.sellerId,
-    "merchant"
-  );
-
-  if (!sellerLinkResult.ok) {
-    console.error("Failed to link user to merchant seller", {
-      userId: input.userId,
-      sellerId: merchantResult.sellerId,
-      errors: sellerLinkResult.errors,
-    });
-    return {
-      ok: false,
-      message:
-        "Merchant-profiel werd aangemaakt maar koppelen aan je account mislukte. Log in en probeer opnieuw, of neem contact op als dit blijft gebeuren.",
-    };
-  }
-
-  return { ok: true, message: "" };
+  return {
+    ok: true,
+    message: ROLE_REQUEST_PENDING_MESSAGE,
+    pendingApproval: true,
+  };
 }

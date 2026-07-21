@@ -833,6 +833,32 @@ create table if not exists public.user_account_roles (
 create index if not exists idx_user_account_roles_user_id on public.user_account_roles(user_id);
 create index if not exists idx_user_account_roles_role on public.user_account_roles(role);
 
+create table if not exists public.role_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  role text not null,
+  status text not null default 'pending',
+  payload jsonb not null default '{}'::jsonb,
+  reviewer_user_id uuid,
+  reviewer_note text,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint role_requests_role_check check (
+    role in ('merchant','workshop_host','organizer')
+  ),
+  constraint role_requests_status_check check (
+    status in ('pending','approved','rejected','withdrawn')
+  )
+);
+
+create unique index if not exists idx_role_requests_one_pending_per_user_role
+  on public.role_requests(user_id, role)
+  where status = 'pending';
+
+create index if not exists idx_role_requests_status_created
+  on public.role_requests(status, created_at asc);
+
 create table if not exists public.user_seller_links (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,

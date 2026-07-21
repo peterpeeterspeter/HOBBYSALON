@@ -10,12 +10,12 @@ test("keeps a safe return path when selecting an account type", () => {
     "/register/creator?next=%2Fworkshop%2Fleren-haken"
   );
   assert.equal(
-    getAccountRegistrationHref("workshopgever", "/dashboard/creator"),
-    "/register/creator?focus=workshopgever&next=%2Fdashboard%2Fcreator"
+    getAccountRegistrationHref("workshopgever", "/profile?tab=profiel"),
+    "/register/creator?focus=workshopgever&next=%2Fprofile%3Ftab%3Dprofiel"
   );
   assert.equal(
     getAccountRegistrationHref("organizer", null),
-    "/register/creator?focus=organizer&next=%2Fdashboard%2Fcreator"
+    "/register/creator?focus=organizer&next=%2Fprofile%3Ftab%3Dprofiel%23maker-pagina"
   );
 });
 
@@ -27,6 +27,6 @@ test("rejects external-looking return paths", () => {
 
 test("falls back to role-appropriate destinations for unsafe or absent paths", () => {
   assert.equal(getAccountRegistrationHref("member", "//external.example"), "/register");
-  assert.equal(getAccountRegistrationHref("creator", ""), "/register/creator?next=%2Fdashboard%2Fcreator");
+  assert.equal(getAccountRegistrationHref("creator", ""), "/register/creator?next=%2Fprofile%3Ftab%3Dprofiel%23maker-pagina");
   assert.equal(getAccountRegistrationHref("merchant", null), "/register/merchant?next=%2Fdashboard%2Fverkoper");
 });

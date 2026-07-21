@@ -28,6 +28,10 @@ import {
 } from "@/lib/platform/commercial-enforcement";
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
+import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
+import { syncPrivilegedRolesFromCreatorTypes } from "@/lib/platform/queries/role-requests";
+
+const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 
 const PRODUCT_TYPES = new Set([
   "supply",
@@ -131,6 +135,17 @@ function parseOptionalCurrencyCode(formData: FormData, field: string): string | 
     throw new Error(`${field} is ongeldig.`);
   }
   return raw;
+}
+
+function parseOptionalEuroToCents(formData: FormData, field: string): number | null {
+  const raw = formData.get(field)?.toString().trim();
+  if (!raw) return null;
+  const normalized = raw.replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${field} is ongeldig.`);
+  }
+  return Math.round(parsed * 100);
 }
 
 function parseUuidValues(formData: FormData, field: string): string[] {
@@ -264,47 +279,20 @@ async function syncCreatorAccountRoles(
   creatorTypes: string[],
   supabase: ReturnType<typeof createPlatformClient>
 ): Promise<string | null> {
-  const desiredRoles = new Set<string>(["creator"]);
-  if (creatorTypes.includes("workshopgever")) {
-    desiredRoles.add("workshop_host");
-  }
-  if (creatorTypes.includes("organizer")) {
-    desiredRoles.add("organizer");
-  }
-
-  for (const role of desiredRoles) {
-    const { error } = await supabase.from("user_account_roles").upsert(
-      {
-        user_id: userId,
-        role,
-      },
-      { onConflict: "user_id,role" }
-    );
-    if (error) {
-      return error.message;
-    }
+  const { error } = await supabase.from("user_account_roles").upsert(
+    {
+      user_id: userId,
+      role: "creator",
+    },
+    { onConflict: "user_id,role" }
+  );
+  if (error) {
+    return error.message;
   }
 
-  const rolesToRemove: Array<"workshop_host" | "organizer"> = [];
-  if (!desiredRoles.has("workshop_host")) {
-    rolesToRemove.push("workshop_host");
-  }
-  if (!desiredRoles.has("organizer")) {
-    rolesToRemove.push("organizer");
-  }
-
-  if (rolesToRemove.length > 0) {
-    const { error } = await supabase
-      .from("user_account_roles")
-      .delete()
-      .eq("user_id", userId)
-      .in("role", rolesToRemove);
-    if (error) {
-      return error.message;
-    }
-  }
-
-  return null;
+  return syncPrivilegedRolesFromCreatorTypes(userId, creatorTypes, {
+    source: "creator_profile_sync",
+  });
 }
 
 async function syncCreatorDomains(
@@ -587,7 +575,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
   try {
     const user = await getAuthUser();
     if (!user) {
-      fail("/login?next=/dashboard/creator", "Meld je eerst aan.");
+      fail("/login?next=/profile", "Meld je eerst aan.");
     }
 
     const displayName = parseRequiredString(formData, "display_name");
@@ -666,7 +654,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
           code: error.code,
           message: error.message,
         });
-        fail("/dashboard/creator", "Opslaan van creator-profiel mislukt.");
+        fail(CREATOR_MAKER_PATH, "Opslaan van creator-profiel mislukt.");
       }
 
       const domainSyncError = await syncCreatorDomains(
@@ -675,7 +663,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         supabase
       );
       if (domainSyncError) {
-        fail("/dashboard/creator", "Opslaan van hobby-domeinen mislukt.");
+        fail(CREATOR_MAKER_PATH, "Opslaan van hobby-domeinen mislukt.");
       }
     } else {
       const { data: insertedRows, error } = await supabase
@@ -689,7 +677,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
           code: error?.code,
           message: error?.message,
         });
-        fail("/dashboard/creator", "Aanmaken van creator-profiel mislukt.");
+        fail(CREATOR_MAKER_PATH, "Aanmaken van creator-profiel mislukt.");
       }
 
       const domainSyncError = await syncCreatorDomains(
@@ -698,7 +686,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         supabase
       );
       if (domainSyncError) {
-        fail("/dashboard/creator", "Opslaan van hobby-domeinen mislukt.");
+        fail(CREATOR_MAKER_PATH, "Opslaan van hobby-domeinen mislukt.");
       }
     }
 
@@ -712,19 +700,19 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         userId: user.id,
         message: roleSyncError,
       });
-      fail("/dashboard/creator", "Creator-rol kon niet worden opgeslagen.");
+      fail(CREATOR_MAKER_PATH, "Creator-rol kon niet worden opgeslagen.");
     }
 
     revalidatePath("/dashboard");
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath("/dashboard/account");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
-    ok("/dashboard/creator", "Creator-profiel opgeslagen.");
+    ok(CREATOR_MAKER_PATH, "Creator-profiel opgeslagen.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -740,7 +728,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
     const creator = await getCreatorByUserId(user.id);
     if (!creator) {
       fail(
-        "/dashboard/creator?tab=profiel",
+        "/profile?tab=profiel",
         "Maak eerst je maker-pagina aan voordat je rollen kiest."
       );
     }
@@ -772,10 +760,10 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
     }
 
     revalidatePath("/dashboard");
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath("/dashboard/account");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/account", "Je rollen zijn opgeslagen.");
+    ok("/dashboard/account", "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -795,7 +783,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
     const sortOrder = parseOptionalInt(formData, "sort_order");
 
     if (!ENTITY_LINK_TARGET_TYPES.has(targetType)) {
-      fail("/dashboard/creator", "Ongeldig target type.");
+      fail(CREATOR_MAKER_PATH, "Ongeldig target type.");
     }
 
     if (targetType !== "project") {
@@ -806,7 +794,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
       );
       if (!creatorOwnsTarget) {
         fail(
-          "/dashboard/creator",
+          CREATOR_MAKER_PATH,
           "Je kan alleen linken naar je eigen producten, workshops, events, artikels of projecten."
         );
       }
@@ -824,7 +812,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
       .limit(1);
 
     if (existingRows && existingRows.length > 0) {
-      fail("/dashboard/creator", "Deze link bestaat al.");
+      fail(CREATOR_MAKER_PATH, "Deze link bestaat al.");
     }
 
     const { error } = await supabase.from("entity_links").insert({
@@ -838,16 +826,16 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
     });
 
     if (error) {
-      fail("/dashboard/creator", "Aanmaken van entity link mislukt.");
+      fail(CREATOR_MAKER_PATH, "Aanmaken van entity link mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/creator", "Entity link toegevoegd.");
+    ok(CREATOR_MAKER_PATH, "Entity link toegevoegd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -866,16 +854,16 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
       .eq("source_entity_id", creator.id);
 
     if (error) {
-      fail("/dashboard/creator", "Verwijderen van entity link mislukt.");
+      fail(CREATOR_MAKER_PATH, "Verwijderen van entity link mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/creator", "Entity link verwijderd.");
+    ok(CREATOR_MAKER_PATH, "Entity link verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -890,12 +878,12 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
     const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
 
     if (!linkedProject) {
-      fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
+      fail(CREATOR_MAKER_PATH, "Project niet gelinkt aan jouw creator-profiel.");
     }
 
     const user = await getAuthUser();
     if (!user) {
-      fail("/login?next=/dashboard/creator", "Meld je eerst aan.");
+      fail("/login?next=/profile", "Meld je eerst aan.");
     }
 
     const imageUrl = await requireUploadedImageUrl(
@@ -913,17 +901,17 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
     });
 
     if (error) {
-      fail("/dashboard/creator", "Galerijafbeelding toevoegen mislukt.");
+      fail(CREATOR_MAKER_PATH, "Galerijafbeelding toevoegen mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
-    ok("/dashboard/creator", "Galerijafbeelding toegevoegd.");
+    ok(CREATOR_MAKER_PATH, "Galerijafbeelding toegevoegd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -941,12 +929,12 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
       .maybeSingle();
 
     if (!row?.project_id) {
-      fail("/dashboard/creator", "Galerijafbeelding niet gevonden.");
+      fail(CREATOR_MAKER_PATH, "Galerijafbeelding niet gevonden.");
     }
 
     const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id as string);
     if (!linkedProject) {
-      fail("/dashboard/creator", "Geen rechten op dit project.");
+      fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
     const { error } = await supabase
@@ -954,17 +942,17 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
       .delete()
       .eq("id", galleryImageId);
     if (error) {
-      fail("/dashboard/creator", "Verwijderen van galerijafbeelding mislukt.");
+      fail(CREATOR_MAKER_PATH, "Verwijderen van galerijafbeelding mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
-    ok("/dashboard/creator", "Galerijafbeelding verwijderd.");
+    ok(CREATOR_MAKER_PATH, "Galerijafbeelding verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -980,7 +968,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
     const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
 
     if (!linkedProject) {
-      fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
+      fail(CREATOR_MAKER_PATH, "Project niet gelinkt aan jouw creator-profiel.");
     }
 
     const ownsProduct = await creatorOwnsEntityTarget(creator.id, "product", productId);
@@ -998,7 +986,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
       );
     if (!ownsProduct && !isMaterialProduct) {
       fail(
-        "/dashboard/creator",
+        CREATOR_MAKER_PATH,
         "Je kan alleen je eigen producten of materialen (supply/workshop_kit) uit de webshop koppelen."
       );
     }
@@ -1013,17 +1001,17 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
       { onConflict: "project_id,product_id" }
     );
     if (error) {
-      fail("/dashboard/creator", "Product koppelen aan project mislukt.");
+      fail(CREATOR_MAKER_PATH, "Product koppelen aan project mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
-    ok("/dashboard/creator", "Product gekoppeld aan project.");
+    ok(CREATOR_MAKER_PATH, "Product gekoppeld aan project.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1041,12 +1029,12 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
       .maybeSingle();
 
     if (!row?.project_id) {
-      fail("/dashboard/creator", "Project-productlink niet gevonden.");
+      fail(CREATOR_MAKER_PATH, "Project-productlink niet gevonden.");
     }
 
     const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id as string);
     if (!linkedProject) {
-      fail("/dashboard/creator", "Geen rechten op dit project.");
+      fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
     const { error } = await supabase
@@ -1054,17 +1042,17 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
       .delete()
       .eq("id", projectProductLinkId);
     if (error) {
-      fail("/dashboard/creator", "Verwijderen van project-productlink mislukt.");
+      fail(CREATOR_MAKER_PATH, "Verwijderen van project-productlink mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
-    ok("/dashboard/creator", "Project-productlink verwijderd.");
+    ok(CREATOR_MAKER_PATH, "Project-productlink verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1080,7 +1068,7 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
     const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
 
     if (!linkedProject) {
-      fail("/dashboard/creator", "Project niet gelinkt aan jouw creator-profiel.");
+      fail(CREATOR_MAKER_PATH, "Project niet gelinkt aan jouw creator-profiel.");
     }
 
     const { insertProjectSoughtMaterial } = await import("@/lib/platform/queries/projects");
@@ -1091,19 +1079,19 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
 
     if (!material) {
       fail(
-        "/dashboard/creator",
+        CREATOR_MAKER_PATH,
         "Gezocht materiaal toevoegen mislukt. Mogelijk bestaat het al."
       );
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
-    ok("/dashboard/creator", "Materiaal gezocht toegevoegd.");
+    ok(CREATOR_MAKER_PATH, "Materiaal gezocht toegevoegd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1121,28 +1109,28 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
       .maybeSingle();
 
     if (!row?.project_id) {
-      fail("/dashboard/creator", "Gezocht materiaal niet gevonden.");
+      fail(CREATOR_MAKER_PATH, "Gezocht materiaal niet gevonden.");
     }
 
     const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id);
     if (!linkedProject) {
-      fail("/dashboard/creator", "Geen rechten op dit project.");
+      fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
     const { deleteProjectSoughtMaterial } = await import("@/lib/platform/queries/projects");
     const okDel = await deleteProjectSoughtMaterial(soughtMaterialId);
     if (!okDel) {
-      fail("/dashboard/creator", "Verwijderen mislukt.");
+      fail(CREATOR_MAKER_PATH, "Verwijderen mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
+    revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${linkedProject.slug}`);
-    ok("/dashboard/creator", "Gezocht materiaal verwijderd.");
+    ok(CREATOR_MAKER_PATH, "Gezocht materiaal verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1160,7 +1148,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
     const domainId = parseOptionalUuid(formData, "domain_id");
 
     if (!isAuthorableArticleType(articleType)) {
-      fail("/dashboard/creator", "Ongeldig artikeltype.");
+      fail(CREATOR_MAKER_PATH, "Ongeldig artikeltype.");
     }
 
     const supabase = createPlatformClient();
@@ -1181,7 +1169,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       .single();
 
     if (error || !article?.id) {
-      fail("/dashboard/creator", "Aanmaken van artikel mislukt.");
+      fail(CREATOR_MAKER_PATH, "Aanmaken van artikel mislukt.");
     }
 
     await generateArticleLinkSuggestions({
@@ -1191,12 +1179,12 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       sourceText: [title, excerpt ?? "", bodyMarkdown ?? ""].join(" "),
     });
 
-    revalidatePath("/dashboard/creator");
-    ok("/dashboard/creator", "Artikel opgeslagen met link-suggesties.");
+    revalidatePath("/profile");
+    ok(CREATOR_MAKER_PATH, "Artikel opgeslagen met link-suggesties.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1215,7 +1203,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
     const domainId = parseOptionalUuid(formData, "domain_id");
 
     if (!isAuthorableArticleType(articleType)) {
-      fail("/dashboard/creator", "Ongeldig artikeltype.");
+      fail(CREATOR_MAKER_PATH, "Ongeldig artikeltype.");
     }
 
     const supabase = createPlatformClient();
@@ -1235,7 +1223,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       .eq("author_creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/creator", "Bijwerken van artikel mislukt.");
+      fail(CREATOR_MAKER_PATH, "Bijwerken van artikel mislukt.");
     }
 
     await supabase
@@ -1252,12 +1240,12 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       sourceText: [title, excerpt ?? "", bodyMarkdown ?? ""].join(" "),
     });
 
-    revalidatePath("/dashboard/creator");
-    ok("/dashboard/creator", "Artikel bijgewerkt. Suggesties vernieuwd.");
+    revalidatePath("/profile");
+    ok(CREATOR_MAKER_PATH, "Artikel bijgewerkt. Suggesties vernieuwd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1279,7 +1267,7 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
       .maybeSingle();
 
     if (linkError || !linkRow) {
-      fail("/dashboard/creator", "Suggestie niet gevonden.");
+      fail(CREATOR_MAKER_PATH, "Suggestie niet gevonden.");
     }
 
     const { data: articleRow } = await supabase
@@ -1290,7 +1278,7 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
       .maybeSingle();
 
     if (!articleRow?.id) {
-      fail("/dashboard/creator", "Geen rechten op deze suggestie.");
+      fail(CREATOR_MAKER_PATH, "Geen rechten op deze suggestie.");
     }
 
     const { error } = await supabase
@@ -1301,15 +1289,15 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
       .eq("id", entityLinkId);
 
     if (error) {
-      fail("/dashboard/creator", "Bevestigen van suggestie mislukt.");
+      fail(CREATOR_MAKER_PATH, "Bevestigen van suggestie mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
-    ok("/dashboard/creator", "Suggestie bevestigd.");
+    revalidatePath("/profile");
+    ok(CREATOR_MAKER_PATH, "Suggestie bevestigd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1330,7 +1318,7 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
       .maybeSingle();
 
     if (linkError || !linkRow) {
-      fail("/dashboard/creator", "Suggestie niet gevonden.");
+      fail(CREATOR_MAKER_PATH, "Suggestie niet gevonden.");
     }
 
     const { data: articleRow } = await supabase
@@ -1341,7 +1329,7 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
       .maybeSingle();
 
     if (!articleRow?.id) {
-      fail("/dashboard/creator", "Geen rechten op deze suggestie.");
+      fail(CREATOR_MAKER_PATH, "Geen rechten op deze suggestie.");
     }
 
     const { error } = await supabase
@@ -1350,15 +1338,15 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
       .eq("id", entityLinkId);
 
     if (error) {
-      fail("/dashboard/creator", "Verwijderen van suggestie mislukt.");
+      fail(CREATOR_MAKER_PATH, "Verwijderen van suggestie mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
-    ok("/dashboard/creator", "Suggestie verwijderd.");
+    revalidatePath("/profile");
+    ok(CREATOR_MAKER_PATH, "Suggestie verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1414,7 +1402,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
-      urlField: "featured_image_url",
+      urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/products`,
     });
 
@@ -1519,7 +1507,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
       const featuredImageUrl = await resolveProductImageUrl(formData, {
         fileField: "featured_image_file",
-        urlField: "featured_image_url",
+        urlField: "featured_image_file_uploaded_url",
         existingUrl: existingProduct.featured_image_url,
         pathPrefix: `creators/${creator.id}/products`,
       });
@@ -1570,7 +1558,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const slug = await ensureUniqueSlug("products", preferredSlug, productId);
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
-      urlField: "featured_image_url",
+      urlField: "featured_image_file_uploaded_url",
       existingUrl: existingProduct.featured_image_url,
       pathPrefix: `creators/${creator.id}/products`,
     });
@@ -1764,7 +1752,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       creator.creator_types ?? [],
       {
         booking_mode: bookingMode,
-        booking_url: parseOptionalString(formData, "booking_url"),
+        booking_url: null,
         is_active: isActive,
       }
     );
@@ -1772,8 +1760,12 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", enforced.error);
     }
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("workshops", preferredSlug);
+    const slug = await ensureUniqueSlug("workshops", title);
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_file_uploaded_url",
+      pathPrefix: `creators/${creator.id}/workshops`,
+    });
     const supabase = createPlatformClient();
 
     const { error } = await supabase.from("workshops").insert({
@@ -1782,7 +1774,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       title,
       short_description: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
-      featured_image_url: parseOptionalString(formData, "featured_image_url"),
+      featured_image_url: featuredImageUrl,
       format_type: formatType,
       difficulty_level: difficultyLevel,
       booking_mode: enforced.booking_mode,
@@ -1791,7 +1783,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       location_name: parseOptionalString(formData, "location_name"),
       duration_minutes: parseOptionalInt(formData, "duration_minutes"),
       capacity: parseOptionalInt(formData, "capacity"),
-      price_cents: parseOptionalInt(formData, "price_cents") ?? 0,
+      price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
       is_active: isActive,
     });
@@ -1836,7 +1828,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       creator.creator_types ?? [],
       {
         booking_mode: bookingMode,
-        booking_url: parseOptionalString(formData, "booking_url"),
+        booking_url: null,
         is_active: isActive,
         excludeWorkshopId: workshopId,
       }
@@ -1845,18 +1837,33 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", enforced.error);
     }
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("workshops", preferredSlug, workshopId);
     const supabase = createPlatformClient();
+    const { data: existingWorkshop, error: existingError } = await supabase
+      .from("workshops")
+      .select("slug, featured_image_url")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (existingError || !existingWorkshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_file_uploaded_url",
+      existingUrl: existingWorkshop.featured_image_url,
+      pathPrefix: `creators/${creator.id}/workshops`,
+    });
 
     const { error } = await supabase
       .from("workshops")
       .update({
-        slug,
+        slug: existingWorkshop.slug,
         title,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
-        featured_image_url: parseOptionalString(formData, "featured_image_url"),
+        featured_image_url: featuredImageUrl,
         format_type: formatType,
         difficulty_level: difficultyLevel,
         booking_mode: enforced.booking_mode,
@@ -1865,13 +1872,12 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
         location_name: parseOptionalString(formData, "location_name"),
         duration_minutes: parseOptionalInt(formData, "duration_minutes"),
         capacity: parseOptionalInt(formData, "capacity"),
-        price_cents: parseOptionalInt(formData, "price_cents") ?? 0,
+        price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         is_active: isActive,
       })
       .eq("id", workshopId)
       .eq("creator_id", creator.id);
-
     if (error) {
       fail("/dashboard/workshops", "Workshop bijwerken mislukt.");
     }
@@ -1909,12 +1915,16 @@ export async function createEventAction(formData: FormData): Promise<void> {
       null,
       {
         ticketing_mode: ticketingMode,
-        ticket_url: parseOptionalString(formData, "ticket_url"),
+        ticket_url: null,
       }
     );
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("events", preferredSlug);
+    const slug = await ensureUniqueSlug("events", title);
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_file_uploaded_url",
+      pathPrefix: `creators/${creator.id}/events`,
+    });
     const supabase = createPlatformClient();
 
     const { data: createdEvent, error } = await supabase
@@ -1935,9 +1945,9 @@ export async function createEventAction(formData: FormData): Promise<void> {
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
       ticketing_mode: enforcedTicketing.ticketing_mode,
       ticket_url: enforcedTicketing.ticket_url,
-      ticket_price_cents: parseOptionalInt(formData, "ticket_price_cents"),
+      ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
-      featured_image_url: parseOptionalString(formData, "featured_image_url"),
+      featured_image_url: featuredImageUrl,
       is_active: !!formData.get("is_active"),
     })
       .select("id")
@@ -1987,18 +1997,33 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       eventEntitlements.externalLinksAllowed,
       {
         ticketing_mode: ticketingMode,
-        ticket_url: parseOptionalString(formData, "ticket_url"),
+        ticket_url: null,
       }
     );
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("events", preferredSlug, eventId);
     const supabase = createPlatformClient();
+    const { data: existingEvent, error: existingError } = await supabase
+      .from("events")
+      .select("slug, featured_image_url")
+      .eq("id", eventId)
+      .eq("organizer_creator_id", creator.id)
+      .maybeSingle();
+
+    if (existingError || !existingEvent) {
+      fail("/dashboard/events", "Event niet gevonden.");
+    }
+
+    const featuredImageUrl = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_file_uploaded_url",
+      existingUrl: existingEvent.featured_image_url,
+      pathPrefix: `creators/${creator.id}/events`,
+    });
 
     const { error } = await supabase
       .from("events")
       .update({
-        slug,
+        slug: existingEvent.slug,
         title,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
@@ -2012,9 +2037,9 @@ export async function updateEventAction(formData: FormData): Promise<void> {
         country_code: parseOptionalString(formData, "country_code") ?? "BE",
         ticketing_mode: enforcedTicketing.ticketing_mode,
         ticket_url: enforcedTicketing.ticket_url,
-        ticket_price_cents: parseOptionalInt(formData, "ticket_price_cents"),
+        ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
-        featured_image_url: parseOptionalString(formData, "featured_image_url"),
+        featured_image_url: featuredImageUrl,
         is_active: !!formData.get("is_active"),
       })
       .eq("id", eventId)
@@ -2197,15 +2222,15 @@ export async function purchaseSpotlightBoostFormAction(
     });
 
     if (!result.ok) {
-      fail("/dashboard/creator", result.error ?? "Spotlight aankoop mislukt.");
+      fail(CREATOR_MAKER_PATH, result.error ?? "Spotlight aankoop mislukt.");
     }
 
-    revalidatePath("/dashboard/creator");
-    ok("/dashboard/creator", "Spotlight geactiveerd.");
+    revalidatePath("/profile");
+    ok(CREATOR_MAKER_PATH, "Spotlight geactiveerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/creator",
+      CREATOR_MAKER_PATH,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }

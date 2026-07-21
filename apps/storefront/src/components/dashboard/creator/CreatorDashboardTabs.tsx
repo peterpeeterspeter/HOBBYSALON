@@ -4,6 +4,7 @@ import { CREATOR_TABS, type CreatorTab } from "./types";
 
 type CreatorDashboardTabsProps = {
   activeTab: CreatorTab;
+  basePath?: string;
   preserveQuery?: {
     success?: string;
     error?: string;
@@ -13,6 +14,7 @@ type CreatorDashboardTabsProps = {
 
 function buildTabHref(
   tab: CreatorTab,
+  basePath: string,
   preserveQuery?: CreatorDashboardTabsProps["preserveQuery"]
 ) {
   const params = new URLSearchParams();
@@ -23,11 +25,12 @@ function buildTabHref(
   if (preserveQuery?.error) {
     params.set("error", preserveQuery.error);
   }
-  return `/dashboard/creator?${params.toString()}`;
+  return `${basePath}?${params.toString()}#maker-pagina`;
 }
 
 export function CreatorDashboardTabs({
   activeTab,
+  basePath = "/profile",
   preserveQuery,
   children,
 }: CreatorDashboardTabsProps) {
@@ -40,7 +43,7 @@ export function CreatorDashboardTabs({
         {CREATOR_TABS.map((tab) => (
           <Link
             key={tab.id}
-            href={buildTabHref(tab.id, preserveQuery)}
+            href={buildTabHref(tab.id, basePath, preserveQuery)}
             aria-current={activeTab === tab.id ? "page" : undefined}
             className={cn(
               "rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors",
