@@ -98,7 +98,7 @@ export default async function DashboardHomePage() {
     caps.canManageProducts
       ? {
           key: "products",
-          label: "Producten",
+          label: "Jouw Shop",
           count: productCount,
           href: "/dashboard/products",
         }
@@ -164,7 +164,7 @@ export default async function DashboardHomePage() {
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/dashboard/creator?tab=profiel">Maker-pagina instellen</Link>
+              <Link href="/profile?tab=profiel#maker-pagina">Makerprofiel instellen</Link>
             </Button>
             <Button asChild variant="secondary">
               <Link href="/dashboard/account">Rollen & voorkeuren</Link>
@@ -200,7 +200,7 @@ export default async function DashboardHomePage() {
             ) : null}
             {caps.canViewCreatorPage ? (
               <Button asChild variant="secondary">
-                <Link href="/dashboard/creator">Mijn pagina</Link>
+                <Link href="/profile#maker-pagina">Jouw makerprofiel</Link>
               </Button>
             ) : null}
           </div>
@@ -236,12 +236,12 @@ export default async function DashboardHomePage() {
           {caps.canViewCreatorPage ? (
             <li>
               <Link
-                href="/dashboard/creator"
+                href="/profile#maker-pagina"
                 className="block rounded-lg border border-[var(--border)] px-4 py-3 text-sm hover:border-[var(--accent)]"
               >
-                <span className="font-medium text-[var(--foreground)]">Mijn pagina</span>
+                <span className="font-medium text-[var(--foreground)]">Jouw makerprofiel</span>
                 <span className="mt-1 block text-[var(--muted)]">
-                  Profiel, artikels en portfolio
+                  Maak je publieke makerpagina aan, schrijf artikels en toon je portfolio
                 </span>
               </Link>
             </li>

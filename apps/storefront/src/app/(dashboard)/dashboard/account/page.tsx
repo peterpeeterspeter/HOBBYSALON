@@ -18,6 +18,10 @@ import {
   ACCOUNT_ROLE_LABELS,
   sortAccountRoles,
 } from "@/lib/auth/account-roles";
+import {
+  hasPendingRoleRequest,
+  privilegedRoleLabel,
+} from "@/lib/auth/role-request-status";
 import { CREATOR_TYPES } from "@/components/dashboard/creator/types";
 
 type Props = {
@@ -42,6 +46,13 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
   });
   const hasMerchantRole = registrationContext.roles.includes("merchant");
   const sortedRoles = sortAccountRoles(registrationContext.roles);
+  const pendingRequests = registrationContext.pendingRoleRequests;
+  const pendingMerchant = hasPendingRoleRequest(pendingRequests, "merchant");
+  const pendingWorkshopHost = hasPendingRoleRequest(
+    pendingRequests,
+    "workshop_host"
+  );
+  const pendingOrganizer = hasPendingRoleRequest(pendingRequests, "organizer");
   const selectedCreatorTypes = new Set(creator?.creator_types ?? []);
   const { success, error } = await searchParams;
 
@@ -86,7 +97,23 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
               {ACCOUNT_ROLE_LABELS[role]}
             </li>
           ))}
+          {pendingRequests
+            .filter((request) => request.status === "pending")
+            .map((request) => (
+              <li
+                key={request.id}
+                className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900"
+              >
+                {privilegedRoleLabel(request.role)} · in behandeling
+              </li>
+            ))}
         </ul>
+        {pendingRequests.some((request) => request.status === "pending") ? (
+          <p className="text-sm text-[var(--muted)]">
+            Je aanvraag staat klaar voor beoordeling. Je krijgt toegang zodra we
+            die goedkeuren.
+          </p>
+        ) : null}
       </CardShell>
 
       <CardShell variant="default" padding="lg" className="space-y-4">
@@ -95,9 +122,22 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
             Wat doe je op Hobbysalon?
           </h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Kies wat bij je past. Je menu toont daarna alleen die onderdelen.
+            Kies wat bij je past. Workshopgever en organisator vereisen
+            goedkeuring door Hobbysalon.
           </p>
         </div>
+
+        {(pendingWorkshopHost || pendingOrganizer) && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {[
+              pendingWorkshopHost ? "Workshopgever" : null,
+              pendingOrganizer ? "Organisator" : null,
+            ]
+              .filter(Boolean)
+              .join(" en ")}{" "}
+            wacht op goedkeuring.
+          </p>
+        )}
 
         {creator ? (
           <form action={updateCreatorTypesAction} className="space-y-4">
@@ -136,7 +176,7 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
               leverancier, contentmaker of organisator bent.
             </p>
             <Button asChild size="sm">
-              <Link href="/dashboard/creator?tab=profiel">Maker-pagina aanmaken</Link>
+              <Link href="/profile?tab=profiel#maker-pagina">Makerprofiel aanmaken</Link>
             </Button>
           </div>
         )}
@@ -157,6 +197,11 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
               <Link href="/dashboard/verkoper">Open verkopersportaal</Link>
             </Button>
           </div>
+        ) : pendingMerchant ? (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Je merchant-aanvraag wacht op goedkeuring. Je verkopersportaal opent
+            zodra we die goedkeuren.
+          </p>
         ) : hasMerchantRole ? (
           <div className="space-y-3">
             <p className="text-sm text-[var(--muted)]">

@@ -17,10 +17,13 @@ export function CreatorDashboardHeader({
     <header className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Mijn pagina</h1>
+          <h2 id="maker-pagina-heading" className="text-3xl font-bold text-[var(--foreground)]">
+            Jouw makerprofiel
+          </h2>
           <p className="mt-2 max-w-2xl text-[var(--muted)]">
-            Vul je maker-pagina in, schrijf artikels en toon je afgewerkte creaties.
-            Rollen en voorkeuren regel je onder Account.
+            Maak hier je publieke makerpagina aan op Hobbysalon. Vul je naam, foto en hobby&apos;s
+            in — zo vinden andere makers en bezoekers jou. Schrijf artikels en toon je portfolio
+            wanneer je klaar bent. Rollen en voorkeuren regel je in het dashboard onder Account.
           </p>
         </div>
         {creatorSlug && (

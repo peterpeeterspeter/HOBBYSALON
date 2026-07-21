@@ -6,6 +6,7 @@ import {
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
 import { persistUserRegistrationProfile } from "./user-registration";
+import { syncPrivilegedRolesFromCreatorTypes } from "./role-requests";
 
 const ALLOWED_CREATOR_TYPES = new Set<string>([
   "maker",
@@ -126,12 +127,6 @@ export async function persistCreatorRegistrationProfile(
   }
 
   const roleSet = new Set<string>(["creator"]);
-  if (creatorTypes.includes("workshopgever")) {
-    roleSet.add("workshop_host");
-  }
-  if (creatorTypes.includes("organizer")) {
-    roleSet.add("organizer");
-  }
 
   for (const role of roleSet) {
     const { error } = await supabase
@@ -140,6 +135,15 @@ export async function persistCreatorRegistrationProfile(
     if (error) {
       errors.push(error.message);
     }
+  }
+
+  const privilegedSyncError = await syncPrivilegedRolesFromCreatorTypes(
+    input.userId,
+    creatorTypes,
+    { source: "creator_registration" }
+  );
+  if (privilegedSyncError) {
+    errors.push(privilegedSyncError);
   }
 
   const slug = await ensureUniqueCreatorSlug(

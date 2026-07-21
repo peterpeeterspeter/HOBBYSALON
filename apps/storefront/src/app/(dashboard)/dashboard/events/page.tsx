@@ -10,6 +10,7 @@ import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 import type { Event } from "@/types/platform";
 
 type Props = {
@@ -33,6 +34,11 @@ function toDateTimeLocal(value: string): string {
   const date = new Date(value);
   const timezoneOffset = date.getTimezoneOffset() * 60000;
   return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+}
+
+function formatEuroFromCents(cents: number | null | undefined): string {
+  if (cents == null) return "";
+  return (cents / 100).toFixed(2);
 }
 
 export default async function DashboardEventsPage({ searchParams }: Props) {
@@ -120,16 +126,12 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
       ) : (
         <>
           <CardShell variant="default" padding="lg">
-          <form action={createEventAction}>
+          <form action={createEventAction} encType="multipart/form-data">
             <h2 className="text-lg font-semibold">Nieuw event</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label>
+              <label className="sm:col-span-2">
                 <span className="mb-1 block text-sm font-medium">Titel *</span>
                 <input name="title" required className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
-              <label>
-                <span className="mb-1 block text-sm font-medium">Slug</span>
-                <input name="slug" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
               <label>
                 <span className="mb-1 block text-sm font-medium">Type *</span>
@@ -176,8 +178,8 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                 />
               </label>
               <label>
-                <span className="mb-1 block text-sm font-medium">Locatie</span>
-                <input name="location_name" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
+                <span className="mb-1 block text-sm font-medium">Locatie of zaal</span>
+                <input name="location_name" placeholder="bijv. Schaliken" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
               <label>
                 <span className="mb-1 block text-sm font-medium">Stad</span>
@@ -192,17 +194,24 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                 <input name="postal_code" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
               </label>
               <label>
-                <span className="mb-1 block text-sm font-medium">Ticket URL</span>
-                <input name="ticket_url" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
+                <span className="mb-1 block text-sm font-medium">Ticketprijs (€)</span>
+                <input
+                  name="ticket_price_euro"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0,00"
+                  className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                />
               </label>
-              <label>
-                <span className="mb-1 block text-sm font-medium">Ticketprijs (cent)</span>
-                <input name="ticket_price_cents" type="number" min={0} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
-              <label>
-                <span className="mb-1 block text-sm font-medium">Afbeelding URL</span>
-                <input name="featured_image_url" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-              </label>
+              <div className="sm:col-span-2">
+                <ImageUploadField
+                  name="featured_image_file"
+                  label="Eventfoto"
+                  uploadPathPrefix={`creators/${creator.id}/events`}
+                  hint="Foto voor in de agenda. JPEG, PNG, WebP of GIF."
+                />
+              </div>
               <label className="sm:col-span-2">
                 <span className="mb-1 block text-sm font-medium">Korte omschrijving</span>
                 <input name="short_description" className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
@@ -237,15 +246,11 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       ({event.event_type}){event.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
-                  <form action={updateEventAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <form action={updateEventAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={event.id} />
-                    <label>
+                    <label className="sm:col-span-2">
                       <span className="mb-1 block text-sm font-medium">Titel *</span>
                       <input name="title" required defaultValue={event.title} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-                    </label>
-                    <label>
-                      <span className="mb-1 block text-sm font-medium">Slug</span>
-                      <input name="slug" defaultValue={event.slug} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
                     <label>
                       <span className="mb-1 block text-sm font-medium">Type *</span>
@@ -292,7 +297,7 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       />
                     </label>
                     <label>
-                      <span className="mb-1 block text-sm font-medium">Locatie</span>
+                      <span className="mb-1 block text-sm font-medium">Locatie of zaal</span>
                       <input name="location_name" defaultValue={event.location_name ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
                     <label>
@@ -308,17 +313,25 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       <input name="postal_code" defaultValue={event.postal_code ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
                     </label>
                     <label>
-                      <span className="mb-1 block text-sm font-medium">Ticket URL</span>
-                      <input name="ticket_url" defaultValue={event.ticket_url ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
+                      <span className="mb-1 block text-sm font-medium">Ticketprijs (€)</span>
+                      <input
+                        name="ticket_price_euro"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        defaultValue={formatEuroFromCents(event.ticket_price_cents)}
+                        className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                      />
                     </label>
-                    <label>
-                      <span className="mb-1 block text-sm font-medium">Ticketprijs (cent)</span>
-                      <input name="ticket_price_cents" type="number" min={0} defaultValue={event.ticket_price_cents ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-                    </label>
-                    <label>
-                      <span className="mb-1 block text-sm font-medium">Afbeelding URL</span>
-                      <input name="featured_image_url" defaultValue={event.featured_image_url ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />
-                    </label>
+                    <div className="sm:col-span-2">
+                      <ImageUploadField
+                        name="featured_image_file"
+                        label="Eventfoto"
+                        currentUrl={event.featured_image_url}
+                        uploadPathPrefix={`creators/${creator.id}/events`}
+                        hint="Foto voor in de agenda. Laat leeg om de huidige foto te behouden."
+                      />
+                    </div>
                     <label className="sm:col-span-2">
                       <span className="mb-1 block text-sm font-medium">Korte omschrijving</span>
                       <input name="short_description" defaultValue={event.short_description ?? ""} className="w-full rounded-md border border-[var(--border)] px-3 py-2" />

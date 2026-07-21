@@ -62,7 +62,7 @@ function resolveFocus(
 export default async function RegisterCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, focus } = await searchParams;
-  const nextPath = getSafeInternalPath(next, "/dashboard/creator");
+  const nextPath = getSafeInternalPath(next, "/profile?tab=profiel#maker-pagina");
   const resolved = resolveFocus(focus);
 
   if (user) {

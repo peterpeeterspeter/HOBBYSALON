@@ -8,6 +8,7 @@ const baseContext = {
   preference: null,
   sellerLinks: [] as Array<{ sellerId: string; sellerType: "creator" | "merchant" }>,
   hasCreatorProfile: false,
+  pendingRoleRequests: [],
 };
 
 test("hobbyist only sees overview and account", () => {
@@ -33,7 +34,7 @@ test("workshopgever sees workshops but not events or vendor portal", () => {
   });
   const nav = buildRoleAwareDashboardNav(caps).map((item) => item.href);
   assert.ok(nav.includes("/dashboard/workshops"));
-  assert.ok(nav.includes("/dashboard/creator"));
+  assert.ok(!nav.includes("/dashboard/creator"));
   assert.ok(!nav.includes("/dashboard/events"));
   assert.ok(!nav.includes("/dashboard/verkoper"));
   assert.ok(!nav.includes("/dashboard/products"));
@@ -53,6 +54,20 @@ test("organizer sees events but not workshops or vendor portal", () => {
   assert.ok(nav.includes("/dashboard/events"));
   assert.ok(!nav.includes("/dashboard/workshops"));
   assert.ok(!nav.includes("/dashboard/verkoper"));
+});
+
+test("workshopgever without approved role does not see workshops", () => {
+  const caps = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "creator"],
+      hasCreatorProfile: true,
+      pendingRoleRequests: [{ id: "req-1", role: "workshop_host", status: "pending", createdAt: "2026-01-01T00:00:00.000Z" }],
+    },
+    creatorTypes: ["workshopgever"],
+    hasCreatorProfile: true,
+  });
+  assert.equal(caps.canManageWorkshops, false);
 });
 
 test("vendor portal only for merchant role with merchant seller link", () => {

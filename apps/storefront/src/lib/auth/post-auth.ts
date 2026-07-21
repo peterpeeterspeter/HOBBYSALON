@@ -64,7 +64,7 @@ export async function resolvePostAuthRedirectPath(options: {
   );
 
   if (hasCreatorRole || hasCreatorLink || context.hasCreatorProfile) {
-    return "/dashboard/creator";
+    return "/profile?tab=profiel#maker-pagina";
   }
 
   return safeDefault;

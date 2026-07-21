@@ -785,6 +785,45 @@ Allowed `role` values:
 - `workshop_host`
 - `organizer`
 
+## Table: `role_requests`
+
+Approval queue for privileged roles (`merchant`, `workshop_host`, `organizer`).
+
+Fields:
+
+- `id` (uuid, pk)
+- `user_id` (uuid)
+- `role` (text)
+- `status` (text)
+- `payload` (jsonb)
+- `reviewer_user_id` (uuid, nullable)
+- `reviewer_note` (text, nullable)
+- `reviewed_at` (timestamptz, nullable)
+- `created_at`
+- `updated_at`
+
+Allowed `role`:
+
+- `merchant`
+- `workshop_host`
+- `organizer`
+
+Allowed `status`:
+
+- `pending`
+- `approved`
+- `rejected`
+- `withdrawn`
+
+## Table: `platform_moderators`
+
+Platform moderators for community showcase and role-request queues.
+
+Fields:
+
+- `user_id` (uuid, pk) — Supabase auth user id
+- `created_at`
+
 ## Table: `user_seller_links`
 
 Fields:
