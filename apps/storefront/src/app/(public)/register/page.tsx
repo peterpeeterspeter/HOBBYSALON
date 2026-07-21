@@ -5,6 +5,8 @@ import { AccountChoiceCards } from "@/components/auth/AccountChoiceCards";
 import { registerAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
 import { getSafeInternalPath } from "@/lib/auth/account-paths";
+import { REGISTRATION_HOBBY_DOMAIN_SLUGS } from "@/lib/auth/registration-options";
+import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import type { Metadata } from "next";
@@ -12,7 +14,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Registreren | Hobbysalon",
   description:
-    "Maak een account aan, kies je interesses en ontvang lokale hobby-aanbevelingen.",
+    "Maak een gratis hobbyistenaccount aan, kies je interesses en ontvang relevantere workshops, materialen en inspiratie.",
 };
 
 type Props = {
@@ -28,14 +30,34 @@ export default async function RegisterPage({ searchParams }: Props) {
     redirect(nextPath || "/");
   }
 
+  const preferredSlugSet = new Set<string>(REGISTRATION_HOBBY_DOMAIN_SLUGS);
+  let hobbyDomains: Array<{ id: string; slug: string; name: string }> = [];
+  try {
+    const domains = await listActiveDomains();
+    hobbyDomains = domains
+      .filter((domain) => preferredSlugSet.has(domain.slug))
+      .map((domain) => ({
+        id: domain.id,
+        slug: domain.slug,
+        name: domain.name,
+      }));
+  } catch {
+    hobbyDomains = [];
+  }
+
   return (
     <PageLayout
-      title="Registreren"
-      description="Maak een account aan, geef je interesses en postcode op, en krijg relevantere workshops, events en materialen."
+      title="Word hobbyist op Hobbysalon"
+      description="Maak een gratis account aan voor inspiratie, workshops en materialen. Aanbiedersrollen kies je apart hieronder."
       size="narrow"
     >
-      <CardShell variant="default" padding="lg">
-        <AuthForm mode="register" action={registerAction} nextPath={nextPath} />
+      <CardShell variant="default" padding="lg" className="shadow-[var(--shadow-sm)]">
+        <AuthForm
+          mode="register"
+          action={registerAction}
+          nextPath={nextPath}
+          hobbyDomains={hobbyDomains}
+        />
       </CardShell>
 
       <p className="mt-4 text-sm text-[var(--muted)]">
@@ -44,7 +66,7 @@ export default async function RegisterPage({ searchParams }: Props) {
           href={
             nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"
           }
-          className="text-[var(--accent)] underline"
+          className="font-medium text-[var(--accent)] underline"
         >
           Meld je aan
         </Link>

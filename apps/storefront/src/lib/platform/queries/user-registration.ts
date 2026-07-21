@@ -14,6 +14,7 @@ type PersistUserRegistrationInput = {
   postalCode?: string | null;
   countryCode?: string | null;
   interestTypes?: string[];
+  preferredDomainIds?: string[];
 };
 
 type CompatibilityMigrationInput = {
@@ -42,6 +43,7 @@ export type UserPreferenceSnapshot = {
   postalCode: string | null;
   countryCode: string;
   interestTypes: RegistrationInterestType[];
+  preferredDomainIds: string[];
   onboardingCompleted: boolean;
 };
 
@@ -103,6 +105,22 @@ function sanitizeInterestTypes(
   );
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function sanitizePreferredDomainIds(
+  values: string[] | null | undefined
+): string[] {
+  if (!values || values.length === 0) return [];
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => UUID_RE.test(value))
+    )
+  );
+}
+
 export async function persistUserRegistrationProfile(
   input: PersistUserRegistrationInput
 ): Promise<PersistResult> {
@@ -112,18 +130,26 @@ export async function persistUserRegistrationProfile(
   const postalCode = sanitizePostalCode(input.postalCode);
   const countryCode = sanitizeCountryCode(input.countryCode);
   const interestTypes = sanitizeInterestTypes(input.interestTypes);
+  const preferredDomainIds = sanitizePreferredDomainIds(
+    input.preferredDomainIds
+  );
+
+  const preferencePayload: Record<string, unknown> = {
+    user_id: input.userId,
+    postal_code: postalCode,
+    country_code: countryCode,
+    interest_types: interestTypes,
+    onboarding_completed: true,
+  };
+
+  if (input.preferredDomainIds !== undefined) {
+    preferencePayload.preferred_domain_ids = preferredDomainIds;
+  }
 
   const [preferenceResult, roleResult] = await Promise.all([
-    supabase.from("user_preferences").upsert(
-      {
-        user_id: input.userId,
-        postal_code: postalCode,
-        country_code: countryCode,
-        interest_types: interestTypes,
-        onboarding_completed: true,
-      },
-      { onConflict: "user_id" }
-    ),
+    supabase.from("user_preferences").upsert(preferencePayload, {
+      onConflict: "user_id",
+    }),
     supabase.from("user_account_roles").upsert(
       {
         user_id: input.userId,
@@ -438,7 +464,9 @@ export async function getUserRegistrationContext(
       supabase.from("user_account_roles").select("role").eq("user_id", userId),
       supabase
         .from("user_preferences")
-        .select("city,postal_code,country_code,interest_types,onboarding_completed")
+        .select(
+          "city,postal_code,country_code,interest_types,preferred_domain_ids,onboarding_completed"
+        )
         .eq("user_id", userId)
         .maybeSingle(),
       supabase
@@ -464,6 +492,12 @@ export async function getUserRegistrationContext(
           REGISTRATION_DEFAULT_COUNTRY,
         interestTypes: sanitizeInterestTypes(
           preferenceResult.data.interest_types as string[] | null | undefined
+        ),
+        preferredDomainIds: sanitizePreferredDomainIds(
+          preferenceResult.data.preferred_domain_ids as
+            | string[]
+            | null
+            | undefined
         ),
         onboardingCompleted: !!preferenceResult.data.onboarding_completed,
       }

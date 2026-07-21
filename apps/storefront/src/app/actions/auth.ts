@@ -121,6 +121,9 @@ export async function registerAction(
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
   const interestTypes = parseInterestTypes(formData);
+  const preferredDomainIds = (formData.getAll("preferred_domain_ids") ?? [])
+    .map((value) => value.toString().trim())
+    .filter(Boolean);
   const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!email || !password) {
@@ -159,6 +162,7 @@ export async function registerAction(
       postalCode,
       countryCode,
       interestTypes,
+      preferredDomainIds,
     });
 
     if (!profileResult.ok) {
