@@ -13,18 +13,17 @@ import { listMaterialProductsForSelection } from "@/lib/platform/queries/product
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
-import { resolveCreatorTab } from "@/components/dashboard/creator/types";
-import type {
-  ArticleEntityLink,
-  CreatorProject,
-  CreatorTab,
-  DashboardArticle,
-  ProjectGalleryImage,
-  ProjectProductLink,
-  ProjectSoughtMaterial,
+import {
+  resolveCreatorTab,
+  type ArticleEntityLink,
+  type CreatorProject,
+  type CreatorTab,
+  type DashboardArticle,
+  type ProjectGalleryImage,
+  type ProjectProductLink,
+  type ProjectSoughtMaterial,
 } from "@/components/dashboard/creator/types";
-import type { Creator } from "@/types/platform";
-import type { Domain } from "@/types/platform";
+import type { Creator, Domain } from "@/types/platform";
 
 export type CreatorMakerData = {
   creator: Creator | null;

@@ -487,7 +487,6 @@ export async function onboardMerchantForLoggedInUserAction(
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
   const interestTypes = parseInterestTypes(formData);
-  const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!displayName) {
     return {
