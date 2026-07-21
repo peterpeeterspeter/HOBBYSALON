@@ -1,6 +1,10 @@
+import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { createEventAction, updateEventAction } from "@/app/actions/dashboard";
 import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor-inquiry";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
@@ -33,7 +37,21 @@ function toDateTimeLocal(value: string): string {
 
 export default async function DashboardEventsPage({ searchParams }: Props) {
   const user = await getAuthUser();
-  const creator = user ? await getCreatorByUserId(user.id) : null;
+  if (!user) {
+    redirect("/login?next=/dashboard/events");
+  }
+
+  const [creator, registrationContext] = await Promise.all([
+    getCreatorByUserId(user.id),
+    getUserRegistrationContext(user.id),
+  ]);
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
+  requireDashboardCapability(caps.canManageEvents);
+
   const { success, error } = await searchParams;
 
   let events: Event[] = [];

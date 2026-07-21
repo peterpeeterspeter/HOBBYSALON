@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { listAllSoughtMaterialsWithProjects } from "@/lib/platform/queries/projects";
 import { CardShell } from "@/components/ui/card-shell";
@@ -18,11 +20,11 @@ export default async function SoughtMaterialsPage() {
   }
 
   const registrationContext = await getUserRegistrationContext(user.id);
-  const hasMerchantRole = registrationContext.roles.includes("merchant");
-
-  if (!hasMerchantRole) {
-    redirect("/dashboard");
-  }
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    hasCreatorProfile: registrationContext.hasCreatorProfile,
+  });
+  requireDashboardCapability(caps.canViewSoughtMaterials);
 
   const materials = await listAllSoughtMaterialsWithProjects();
 

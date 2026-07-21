@@ -1,15 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
+import {
+  buildRoleAwareDashboardNav,
+  resolveDashboardCapabilities,
+} from "@/lib/auth/dashboard-access";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { isModerator } from "@/lib/platform/queries/community-showcase";
-import { MerchantUpsellBanner } from "@/components/dashboard/MerchantUpsellBanner";
+import { DashboardNav } from "@/components/dashboard/DashboardNav";
 import { Container } from "@/components/ui/container";
-import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 
 export default async function DashboardLayout({
@@ -27,19 +29,21 @@ export default async function DashboardLayout({
     getUserRegistrationContext(user.id),
     isModerator(user.id),
   ]);
-  const hasCreatorRole = registrationContext.roles.some((role) =>
-    ["creator", "workshop_host", "organizer"].includes(role)
-  );
-  const hasMerchantRole = registrationContext.roles.includes("merchant");
-  const hasSellerLink = registrationContext.sellerLinks.length > 0;
-  const creatorHasSupplierRole = creator?.creator_types?.includes("supplier") ?? false;
+
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
+
+  const navItems = buildRoleAwareDashboardNav(caps, { userIsModerator });
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <header className="border-b border-[var(--border)] bg-[var(--card)]">
         <Container>
           <div className="flex flex-wrap items-center justify-between gap-4 py-4">
-            <div>
+            <div className="min-w-0">
               <Link href="/" className="inline-block">
                 <Image
                   src="/logo.png"
@@ -49,99 +53,23 @@ export default async function DashboardLayout({
                   className="h-9 w-auto object-contain"
                 />
               </Link>
-              <p className="text-xs text-[var(--muted)] mt-1">{user.email ?? "Ingelogd"}</p>
+              <p className="mt-1 truncate text-xs text-[var(--muted)]">
+                {user.email ?? "Ingelogd"}
+              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <nav className="flex flex-wrap items-center gap-4 text-sm">
-                <Link href="/dashboard" className="hover:text-[var(--accent)] transition-colors">
-                  Dashboard
-                </Link>
-                <Link href="/dashboard/creator" className="hover:text-[var(--accent)] transition-colors">
-                  Mijn profiel
-                </Link>
-                <Link href="/dashboard/account" className="hover:text-[var(--accent)] transition-colors">
-                  Account
-                </Link>
-                <Link href="/dashboard/products" className="hover:text-[var(--accent)] transition-colors">
-                  Producten
-                </Link>
-                <Link href="/dashboard/orders" className="hover:text-[var(--accent)] transition-colors">
-                  Bestellingen
-                </Link>
-                {hasMerchantRole && (
-                  <Link href="/dashboard/materials" className="hover:text-[var(--accent)] transition-colors">
-                    Mijn voorraad
-                  </Link>
-                )}
-                {hasMerchantRole && (
-                  <Link href="/dashboard/sought-materials" className="hover:text-[var(--accent)] transition-colors">
-                    Producten gezocht
-                  </Link>
-                )}
-                {hasSellerLink && (
-                  <Link href="/dashboard/verkoper" className="hover:text-[var(--accent)] transition-colors">
-                    Verkopersportaal
-                  </Link>
-                )}
-                <Link href="/dashboard/workshops" className="hover:text-[var(--accent)] transition-colors">
-                  Workshops
-                </Link>
-                <Link href="/dashboard/events" className="hover:text-[var(--accent)] transition-colors">
-                  Events
-                </Link>
-                <Link href="/dashboard/analytics" className="hover:text-[var(--accent)] transition-colors">
-                  Analytics
-                </Link>
-                {userIsModerator && (
-                  <Link href="/dashboard/moderatie/community" className="hover:text-[var(--accent)] transition-colors">
-                    Communitymoderatie
-                  </Link>
-                )}
-              </nav>
-              <form action={logoutAction}>
-                <Button type="submit" variant="secondary" size="sm">
-                  Uitloggen
-                </Button>
-              </form>
-            </div>
+            <form action={logoutAction}>
+              <Button type="submit" variant="secondary" size="sm">
+                Uitloggen
+              </Button>
+            </form>
+          </div>
+          <div className="border-t border-[var(--border)] py-3">
+            <DashboardNav items={navItems} />
           </div>
         </Container>
       </header>
       <main>
-        <Container className="py-8">
-          {registrationContext.preference &&
-            !registrationContext.preference.onboardingCompleted && (
-            <CardShell variant="featured" padding="md" className="mb-6 border-sky-300 bg-sky-50">
-              <p className="text-sm text-sky-900">
-                Vervolledig je profiel met interesses en postcode voor betere lokale aanbevelingen.{" "}
-                <Link href="/dashboard/onboarding" className="underline font-medium">
-                  Open onboarding
-                </Link>
-              </p>
-            </CardShell>
-          )}
-          {!creator && (
-            <CardShell variant="featured" padding="md" className="mb-6 border-amber-300 bg-amber-50">
-              <p className="text-sm text-amber-800">
-                {hasCreatorRole
-                  ? "Vervolledig je creator-profiel om producten, workshops en events te beheren."
-                  : "Maak een creator-profiel aan om producten, workshops en events te beheren."}{" "}
-                <Link href="/dashboard/creator" className="underline font-medium">
-                  Ga naar creator-profiel
-                </Link>
-              </p>
-            </CardShell>
-          )}
-
-          <Suspense fallback={null}>
-            <MerchantUpsellBanner
-              hasMerchantRole={hasMerchantRole}
-              hasSellerLink={hasSellerLink}
-              creatorHasSupplierRole={creatorHasSupplierRole}
-            />
-          </Suspense>
-          {children}
-        </Container>
+        <Container className="py-8">{children}</Container>
       </main>
     </div>
   );

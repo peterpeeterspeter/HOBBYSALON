@@ -8,7 +8,7 @@ export type AccountRegistrationType =
 const DEFAULT_DESTINATIONS: Record<AccountRegistrationType, string | null> = {
   member: null,
   creator: "/dashboard/creator",
-  merchant: "/dashboard/materials",
+  merchant: "/dashboard/verkoper",
   workshopgever: "/dashboard/creator",
   organizer: "/dashboard/creator",
 };

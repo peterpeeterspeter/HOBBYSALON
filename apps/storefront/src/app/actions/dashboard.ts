@@ -594,13 +594,16 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     const preferredSlug = parseOptionalString(formData, "slug") ?? displayName;
     const slug = await ensureUniqueSlug("creators", preferredSlug);
     const selectedDomainIds = parseUuidValues(formData, "domain_ids");
-    const creatorTypes = sanitizeCreatorTypes(
-      (formData.getAll("creator_types") ?? [])
-        .map((value) => value.toString())
-        .filter(Boolean)
-    );
-
     const existing = await getCreatorByUserId(user.id);
+    const submittedTypes = (formData.getAll("creator_types") ?? [])
+      .map((value) => value.toString())
+      .filter(Boolean);
+    // Roles live on Account; profile form may omit creator_types — keep existing.
+    const creatorTypes = sanitizeCreatorTypes(
+      submittedTypes.length > 0
+        ? submittedTypes
+        : (existing?.creator_types ?? ["maker"])
+    );
     const avatarUrl = await resolveUploadedOrExistingUrl(
       formData,
       "avatar_file",
@@ -722,6 +725,61 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     if (isNextRedirectError(error)) throw error;
     fail(
       "/dashboard/creator",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function updateCreatorTypesAction(formData: FormData): Promise<void> {
+  try {
+    const user = await getAuthUser();
+    if (!user) {
+      fail("/login?next=/dashboard/account", "Meld je eerst aan.");
+    }
+
+    const creator = await getCreatorByUserId(user.id);
+    if (!creator) {
+      fail(
+        "/dashboard/creator?tab=profiel",
+        "Maak eerst je maker-pagina aan voordat je rollen kiest."
+      );
+    }
+
+    const creatorTypes = sanitizeCreatorTypes(
+      (formData.getAll("creator_types") ?? [])
+        .map((value) => value.toString())
+        .filter(Boolean)
+    );
+
+    const supabase = createPlatformClient();
+    const { error } = await supabase
+      .from("creators")
+      .update({ creator_types: creatorTypes })
+      .eq("id", creator.id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      fail("/dashboard/account", "Rollen opslaan mislukt.");
+    }
+
+    const roleSyncError = await syncCreatorAccountRoles(
+      user.id,
+      creatorTypes,
+      supabase
+    );
+    if (roleSyncError) {
+      fail("/dashboard/account", "Accountrollen konden niet worden bijgewerkt.");
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/creator");
+    revalidatePath("/dashboard/account");
+    revalidatePath(`/creator/${creator.slug}`);
+    ok("/dashboard/account", "Je rollen zijn opgeslagen.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/account",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }

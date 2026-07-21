@@ -3,7 +3,9 @@
 import { cookies } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
+import { getAuthUser } from "@/lib/auth/session";
 import { getMedusaAdminBackendConfig } from "@/lib/commerce/medusa/medusa-admin-auth";
+import { isModerator } from "@/lib/platform/queries/community-showcase";
 
 const DEFAULT_REDIRECT_PATH = "/dashboard/materials";
 const DRY_RUN_COOKIE_PREFIX = "hs_materials_dry_run_";
@@ -58,6 +60,17 @@ function fail(path: string, message: string): never {
 
 function ok(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
+}
+
+async function requireMaterialsOpsAccess(path: string = DEFAULT_REDIRECT_PATH) {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent(path)}`);
+  }
+  if (!(await isModerator(user.id))) {
+    redirect("/dashboard/verkoper");
+  }
+  return user;
 }
 
 function buildMaterialsPath(sellerId: string, merchantQ?: string) {
@@ -139,6 +152,7 @@ export async function triggerMaterialsProjectionSyncAction(
   const sellerId = formData.get("seller_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -209,6 +223,7 @@ export async function createMerchantCategoryMappingAction(
   const sellerId = formData.get("seller_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -291,6 +306,7 @@ export async function createMerchantFeedSourceAction(
   const sellerId = formData.get("seller_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -363,6 +379,7 @@ export async function updateMerchantFeedSourceAction(
   const feedId = formData.get("feed_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -445,6 +462,7 @@ export async function updateMaterialsRuleAction(formData: FormData): Promise<voi
   const sellerId = formData.get("seller_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -493,6 +511,7 @@ export async function runMerchantFeedPullAction(formData: FormData): Promise<voi
   const feedId = formData.get("feed_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -545,6 +564,7 @@ export async function runMerchantImportDryRunAction(
   const sellerId = formData.get("seller_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();
@@ -646,6 +666,7 @@ export async function submitMerchantImportAction(
   const sellerId = formData.get("seller_id")?.toString().trim() || "";
   const merchantQ = formData.get("merchant_q")?.toString().trim() || "";
   const path = buildMaterialsPath(sellerId, merchantQ);
+  await requireMaterialsOpsAccess(path);
 
   try {
     const config = await getMedusaAdminBackendConfig();

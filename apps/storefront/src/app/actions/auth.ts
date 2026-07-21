@@ -399,7 +399,7 @@ export async function registerMerchantAction(
   const nextPath =
     requestedNextPath?.startsWith("/") && !requestedNextPath.startsWith("//")
       ? requestedNextPath
-      : "/dashboard/materials";
+      : "/dashboard/verkoper";
 
   if (registrationUserId) {
     const onboarding = await completeMerchantOnboarding({
@@ -434,7 +434,7 @@ export async function registerMerchantAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: "/dashboard/materials",
+      defaultPath: "/dashboard/verkoper",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -512,12 +512,12 @@ export async function onboardMerchantForLoggedInUserAction(
   }
 
   revalidatePath("/dashboard/account");
-  revalidatePath("/dashboard/materials");
+  revalidatePath("/dashboard/verkoper");
 
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
-    defaultPath: "/dashboard/materials",
+    defaultPath: "/dashboard/verkoper",
   });
   redirect(redirectPath);
 }
