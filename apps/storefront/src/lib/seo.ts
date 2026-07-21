@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 
 const FALLBACK_SITE_URL = "https://www.hobbysalon.be";
 
+export const DEFAULT_OG_IMAGE = "/og-image.png";
+export const DEFAULT_OG_IMAGE_ALT = "Hobbysalon logo";
+export const DEFAULT_OG_IMAGE_WIDTH = 603;
+export const DEFAULT_OG_IMAGE_HEIGHT = 403;
+
 export function getSiteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? FALLBACK_SITE_URL;
 }
@@ -29,7 +34,7 @@ export function buildPageMetadata({
   image,
   type = "website",
 }: BuildPageMetadataInput): Metadata {
-  const ogImage = image ? absoluteUrl(image) : undefined;
+  const ogImage = absoluteUrl(image?.trim() ? image : DEFAULT_OG_IMAGE);
 
   return {
     title,
@@ -42,15 +47,22 @@ export function buildPageMetadata({
       url: absoluteUrl(path),
       title,
       description,
-      images: ogImage ? [{ url: ogImage }] : undefined,
+      images: [
+        {
+          url: ogImage,
+          width: DEFAULT_OG_IMAGE_WIDTH,
+          height: DEFAULT_OG_IMAGE_HEIGHT,
+          alt: DEFAULT_OG_IMAGE_ALT,
+        },
+      ],
       siteName: "Hobbysalon",
       locale: "nl_BE",
     },
     twitter: {
-      card: ogImage ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
-      images: ogImage ? [ogImage] : undefined,
+      images: [ogImage],
     },
   };
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Quicksand, Lato } from "next/font/google";
 import "./globals.css";
-import { getSiteUrl } from "@/lib/seo";
+import { getSiteUrl, DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_HEIGHT, DEFAULT_OG_IMAGE_WIDTH } from "@/lib/seo";
 
 const quicksand = Quicksand({
   subsets: ["latin"],
@@ -38,7 +38,14 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "Hobbysalon",
     locale: "nl_BE",
-    images: [{ url: "/landing/hero.jpg", width: 1200, height: 630 }],
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: DEFAULT_OG_IMAGE_WIDTH,
+        height: DEFAULT_OG_IMAGE_HEIGHT,
+        alt: DEFAULT_OG_IMAGE_ALT,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -46,7 +53,7 @@ export const metadata: Metadata = {
       "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
     description:
       "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
-    images: ["/landing/hero.jpg"],
+    images: [DEFAULT_OG_IMAGE],
   },
   robots: {
     index: true,

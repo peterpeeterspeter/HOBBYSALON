@@ -15,6 +15,7 @@ type CreatorRegisterFormProps = {
     formData: FormData
   ) => Promise<AuthActionState>;
   nextPath: string;
+  defaultCreatorTypes?: string[];
 };
 
 const CREATOR_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -41,11 +42,13 @@ function SubmitButton() {
 export function CreatorRegisterForm({
   action,
   nextPath,
+  defaultCreatorTypes = ["maker"],
 }: CreatorRegisterFormProps) {
   const [state, formAction] = useActionState(action, {
     success: false,
     message: "",
   });
+  const defaultTypes = new Set(defaultCreatorTypes);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -185,7 +188,7 @@ export function CreatorRegisterForm({
                 type="checkbox"
                 name="creator_types"
                 value={type.value}
-                defaultChecked={type.value === "maker"}
+                defaultChecked={defaultTypes.has(type.value)}
               />
               <span>{type.label}</span>
             </label>

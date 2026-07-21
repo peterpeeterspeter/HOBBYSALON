@@ -39,7 +39,6 @@ export const metadata = buildPageMetadata({
   description:
     "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
   path: "/",
-  image: "/landing/hero.jpg",
 });
 export const revalidate = 300;
 

@@ -1,15 +1,24 @@
-export type AccountRegistrationType = "member" | "creator" | "merchant";
+export type AccountRegistrationType =
+  | "member"
+  | "creator"
+  | "merchant"
+  | "workshopgever"
+  | "organizer";
 
 const DEFAULT_DESTINATIONS: Record<AccountRegistrationType, string | null> = {
   member: null,
   creator: "/dashboard/creator",
   merchant: "/dashboard/materials",
+  workshopgever: "/dashboard/creator",
+  organizer: "/dashboard/creator",
 };
 
 const REGISTRATION_PATHS: Record<AccountRegistrationType, string> = {
   member: "/register",
   creator: "/register/creator",
   merchant: "/register/merchant",
+  workshopgever: "/register/creator?focus=workshopgever",
+  organizer: "/register/creator?focus=organizer",
 };
 
 function safePath(path: string | null | undefined): string | null {
@@ -28,6 +37,10 @@ export function getAccountRegistrationHref(
   nextPath?: string | null
 ): string {
   const destination = safePath(nextPath) ?? DEFAULT_DESTINATIONS[type];
-  if (!destination) return REGISTRATION_PATHS[type];
-  return `${REGISTRATION_PATHS[type]}?next=${encodeURIComponent(destination)}`;
+  const basePath = REGISTRATION_PATHS[type];
+
+  if (!destination) return basePath;
+
+  const separator = basePath.includes("?") ? "&" : "?";
+  return `${basePath}${separator}next=${encodeURIComponent(destination)}`;
 }
