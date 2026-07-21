@@ -1,5 +1,9 @@
+import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listCreatorOrders } from "@/lib/commerce/medusa/creator-orders";
 import {
   cancelCreatorOrderAction,
@@ -19,10 +23,20 @@ export default async function DashboardOrdersPage({ searchParams }: Props) {
   const { success, error } = await searchParams;
 
   if (!user) {
-    return null;
+    redirect("/login?next=/dashboard/orders");
   }
 
-  const context = await getUserRegistrationContext(user.id);
+  const [context, creator] = await Promise.all([
+    getUserRegistrationContext(user.id),
+    getCreatorByUserId(user.id),
+  ]);
+  const caps = resolveDashboardCapabilities({
+    registrationContext: context,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
+  requireDashboardCapability(caps.canManageOrders);
+
   const creatorSeller = context.sellerLinks.find(
     (link) => link.sellerType === "creator"
   );

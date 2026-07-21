@@ -4,7 +4,7 @@ import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
-import { CREATOR_TYPES, type CreatorProfileTabProps } from "./types";
+import type { CreatorProfileTabProps } from "./types";
 
 export function CreatorProfileTab({
   creator,
@@ -14,18 +14,7 @@ export function CreatorProfileTab({
   registrationCountryCode,
   domains,
   selectedDomainIds,
-  hasMerchantRole,
 }: CreatorProfileTabProps) {
-  const selectedTypes = new Set(creator?.creator_types ?? []);
-  const onboardingCreatorTypes = onboarding?.creator_types;
-  const onboardingTypes = Array.isArray(onboardingCreatorTypes)
-    ? (onboardingCreatorTypes as string[])
-    : [];
-  const showSupplierHint =
-    !hasMerchantRole &&
-    (selectedTypes.has("supplier") ||
-      onboardingTypes.includes("supplier"));
-
   return (
     <CardShell variant="default" padding="lg">
       <form action={saveCreatorProfileAction} encType="multipart/form-data" className="space-y-4">
@@ -128,60 +117,6 @@ export function CreatorProfileTab({
         />
 
         <fieldset className="mt-4">
-          <legend className="text-sm font-medium text-[var(--foreground)]">
-            Wat doe je op Hobbysalon?
-          </legend>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Je kunt dit later altijd aanpassen onder Account & rollen.
-          </p>
-          <div className="mt-3 space-y-2">
-            {CREATOR_TYPES.map((type) => (
-              <label
-                key={type.value}
-                className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5"
-              >
-                <input
-                  type="checkbox"
-                  name="creator_types"
-                  value={type.value}
-                  defaultChecked={
-                    creator?.creator_types?.includes(type.value) ??
-                    (onboardingTypes.length > 0
-                      ? onboardingTypes.includes(type.value)
-                      : type.value === "maker")
-                  }
-                  className="mt-1"
-                />
-                <span>
-                  <span className="block text-sm font-medium text-[var(--foreground)]">
-                    {type.label}
-                  </span>
-                  <span className="block text-xs text-[var(--muted)]">{type.description}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {showSupplierHint && (
-            <p className="mt-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900">
-              Verkoop je garen, stof of hobbybenodigdheden?{" "}
-              <Link href="/dashboard/account" className="font-medium underline">
-                Activeer je winkel
-              </Link>{" "}
-              om producten te importeren en te verkopen.
-            </p>
-          )}
-          {!hasMerchantRole && (
-            <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--muted)]">
-              Wil je een materiaalwinkel runnen? Ga naar{" "}
-              <Link href="/dashboard/account" className="font-medium text-[var(--accent)] underline">
-                Account & rollen
-              </Link>{" "}
-              om verkoper te worden — ook zonder leverancier-tag hierboven.
-            </p>
-          )}
-        </fieldset>
-
-        <fieldset className="mt-4">
           <legend className="text-sm font-medium text-[var(--foreground)]">Je hobby&apos;s</legend>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Kies je hobby&apos;s — zo vindt men je op Hobbysalon.
@@ -204,7 +139,15 @@ export function CreatorProfileTab({
           </div>
         </fieldset>
 
-        <Button type="submit" className="mt-6">
+        <p className="text-sm text-[var(--muted)]">
+          Rollen zoals workshopgever of winkel stel je in onder{" "}
+          <Link href="/dashboard/account" className="font-medium text-[var(--accent)] underline">
+            Account
+          </Link>
+          .
+        </p>
+
+        <Button type="submit" className="mt-2">
           Profiel opslaan
         </Button>
       </form>

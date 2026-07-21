@@ -4,11 +4,13 @@ import {
   onboardMerchantForLoggedInUserAction,
   updateAccountPreferencesAction,
 } from "@/app/actions/auth";
+import { updateCreatorTypesAction } from "@/app/actions/dashboard";
 import { RegistrationProfileForm } from "@/components/auth/RegistrationProfileForm";
 import { MerchantUpgradeForm } from "@/components/auth/MerchantUpgradeForm";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import {
@@ -33,20 +35,26 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
     getCreatorByUserId(user.id),
   ]);
 
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
   const hasMerchantRole = registrationContext.roles.includes("merchant");
-  const hasSellerLink = registrationContext.sellerLinks.length > 0;
   const sortedRoles = sortAccountRoles(registrationContext.roles);
+  const selectedCreatorTypes = new Set(creator?.creator_types ?? []);
   const { success, error } = await searchParams;
 
-  const creatorTypeLabels = new Map(CREATOR_TYPES.map((type) => [type.value, type.label]));
-
   return (
-    <section className="space-y-6">
+    <section className="space-y-8">
       <header>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Account & rollen</h1>
+        <h1 className="text-3xl font-bold text-[var(--foreground)]">Account</h1>
         <p className="mt-2 max-w-2xl text-[var(--muted)]">
-          Pas je rollen en voorkeuren aan wanneer je aanbod verandert. Je kunt later altijd
-          workshopgever, organisator of winkel worden.
+          Rollen, winkel en voorkeuren. Wat je hier kiest bepaalt welke menu&apos;s je in het
+          dashboard ziet.
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Ingelogd als {user.email ?? "account"}
         </p>
       </header>
 
@@ -61,107 +69,126 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
         </p>
       )}
 
-      <CardShell variant="default" padding="lg">
-        <h2 className="text-lg font-semibold text-[var(--foreground)]">Je huidige rollen</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Ingelogd als <strong>{user.email ?? "account"}</strong>
-        </p>
-        <ul className="mt-4 space-y-3">
+      <CardShell variant="default" padding="lg" className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Actieve rollen</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Dit bepaalt wat je in het dashboard ziet.
+          </p>
+        </div>
+        <ul className="flex flex-wrap gap-2">
           {sortedRoles.map((role) => (
             <li
               key={role}
-              className="rounded-lg border border-[var(--border)] px-4 py-3"
+              className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-sm"
+              title={ACCOUNT_ROLE_DESCRIPTIONS[role]}
             >
-              <p className="font-medium text-[var(--foreground)]">
-                {ACCOUNT_ROLE_LABELS[role]}
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                {ACCOUNT_ROLE_DESCRIPTIONS[role]}
-              </p>
+              {ACCOUNT_ROLE_LABELS[role]}
             </li>
           ))}
         </ul>
       </CardShell>
 
-      <CardShell variant="default" padding="lg">
-        <h2 className="text-lg font-semibold text-[var(--foreground)]">Maker-profiel</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Kies wat je doet op Hobbysalon: maker, workshopgever, leverancier, contentmaker of
-          organisator. Dit bepaalt welke functies je in je dashboard ziet.
-        </p>
+      <CardShell variant="default" padding="lg" className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">
+            Wat doe je op Hobbysalon?
+          </h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Kies wat bij je past. Je menu toont daarna alleen die onderdelen.
+          </p>
+        </div>
+
         {creator ? (
-          <div className="mt-4 space-y-3">
-            <p className="text-sm text-[var(--foreground)]">
-              Huidige keuzes:{" "}
-              {(creator.creator_types ?? [])
-                .map((type) => creatorTypeLabels.get(type) ?? type)
-                .join(", ") || "Maker"}
-            </p>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/dashboard/creator?tab=profiel">Maker-profiel bewerken</Link>
-            </Button>
-          </div>
+          <form action={updateCreatorTypesAction} className="space-y-4">
+            <div className="space-y-2">
+              {CREATOR_TYPES.map((type) => (
+                <label
+                  key={type.value}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5"
+                >
+                  <input
+                    type="checkbox"
+                    name="creator_types"
+                    value={type.value}
+                    defaultChecked={
+                      selectedCreatorTypes.size > 0
+                        ? selectedCreatorTypes.has(type.value)
+                        : type.value === "maker"
+                    }
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-[var(--foreground)]">
+                      {type.label}
+                    </span>
+                    <span className="block text-xs text-[var(--muted)]">{type.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <Button type="submit">Rollen opslaan</Button>
+          </form>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             <p className="text-sm text-[var(--muted)]">
-              Je hebt nog geen maker-profiel. Maak er een aan om workshops, producten of events te
-              beheren.
+              Maak eerst je maker-pagina aan. Daarna kies je hier of je maker, workshopgever,
+              leverancier, contentmaker of organisator bent.
             </p>
             <Button asChild size="sm">
-              <Link href="/dashboard/creator?tab=profiel">Maker-profiel aanmaken</Link>
+              <Link href="/dashboard/creator?tab=profiel">Maker-pagina aanmaken</Link>
             </Button>
           </div>
         )}
       </CardShell>
 
-      <CardShell variant="default" padding="lg">
-        <h2 className="text-lg font-semibold text-[var(--foreground)]">Winkel / verkoper</h2>
-        {hasMerchantRole ? (
-          <div className="mt-3 space-y-3">
+      <CardShell variant="default" padding="lg" className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Winkel / verkoper</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Alleen voor materialenverkopers. Beheer voorraad, verzending en uitbetalingen in het
+            verkopersportaal.
+          </p>
+        </div>
+        {caps.canAccessVendorPortal ? (
+          <div className="space-y-3">
+            <p className="text-sm text-green-800">Je winkel is actief en gekoppeld.</p>
+            <Button asChild size="sm">
+              <Link href="/dashboard/verkoper">Open verkopersportaal</Link>
+            </Button>
+          </div>
+        ) : hasMerchantRole ? (
+          <div className="space-y-3">
             <p className="text-sm text-[var(--muted)]">
-              Je winkel is actief. Beheer je materiaalcatalogus en import via het dashboard of
-              verkopersportaal.
+              Je merchant-rol staat aan, maar je winkel is nog niet gekoppeld.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/dashboard/materials">Mijn voorraad</Link>
-              </Button>
-              {hasSellerLink ? (
-                <Button asChild variant="secondary" size="sm">
-                  <Link href="/dashboard/verkoper">Verkopersportaal</Link>
-                </Button>
-              ) : null}
-            </div>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/register/merchant">Winkel koppelen</Link>
+            </Button>
           </div>
         ) : (
-          <div className="mt-4 space-y-4">
-            <p className="text-sm text-[var(--muted)]">
-              Verkoop je garen, stof of hobbybenodigdheden? Activeer je winkel op dit account. Je
-              hoeft geen nieuw account aan te maken.
-            </p>
-            <MerchantUpgradeForm
-              action={onboardMerchantForLoggedInUserAction}
-              nextPath="/dashboard/account"
-              defaultEmail={user.email ?? ""}
-            />
-          </div>
+          <MerchantUpgradeForm
+            action={onboardMerchantForLoggedInUserAction}
+            nextPath="/dashboard/account"
+            defaultEmail={user.email ?? ""}
+          />
         )}
       </CardShell>
 
-      <CardShell variant="default" padding="lg">
-        <h2 className="text-lg font-semibold text-[var(--foreground)]">Voorkeuren</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Pas je interesses en locatie aan voor betere aanbevelingen.
-        </p>
-        <div className="mt-4">
-          <RegistrationProfileForm
-            action={updateAccountPreferencesAction}
-            nextPath="/dashboard/account"
-            defaultPostalCode={registrationContext.preference?.postalCode ?? null}
-            defaultCountryCode={registrationContext.preference?.countryCode ?? null}
-            defaultInterests={registrationContext.preference?.interestTypes ?? []}
-          />
+      <CardShell variant="default" padding="lg" className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Voorkeuren</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Interesses en locatie voor betere aanbevelingen.
+          </p>
         </div>
+        <RegistrationProfileForm
+          action={updateAccountPreferencesAction}
+          nextPath="/dashboard/account"
+          defaultPostalCode={registrationContext.preference?.postalCode ?? null}
+          defaultCountryCode={registrationContext.preference?.countryCode ?? null}
+          defaultInterests={registrationContext.preference?.interestTypes ?? []}
+        />
       </CardShell>
     </section>
   );

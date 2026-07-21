@@ -51,9 +51,9 @@ export async function resolvePostAuthRedirectPath(options: {
 
   if (hasMerchantRole || hasMerchantLink) {
     if (!hasMerchantLink) {
-      return `/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`;
+      return `/register/merchant?next=${encodeURIComponent("/dashboard/verkoper")}`;
     }
-    return "/dashboard/materials";
+    return "/dashboard/verkoper";
   }
 
   const hasCreatorRole = context.roles.some((role) =>

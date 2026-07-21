@@ -28,5 +28,5 @@ test("rejects external-looking return paths", () => {
 test("falls back to role-appropriate destinations for unsafe or absent paths", () => {
   assert.equal(getAccountRegistrationHref("member", "//external.example"), "/register");
   assert.equal(getAccountRegistrationHref("creator", ""), "/register/creator?next=%2Fdashboard%2Fcreator");
-  assert.equal(getAccountRegistrationHref("merchant", null), "/register/merchant?next=%2Fdashboard%2Fmaterials");
+  assert.equal(getAccountRegistrationHref("merchant", null), "/register/merchant?next=%2Fdashboard%2Fverkoper");
 });

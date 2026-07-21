@@ -1,7 +1,11 @@
+import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import { ensureCreatorSellerLinked, resolveSellerIdForCreatorOps } from "@/lib/commerce/medusa/creator-onboarding";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import {
   listSupplyCategoryOptions,
@@ -41,8 +45,22 @@ const PRODUCT_STOCK_MODE_OPTIONS = [
 
 export default async function DashboardProductsPage({ searchParams }: Props) {
   const user = await getAuthUser();
-  const creator = user ? await getCreatorByUserId(user.id) : null;
-  if (creator && user) {
+  if (!user) {
+    redirect("/login?next=/dashboard/products");
+  }
+
+  const [creator, registrationContext] = await Promise.all([
+    getCreatorByUserId(user.id),
+    getUserRegistrationContext(user.id),
+  ]);
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
+  requireDashboardCapability(caps.canManageProducts);
+
+  if (creator) {
     const linkedSellerId = await resolveSellerIdForCreatorOps(user.id);
     if (!linkedSellerId) {
       await ensureCreatorSellerLinked(user.id, user.email ?? "", creator);

@@ -22,6 +22,7 @@ import {
   listMerchantMaterialsOverview,
 } from "@/lib/commerce/medusa/materials-ops";
 import { hasMedusaAdminAccess } from "@/lib/commerce/medusa/medusa-admin-auth";
+import { isModerator } from "@/lib/platform/queries/community-showcase";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
@@ -203,9 +204,14 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
     redirect("/login?next=/dashboard/materials");
   }
 
-  const registrationContext = await getUserRegistrationContext(user.id);
-  if (!registrationContext.roles.includes("merchant")) {
-    redirect(`/register/merchant?next=${encodeURIComponent("/dashboard/materials")}`);
+  // Platform admin tooling: never expose all shops to merchants.
+  if (!(await isModerator(user.id))) {
+    const registrationContext = await getUserRegistrationContext(user.id);
+    const isMerchant =
+      registrationContext.roles.includes("merchant") ||
+      registrationContext.sellerLinks.some((link) => link.sellerType === "merchant");
+
+    redirect(isMerchant ? "/dashboard/verkoper" : "/dashboard");
   }
 
   const {

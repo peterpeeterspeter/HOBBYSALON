@@ -3,6 +3,8 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { CardShell } from "@/components/ui/card-shell";
 import { getAuthAccessToken, getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import {
   buildVendorPanelHandoffUrl,
   exchangeSupabaseSessionForSellerToken,
@@ -20,20 +22,11 @@ export default async function VerkoperHandoffPage() {
     getUserRegistrationContext(user.id),
   ]);
 
-  if (!registrationContext.sellerLinks.length) {
-    return (
-      <CardShell variant="default" padding="lg">
-        <h1 className="text-xl font-semibold mb-2">Verkopersportaal</h1>
-        <p className="text-sm text-[var(--muted)] mb-4">
-          Je account is nog niet gekoppeld aan een winkel. Activeer eerst je
-          merchant-profiel of registreer als verkoper.
-        </p>
-        <Link href="/register/merchant" className="text-[var(--accent)] underline">
-          Activeer je winkel
-        </Link>
-      </CardShell>
-    );
-  }
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    hasCreatorProfile: registrationContext.hasCreatorProfile,
+  });
+  requireDashboardCapability(caps.canAccessVendorPortal);
 
   if (!accessToken) {
     redirect("/login?next=/dashboard/verkoper");

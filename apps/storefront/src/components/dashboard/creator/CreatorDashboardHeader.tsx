@@ -17,9 +17,10 @@ export function CreatorDashboardHeader({
     <header className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Mijn profiel</h1>
-          <p className="mt-2 text-[var(--muted)]">
+          <h1 className="text-3xl font-bold text-[var(--foreground)]">Mijn pagina</h1>
+          <p className="mt-2 max-w-2xl text-[var(--muted)]">
             Vul je maker-pagina in, schrijf artikels en toon je afgewerkte creaties.
+            Rollen en voorkeuren regel je onder Account.
           </p>
         </div>
         {creatorSlug && (

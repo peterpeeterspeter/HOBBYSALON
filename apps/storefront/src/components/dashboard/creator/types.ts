@@ -132,7 +132,6 @@ export type CreatorProfileTabProps = {
   registrationCountryCode: string | null;
   domains: Domain[];
   selectedDomainIds: Set<string>;
-  hasMerchantRole: boolean;
 };
 
 export type CreatorArticlesTabProps = {

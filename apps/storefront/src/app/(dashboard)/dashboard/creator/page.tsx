@@ -1,4 +1,7 @@
+import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import { listWorkshopsByCreator } from "@/lib/platform/queries/workshops";
@@ -32,11 +35,26 @@ type Props = {
 
 export default async function DashboardCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
-  const creator = user ? await getCreatorByUserId(user.id) : null;
-  const registrationContext = user
-    ? await getUserRegistrationContext(user.id)
-    : null;
-  const hasMerchantRole = registrationContext?.roles.includes("merchant") ?? false;
+  if (!user) {
+    redirect("/login?next=/dashboard/creator");
+  }
+
+  const [creator, registrationContext] = await Promise.all([
+    getCreatorByUserId(user.id),
+    getUserRegistrationContext(user.id),
+  ]);
+
+  const caps = resolveDashboardCapabilities({
+    registrationContext,
+    creatorTypes: creator?.creator_types,
+    hasCreatorProfile: Boolean(creator),
+  });
+
+  // Allow first-time profile creation from Account; hide from nav until allowed.
+  if (!caps.canViewCreatorPage && !caps.isHobbyistOnly) {
+    requireDashboardCapability(false);
+  }
+
   const onboarding =
     user?.user_metadata?.account_type === "creator" ? user.user_metadata : null;
   const accountDisplayName =
@@ -252,7 +270,6 @@ export default async function DashboardCreatorPage({ searchParams }: Props) {
               registrationCountryCode={registrationContext?.preference?.countryCode ?? null}
               domains={domains}
               selectedDomainIds={selectedDomainIds}
-              hasMerchantRole={hasMerchantRole}
             />
           )}
 
