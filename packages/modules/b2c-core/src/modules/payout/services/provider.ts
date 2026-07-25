@@ -113,9 +113,14 @@ export class PayoutProvider implements IPayoutProvider {
         );
       }
 
+      // Express = lighter Stripe-hosted KYC for marketplace sellers (vs full Standard accounts).
       const account = await this.client_.accounts.create({
         country: country as string,
-        type: "standard",
+        type: "express",
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
         metadata: {
           account_id,
         },

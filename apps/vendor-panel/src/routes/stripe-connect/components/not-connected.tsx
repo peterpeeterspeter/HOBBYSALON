@@ -1,9 +1,16 @@
+import { useState } from "react"
 import { ExclamationCircle } from "@medusajs/icons"
-import { Button, Heading, Text } from "@medusajs/ui"
+import { Button, Heading, Select, Text } from "@medusajs/ui"
 import { useCreateStripeAccount } from "../../../hooks/api"
+
+const PAYOUT_COUNTRIES = [
+  { value: "BE", label: "België" },
+  { value: "NL", label: "Nederland" },
+] as const
 
 export const NotConnected = () => {
   const { mutateAsync, isPending } = useCreateStripeAccount()
+  const [country, setCountry] = useState<(typeof PAYOUT_COUNTRIES)[number]["value"]>("BE")
 
   return (
     <div className="flex items-center justify-center text-center my-32 flex-col">
@@ -11,23 +18,39 @@ export const NotConnected = () => {
       <Heading level="h2" className="mt-4">
         Not connected
       </Heading>
-      <Text className="text-ui-fg-subtle" size="small">
-        No stripe connection
+      <Text className="text-ui-fg-subtle max-w-md" size="small">
+        Connect Stripe Express to receive payouts. Choose your business country,
+        then complete the short Stripe onboarding (identity + bank account).
       </Text>
+      <div className="mt-4 w-56 text-left">
+        <Text size="small" className="mb-1.5 block font-medium">
+          Country
+        </Text>
+        <Select
+          value={country}
+          onValueChange={(value) =>
+            setCountry(value as (typeof PAYOUT_COUNTRIES)[number]["value"])
+          }
+        >
+          <Select.Trigger>
+            <Select.Value placeholder="Select country" />
+          </Select.Trigger>
+          <Select.Content>
+            {PAYOUT_COUNTRIES.map((option) => (
+              <Select.Item key={option.value} value={option.value}>
+                {option.label}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select>
+      </div>
       <Button
         isLoading={isPending}
         className="mt-4"
         onClick={() =>
           mutateAsync({
             context: {
-              country: "US",
-              // external_account: {
-              //   object: 'bank_account',
-              //   country: 'US',
-              //   currency: 'usd',
-              //   account_number: '000123456789',
-              //   routing_number: '110000000',
-              // },
+              country,
             },
           })
         }

@@ -22,7 +22,7 @@ export const StripeConnect = () => {
         <div>
           <Heading>Stripe Connect</Heading>
           <Text className="text-ui-fg-subtle" size="small">
-            Connect Stripe to receive automatic payouts from the marketplace
+            Connect Stripe Express (BE/NL) to receive automatic marketplace payouts
           </Text>
         </div>
         <div>
