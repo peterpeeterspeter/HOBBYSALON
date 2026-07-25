@@ -13,7 +13,6 @@ import {
 } from "@/app/actions/location";
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
-import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ACCOUNT_NAV } from "@/config/nav";
 import type { EntityType } from "@/types/platform";
