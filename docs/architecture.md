@@ -194,7 +194,7 @@ Products are split across two systems:
 - **Platform DB (Supabase)**: discovery, display, SEO — slug, title, description, product_type, creator_id, domain_id, featured_image_url, is_featured, is_active, seo_title, seo_description. Linked via `products.medusa_product_id`.
 - **Medusa**: transactional truth — price, variants, inventory, SKU, weight, shipping, carts, checkout.
 
-The platform products table does not store price_cents, compare_at_price_cents, currency_code, stock_qty, sku, weight_grams, shipping_required, pickup_available. These live in Medusa.
+The platform products table stores indicative `price_cents` / `currency_code` for maker contact listings. Merchant/supply transactional price, inventory, variants, SKU, weight, and shipping still live in Medusa when `medusa_product_id` is set.
 
 ⸻
 

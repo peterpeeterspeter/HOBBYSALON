@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
-import { ensureCreatorSellerLinked, resolveSellerIdForCreatorOps } from "@/lib/commerce/medusa/creator-onboarding";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
@@ -60,12 +59,6 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
   });
   requireDashboardCapability(caps.canManageProducts);
 
-  if (creator) {
-    const linkedSellerId = await resolveSellerIdForCreatorOps(user.id);
-    if (!linkedSellerId) {
-      await ensureCreatorSellerLinked(user.id, user.email ?? "", creator);
-    }
-  }
   const { success, error } = await searchParams;
   const [domains, categoryOptions] = await Promise.all([
     listDomainsBySort(),
@@ -113,7 +106,8 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
     <section className="space-y-6">
       <h1 className="text-3xl font-bold text-[var(--foreground)]">Beheer je creaties</h1>
       <p className="max-w-2xl text-[var(--muted)]">
-        Maak nieuwe producten aan, bewerk ze en bepaal zelf wanneer ze online komen in jouw shop.
+        Plaats je handmade creaties als vermelding. Bezoekers contacteren jou
+        rechtstreeks — Hobbysalon verwerkt geen betalingen voor makers.
       </p>
 
       {success && (
@@ -135,7 +129,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         <>
           <CardShell variant="default" padding="lg" className="mb-8">
             <form action={createProductAction} encType="multipart/form-data">
-              <h2 className="text-lg font-semibold">Nieuwe creatie</h2>
+              <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
                 <Input name="slug" label="Slug" />
@@ -223,16 +217,16 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 </label>
               </div>
               <Button type="submit" className="mt-4">
-                Creatie toevoegen
+                Plaatsing toevoegen
               </Button>
             </form>
           </CardShell>
 
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold">In jouw shop ({products.length})</h2>
+            <h2 className="text-lg font-semibold">Jouw plaatsingen ({products.length})</h2>
             {products.length === 0 ? (
               <EmptyState
-                title="Nog geen creaties in je shop"
+                title="Nog geen plaatsingen"
                 description="Voeg je eerste creatie toe met het formulier hierboven."
               />
             ) : (
@@ -276,9 +270,9 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       options={PRODUCT_STOCK_MODE_OPTIONS}
                       required
                       defaultValue={
-                        product.condition_type === "made_to_order"
-                          ? "made_to_order"
-                          : "in_stock"
+                        product.stock_mode === "in_stock"
+                          ? "in_stock"
+                          : "made_to_order"
                       }
                     />
                     <Input
@@ -286,12 +280,16 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       label="Prijs (cent)"
                       type="number"
                       min={0}
-                      defaultValue=""
+                      defaultValue={
+                        typeof product.price_cents === "number"
+                          ? String(product.price_cents)
+                          : "0"
+                      }
                     />
                     <Input
                       name="currency_code"
                       label="Valuta"
-                      defaultValue="EUR"
+                      defaultValue={product.currency_code ?? "EUR"}
                       maxLength={3}
                     />
                     <Select

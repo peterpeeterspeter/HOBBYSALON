@@ -104,14 +104,26 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
 
   const productsWithPrices = await Promise.all(
     products.map(async (p) => {
-      const medusa = await getMedusaProduct(p.medusa_product_id);
-      const price = medusa?.calculated_price
-        ? {
-            amount: medusa.calculated_price.calculated_amount,
-            currency_code: medusa.calculated_price.currency_code,
-          }
-        : null;
-      return { ...p, price };
+      if (p.medusa_product_id) {
+        const medusa = await getMedusaProduct(p.medusa_product_id);
+        const price = medusa?.calculated_price
+          ? {
+              amount: medusa.calculated_price.calculated_amount,
+              currency_code: medusa.calculated_price.currency_code,
+            }
+          : null;
+        return { ...p, price };
+      }
+      if (typeof p.price_cents === "number") {
+        return {
+          ...p,
+          price: {
+            amount: p.price_cents,
+            currency_code: (p.currency_code ?? "EUR").toLowerCase(),
+          },
+        };
+      }
+      return { ...p, price: null };
     })
   );
 

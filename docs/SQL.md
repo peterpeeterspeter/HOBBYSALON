@@ -164,6 +164,9 @@ create table if not exists public.products (
   featured_image_url text,
   is_featured boolean not null default false,
   is_active boolean not null default true,
+  price_cents integer,
+  currency_code text,
+  stock_mode text,
   seo_title text,
   seo_description text,
   created_at timestamptz not null default now(),
@@ -177,6 +180,13 @@ create table if not exists public.products (
   constraint products_condition_type_check check (
     condition_type is null or
     condition_type in ('new','handmade','made_to_order','used')
+  ),
+  constraint products_stock_mode_check check (
+    stock_mode is null or
+    stock_mode in ('made_to_order','in_stock','contact')
+  ),
+  constraint products_currency_code_check check (
+    currency_code is null or char_length(currency_code) = 3
   )
 );
 

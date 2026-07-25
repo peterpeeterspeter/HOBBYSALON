@@ -176,7 +176,7 @@ function toSlug(input: string): string {
     .slice(0, 80);
 }
 
-async function getRequiredCreator() {
+async function getRequiredCreatorProfile() {
   const user = await getAuthUser();
   if (!user) {
     throw new Error("Je bent niet ingelogd.");
@@ -186,6 +186,13 @@ async function getRequiredCreator() {
   if (!creator) {
     throw new Error("Maak eerst een creator-profiel aan.");
   }
+
+  return { user, creator };
+}
+
+/** Creator profile + optional Medusa seller (only needed for commerce-linked products). */
+async function getRequiredCreator() {
+  const { user, creator } = await getRequiredCreatorProfile();
 
   const supabase = createPlatformClient();
   const { data: sellerLink, error: sellerLinkError } = await supabase
@@ -1354,7 +1361,8 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
 
 export async function createProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator, sellerId } = await getRequiredCreator();
+    // Makers create platform listings only (contact/lead). No Medusa checkout.
+    const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
     const stockMode = parseRequiredString(formData, "stock_mode");
@@ -1376,7 +1384,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     if (productType !== "handmade") {
       fail(
         "/dashboard/products",
-        "Voor creator P2P-producten is momenteel enkel type 'handmade' toegestaan."
+        "Voor maker-plaatsingen is momenteel enkel type 'handmade' toegestaan."
       );
     }
     if (!PRODUCT_STOCK_MODES.has(stockMode)) {
@@ -1400,38 +1408,40 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
     }
 
+    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
+    const slug = await ensureUniqueSlug("products", preferredSlug);
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/products`,
     });
 
-    const result = await createCreatorMarketplaceProduct({
-      sellerId,
-      platformCreatorId: creator.id,
+    const supabase = createPlatformClient();
+    const { error } = await supabase.from("products").insert({
+      creator_id: creator.id,
+      slug,
       title,
-      slug: parseOptionalString(formData, "slug"),
-      shortDescription: parseOptionalString(formData, "short_description"),
+      short_description: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
-      featuredImageUrl,
-      conditionType:
-        (conditionType as "new" | "handmade" | "made_to_order" | "used" | null) ??
-        null,
-      personalizationAvailable,
-      estimatedDispatchDays,
-      platformDomainId: domainId,
-      platformCategoryId: categoryId,
-      isActive,
-      manageInventory: stockMode === "in_stock",
-      allowBackorder: stockMode !== "in_stock",
-      priceCents,
-      currencyCode,
+      featured_image_url: featuredImageUrl,
+      domain_id: domainId,
+      category_id: categoryId,
+      condition_type: conditionType,
+      personalization_available: personalizationAvailable,
+      estimated_dispatch_days: estimatedDispatchDays,
+      product_type: productType,
+      stock_mode: stockMode,
+      price_cents: priceCents,
+      currency_code: currencyCode,
+      status: isActive ? "active" : "draft",
+      is_active: isActive,
+      medusa_product_id: null,
     });
 
-    if (!result.ok) {
+    if (error) {
       fail(
         "/dashboard/products",
-        result.error ?? "Product aanmaken via Medusa mislukt."
+        `Plaatsing aanmaken mislukt. ${error.message}`
       );
     }
 
@@ -1439,20 +1449,22 @@ export async function createProductAction(formData: FormData): Promise<void> {
     revalidatePath(`/creator/${creator.slug}`);
     ok(
       "/dashboard/products",
-      "Product aangemaakt. De afbeelding kan enkele seconden duren voordat ze zichtbaar is op de site — zet het product op actief om het te publiceren."
+      isActive
+        ? "Plaatsing online. Bezoekers kunnen je contacteren via de productpagina."
+        : "Plaatsing opgeslagen als concept. Zet ze op actief om te publiceren."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
       "/dashboard/products",
-      error instanceof Error ? error.message : "Onbekende fout."
+      error instanceof Error ? error.message : "Plaatsing aanmaken mislukt."
     );
   }
 }
 
 export async function updateProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator, sellerId } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const productId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
@@ -1485,7 +1497,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     );
     const { data: existingProduct, error: existingError } = await supabase
       .from("products")
-      .select("id,medusa_product_id,featured_image_url")
+      .select("id,medusa_product_id,featured_image_url,is_active")
       .eq("id", productId)
       .eq("creator_id", creator.id)
       .maybeSingle();
@@ -1496,6 +1508,19 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     const medusaProductId =
       medusaProductIdFromForm || existingProduct.medusa_product_id || null;
+    const isActive = !!formData.get("is_active");
+
+    if (isActive && !existingProduct.is_active) {
+      const creditCheck = await enforceHandmadePublishCredits(
+        creator.id,
+        creator.creator_types ?? [],
+        true,
+        false
+      );
+      if (!creditCheck.ok) {
+        fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
+      }
+    }
 
     if (medusaProductId) {
       if (productType !== "handmade") {
@@ -1505,6 +1530,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         );
       }
 
+      const { sellerId } = await getRequiredCreator();
       const featuredImageUrl = await resolveProductImageUrl(formData, {
         fileField: "featured_image_file",
         urlField: "featured_image_file_uploaded_url",
@@ -1532,7 +1558,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         estimatedDispatchDays,
         platformDomainId: domainId,
         platformCategoryId: categoryId,
-        isActive: !!formData.get("is_active"),
+        isActive,
         manageInventory: stockMode === "in_stock",
         allowBackorder: stockMode !== "in_stock",
         priceCents: priceCents ?? undefined,
@@ -1577,19 +1603,22 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         personalization_available: personalizationAvailable,
         estimated_dispatch_days: estimatedDispatchDays,
         product_type: productType,
-        status: formData.get("is_active") ? "active" : "draft",
-        is_active: !!formData.get("is_active"),
+        stock_mode: stockMode,
+        price_cents: priceCents,
+        currency_code: currencyCode ?? "EUR",
+        status: isActive ? "active" : "draft",
+        is_active: isActive,
       })
       .eq("id", productId)
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/products", "Product bijwerken mislukt.");
+      fail("/dashboard/products", "Plaatsing bijwerken mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/products", "Product bijgewerkt.");
+    ok("/dashboard/products", "Plaatsing bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1601,12 +1630,13 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
 export async function unpublishProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator, sellerId } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const productId = parseRequiredString(formData, "id");
     const medusaProductId = parseOptionalString(formData, "medusa_product_id");
     const supabase = createPlatformClient();
 
     if (medusaProductId) {
+      const { sellerId } = await getRequiredCreator();
       const result = await updateCreatorMarketplaceProduct({
         sellerId,
         medusaProductId,
@@ -1631,12 +1661,12 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/products", "Product depubliceren mislukt.");
+      fail("/dashboard/products", "Plaatsing depubliceren mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/products", "Product gedeactiveerd.");
+    ok("/dashboard/products", "Plaatsing gedeactiveerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1648,12 +1678,13 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
 
 export async function deleteProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator, sellerId } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const productId = parseRequiredString(formData, "id");
     const medusaProductId = parseOptionalString(formData, "medusa_product_id");
     const supabase = createPlatformClient();
 
     if (medusaProductId) {
+      const { sellerId } = await getRequiredCreator();
       const result = await deleteCreatorMarketplaceProduct({
         sellerId,
         medusaProductId,
@@ -1730,7 +1761,7 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
 
 export async function createWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
@@ -1805,7 +1836,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
 export async function updateWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
@@ -1895,7 +1926,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
 
 export async function createEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
     const startsAt = parseRequiredString(formData, "starts_at");
@@ -1972,7 +2003,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
 export async function updateEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const eventId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");

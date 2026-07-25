@@ -14,15 +14,11 @@ import {
   getMedusaProduct,
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
-import {
-  createCreatorMarketplaceProduct,
-  ensureCreatorProductSalesChannel,
-} from "@/lib/commerce/medusa/creator-products";
-import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
+import type { Product, Domain, Workshop, Article, Event } from "@/types/platform";
 
 export type ProductPageData = {
   product: Product | null;
-  creator: Creator | null;
+  creator: Awaited<ReturnType<typeof getCreatorById>>;
   domain: Domain | null;
   price: { amount: number; currency_code: string } | null;
   variants: Array<{ id: string; title: string }>;
@@ -32,147 +28,23 @@ export type ProductPageData = {
   relatedEvents: Event[];
 };
 
-const resolveLegacyCreatorRegistrationConfig = () => {
-  const baseUrl =
-    process.env.MEDUSA_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ??
-    "http://localhost:9000";
-  const adminToken =
-    process.env.MEDUSA_ADMIN_API_TOKEN ??
-    process.env.MEDUSA_ADMIN_TOKEN ??
-    process.env.MEDUSA_BACKEND_ADMIN_TOKEN;
-
-  if (!adminToken) return null;
-
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    adminToken,
-  };
-};
-
-const HANDMADE_FALLBACK_PRICE_CENTS = (() => {
-  const parsed = Number.parseInt(
-    process.env.HANDMADE_FALLBACK_PRICE_CENTS ?? "2500",
-    10
-  );
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 2500;
-  }
-  return parsed;
-})();
-
-async function resolveCreatorSellerId(creator: Creator): Promise<string | null> {
-  const supabase = createPlatformClient();
-
-  if (creator.user_id) {
-    const { data: sellerLink } = await supabase
-      .from("user_seller_links")
-      .select("seller_id")
-      .eq("user_id", creator.user_id)
-      .eq("seller_type", "creator")
-      .maybeSingle();
-
-    if (sellerLink?.seller_id) {
-      return sellerLink.seller_id as string;
-    }
-  }
-
-  const config = resolveLegacyCreatorRegistrationConfig();
-  if (!config) {
-    return null;
-  }
-
-  const syntheticEmail = `legacy-${creator.id}@legacy.hobbysalon.local`;
-  const response = await fetch(`${config.baseUrl}/admin/platform/creators/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.adminToken}`,
-      "x-medusa-access-token": config.adminToken,
-    },
-    body: JSON.stringify({
-      name: creator.display_name?.trim() || creator.slug || `Creator ${creator.id.slice(0, 8)}`,
-      contact_name: creator.display_name?.trim() || null,
-      email: syntheticEmail,
-      city: creator.city ?? null,
-      country_code: creator.country_code ?? "BE",
-    }),
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as {
-    creator?: { seller_id?: string };
-  };
-
-  return payload.creator?.seller_id ?? null;
-}
-
-async function ensurePurchasableMedusaProductId(
+function resolveListingPrice(
   product: Product,
-  creator: Creator | null
-): Promise<string | null> {
-  if (
-    product.medusa_product_id ||
-    product.product_type !== "handmade" ||
-    !creator
-  ) {
-    return product.medusa_product_id ?? null;
+  medusa: Awaited<ReturnType<typeof getMedusaProduct>>
+): { amount: number; currency_code: string } | null {
+  if (medusa?.calculated_price) {
+    return {
+      amount: medusa.calculated_price.calculated_amount,
+      currency_code: medusa.calculated_price.currency_code,
+    };
   }
-
-  const sellerId = await resolveCreatorSellerId(creator);
-  if (!sellerId) {
-    return null;
+  if (typeof product.price_cents === "number") {
+    return {
+      amount: product.price_cents,
+      currency_code: (product.currency_code ?? "EUR").toLowerCase(),
+    };
   }
-
-  const created = await createCreatorMarketplaceProduct({
-    sellerId,
-    platformCreatorId: creator.id,
-    title: product.title,
-    slug: product.slug,
-    shortDescription: product.short_description,
-    description: product.description,
-    featuredImageUrl: product.featured_image_url,
-    conditionType:
-      (product.condition_type as "new" | "handmade" | "made_to_order" | "used" | null) ??
-      "handmade",
-    personalizationAvailable: product.personalization_available,
-    estimatedDispatchDays: product.estimated_dispatch_days,
-    platformDomainId: product.domain_id,
-    platformCategoryId: product.category_id,
-    isActive: product.is_active && product.status === "active",
-    manageInventory: false,
-    allowBackorder: true,
-    priceCents: HANDMADE_FALLBACK_PRICE_CENTS,
-    currencyCode: "EUR",
-  });
-
-  let medusaProductId = created.productId;
-
-  if (!created.ok || !medusaProductId) {
-    const existing = await getMedusaProductByHandle(product.slug ?? null);
-    if (!existing?.id) {
-      return null;
-    }
-    medusaProductId = existing.id;
-  }
-
-  await ensureCreatorProductSalesChannel(medusaProductId);
-
-  const supabase = createPlatformClient();
-  await supabase
-    .from("products")
-    .update({
-      medusa_product_id: medusaProductId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", product.id)
-    .is("medusa_product_id", null);
-
-  return medusaProductId;
+  return null;
 }
 
 export async function getProductPageData(slug: string): Promise<ProductPageData> {
@@ -206,22 +78,18 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       : Promise.resolve(null),
     getRelatedEntities("product", product.id),
   ]);
-  const medusaProductId =
-    product.medusa_product_id ??
-    (await ensurePurchasableMedusaProductId(product, creator ?? null));
 
-  const medusaByResolvedId = medusaProductId
-    ? await getMedusaProduct(medusaProductId)
+  // Handmade contact listings never auto-provision Medusa commerce products.
+  const medusaById = product.medusa_product_id
+    ? await getMedusaProduct(product.medusa_product_id)
     : null;
-  const medusa = medusaByResolvedId ?? (await getMedusaProductByHandle(product.slug ?? null));
+  const medusa =
+    medusaById ??
+    (product.product_type === "handmade" && !product.medusa_product_id
+      ? null
+      : await getMedusaProductByHandle(product.slug ?? null));
 
-  const price = medusa?.calculated_price
-    ? {
-        amount: medusa.calculated_price.calculated_amount,
-        currency_code: medusa.calculated_price.currency_code,
-      }
-    : null;
-
+  const price = resolveListingPrice(product, medusa);
   const variants =
     medusa?.variants?.map((v) => ({ id: v.id, title: v.title })) ?? [];
 

@@ -259,12 +259,12 @@ This supports both marketplace and content-driven merchandising.
 
 ## Table: `products`
 
-Platform owns display/discovery fields. Medusa owns transactional fields (price, inventory, variants, SKU, weight, shipping). Linked via `medusa_product_id`.
+Platform owns display/discovery fields. For **maker handmade listings**, the platform also stores indicative `price_cents` / `currency_code` (contact/lead model — no Medusa checkout). For **merchant supply**, Medusa owns transactional price/inventory; linked via `medusa_product_id`.
 
 Fields:
 
 - `id` (uuid, pk)
-- `medusa_product_id` (text, unique, nullable) — bridge to Medusa product
+- `medusa_product_id` (text, unique, nullable) — bridge to Medusa product (merchants / legacy commerce)
 - `creator_id` (uuid, fk → creators)
 - `domain_id` (uuid, fk → domains)
 - `category_id` (uuid, fk → product_categories)
@@ -277,6 +277,9 @@ Fields:
 - `condition_type` (text, nullable)
 - `personalization_available` (boolean)
 - `estimated_dispatch_days` (int, nullable)
+- `price_cents` (int, nullable) — indicative listing price for makers
+- `currency_code` (text, nullable)
+- `stock_mode` (text, nullable) — `made_to_order` | `in_stock` | `contact`
 - `featured_image_url` (text)
 - `is_featured` (boolean)
 - `is_active` (boolean)
