@@ -72,6 +72,8 @@ def main() -> int:
     for key in (
         "STRIPE_SECRET_API_KEY",
         "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PAYMENT_WEBHOOK_SECRET",
+        "STRIPE_CONNECTED_ACCOUNTS_WEBHOOK_SECRET",
         "RESEND_API_KEY",
         "RESEND_FROM_EMAIL",
     ):
