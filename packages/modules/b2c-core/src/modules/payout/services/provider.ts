@@ -113,13 +113,17 @@ export class PayoutProvider implements IPayoutProvider {
         );
       }
 
-      // Express = lighter Stripe-hosted KYC for marketplace sellers (vs full Standard accounts).
+      // Marketplace payouts only: recipients receive transfers from the platform.
+      // Do NOT request card_payments — that triggers full merchant KYC.
+      // Recipient agreement = lighter identity + bank onboarding for sellers.
       const account = await this.client_.accounts.create({
         country: country as string,
         type: "express",
         capabilities: {
-          card_payments: { requested: true },
           transfers: { requested: true },
+        },
+        tos_acceptance: {
+          service_agreement: "recipient",
         },
         metadata: {
           account_id,

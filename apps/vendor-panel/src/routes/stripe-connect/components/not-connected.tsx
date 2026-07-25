@@ -19,8 +19,9 @@ export const NotConnected = () => {
         Not connected
       </Heading>
       <Text className="text-ui-fg-subtle max-w-md" size="small">
-        Connect Stripe Express to receive payouts. Choose your business country,
-        then complete the short Stripe onboarding (identity + bank account).
+        Add payout details so Hobbysalon can pay you. Choose your country, then
+        complete Stripe&apos;s short payout onboarding (identity + bank account).
+        You do not need a full Stripe merchant account.
       </Text>
       <div className="mt-4 w-56 text-left">
         <Text size="small" className="mb-1.5 block font-medium">

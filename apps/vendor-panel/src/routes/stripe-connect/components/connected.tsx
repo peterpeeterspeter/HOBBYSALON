@@ -32,18 +32,18 @@ export const Connected = ({
   return status === "connected" ? (
     <div className="flex items-center justify-center text-center my-32 flex-col">
       <Heading level="h2" className="mt-4">
-        Your Stripe Express account is ready
+        Your payout account is ready
       </Heading>
       <Text className="text-ui-fg-subtle max-w-sm mt-2" size="small">
         Payouts can run once Stripe marks the account active. If Stripe asks for
-        extra details later, reopen Express onboarding below.
+        extra details later, reopen onboarding below.
       </Text>
       <Button
         isLoading={isPending}
         className="mt-4"
         onClick={() => handleOnboarding()}
       >
-        Open Stripe Express
+        Open Stripe payouts
       </Button>
     </div>
   ) : (
@@ -53,7 +53,7 @@ export const Connected = ({
         Not onboarded
       </Heading>
       <Text className="text-ui-fg-subtle max-w-sm" size="small">
-        Finish the short Stripe Express flow (identity + bank account for BE/NL).
+        Finish the short payout setup (identity + bank account for BE/NL).
       </Text>
       <Button
         isLoading={isPending}
