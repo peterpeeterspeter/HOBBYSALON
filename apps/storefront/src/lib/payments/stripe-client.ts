@@ -13,13 +13,8 @@ export function getStripeClient(): Stripe {
     throw new Error("Missing Stripe env: STRIPE_SECRET_API_KEY");
   }
 
-  // Pinned apiVersion string picked without access to the installed
-  // `stripe` package's types in this sandbox (no node_modules here) - the
-  // first `yarn build`/`tsc` after `yarn install` will fail loudly with a
-  // literal-type mismatch if this doesn't match the installed SDK version.
-  // Fix by copying the value TypeScript suggests.
   return new Stripe(secretKey, {
-    apiVersion: "2025-09-30.clover",
+    apiVersion: "2025-02-24.acacia",
   });
 }
 
