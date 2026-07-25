@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { hasAuthSessionCookie } from "@/lib/auth/session";
 import { logoutAction } from "@/app/actions/auth";
-import { STATIC_LINKS } from "@/config/nav";
+import { ACCOUNT_NAV, STATIC_LINKS } from "@/config/nav";
 
 export async function Header() {
   const hasSession = await hasAuthSessionCookie();
@@ -148,16 +148,16 @@ function ProfileDropdown({
       <div className="absolute right-0 top-full z-50 mt-0.5 min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 shadow-lg">
         <div className="flex flex-col gap-0.5">
           <Link
-            href="/profile"
+            href={ACCOUNT_NAV.profile.href}
             className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
           >
-            Profiel
+            {ACCOUNT_NAV.profile.label}
           </Link>
           <Link
-            href="/dashboard"
+            href={ACCOUNT_NAV.pro.href}
             className="rounded-md px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--background)] hover:text-[var(--accent)]"
           >
-            Dashboard
+            {ACCOUNT_NAV.pro.label}
           </Link>
           <form action={logoutAction}>
             <button
