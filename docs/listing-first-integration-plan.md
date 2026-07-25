@@ -131,22 +131,28 @@ alter table public.listing_credit_transactions
 
 ---
 
-## Fase 3 — Betaalde checkout
+## Fase 3 — Betaalde checkout ✅ code klaar, wacht op echte Stripe-sleutels
 
-Dit is de fase waar geld echt binnenkomt, en de fase met het grootste risico.
+Dit is de fase waar geld echt binnenkomt. Beslissingen bevestigd met de gebruiker vooraf: **eigen Stripe-key op de storefront** (los van Medusa en van Connect — Connect blijft uitsluitend merchant-payouts), en **`price_data` dynamisch** vanuit `listing_credit_products`/`commercial_plans` (geen vooraf aangemaakte Stripe Price-objecten nodig).
 
-**`addListingCreditsAction` (`dashboard.ts:2239`) kent vandaag credits toe zonder enige betaling.** Het is een kale server action met een `pack_code` en geen Stripe-aanroep. Vandaag niet uitbuitbaar omdat gating uit staat (`COMMERCIAL_GATING_ENABLED` is standaard `false`) en er geen UI aan hangt — maar het moment dat gating aangaat en deze action bereikbaar is, kan iedereen zichzelf gratis credits geven.
+**Gebouwd:**
 
-Volgorde, strikt:
+1. `apps/storefront/src/lib/payments/stripe-client.ts` — Stripe-client + webhook-secret helpers, apart van Medusa/Connect.
+2. `apps/storefront/src/app/actions/listing-checkout.ts` — `createCreditPackCheckoutAction` en `createPlanCheckoutAction`. Beide: `mode: "payment"` (eenmalige afrekening, geen Stripe Subscription — past bij "vaste jaarprijs" zonder recurring-billingcomplexiteit). Organizer-plannen worden expliciet geweigerd (`segment === "organizer"` faalt met duidelijke boodschap) — die horen bij een event, niet bij de creator, en zijn Fase 4-werk.
+3. `apps/storefront/src/app/api/webhooks/stripe-listing/route.ts` — verifieert de signature, verwerkt alleen `checkout.session.completed` met `payment_status === "paid"`. **Idempotent**: schrijft eerst de Stripe session-id naar `stripe_checkout_events` (nieuwe tabel, `apps/storefront/scripts/migrate-listing-checkout.sql`); bij een unique-violation is het event al verwerkt en stopt de handler. Credits gaan via `apply_listing_credit_delta` (atomair, uit Fase 0). Plannen deactiveren eerst een bestaand actief abonnement in hetzelfde segment, dan insert in `creator_plan_subscriptions` met `external_payment_id = session.id`.
+4. `addListingCreditsAction` (`dashboard.ts`) is dichtgetimmerd: vereist nu `isModerator(user.id)`, een expliciete `creator_id` van een andere maker, en gebruikt reden `manual_adjustment` in plaats van `purchase` — zodat de audit trail een handmatige correctie nooit kan verwarren met een echte betaling. Nergens meer bereikbaar voor een creator over zijn eigen account.
+5. UI: `/dashboard/products` toont saldo + koopbare pakketten, gekoppeld aan `createCreditPackCheckoutAction`.
 
-1. Stripe Checkout Session voor creditpakketten en jaarplannen (platform charge — **geen** Connect; Connect blijft merchant-only).
-2. Webhook `checkout.session.completed` → `apply_listing_credit_delta` voor packs, of `creator_plan_subscriptions` voor plannen.
-3. `addListingCreditsAction` afsluiten: alleen bereikbaar voor moderators als handmatige correctie, met reden `manual_adjustment`.
-4. Pas daarna `COMMERCIAL_GATING_ENABLED=true`.
+**Nog te doen — dit kan alleen jij, ik heb geen toegang tot je Stripe-dashboard of live sleutels:**
 
-Omgekeerde volgorde betekent: publiceren geblokkeerd terwijl niemand kán betalen.
+- `stripe` package toegevoegd aan `package.json` (`^17.4.0`) maar **niet geïnstalleerd** in deze sandbox (geen `node_modules`, geen netwerktoegang om te verifiëren) — draai `yarn install` en dan `yarn build` vóór deploy. De `apiVersion`-string in `stripe-client.ts` is een educated guess; als de build een literal-type-mismatch geeft op dat veld, kopieer de waarde die TypeScript voorstelt.
+- Env vars instellen op de storefront-deployment (Vercel): `STRIPE_SECRET_API_KEY`, `STRIPE_LISTING_WEBHOOK_SECRET`, `NEXT_PUBLIC_SITE_URL` (laatste bestaat vermoedelijk al, hergebruikt van `seo.ts`).
+- In Stripe: een webhook-endpoint aanmaken naar `<site>/api/webhooks/stripe-listing` voor het event `checkout.session.completed`, en het bijbehorende signing secret in `STRIPE_LISTING_WEBHOOK_SECRET` zetten.
+- Migratie draaien: `apps/storefront/scripts/migrate-listing-checkout.sql`.
+- **Test-mode end-to-end proberen** (creditpakket kopen → Stripe test-kaart → webhook komt binnen → credits verschijnen) — dit is code die ik nooit heb kunnen draaien, alleen gebouwd en type-gecontroleerd. Behandel de eerste live test als een echte test, niet als een formaliteit.
+- Pas daarna `COMMERCIAL_GATING_ENABLED=true`.
 
-De creditkant is klaar — `apply_listing_credit_delta` is atomair en afgedwongen op databaseniveau, dus dubbele webhooks of gelijktijdige publicaties kunnen het saldo niet corrumperen.
+De creditkant blijft atomair afgedwongen op databaseniveau (`apply_listing_credit_delta`), dus dubbele webhooks of gelijktijdige publicaties kunnen het saldo niet corrumperen — en nu ook: dubbele webhook-*events* kunnen niet dubbel crediteren, dankzij `stripe_checkout_events`.
 
 ---
 

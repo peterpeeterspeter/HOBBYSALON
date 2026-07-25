@@ -6,7 +6,8 @@ import {
   createPlatformClient,
 } from "@/lib/platform/client";
 import { getAuthUser } from "@/lib/auth/session";
-import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { getCreatorById, getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { isModerator } from "@/lib/platform/queries/community-showcase";
 import {
   cancelCreatorOrder,
   completeCreatorOrder,
@@ -2258,10 +2259,33 @@ export async function purchaseSpotlightBoostFormAction(
   }
 }
 
+/**
+ * Moderator-only manual credit correction (refunds, goodwill, support
+ * cases). Real credit purchases go through Stripe Checkout
+ * (createCreditPackCheckoutAction) and are granted by the webhook - this
+ * action must never be reachable from a creator's own dashboard, and never
+ * uses reason "purchase" so the audit trail can't be confused with a real
+ * payment.
+ */
 export async function addListingCreditsAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const user = await getAuthUser();
+    if (!user) {
+      fail("/dashboard/products", "Meld je eerst aan.");
+    }
+    if (!(await isModerator(user.id))) {
+      fail("/dashboard/products", "Alleen moderators kunnen credits handmatig toekennen.");
+    }
+
+    const targetCreatorId = parseRequiredString(formData, "creator_id");
     const packCode = parseRequiredString(formData, "pack_code");
+    const note = parseOptionalString(formData, "note");
+
+    const targetCreator = await getCreatorById(targetCreatorId);
+    if (!targetCreator) {
+      fail("/dashboard/products", "Creator niet gevonden.");
+    }
+
     const supabase = createPlatformClient();
     const { data: pack } = await supabase
       .from("listing_credit_products")
@@ -2274,8 +2298,10 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
       fail("/dashboard/products", "Creditpakket niet gevonden.");
     }
 
-    const result = await addCredits(creator.id, pack.credits, "purchase", {
+    const result = await addCredits(targetCreatorId, pack.credits, "manual_adjustment", {
       pack_code: packCode,
+      granted_by_user_id: user.id,
+      note: note ?? undefined,
     });
 
     if (!result.ok) {
@@ -2283,7 +2309,10 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
     }
 
     revalidatePath("/dashboard/products");
-    ok("/dashboard/products", `${pack.credits} credits toegevoegd (${pack.name}).`);
+    ok(
+      "/dashboard/products",
+      `${pack.credits} credits handmatig toegekend aan ${targetCreator.display_name} (${pack.name}).`
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
