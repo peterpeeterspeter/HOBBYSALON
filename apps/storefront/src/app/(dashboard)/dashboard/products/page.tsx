@@ -17,6 +17,8 @@ import {
   updateProductAction,
 } from "@/app/actions/dashboard";
 import { updateProductInquiryStatusAction } from "@/app/actions/product-inquiry";
+import { createCreditPackCheckoutAction } from "@/app/actions/listing-checkout";
+import { getCreditBalance } from "@/lib/platform/listing-credits";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
@@ -38,6 +40,14 @@ type ProductInquiryRow = {
   status: string;
   created_at: string;
   products: { title: string; slug: string } | { title: string; slug: string }[] | null;
+};
+
+type CreditPackRow = {
+  pack_code: string;
+  name: string;
+  credits: number;
+  price_cents: number;
+  currency_code: string;
 };
 
 const PRODUCT_TYPE_OPTIONS = [
@@ -98,12 +108,16 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
   let products: Product[] = [];
   let creatorDomainIds: string[] = [];
   let productInquiries: ProductInquiryRow[] = [];
+  let creditPacks: CreditPackRow[] = [];
+  let creditBalance = 0;
   if (creator) {
     const supabase = createPlatformClient();
     const [
       { data: productData },
       { data: creatorDomainLinks },
       { data: inquiryData },
+      { data: creditPackData },
+      balance,
     ] = await Promise.all([
       supabase
         .from("products")
@@ -122,12 +136,20 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         .eq("creator_id", creator.id)
         .order("created_at", { ascending: false })
         .limit(50),
+      supabase
+        .from("listing_credit_products")
+        .select("pack_code, name, credits, price_cents, currency_code")
+        .eq("is_active", true)
+        .order("credits", { ascending: true }),
+      getCreditBalance(creator.id),
     ]);
     products = (productData ?? []) as Product[];
     creatorDomainIds = Array.from(
       new Set((creatorDomainLinks ?? []).map((row) => row.domain_id).filter(Boolean))
     );
     productInquiries = (inquiryData ?? []) as ProductInquiryRow[];
+    creditPacks = (creditPackData ?? []) as CreditPackRow[];
+    creditBalance = balance;
   }
 
   const domainOptions = domains.map((domain) => ({
@@ -171,6 +193,39 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
+          <CardShell variant="default" padding="lg" className="mb-8">
+            <h2 className="text-lg font-semibold">Listing credits</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Je huidige saldo: <strong>{creditBalance} credits</strong>. Elke
+              plaatsing kost credits; koop een pakket om te blijven publiceren.
+            </p>
+            {creditPacks.length > 0 && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {creditPacks.map((pack) => (
+                  <form
+                    key={pack.pack_code}
+                    action={createCreditPackCheckoutAction}
+                    className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3"
+                  >
+                    <input type="hidden" name="pack_code" value={pack.pack_code} />
+                    <span className="font-semibold text-[var(--foreground)]">
+                      {pack.name}
+                    </span>
+                    <span className="text-sm text-[var(--muted)]">
+                      {pack.credits} credits
+                    </span>
+                    <span className="text-sm text-[var(--foreground)]">
+                      {formatEuroFromCents(pack.price_cents)}
+                    </span>
+                    <Button type="submit" variant="secondary" size="sm">
+                      Kopen
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            )}
+          </CardShell>
+
           <CardShell variant="default" padding="lg" className="mb-8">
             <form action={createProductAction} encType="multipart/form-data">
               <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>

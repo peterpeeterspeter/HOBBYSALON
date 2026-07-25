@@ -110,7 +110,7 @@ Main tables:
 - `subscribers`
 - `survey_segments`
 - `workshop_booking_requests`
-- `listing_inquiries`
+- `product_inquiries`
 
 ---
 
@@ -279,7 +279,7 @@ Fields:
 - `condition_type` (text, nullable)
 - `personalization_available` (boolean)
 - `estimated_dispatch_days` (int, nullable)
-- `price_cents` (int, nullable) — indicative listing price for makers
+- `price_cents` (int, nullable) — indicative price for maker listings; null/ignored for Medusa-backed `supply` products
 - `currency_code` (text, nullable)
 - `stock_mode` (text, nullable) — `made_to_order` | `in_stock` | `contact`
 - `featured_image_url` (text)
@@ -287,9 +287,6 @@ Fields:
 - `is_active` (boolean)
 - `seo_title` (text)
 - `seo_description` (text)
-- `price_cents` (int, nullable) — indicative price for maker listings; null/ignored for Medusa-backed `supply` products
-- `currency_code` (text, default `EUR`)
-- `listing_expires_at` (timestamptz, nullable) — term for paid per-listing placements
 - `created_at`
 - `updated_at`
 
@@ -407,7 +404,6 @@ Fields:
 - `is_active` (boolean)
 - `seo_title` (text)
 - `seo_description` (text)
-- `listing_expires_at` (timestamptz, nullable) — term for paid per-listing placements
 - `created_at`
 - `updated_at`
 
@@ -952,21 +948,19 @@ Allowed `status`:
 
 ---
 
-# 27. Listing Inquiries
+# 27. Product Inquiries
 
-Generic contact/inquiry inbox for listing-first entities (`product`, `event`). Replaces cart/checkout for maker listings: a visitor submits an inquiry, the creator gets notified and replies in-platform. Mirrors `workshop_booking_requests`; that table keeps its workshop-specific fields and is not folded into this one.
+Contact/inquiry inbox for maker listings (`handmade`/`destash`) that have no Medusa cart. Replaces checkout: a visitor submits an inquiry, the creator is notified by email and manages status from `/dashboard/products`. Public may only insert new inquiries (RLS); dashboard reads/updates go through the service-role client, same trust boundary as `listing_credit_wallets`/`listing_credit_transactions`.
 
-## Table: `listing_inquiries`
+## Table: `product_inquiries`
 
 Fields:
 
 - `id` (uuid, pk)
-- `entity_type` (text) — `product` | `event` | `creator`
-- `entity_id` (uuid) — id of the product/event/creator being inquired about
+- `product_id` (uuid, fk → products)
 - `creator_id` (uuid, fk → creators) — inbox owner
 - `full_name` (text)
 - `email` (text)
-- `phone` (text, nullable)
 - `message` (text, nullable)
 - `status` (text)
 - `created_at`
@@ -975,10 +969,9 @@ Fields:
 Allowed `status`:
 
 - `new`
-- `read`
-- `replied`
-- `archived`
-- `spam`
+- `contacted`
+- `accepted`
+- `declined`
 
 ---
 
