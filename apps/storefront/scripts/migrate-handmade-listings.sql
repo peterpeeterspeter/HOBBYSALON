@@ -54,9 +54,16 @@ for each row execute function public.set_updated_at();
 alter table public.product_inquiries enable row level security;
 
 drop policy if exists product_inquiries_anon_insert on public.product_inquiries;
-create policy product_inquiries_anon_insert on public.product_inquiries
-  for insert with check (true);
-
 drop policy if exists product_inquiries_service_all on public.product_inquiries;
-create policy product_inquiries_service_all on public.product_inquiries
-  for all using (true) with check (true);
+
+-- Public may only insert new inquiries. Dashboard reads/updates use service role (bypasses RLS).
+create policy product_inquiries_anon_insert on public.product_inquiries
+  for insert
+  to anon, authenticated
+  with check (
+    full_name is not null
+    and length(trim(full_name)) > 0
+    and email is not null
+    and length(trim(email)) > 0
+    and status = 'new'
+  );
