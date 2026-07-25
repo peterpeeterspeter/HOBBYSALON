@@ -44,7 +44,7 @@ Rules and context for AI-assisted development.
 
 ## Product Types (Platform)
 
-Valid `product_type` values: `supply`, `handmade`, `event_listing`, `event_ticket`, `workshop_ticket`, `workshop_kit`.
+Valid `product_type` values: `supply`, `handmade`, `destash`, `event_listing`, `event_ticket`, `workshop_ticket`, `workshop_kit`.
 
 ---
 

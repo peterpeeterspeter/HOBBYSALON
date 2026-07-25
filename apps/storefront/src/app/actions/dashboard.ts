@@ -36,6 +36,7 @@ const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 const PRODUCT_TYPES = new Set([
   "supply",
   "handmade",
+  "destash",
   "event_listing",
   "event_ticket",
   "workshop_ticket",
