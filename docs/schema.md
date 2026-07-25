@@ -110,6 +110,7 @@ Main tables:
 - `subscribers`
 - `survey_segments`
 - `workshop_booking_requests`
+- `listing_inquiries`
 
 ---
 
@@ -250,8 +251,9 @@ This supports both marketplace and content-driven merchandising.
 
 ## Product types
 
-- `supply`
-- `handmade`
+- `supply` — merchant, Medusa-backed, 10% commission
+- `handmade` — maker listing, platform-only, listing fee
+- `destash` — maker listing, leftover/secondhand materials, platform-only, listing fee. Kept separate from `supply` so it doesn't fall under the merchant commission rule.
 - `event_listing`
 - `event_ticket`
 - `workshop_ticket`
@@ -259,12 +261,12 @@ This supports both marketplace and content-driven merchandising.
 
 ## Table: `products`
 
-Platform owns display/discovery fields. For **maker handmade listings**, the platform also stores indicative `price_cents` / `currency_code` (contact/lead model — no Medusa checkout). For **merchant supply**, Medusa owns transactional price/inventory; linked via `medusa_product_id`.
+Platform owns display/discovery fields. For `supply` (merchant), Medusa owns transactional fields (price, inventory, variants, SKU, weight, shipping), linked via `medusa_product_id`. For `handmade`/`destash` (maker listings), `price_cents` is the source of truth — there is no Medusa product, and the price is an indicative asking price shown next to a contact/inquire action, not a checkout price.
 
 Fields:
 
 - `id` (uuid, pk)
-- `medusa_product_id` (text, unique, nullable) — bridge to Medusa product (merchants / legacy commerce)
+- `medusa_product_id` (text, unique, nullable) — bridge to Medusa product; null for maker listings
 - `creator_id` (uuid, fk → creators)
 - `domain_id` (uuid, fk → domains)
 - `category_id` (uuid, fk → product_categories)
@@ -285,6 +287,9 @@ Fields:
 - `is_active` (boolean)
 - `seo_title` (text)
 - `seo_description` (text)
+- `price_cents` (int, nullable) — indicative price for maker listings; null/ignored for Medusa-backed `supply` products
+- `currency_code` (text, default `EUR`)
+- `listing_expires_at` (timestamptz, nullable) — term for paid per-listing placements
 - `created_at`
 - `updated_at`
 
@@ -307,7 +312,10 @@ Allowed `condition_type` values:
 Marketplace materials / supplies. Professional craft materials and tools.
 
 #### `handmade`
-Handmade marketplace. Etsy-like handmade products by makers.
+Maker listing for a finished, made-by-the-maker item. Platform-only (no Medusa product); buyer contacts the maker via an inquiry form, no cart/checkout. Monetized via listing credits/plans, not sale commission.
+
+#### `destash`
+Maker listing for leftover or secondhand craft materials. Same platform-only, contact-first flow as `handmade`. Kept as a distinct type so it is never matched by the `supply` commission rule.
 
 #### `event_listing`
 Event listings (promoted listings, featured placement). Fee model: flat.
@@ -399,6 +407,7 @@ Fields:
 - `is_active` (boolean)
 - `seo_title` (text)
 - `seo_description` (text)
+- `listing_expires_at` (timestamptz, nullable) — term for paid per-listing placements
 - `created_at`
 - `updated_at`
 
@@ -943,7 +952,37 @@ Allowed `status`:
 
 ---
 
-# 26. Route Mapping
+# 27. Listing Inquiries
+
+Generic contact/inquiry inbox for listing-first entities (`product`, `event`). Replaces cart/checkout for maker listings: a visitor submits an inquiry, the creator gets notified and replies in-platform. Mirrors `workshop_booking_requests`; that table keeps its workshop-specific fields and is not folded into this one.
+
+## Table: `listing_inquiries`
+
+Fields:
+
+- `id` (uuid, pk)
+- `entity_type` (text) — `product` | `event` | `creator`
+- `entity_id` (uuid) — id of the product/event/creator being inquired about
+- `creator_id` (uuid, fk → creators) — inbox owner
+- `full_name` (text)
+- `email` (text)
+- `phone` (text, nullable)
+- `message` (text, nullable)
+- `status` (text)
+- `created_at`
+- `updated_at`
+
+Allowed `status`:
+
+- `new`
+- `read`
+- `replied`
+- `archived`
+- `spam`
+
+---
+
+# 28. Route Mapping
 
 Recommended public routes:
 
@@ -971,7 +1010,7 @@ Recommended dashboard routes:
 
 ---
 
-# 27. Homepage Query Model
+# 29. Homepage Query Model
 
 The homepage is not a classic ecommerce homepage.
 
@@ -989,7 +1028,7 @@ Recommended homepage blocks:
 
 ---
 
-# 28. Core Business Logic
+# 30. Core Business Logic
 
 ## Workshop page should show
 
@@ -1027,7 +1066,7 @@ Recommended homepage blocks:
 
 ---
 
-# 29. MVP Schema Scope
+# 31. MVP Schema Scope
 
 ## Must-have tables for v1
 
@@ -1069,7 +1108,7 @@ Migrations: `apps/storefront/scripts/migrate-commercial-plans.sql`, `seed-commer
 
 ---
 
-# 30. Recommended Technical Direction
+# 32. Recommended Technical Direction
 
 Do **not** force all of Hobbysalon into Mercur / Medusa.
 
@@ -1091,7 +1130,7 @@ This supports:
 
 ---
 
-# 31. Final Schema Summary
+# 33. Final Schema Summary
 
 Hobbysalon is a **platform graph** built around:
 

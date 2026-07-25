@@ -14,11 +14,11 @@ import {
   getMedusaProduct,
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
-import type { Product, Domain, Workshop, Article, Event } from "@/types/platform";
+import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
 
 export type ProductPageData = {
   product: Product | null;
-  creator: Awaited<ReturnType<typeof getCreatorById>>;
+  creator: Creator | null;
   domain: Domain | null;
   price: { amount: number; currency_code: string } | null;
   variants: Array<{ id: string; title: string }>;
@@ -28,23 +28,10 @@ export type ProductPageData = {
   relatedEvents: Event[];
 };
 
-function resolveListingPrice(
-  product: Product,
-  medusa: Awaited<ReturnType<typeof getMedusaProduct>>
-): { amount: number; currency_code: string } | null {
-  if (medusa?.calculated_price) {
-    return {
-      amount: medusa.calculated_price.calculated_amount,
-      currency_code: medusa.calculated_price.currency_code,
-    };
-  }
-  if (typeof product.price_cents === "number") {
-    return {
-      amount: product.price_cents,
-      currency_code: (product.currency_code ?? "EUR").toLowerCase(),
-    };
-  }
-  return null;
+const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
+
+function isMakerListing(product: Product): boolean {
+  return MAKER_LISTING_TYPES.has(product.product_type);
 }
 
 export async function getProductPageData(slug: string): Promise<ProductPageData> {
@@ -78,20 +65,38 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       : Promise.resolve(null),
     getRelatedEntities("product", product.id),
   ]);
+  // Maker listings (handmade/destash) are platform-only: price is an
+  // indicative asking price from products.price_cents, not a Medusa
+  // checkout price. A maker listing created before this cutover may still
+  // carry a medusa_product_id - that legacy row keeps its Medusa cart/price
+  // behavior so in-flight orders aren't broken.
+  const hasLegacyMedusaListing = isMakerListing(product) && !!product.medusa_product_id;
+  const useMedusaCommerce = product.product_type === "supply" || hasLegacyMedusaListing;
 
-  // Handmade contact listings never auto-provision Medusa commerce products.
-  const medusaById = product.medusa_product_id
-    ? await getMedusaProduct(product.medusa_product_id)
-    : null;
-  const medusa =
-    medusaById ??
-    (product.product_type === "handmade" && !product.medusa_product_id
-      ? null
-      : await getMedusaProductByHandle(product.slug ?? null));
+  let price: { amount: number; currency_code: string } | null = null;
+  let variants: Array<{ id: string; title: string }> = [];
 
-  const price = resolveListingPrice(product, medusa);
-  const variants =
-    medusa?.variants?.map((v) => ({ id: v.id, title: v.title })) ?? [];
+  if (useMedusaCommerce) {
+    const medusaProductId = product.medusa_product_id;
+    const medusaByResolvedId = medusaProductId
+      ? await getMedusaProduct(medusaProductId)
+      : null;
+    const medusa =
+      medusaByResolvedId ?? (await getMedusaProductByHandle(product.slug ?? null));
+
+    price = medusa?.calculated_price
+      ? {
+          amount: medusa.calculated_price.calculated_amount,
+          currency_code: medusa.calculated_price.currency_code,
+        }
+      : null;
+    variants = medusa?.variants?.map((v) => ({ id: v.id, title: v.title })) ?? [];
+  } else if (isMakerListing(product) && typeof product.price_cents === "number") {
+    price = {
+      amount: product.price_cents,
+      currency_code: product.currency_code ?? "EUR",
+    };
+  }
 
   const workshopIds = entityLinks
     .filter((l) => l.target_entity_type === "workshop")

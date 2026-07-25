@@ -12,7 +12,6 @@ import {
   completeCreatorOrder,
 } from "@/lib/commerce/medusa/creator-orders";
 import {
-  createCreatorMarketplaceProduct,
   deleteCreatorMarketplaceProduct,
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
@@ -36,6 +35,7 @@ const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 const PRODUCT_TYPES = new Set([
   "supply",
   "handmade",
+  "destash",
   "event_listing",
   "event_ticket",
   "workshop_ticket",
@@ -47,7 +47,6 @@ const PRODUCT_CONDITION_TYPES = new Set([
   "made_to_order",
   "used",
 ]);
-const PRODUCT_STOCK_MODES = new Set(["in_stock", "made_to_order"]);
 
 const WORKSHOP_FORMATS = new Set(["physical", "online", "hybrid"]);
 const WORKSHOP_DIFFICULTY = new Set(["beginner", "intermediate", "advanced"]);
@@ -1365,7 +1364,6 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
-    const stockMode = parseRequiredString(formData, "stock_mode");
     const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
     const currencyCode = parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
     const conditionType = parseOptionalString(formData, "condition_type");
@@ -1381,20 +1379,17 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", "Ongeldig producttype.");
     }
 
-    if (productType !== "handmade") {
+    if (productType !== "handmade" && productType !== "destash") {
       fail(
         "/dashboard/products",
-        "Voor maker-plaatsingen is momenteel enkel type 'handmade' toegestaan."
+        "Voor maker-plaatsingen is enkel type 'handmade' of 'destash' toegestaan."
       );
-    }
-    if (!PRODUCT_STOCK_MODES.has(stockMode)) {
-      fail("/dashboard/products", "Ongeldige voorraadmodus.");
     }
     if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
       fail("/dashboard/products", "Ongeldige conditie.");
     }
     if (priceCents === null) {
-      fail("/dashboard/products", "Prijs (in cent) is verplicht.");
+      fail("/dashboard/products", "Richtprijs (in cent) is verplicht.");
     }
 
     const isActive = !!formData.get("is_active");
@@ -1402,7 +1397,8 @@ export async function createProductAction(formData: FormData): Promise<void> {
       creator.id,
       creator.creator_types ?? [],
       isActive,
-      false
+      false,
+      productType as "handmade" | "destash"
     );
     if (!creditCheck.ok) {
       fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
@@ -1419,18 +1415,17 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const supabase = createPlatformClient();
     const { error } = await supabase.from("products").insert({
       creator_id: creator.id,
+      domain_id: domainId,
+      category_id: categoryId,
       slug,
       title,
       short_description: parseOptionalString(formData, "short_description"),
       description: parseOptionalString(formData, "description"),
       featured_image_url: featuredImageUrl,
-      domain_id: domainId,
-      category_id: categoryId,
       condition_type: conditionType,
       personalization_available: personalizationAvailable,
       estimated_dispatch_days: estimatedDispatchDays,
       product_type: productType,
-      stock_mode: stockMode,
       price_cents: priceCents,
       currency_code: currencyCode,
       status: isActive ? "active" : "draft",
@@ -1468,7 +1463,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const productId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
-    const stockMode = parseRequiredString(formData, "stock_mode");
+    const stockMode = parseOptionalString(formData, "stock_mode") ?? "made_to_order";
     const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
     const currencyCode = parseOptionalCurrencyCode(formData, "currency_code");
     const conditionType = parseOptionalString(formData, "condition_type");
@@ -1483,9 +1478,6 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
     }
-    if (!PRODUCT_STOCK_MODES.has(stockMode)) {
-      fail("/dashboard/products", "Ongeldige voorraadmodus.");
-    }
     if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
       fail("/dashboard/products", "Ongeldige conditie.");
     }
@@ -1497,7 +1489,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     );
     const { data: existingProduct, error: existingError } = await supabase
       .from("products")
-      .select("id,medusa_product_id,featured_image_url,is_active")
+      .select("id,medusa_product_id,featured_image_url,is_active,price_cents,currency_code")
       .eq("id", productId)
       .eq("creator_id", creator.id)
       .maybeSingle();
@@ -1603,9 +1595,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         personalization_available: personalizationAvailable,
         estimated_dispatch_days: estimatedDispatchDays,
         product_type: productType,
-        stock_mode: stockMode,
-        price_cents: priceCents,
-        currency_code: currencyCode ?? "EUR",
+        price_cents: priceCents ?? existingProduct.price_cents,
+        currency_code: currencyCode ?? existingProduct.currency_code ?? "EUR",
         status: isActive ? "active" : "draft",
         is_active: isActive,
       })

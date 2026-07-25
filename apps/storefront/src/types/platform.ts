@@ -163,6 +163,7 @@ export type Product = {
   is_active: boolean;
   seo_title: string | null;
   seo_description: string | null;
+  listing_expires_at?: string | null;
   created_at: string;
   updated_at: string;
 };

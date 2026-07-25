@@ -14,10 +14,17 @@ type ProductBuyCardProps = {
   isFavorite: boolean;
 };
 
+const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
+
+const TYPE_LABELS: Record<string, string> = {
+  handmade: "Handgemaakt",
+  destash: "Restant materiaal",
+};
+
 /**
- * Sticky panel on the product detail page.
- * Handmade listings without Medusa = contact form (no checkout).
- * Supply / Medusa-linked products keep add-to-cart.
+ * Sticky panel on the product detail page: type, price and either an
+ * add-to-cart flow (merchant supply, or a legacy Medusa-linked maker
+ * listing) or a contact/inquire form (maker listing without a cart).
  */
 export function ProductBuyCard({
   product,
@@ -26,13 +33,13 @@ export function ProductBuyCard({
   variants,
   isFavorite,
 }: ProductBuyCardProps) {
-  const isContactListing =
-    product.product_type === "handmade" && !product.medusa_product_id;
+  const isMakerListing = MAKER_LISTING_TYPES.has(product.product_type);
+  const hasCart = !isMakerListing || !!product.medusa_product_id;
 
   return (
     <CardShell variant="default" padding="lg" className="rounded-2xl">
       <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
-        {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
+        {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
       </span>
 
       {price && (
@@ -42,7 +49,7 @@ export function ProductBuyCard({
             currencyCode={price.currency_code}
             size="lg"
           />
-          {isContactListing && (
+          {isMakerListing && !hasCart && (
             <p className="mt-1 text-xs text-[var(--muted)]">
               Richtprijs — aankoop via de maker
             </p>
@@ -51,23 +58,42 @@ export function ProductBuyCard({
       )}
 
       <div className="mt-5">
-        {isContactListing && creator ? (
+        {hasCart ? (
+          <ProductPurchaseControls
+            variants={variants}
+            productType={product.product_type}
+            creatorSlug={creator?.slug ?? null}
+          />
+        ) : creator ? (
           <ProductInquiryForm
             productId={product.id}
             creatorId={creator.id}
             creatorName={creator.display_name}
           />
         ) : (
-          <ProductPurchaseControls
-            variants={variants}
-            productType={product.product_type}
-            creatorSlug={creator?.slug ?? null}
-          />
+          <p className="text-sm text-[var(--muted)]">
+            Contact opnemen is voor dit item nog niet beschikbaar.
+          </p>
         )}
       </div>
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[var(--border)] pt-4 text-[13px] text-[var(--muted)]">
-        {isContactListing ? (
+        {hasCart ? (
+          <>
+            <span className="flex items-center gap-2">
+              <Truck size={14} className="text-[var(--accent)]" aria-hidden />
+              Verzonden door {creator?.display_name ?? "de verkoper"}
+            </span>
+            <span className="flex items-center gap-2">
+              <ShieldCheck
+                size={14}
+                className="text-[var(--accent)]"
+                aria-hidden
+              />
+              Veilig betalen via Hobbysalon
+            </span>
+          </>
+        ) : (
           <>
             <span className="flex items-center gap-2">
               <MessageCircle
@@ -84,21 +110,6 @@ export function ProductBuyCard({
                 aria-hidden
               />
               Geen checkout via Hobbysalon — jullie regelen de deal zelf
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="flex items-center gap-2">
-              <Truck size={14} className="text-[var(--accent)]" aria-hidden />
-              Verzonden door {creator?.display_name ?? "de verkoper"}
-            </span>
-            <span className="flex items-center gap-2">
-              <ShieldCheck
-                size={14}
-                className="text-[var(--accent)]"
-                aria-hidden
-              />
-              Veilig betalen via Hobbysalon
             </span>
           </>
         )}

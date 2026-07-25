@@ -5,9 +5,39 @@ type MarkdownContentProps = {
   className?: string;
 };
 
+/**
+ * Slugify a section header into a URL-safe fragment ID.
+ * Strips emoji, normalizes diacritics, converts spaces to hyphens.
+ * "🌸 IN HET KORT" → "in-het-kort"
+ */
+function slugify(text: string): string {
+  return text
+    // eslint-disable-next-line no-misleading-character-class
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/**
+ * Detect emoji+UPPERCASE section headers like "🌸 IN HET KORT".
+ * These paragraphs get an id so fragment links (#...) can jump to them.
+ */
+const SECTION_HEADER_RE = /^[\p{Emoji}\u200D\uFE0F]+\s+[A-ZÀ-Þ0-9][A-ZÀ-Þ0-9\s'"()?/&+-]*$/u;
+
 function normalizeUrl(raw: string): string | null {
   const value = raw.trim();
   if (!value) return null;
+
+  // Same-page fragment link (#section-name)
+  if (value.startsWith("#")) {
+    return value;
+  }
 
   try {
     const parsed = new URL(value);
@@ -53,12 +83,12 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       const href = normalizeUrl(match[4]);
       if (href) {
         const label = renderInline(match[3], `${keyPrefix}-link-label-${tokenIndex}`);
+        const isFragment = href.startsWith("#");
         nodes.push(
           <a
             key={`${keyPrefix}-link-${tokenIndex}`}
             href={href}
-            target="_blank"
-            rel="noreferrer"
+            {...(isFragment ? {} : { target: "_blank", rel: "noreferrer" })}
             className="text-[var(--accent)] underline underline-offset-2"
           >
             {label}
@@ -123,8 +153,14 @@ function renderBlock(block: string, index: number): React.ReactNode {
     );
   }
 
+  // Check if this paragraph is an emoji+UPPERCASE section header
+  const sectionId = SECTION_HEADER_RE.test(trimmed) ? slugify(trimmed) : undefined;
+
   return (
-    <p key={`p-${index}`} className="my-4 whitespace-pre-wrap leading-7 text-[var(--foreground)]">
+    <p
+      key={`p-${index}`}
+      {...(sectionId ? { id: sectionId, "data-section": "header", className: "mt-6 mb-2 text-lg font-bold text-[var(--foreground)] scroll-mt-20" } : { className: "my-4 whitespace-pre-wrap leading-7 text-[var(--foreground)]" })}
+    >
       {renderInline(trimmed, `b${index}-p`)}
     </p>
   );

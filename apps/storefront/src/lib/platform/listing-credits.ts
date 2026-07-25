@@ -43,6 +43,33 @@ export async function ensureCreditWallet(creatorId: string): Promise<number> {
   return created.balance ?? 0;
 }
 
+async function applyCreditDelta(
+  creatorId: string,
+  delta: number,
+  reason: string,
+  relatedEntity?: { type: string; id: string },
+  metadata: Record<string, unknown> = {}
+): Promise<{ ok: boolean; balance?: number; error?: string }> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase.rpc("apply_listing_credit_delta", {
+    p_creator_id: creatorId,
+    p_delta: delta,
+    p_reason: reason,
+    p_related_entity_type: relatedEntity?.type ?? null,
+    p_related_entity_id: relatedEntity?.id ?? null,
+    p_metadata: metadata,
+  });
+
+  if (error) {
+    if (error.message.includes("insufficient_credits")) {
+      return { ok: false, error: "Onvoldoende listing credits." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, balance: data as number };
+}
+
 export async function addCredits(
   creatorId: string,
   amount: number,
@@ -50,28 +77,7 @@ export async function addCredits(
   metadata: Record<string, unknown> = {}
 ): Promise<{ ok: boolean; balance?: number; error?: string }> {
   if (amount <= 0) return { ok: false, error: "Amount must be positive" };
-
-  await ensureCreditWallet(creatorId);
-  const supabase = createPlatformClient();
-  const balance = await getCreditBalance(creatorId);
-  const newBalance = balance + amount;
-
-  const { error: txError } = await supabase.from("listing_credit_transactions").insert({
-    creator_id: creatorId,
-    amount,
-    reason,
-    metadata,
-  });
-
-  if (txError) return { ok: false, error: txError.message };
-
-  const { error: walletError } = await supabase
-    .from("listing_credit_wallets")
-    .update({ balance: newBalance, updated_at: new Date().toISOString() })
-    .eq("creator_id", creatorId);
-
-  if (walletError) return { ok: false, error: walletError.message };
-  return { ok: true, balance: newBalance };
+  return applyCreditDelta(creatorId, amount, reason, undefined, metadata);
 }
 
 export async function consumeCredits(
@@ -82,34 +88,7 @@ export async function consumeCredits(
   metadata: Record<string, unknown> = {}
 ): Promise<{ ok: boolean; balance?: number; error?: string }> {
   if (amount <= 0) return { ok: false, error: "Amount must be positive" };
-
-  await ensureCreditWallet(creatorId);
-  const balance = await getCreditBalance(creatorId);
-  if (balance < amount) {
-    return { ok: false, error: "Onvoldoende listing credits." };
-  }
-
-  const supabase = createPlatformClient();
-  const newBalance = balance - amount;
-
-  const { error: txError } = await supabase.from("listing_credit_transactions").insert({
-    creator_id: creatorId,
-    amount: -amount,
-    reason,
-    related_entity_type: relatedEntity?.type ?? null,
-    related_entity_id: relatedEntity?.id ?? null,
-    metadata,
-  });
-
-  if (txError) return { ok: false, error: txError.message };
-
-  const { error: walletError } = await supabase
-    .from("listing_credit_wallets")
-    .update({ balance: newBalance, updated_at: new Date().toISOString() })
-    .eq("creator_id", creatorId);
-
-  if (walletError) return { ok: false, error: walletError.message };
-  return { ok: true, balance: newBalance };
+  return applyCreditDelta(creatorId, -amount, reason, relatedEntity, metadata);
 }
 
 export async function canCreateHandmadeListing(
@@ -141,7 +120,7 @@ export async function countActiveHandmadeProducts(creatorId: string): Promise<nu
     .from("products")
     .select("id", { count: "exact", head: true })
     .eq("creator_id", creatorId)
-    .eq("product_type", "handmade")
+    .in("product_type", ["handmade", "destash"])
     .eq("status", "active");
 
   if (error) return 0;
