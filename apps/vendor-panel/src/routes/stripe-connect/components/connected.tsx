@@ -1,7 +1,6 @@
 import { ExclamationCircle } from "@medusajs/icons"
 import { Button, Heading, Text } from "@medusajs/ui"
 import { useCreateStripeOnboarding } from "../../../hooks/api"
-import { Link } from "react-router-dom"
 
 export const Connected = ({
   status,
@@ -33,11 +32,19 @@ export const Connected = ({
   return status === "connected" ? (
     <div className="flex items-center justify-center text-center my-32 flex-col">
       <Heading level="h2" className="mt-4">
-        Your Stripe Account is ready
+        Your payout account is ready
       </Heading>
-      <Link to="https://dashboard.stripe.com/payments" target="_blank">
-        <Button className="mt-4">Go to Stripe</Button>
-      </Link>
+      <Text className="text-ui-fg-subtle max-w-sm mt-2" size="small">
+        Payouts can run once Stripe marks the account active. If Stripe asks for
+        extra details later, reopen onboarding below.
+      </Text>
+      <Button
+        isLoading={isPending}
+        className="mt-4"
+        onClick={() => handleOnboarding()}
+      >
+        Open Stripe payouts
+      </Button>
     </div>
   ) : (
     <div className="flex items-center justify-center text-center my-32 flex-col">
@@ -45,8 +52,8 @@ export const Connected = ({
       <Heading level="h2" className="mt-4">
         Not onboarded
       </Heading>
-      <Text className="text-ui-fg-subtle" size="small">
-        Go to Stripe Onboarding page
+      <Text className="text-ui-fg-subtle max-w-sm" size="small">
+        Finish the short payout setup (identity + bank account for BE/NL).
       </Text>
       <Button
         isLoading={isPending}
