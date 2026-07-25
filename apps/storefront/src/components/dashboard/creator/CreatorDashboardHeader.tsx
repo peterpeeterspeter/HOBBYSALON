@@ -23,7 +23,7 @@ export function CreatorDashboardHeader({
           <p className="mt-2 max-w-2xl text-[var(--muted)]">
             Maak hier je publieke makerpagina aan op Hobbysalon. Vul je naam, foto en hobby&apos;s
             in — zo vinden andere makers en bezoekers jou. Schrijf artikels en toon je portfolio
-            wanneer je klaar bent. Rollen en voorkeuren regel je in het dashboard onder Account.
+            wanneer je klaar bent. Rollen en voorkeuren regel je in Hobbysalon Pro onder Account.
           </p>
         </div>
         {creatorSlug && (

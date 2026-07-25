@@ -13,6 +13,7 @@ import { isModerator } from "@/lib/platform/queries/community-showcase";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
+import { ACCOUNT_NAV } from "@/config/nav";
 
 export default async function DashboardLayout({
   children,
@@ -53,15 +54,25 @@ export default async function DashboardLayout({
                   className="h-9 w-auto object-contain"
                 />
               </Link>
-              <p className="mt-1 truncate text-xs text-[var(--muted)]">
+              <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                {ACCOUNT_NAV.pro.label}
+              </p>
+              <p className="truncate text-xs text-[var(--muted)]">
                 {user.email ?? "Ingelogd"}
               </p>
             </div>
-            <form action={logoutAction}>
-              <Button type="submit" variant="secondary" size="sm">
-                Uitloggen
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="secondary" size="sm">
+                <Link href={ACCOUNT_NAV.backToHobby.href}>
+                  {ACCOUNT_NAV.backToHobby.label}
+                </Link>
               </Button>
-            </form>
+              <form action={logoutAction}>
+                <Button type="submit" variant="secondary" size="sm">
+                  Uitloggen
+                </Button>
+              </form>
+            </div>
           </div>
           <div className="border-t border-[var(--border)] py-3">
             <DashboardNav items={navItems} />

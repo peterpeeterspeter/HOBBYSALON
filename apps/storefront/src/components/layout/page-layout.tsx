@@ -12,6 +12,8 @@ type PageLayoutProps = {
   title?: string;
   /** Subtitle / description */
   description?: string;
+  /** Optional actions aligned with the title (e.g. CTA buttons) */
+  headerActions?: React.ReactNode;
   /** Breadcrumb trail */
   breadcrumbs?: BreadcrumbItem[];
   /** Container width */
@@ -23,6 +25,7 @@ function PageLayout({
   children,
   title,
   description,
+  headerActions,
   breadcrumbs,
   size = "default",
   className,
@@ -52,13 +55,18 @@ function PageLayout({
       )}
 
       {title && (
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[var(--foreground)] md:text-4xl">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-2 text-lg text-[var(--muted)]">{description}</p>
-          )}
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-[var(--foreground)] md:text-4xl">
+              {title}
+            </h1>
+            {description && (
+              <p className="mt-2 text-lg text-[var(--muted)]">{description}</p>
+            )}
+          </div>
+          {headerActions ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{headerActions}</div>
+          ) : null}
         </div>
       )}
 

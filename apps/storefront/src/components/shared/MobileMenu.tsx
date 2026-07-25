@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
+import { ACCOUNT_NAV } from "@/config/nav";
 
 type NavItem = { href: string; label: string };
 
@@ -158,11 +159,11 @@ export function MobileMenu({
                   Account
                 </p>
                 <div className="mt-1 space-y-0.5">
-                  <Link href="/profile" className={mobileLinkClass} onClick={closeMenu}>
-                    Profiel
+                  <Link href={ACCOUNT_NAV.profile.href} className={mobileLinkClass} onClick={closeMenu}>
+                    {ACCOUNT_NAV.profile.label}
                   </Link>
-                  <Link href="/dashboard" className={mobileLinkClass} onClick={closeMenu}>
-                    Dashboard
+                  <Link href={ACCOUNT_NAV.pro.href} className={mobileLinkClass} onClick={closeMenu}>
+                    {ACCOUNT_NAV.pro.label}
                   </Link>
                   <form action={logoutAction}>
                     <button

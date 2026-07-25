@@ -3,6 +3,13 @@
  * Domains are injected at runtime from the platform DB.
  */
 
+/** Logged-in account zone links: hobby profile vs commercial Pro tools. */
+export const ACCOUNT_NAV = {
+  profile: { href: "/profile", label: "Profiel" },
+  pro: { href: "/dashboard", label: "Hobbysalon Pro" },
+  backToHobby: { href: "/profile", label: "Terug naar Hobbysalon" },
+} as const;
+
 export const STATIC_LINKS = {
   main: [
     { href: "/workshops", label: "Workshops" },
@@ -16,8 +23,8 @@ export const STATIC_LINKS = {
     { href: "/patronen", label: "Patronen" },
   ],
   account: [
-    { href: "/profile", label: "Profiel" },
-    { href: "/dashboard", label: "Dashboard" },
+    ACCOUNT_NAV.profile,
+    ACCOUNT_NAV.pro,
     { href: "/register", label: "Registreer" },
     { href: "/login", label: "Inloggen" },
   ],

@@ -14,6 +14,8 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
+import { Button } from "@/components/ui/button";
+import { ACCOUNT_NAV } from "@/config/nav";
 import type { EntityType } from "@/types/platform";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
@@ -175,7 +177,15 @@ export default async function ProfilePage({ searchParams }: Props) {
   );
 
   return (
-    <PageLayout title="Mijn profiel" description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}>
+    <PageLayout
+      title="Mijn profiel"
+      description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}
+      headerActions={
+        <Button asChild variant="secondary" size="sm">
+          <Link href={ACCOUNT_NAV.pro.href}>{ACCOUNT_NAV.pro.label}</Link>
+        </Button>
+      }
+    >
       <CardShell variant="default" padding="lg" className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
           Hobbypaspoort
