@@ -21,5 +21,8 @@ create policy platform_moderators_service_only
 insert into public.platform_moderators (user_id)
 select id
 from auth.users
-where lower(email) = lower('peterpeeterspeter@gmail.com')
+where lower(email) in (
+  lower('peterpeeterspeter@gmail.com'),
+  lower('nathaliesmolders@telenet.be')
+)
 on conflict (user_id) do nothing;

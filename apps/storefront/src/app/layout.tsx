@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Quicksand, Lato } from "next/font/google";
 import "./globals.css";
+import { AuthHashRedirect } from "@/components/auth/AuthHashRedirect";
 import { getSiteUrl, DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_HEIGHT, DEFAULT_OG_IMAGE_WIDTH } from "@/lib/seo";
 
 const quicksand = Quicksand({
@@ -69,6 +70,7 @@ export default function RootLayout({
   return (
     <html lang="nl" className={`${quicksand.variable} ${lato.variable}`}>
       <body className="antialiased font-sans" suppressHydrationWarning>
+        <AuthHashRedirect />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-KP9BXCEF2Z"
           strategy="afterInteractive"

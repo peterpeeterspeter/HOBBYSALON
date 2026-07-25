@@ -104,19 +104,13 @@ export async function registerEmailUser(
   metadata?: Record<string, unknown>
 ): Promise<{ user: User | null; session: Session | null; error: string | null }> {
   const supabase = getSupabaseAuthClient();
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.hobbysalon.be"
-  ).replace(/\/$/, "");
-  const confirmationUrl = new URL("/auth/confirm", siteUrl);
-  if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {
-    confirmationUrl.searchParams.set("next", nextPath);
-  }
+  const confirmationUrl = buildAuthConfirmUrl(nextPath);
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: confirmationUrl.toString(),
+      emailRedirectTo: confirmationUrl,
       data: metadata,
     },
   });
@@ -126,6 +120,33 @@ export async function registerEmailUser(
     session: data.session ?? null,
     error: error?.message ?? null,
   };
+}
+
+function getSiteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.hobbysalon.be").replace(
+    /\/$/,
+    ""
+  );
+}
+
+export function buildAuthConfirmUrl(nextPath?: string | null): string {
+  const confirmationUrl = new URL("/auth/confirm", getSiteUrl());
+  if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {
+    confirmationUrl.searchParams.set("next", nextPath);
+  }
+  return confirmationUrl.toString();
+}
+
+export async function sendPasswordResetEmail(
+  email: string
+): Promise<{ error: string | null }> {
+  const supabase = getSupabaseAuthClient();
+  const redirectTo = buildAuthConfirmUrl("/auth/update-password");
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  return { error: error?.message ?? null };
 }
 
 export async function validateAuthSession(
