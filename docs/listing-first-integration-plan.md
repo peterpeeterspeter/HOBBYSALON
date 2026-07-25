@@ -128,33 +128,32 @@ alter table public.listing_credit_transactions
 
 ---
 
-## Fase 1 — Maker los van Medusa
+## Fase 1 — Maker los van Medusa ✅ uitgevoerd
 
-**Bestanden:** `apps/storefront/src/app/actions/dashboard.ts`, `apps/storefront/src/lib/services/product-page.ts`, `apps/storefront/src/components/product/ProductBuyCard.tsx`
+**Bestanden:** `apps/storefront/src/app/actions/dashboard.ts`, `apps/storefront/src/lib/services/product-page.ts`, `apps/storefront/src/components/product/ProductBuyCard.tsx`, `apps/storefront/src/app/(dashboard)/dashboard/products/page.tsx`, `apps/storefront/src/lib/commerce/medusa/creator-products.ts`
 
-1. `createProductAction` (`dashboard.ts:1355`) schrijft alleen nog naar `products` — de aanroep van `createCreatorMarketplaceProduct` vervalt voor `handmade` en `destash`. `price_cents` gaat naar de nieuwe kolom.
-2. `updateProductAction` (`dashboard.ts:1453`) houdt het Medusa-pad alleen voor rijen die al een `medusa_product_id` hebben (bestaande data), niet voor nieuwe.
-3. **`product-page.ts` haalt prijs nu uit Medusa's `calculated_price`** (regel ~218). Dat moet `products.price_cents` worden. Zonder deze wijziging tonen nieuwe listings geen prijs.
-4. `ProductBuyCard` vervangt `ProductPurchaseControls` (add-to-cart) door een aanvraagformulier. De regel "Veilig betalen via Hobbysalon" en "Verzonden door…" moeten weg — die kloppen niet meer en zijn misleidend zodra er geen transactie is.
-5. Dashboard `/dashboard/products` wordt een CRUD-lijst met foto's, richtprijs, status. Geen ordersectie voor pure makers.
+1. `createProductAction` schrijft nu rechtstreeks naar `products` (`handmade` én `destash`) — geen `createCreatorMarketplaceProduct`-aanroep meer. Die functie had ook geen eigen platform-writeback: het platformrecord ontstond voorheen via een Medusa-subscriber (`platform-products-projection.ts` in `packages/modules/b2c-core`) na een Algolia `PRODUCTS_CHANGED`-event. Die hele keten is nu overbodig voor maker-listings; `createCreatorMarketplaceProduct` zelf is verwijderd (geen resterende aanroepers).
+2. `updateProductAction` behoudt het Medusa-pad uitsluitend voor rijen met een bestaande `medusa_product_id` (legacy, van vóór deze cutover). Prijs wordt nu ook echt bijgewerkt (`price_cents`/`currency_code`), met behoud van de bestaande waarde als het veld leeg blijft.
+3. `product-page.ts`: prijs komt voor `handmade`/`destash` rechtstreeks uit `products.price_cents`. Medusa-lookup blijft alleen voor `supply` én voor legacy maker-rijen die nog een `medusa_product_id` hebben (zodat lopende orders niet breken — Fase 5-principe). De lazy Medusa-autoprovisioning (`ensurePurchasableMedusaProductId` + bijbehorende helpers) is verwijderd.
+4. `ProductBuyCard` toont voor maker-listings zonder cart een aanvraagformulier (`ProductInquiryForm`, nieuw) in plaats van `ProductPurchaseControls`. "Veilig betalen via Hobbysalon" en "Verzonden door" zijn vervangen door "Rechtstreeks contact met de maker" — niet meer misleidend nu er geen transactie is.
+5. Dashboard `/dashboard/products`: `destash` toegevoegd als type-optie, het overbodige "voorraadmodus"-veld (mapte alleen op Medusa `manage_inventory`, nu zonder bestemming) verwijderd uit beide formulieren, en het richtprijsveld bij bewerken toont eindelijk de echte waarde (kon voorheen niet, want er was geen kolom).
 
-**Klaar als:** een maker publiceert zonder Medusa en zonder Stripe Connect, en de publieke pagina toont richtprijs + contactknop.
+**Nog niet gedaan (bewust, hoort bij latere fases):** notificatiemail bij een nieuwe aanvraag, en de dashboard-inbox om aanvragen te beheren (`updateBookingRequestStatusAction`-equivalent voor `listing_inquiries`) — zie Fase 2 hieronder. De aanvraag zelf werkt al end-to-end (formulier → insert → RLS-validatie), want zonder werkende insert had `ProductBuyCard` niets om naartoe te sturen.
 
 ---
 
 ## Fase 2 — Aanvraagstroom en inbox
 
-**Nieuw:** server action voor `listing_inquiries`, dashboardpagina `/dashboard/aanvragen`
+**Al gedaan (vervroegd, nodig voor Fase 1):** `apps/storefront/src/app/actions/listing-inquiry.ts` (server action, patroon van `workshop-booking.ts`) en `apps/storefront/src/components/product/ProductInquiryForm.tsx` (patroon van `WorkshopBookingRequestForm`). RLS: anon mag `insert` met dezelfde strenge `with check` als `workshop_booking_requests`; alleen de eigenaar-creator mag `select`/`update`.
 
-Patroon overnemen van `WorkshopBookingRequestForm`.
+**Nog open:**
 
-Stroom: bezoeker vult formulier → rij in `listing_inquiries` → **notificatiemail naar de maker met "je hebt een aanvraag, log in om te antwoorden"** — niet de volledige inhoud, niet het e-mailadres van de bezoeker.
+- Notificatiemail naar de maker bij een nieuwe aanvraag: **"je hebt een aanvraag, log in om te antwoorden"** — niet de volledige inhoud, niet het e-mailadres van de bezoeker.
+- Dashboardpagina `/dashboard/aanvragen` om `listing_inquiries` te bekijken en status bij te werken (mirror van `updateBookingRequestStatusAction`).
 
-Dat laatste is geen controledwang maar het verlengingsargument: zonder in-platform antwoord heb je bij de jaarfactuur geen enkel bewijs van waarde. Mét: *"je kreeg 12 aanvragen deze maand."*
+Dat eerste punt is geen controledwang maar het verlengingsargument: zonder in-platform antwoord heb je bij de jaarfactuur geen enkel bewijs van waarde. Mét: *"je kreeg 12 aanvragen deze maand."*
 
 **Geen chat.** Er bestaat vandaag geen enkele messaging-tabel; realtime chat betekent notificaties, moderatie, spam, blokkeren en misbruikmeldingen bouwen. Voor een publiek van 55–74 (PRD: 60%) is e-mailnotificatie + in-platform antwoord vertrouwder én een fractie van het werk. Threading kan later.
-
-RLS: anon mag `insert` met dezelfde strenge `with check` als bij `workshop_booking_requests` in `migrate-security-hardening.sql`; alleen de eigenaar-creator mag `select`.
 
 ---
 

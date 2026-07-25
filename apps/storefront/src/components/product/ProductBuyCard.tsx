@@ -1,8 +1,9 @@
 import { CardShell } from "@/components/ui/card-shell";
 import { PriceDisplay } from "@/components/domain/price-display";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
+import { ProductInquiryForm } from "@/components/product/ProductInquiryForm";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
-import { Truck, ShieldCheck } from "lucide-react";
+import { MessageCircle, ShieldCheck } from "lucide-react";
 import type { Product, Creator } from "@/types/platform";
 
 type ProductBuyCardProps = {
@@ -13,9 +14,17 @@ type ProductBuyCardProps = {
   isFavorite: boolean;
 };
 
+const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
+
+const TYPE_LABELS: Record<string, string> = {
+  handmade: "Handgemaakt",
+  destash: "Restant materiaal",
+};
+
 /**
- * Sticky purchase panel on the product detail page: type, price, variant
- * selection + add-to-cart, reassurance lines and a favourite toggle.
+ * Sticky panel on the product detail page: type, price and either an
+ * add-to-cart flow (merchant supply, or a legacy Medusa-linked maker
+ * listing) or a contact/inquire form (maker listing without a cart).
  */
 export function ProductBuyCard({
   product,
@@ -24,10 +33,13 @@ export function ProductBuyCard({
   variants,
   isFavorite,
 }: ProductBuyCardProps) {
+  const isMakerListing = MAKER_LISTING_TYPES.has(product.product_type);
+  const hasCart = !isMakerListing || !!product.medusa_product_id;
+
   return (
     <CardShell variant="default" padding="lg" className="rounded-2xl">
       <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
-        {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
+        {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
       </span>
 
       {price && (
@@ -37,26 +49,46 @@ export function ProductBuyCard({
             currencyCode={price.currency_code}
             size="lg"
           />
+          {isMakerListing && !hasCart && (
+            <p className="mt-1 text-xs text-[var(--muted)]">Richtprijs</p>
+          )}
         </div>
       )}
 
       <div className="mt-5">
-        <ProductPurchaseControls
-          variants={variants}
-          productType={product.product_type}
-          creatorSlug={creator?.slug ?? null}
-        />
+        {hasCart ? (
+          <ProductPurchaseControls
+            variants={variants}
+            productType={product.product_type}
+            creatorSlug={creator?.slug ?? null}
+          />
+        ) : creator ? (
+          <ProductInquiryForm productId={product.id} creatorId={creator.id} />
+        ) : (
+          <p className="text-sm text-[var(--muted)]">
+            Contact opnemen is voor dit item nog niet beschikbaar.
+          </p>
+        )}
       </div>
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[var(--border)] pt-4 text-[13px] text-[var(--muted)]">
-        <span className="flex items-center gap-2">
-          <Truck size={14} className="text-[var(--accent)]" aria-hidden />
-          Verzonden door {creator?.display_name ?? "de verkoper"}
-        </span>
-        <span className="flex items-center gap-2">
-          <ShieldCheck size={14} className="text-[var(--accent)]" aria-hidden />
-          Veilig betalen via Hobbysalon
-        </span>
+        {hasCart ? (
+          <>
+            <span className="flex items-center gap-2">
+              <ShieldCheck size={14} className="text-[var(--accent)]" aria-hidden />
+              Verzonden door {creator?.display_name ?? "de verkoper"}
+            </span>
+            <span className="flex items-center gap-2">
+              <ShieldCheck size={14} className="text-[var(--accent)]" aria-hidden />
+              Veilig betalen via Hobbysalon
+            </span>
+          </>
+        ) : (
+          <span className="flex items-center gap-2">
+            <MessageCircle size={14} className="text-[var(--accent)]" aria-hidden />
+            Rechtstreeks contact met {creator?.display_name ?? "de maker"}
+          </span>
+        )}
       </div>
 
       <div className="mt-4">

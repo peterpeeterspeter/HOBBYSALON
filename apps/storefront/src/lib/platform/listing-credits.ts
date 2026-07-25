@@ -120,7 +120,7 @@ export async function countActiveHandmadeProducts(creatorId: string): Promise<nu
     .from("products")
     .select("id", { count: "exact", head: true })
     .eq("creator_id", creatorId)
-    .eq("product_type", "handmade")
+    .in("product_type", ["handmade", "destash"])
     .eq("status", "active");
 
   if (error) return 0;

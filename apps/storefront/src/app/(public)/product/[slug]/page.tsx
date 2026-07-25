@@ -90,7 +90,11 @@ export default async function ProductPage({ params }: Props) {
 
           <div className="mt-6">
             <Badge variant="domain">
-              {product.product_type === "handmade" ? "Handgemaakt" : "Benodigdheden"}
+              {product.product_type === "handmade"
+                ? "Handgemaakt"
+                : product.product_type === "destash"
+                  ? "Restant materiaal"
+                  : "Benodigdheden"}
             </Badge>
             <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
               {product.title}

@@ -31,16 +31,13 @@ type Props = {
 
 const PRODUCT_TYPE_OPTIONS = [
   { value: "handmade", label: "Handmade" },
+  { value: "destash", label: "Restant materiaal (destash)" },
 ];
 const PRODUCT_CONDITION_OPTIONS = [
   { value: "handmade", label: "Handmade" },
   { value: "new", label: "Nieuw" },
   { value: "made_to_order", label: "Op bestelling gemaakt" },
   { value: "used", label: "Tweedehands" },
-];
-const PRODUCT_STOCK_MODE_OPTIONS = [
-  { value: "made_to_order", label: "Op bestelling (geen voorraad)" },
-  { value: "in_stock", label: "Voorraadproduct" },
 ];
 
 export default async function DashboardProductsPage({ searchParams }: Props) {
@@ -146,16 +143,9 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   required
                   defaultValue="handmade"
                 />
-                <Select
-                  name="stock_mode"
-                  label="Voorraadmodus *"
-                  options={PRODUCT_STOCK_MODE_OPTIONS}
-                  required
-                  defaultValue="made_to_order"
-                />
                 <Input
                   name="price_cents"
-                  label="Prijs (cent) *"
+                  label="Richtprijs (cent) *"
                   type="number"
                   min={0}
                   required
@@ -270,28 +260,17 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       required
                       defaultValue={product.product_type}
                     />
-                    <Select
-                      name="stock_mode"
-                      label="Voorraadmodus *"
-                      options={PRODUCT_STOCK_MODE_OPTIONS}
-                      required
-                      defaultValue={
-                        product.condition_type === "made_to_order"
-                          ? "made_to_order"
-                          : "in_stock"
-                      }
-                    />
                     <Input
                       name="price_cents"
-                      label="Prijs (cent)"
+                      label="Richtprijs (cent)"
                       type="number"
                       min={0}
-                      defaultValue=""
+                      defaultValue={product.price_cents ?? ""}
                     />
                     <Input
                       name="currency_code"
                       label="Valuta"
-                      defaultValue="EUR"
+                      defaultValue={product.currency_code ?? "EUR"}
                       maxLength={3}
                     />
                     <Select
