@@ -3,7 +3,7 @@ import { PriceDisplay } from "@/components/domain/price-display";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
 import { ProductInquiryForm } from "@/components/product/ProductInquiryForm";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
-import { MessageCircle, ShieldCheck } from "lucide-react";
+import { Truck, ShieldCheck, MessageCircle } from "lucide-react";
 import type { Product, Creator } from "@/types/platform";
 
 type ProductBuyCardProps = {
@@ -50,7 +50,9 @@ export function ProductBuyCard({
             size="lg"
           />
           {isMakerListing && !hasCart && (
-            <p className="mt-1 text-xs text-[var(--muted)]">Richtprijs</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Richtprijs — aankoop via de maker
+            </p>
           )}
         </div>
       )}
@@ -63,7 +65,11 @@ export function ProductBuyCard({
             creatorSlug={creator?.slug ?? null}
           />
         ) : creator ? (
-          <ProductInquiryForm productId={product.id} creatorId={creator.id} />
+          <ProductInquiryForm
+            productId={product.id}
+            creatorId={creator.id}
+            creatorName={creator.display_name}
+          />
         ) : (
           <p className="text-sm text-[var(--muted)]">
             Contact opnemen is voor dit item nog niet beschikbaar.
@@ -75,19 +81,37 @@ export function ProductBuyCard({
         {hasCart ? (
           <>
             <span className="flex items-center gap-2">
-              <ShieldCheck size={14} className="text-[var(--accent)]" aria-hidden />
+              <Truck size={14} className="text-[var(--accent)]" aria-hidden />
               Verzonden door {creator?.display_name ?? "de verkoper"}
             </span>
             <span className="flex items-center gap-2">
-              <ShieldCheck size={14} className="text-[var(--accent)]" aria-hidden />
+              <ShieldCheck
+                size={14}
+                className="text-[var(--accent)]"
+                aria-hidden
+              />
               Veilig betalen via Hobbysalon
             </span>
           </>
         ) : (
-          <span className="flex items-center gap-2">
-            <MessageCircle size={14} className="text-[var(--accent)]" aria-hidden />
-            Rechtstreeks contact met {creator?.display_name ?? "de maker"}
-          </span>
+          <>
+            <span className="flex items-center gap-2">
+              <MessageCircle
+                size={14}
+                className="text-[var(--accent)]"
+                aria-hidden
+              />
+              Contacteer {creator?.display_name ?? "de maker"} rechtstreeks
+            </span>
+            <span className="flex items-center gap-2">
+              <ShieldCheck
+                size={14}
+                className="text-[var(--accent)]"
+                aria-hidden
+              />
+              Geen checkout via Hobbysalon — jullie regelen de deal zelf
+            </span>
+          </>
         )}
       </div>
 

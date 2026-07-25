@@ -154,13 +154,15 @@ export type Product = {
   condition_type: string | null;
   personalization_available: boolean;
   estimated_dispatch_days: number | null;
+  /** Indicative listing price for contact/listings (makers). Commerce price stays in Medusa when linked. */
+  price_cents: number | null;
+  currency_code: string | null;
+  stock_mode: "made_to_order" | "in_stock" | "contact" | null;
   featured_image_url: string | null;
   is_featured: boolean;
   is_active: boolean;
   seo_title: string | null;
   seo_description: string | null;
-  price_cents?: number | null;
-  currency_code?: string | null;
   listing_expires_at?: string | null;
   created_at: string;
   updated_at: string;

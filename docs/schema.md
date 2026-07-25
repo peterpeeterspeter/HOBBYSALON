@@ -279,6 +279,9 @@ Fields:
 - `condition_type` (text, nullable)
 - `personalization_available` (boolean)
 - `estimated_dispatch_days` (int, nullable)
+- `price_cents` (int, nullable) — indicative listing price for makers
+- `currency_code` (text, nullable)
+- `stock_mode` (text, nullable) — `made_to_order` | `in_stock` | `contact`
 - `featured_image_url` (text)
 - `is_featured` (boolean)
 - `is_active` (boolean)

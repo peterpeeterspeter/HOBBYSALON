@@ -19,14 +19,26 @@ type ProductWithPrice = Product & {
 async function enrichProductsWithPrices(products: Product[]): Promise<ProductWithPrice[]> {
   return Promise.all(
     products.map(async (product) => {
-      const medusa = await getMedusaProduct(product.medusa_product_id);
-      const price = medusa?.calculated_price
-        ? {
-            amount: medusa.calculated_price.calculated_amount,
-            currency_code: medusa.calculated_price.currency_code,
-          }
-        : null;
-      return { ...product, price };
+      if (product.medusa_product_id) {
+        const medusa = await getMedusaProduct(product.medusa_product_id);
+        const price = medusa?.calculated_price
+          ? {
+              amount: medusa.calculated_price.calculated_amount,
+              currency_code: medusa.calculated_price.currency_code,
+            }
+          : null;
+        return { ...product, price };
+      }
+      if (typeof product.price_cents === "number") {
+        return {
+          ...product,
+          price: {
+            amount: product.price_cents,
+            currency_code: (product.currency_code ?? "EUR").toLowerCase(),
+          },
+        };
+      }
+      return { ...product, price: null };
     })
   );
 }

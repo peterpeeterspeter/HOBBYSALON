@@ -25,10 +25,37 @@ async function requireSavedSource(type: "article" | "project", id: string) {
   return { user, supabase };
 }
 
-async function logEvent(userId:string, eventName:string, type:"article"|"project", id:string, metadata:Record<string,unknown>={}){
-  const supabase=createPlatformClient();
-  const {error}=await supabase.from("user_activity_log").insert({user_id:userId,event_name:eventName,entity_type:type,entity_id:id,path:`/profile/start/${type}/${id}`,metadata:{source_key:sourceKey(type,id),item_key:null,...metadata}});
-  if(error) throw new Error("Je voortgang kon niet worden opgeslagen.");
+async function logEvent(
+  userId: string,
+  eventName: string,
+  type: "article" | "project",
+  id: string,
+  metadata: Record<string, unknown> = {}
+) {
+  const supabase = createPlatformClient();
+  const { error } = await supabase.from("user_activity_log").insert({
+    user_id: userId,
+    event_name: eventName,
+    entity_type: type,
+    entity_id: id,
+    path: `/profile/start/${type}/${id}`,
+    metadata: {
+      source_key: sourceKey(type, id),
+      item_key: null,
+      ...metadata,
+    },
+  });
+  if (error) {
+    console.error("user_activity_log insert failed", {
+      eventName,
+      type,
+      id,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+    throw new Error("Je voortgang kon niet worden opgeslagen.");
+  }
 }
 
 export async function startSavedProjectAction(formData:FormData){

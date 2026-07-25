@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
-import { ensureCreatorSellerLinked, resolveSellerIdForCreatorOps } from "@/lib/commerce/medusa/creator-onboarding";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
@@ -17,6 +16,7 @@ import {
   unpublishProductAction,
   updateProductAction,
 } from "@/app/actions/dashboard";
+import { updateProductInquiryStatusAction } from "@/app/actions/product-inquiry";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
@@ -29,6 +29,17 @@ type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
 
+type ProductInquiryRow = {
+  id: string;
+  product_id: string;
+  full_name: string;
+  email: string;
+  message: string | null;
+  status: string;
+  created_at: string;
+  products: { title: string; slug: string } | { title: string; slug: string }[] | null;
+};
+
 const PRODUCT_TYPE_OPTIONS = [
   { value: "handmade", label: "Handmade" },
   { value: "destash", label: "Restant materiaal (destash)" },
@@ -37,8 +48,29 @@ const PRODUCT_CONDITION_OPTIONS = [
   { value: "handmade", label: "Handmade" },
   { value: "new", label: "Nieuw" },
   { value: "made_to_order", label: "Op bestelling gemaakt" },
-  { value: "used", label: "Tweedehands" },
+  { value: "used", label: "Destash / tweedehands" },
 ];
+const INQUIRY_STATUS_OPTIONS = [
+  { value: "new", label: "Nieuw" },
+  { value: "contacted", label: "Gecontacteerd" },
+  { value: "accepted", label: "Geaccepteerd" },
+  { value: "declined", label: "Afgewezen" },
+];
+
+function formatEuroFromCents(cents: number | null | undefined): string {
+  if (typeof cents !== "number") return "";
+  return new Intl.NumberFormat("nl-BE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
+}
+
+function inquiryProductTitle(inquiry: ProductInquiryRow): string {
+  const products = inquiry.products;
+  if (!products) return inquiry.product_id;
+  if (Array.isArray(products)) return products[0]?.title ?? inquiry.product_id;
+  return products.title;
+}
 
 export default async function DashboardProductsPage({ searchParams }: Props) {
   const user = await getAuthUser();
@@ -57,12 +89,6 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
   });
   requireDashboardCapability(caps.canManageProducts);
 
-  if (creator) {
-    const linkedSellerId = await resolveSellerIdForCreatorOps(user.id);
-    if (!linkedSellerId) {
-      await ensureCreatorSellerLinked(user.id, user.email ?? "", creator);
-    }
-  }
   const { success, error } = await searchParams;
   const [domains, categoryOptions] = await Promise.all([
     listDomainsBySort(),
@@ -71,9 +97,14 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
 
   let products: Product[] = [];
   let creatorDomainIds: string[] = [];
+  let productInquiries: ProductInquiryRow[] = [];
   if (creator) {
     const supabase = createPlatformClient();
-    const [{ data: productData }, { data: creatorDomainLinks }] = await Promise.all([
+    const [
+      { data: productData },
+      { data: creatorDomainLinks },
+      { data: inquiryData },
+    ] = await Promise.all([
       supabase
         .from("products")
         .select("*")
@@ -83,11 +114,20 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         .from("creator_domains")
         .select("domain_id")
         .eq("creator_id", creator.id),
+      supabase
+        .from("product_inquiries")
+        .select(
+          "id, product_id, full_name, email, message, status, created_at, products(title, slug)"
+        )
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
     ]);
     products = (productData ?? []) as Product[];
     creatorDomainIds = Array.from(
       new Set((creatorDomainLinks ?? []).map((row) => row.domain_id).filter(Boolean))
     );
+    productInquiries = (inquiryData ?? []) as ProductInquiryRow[];
   }
 
   const domainOptions = domains.map((domain) => ({
@@ -110,7 +150,8 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
     <section className="space-y-6">
       <h1 className="text-3xl font-bold text-[var(--foreground)]">Beheer je creaties</h1>
       <p className="max-w-2xl text-[var(--muted)]">
-        Maak nieuwe producten aan, bewerk ze en bepaal zelf wanneer ze online komen in jouw shop.
+        Plaats je handmade creaties als vermelding. Bezoekers contacteren jou
+        rechtstreeks — Hobbysalon verwerkt geen betalingen voor makers.
       </p>
 
       {success && (
@@ -132,7 +173,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         <>
           <CardShell variant="default" padding="lg" className="mb-8">
             <form action={createProductAction} encType="multipart/form-data">
-              <h2 className="text-lg font-semibold">Nieuwe creatie</h2>
+              <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
                 <Input name="slug" label="Slug" />
@@ -213,16 +254,16 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 </label>
               </div>
               <Button type="submit" className="mt-4">
-                Creatie toevoegen
+                Plaatsing toevoegen
               </Button>
             </form>
           </CardShell>
 
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold">In jouw shop ({products.length})</h2>
+            <h2 className="text-lg font-semibold">Jouw plaatsingen ({products.length})</h2>
             {products.length === 0 ? (
               <EmptyState
-                title="Nog geen creaties in je shop"
+                title="Nog geen plaatsingen"
                 description="Voeg je eerste creatie toe met het formulier hierboven."
               />
             ) : (
@@ -232,7 +273,12 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
                     {product.title}{" "}
                     <span className="text-sm text-[var(--muted)]">
-                      ({product.product_type}){product.is_active ? " · actief" : " · concept"}
+                      ({product.product_type})
+                      {product.is_active ? " · actief" : " · concept"}
+                      {typeof product.price_cents === "number"
+                        ? ` · ${formatEuroFromCents(product.price_cents)}`
+                        : ""}
+                      {product.medusa_product_id ? " · webshop" : " · contact"}
                     </span>
                   </summary>
                   <form action={updateProductAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -265,7 +311,11 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       label="Richtprijs (cent)"
                       type="number"
                       min={0}
-                      defaultValue={product.price_cents ?? ""}
+                      defaultValue={
+                        typeof product.price_cents === "number"
+                          ? String(product.price_cents)
+                          : ""
+                      }
                     />
                     <Input
                       name="currency_code"
@@ -367,6 +417,67 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   </form>
                 </details>
                 </CardShell>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">
+              Aanvragen inbox ({productInquiries.length})
+            </h2>
+            {productInquiries.length === 0 ? (
+              <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-6 text-sm text-[var(--muted)]">
+                Nog geen aanvragen. Zodra iemand reageert op een plaatsing,
+                verschijnt dat hier.
+              </p>
+            ) : (
+              productInquiries.map((inquiry) => (
+                <div
+                  key={inquiry.id}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-[var(--foreground)]">
+                        {inquiry.full_name} · {inquiry.email}
+                      </p>
+                      <p className="text-sm text-[var(--muted)]">
+                        Plaatsing: {inquiryProductTitle(inquiry)}
+                      </p>
+                      {inquiry.message && (
+                        <p className="mt-1 text-sm text-[var(--foreground)]">
+                          {inquiry.message}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        {new Date(inquiry.created_at).toLocaleString("nl-BE")}
+                      </p>
+                    </div>
+                    <form
+                      action={updateProductInquiryStatusAction}
+                      className="flex items-center gap-2"
+                    >
+                      <input type="hidden" name="id" value={inquiry.id} />
+                      <select
+                        name="status"
+                        defaultValue={inquiry.status}
+                        className="rounded-md border border-[var(--border)] px-2 py-1.5 text-sm"
+                      >
+                        {INQUIRY_STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+                      >
+                        Update
+                      </button>
+                    </form>
+                  </div>
+                </div>
               ))
             )}
           </div>
