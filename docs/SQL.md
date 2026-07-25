@@ -166,10 +166,13 @@ create table if not exists public.products (
   is_active boolean not null default true,
   seo_title text,
   seo_description text,
+  price_cents integer,
+  currency_code text not null default 'EUR',
+  listing_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint products_product_type_check check (
-    product_type in ('supply','handmade','event_listing','event_ticket','workshop_ticket','workshop_kit')
+    product_type in ('supply','handmade','destash','event_listing','event_ticket','workshop_ticket','workshop_kit')
   ),
   constraint products_status_check check (
     status in ('draft','active','archived')
@@ -188,6 +191,9 @@ create index if not exists idx_products_product_type on public.products(product_
 create index if not exists idx_products_status on public.products(status);
 create index if not exists idx_products_is_featured on public.products(is_featured);
 create index if not exists idx_products_is_active on public.products(is_active);
+create index if not exists idx_products_listing_expires_at
+  on public.products(listing_expires_at)
+  where listing_expires_at is not null;
 
 create trigger trg_products_updated_at
 before update on public.products
@@ -255,6 +261,7 @@ create table if not exists public.workshops (
   is_active boolean not null default true,
   seo_title text,
   seo_description text,
+  listing_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint workshops_format_type_check check (
@@ -273,6 +280,9 @@ create index if not exists idx_workshops_domain_id on public.workshops(domain_id
 create index if not exists idx_workshops_city on public.workshops(city);
 create index if not exists idx_workshops_is_featured on public.workshops(is_featured);
 create index if not exists idx_workshops_is_active on public.workshops(is_active);
+create index if not exists idx_workshops_listing_expires_at
+  on public.workshops(listing_expires_at)
+  where listing_expires_at is not null;
 
 create trigger trg_workshops_updated_at
 before update on public.workshops
@@ -1025,6 +1035,83 @@ before update on public.workshop_booking_requests
 for each row execute function public.set_updated_at();
 
 -- =========================================================
+-- LISTING INQUIRIES
+-- Generic contact/inquiry inbox for listing-first entities (product,
+-- event). Mirrors workshop_booking_requests; workshop_booking_requests
+-- keeps its own workshop-specific fields and is not folded into this.
+-- =========================================================
+
+create table if not exists public.listing_inquiries (
+  id uuid primary key default gen_random_uuid(),
+  entity_type text not null,
+  entity_id uuid not null,
+  creator_id uuid not null references public.creators(id) on delete cascade,
+  full_name text not null,
+  email text not null,
+  phone text,
+  message text,
+  status text not null default 'new',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint listing_inquiries_entity_type_check check (
+    entity_type in ('product', 'event', 'creator')
+  ),
+  constraint listing_inquiries_status_check check (
+    status in ('new', 'read', 'replied', 'archived', 'spam')
+  )
+);
+
+create index if not exists idx_listing_inquiries_creator_id on public.listing_inquiries(creator_id);
+create index if not exists idx_listing_inquiries_entity on public.listing_inquiries(entity_type, entity_id);
+create index if not exists idx_listing_inquiries_status on public.listing_inquiries(status);
+
+create trigger trg_listing_inquiries_updated_at
+before update on public.listing_inquiries
+for each row execute function public.set_updated_at();
+
+alter table public.listing_inquiries enable row level security;
+
+create policy listing_inquiries_anon_insert
+  on public.listing_inquiries
+  for insert
+  to anon, authenticated
+  with check (
+    entity_type in ('product', 'event', 'creator')
+    and entity_id is not null
+    and creator_id is not null
+    and full_name is not null
+    and char_length(trim(full_name)) between 2 and 120
+    and email is not null
+    and email ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+    and status = 'new'
+  );
+
+create policy listing_inquiries_owner_select
+  on public.listing_inquiries
+  for select
+  to authenticated
+  using (
+    creator_id in (
+      select id from public.creators where user_id = auth.uid()
+    )
+  );
+
+create policy listing_inquiries_owner_update
+  on public.listing_inquiries
+  for update
+  to authenticated
+  using (
+    creator_id in (
+      select id from public.creators where user_id = auth.uid()
+    )
+  )
+  with check (
+    creator_id in (
+      select id from public.creators where user_id = auth.uid()
+    )
+  );
+
+-- =========================================================
 -- COMMERCIAL PLANS
 -- Subscription tiers per segment (workshop, maker, supplier, organizer)
 -- =========================================================
@@ -1105,7 +1192,14 @@ create table if not exists public.listing_credit_transactions (
   related_entity_type text,
   related_entity_id uuid,
   metadata jsonb not null default '{}',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint listing_credit_transactions_reason_check check (
+    reason in (
+      'purchase', 'listing_create', 'listing_bump', 'spotlight',
+      'refund', 'manual_adjustment',
+      'workshop_publish', 'event_publish', 'exhibitor_outreach', 'newsletter_feature'
+    )
+  )
 );
 
 create table if not exists public.listing_credit_products (
@@ -1118,6 +1212,48 @@ create table if not exists public.listing_credit_products (
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+-- Atomic wallet mutation: avoids the read-balance-then-write race that a
+-- plain select + update from application code would have under concurrency.
+create or replace function public.apply_listing_credit_delta(
+  p_creator_id uuid,
+  p_delta integer,
+  p_reason text,
+  p_related_entity_type text default null,
+  p_related_entity_id uuid default null,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns integer
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_balance integer;
+begin
+  insert into public.listing_credit_wallets (creator_id, balance)
+  values (p_creator_id, 0)
+  on conflict (creator_id) do nothing;
+
+  update public.listing_credit_wallets
+  set balance = balance + p_delta,
+      updated_at = now()
+  where creator_id = p_creator_id
+    and balance + p_delta >= 0
+  returning balance into v_balance;
+
+  if v_balance is null then
+    raise exception 'insufficient_credits' using errcode = 'P0001';
+  end if;
+
+  insert into public.listing_credit_transactions (
+    creator_id, amount, reason, related_entity_type, related_entity_id, metadata
+  ) values (
+    p_creator_id, p_delta, p_reason, p_related_entity_type, p_related_entity_id, p_metadata
+  );
+
+  return v_balance;
+end;
+$$;
 
 -- =========================================================
 -- VISIBILITY BOOSTS

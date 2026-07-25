@@ -57,7 +57,7 @@ Next.js storefront (apps/storefront)
 
 ## Product types (platform)
 
-`supply`, `handmade`, `event_listing`, `event_ticket`, `workshop_ticket`, `workshop_kit`
+`supply`, `handmade`, `destash`, `event_listing`, `event_ticket`, `workshop_ticket`, `workshop_kit`
 
 ## When to use which docs
 

@@ -51,7 +51,7 @@ If product creation fails in the vendor dashboard:
 The platform `products` table has a `product_type` check. Valid values:
 
 ```
-supply, handmade, event_listing, event_ticket, workshop_ticket, workshop_kit
+supply, handmade, destash, event_listing, event_ticket, workshop_ticket, workshop_kit
 ```
 
 If you previously used `digital_pattern` and ran a migration that changed this constraint, update existing rows:

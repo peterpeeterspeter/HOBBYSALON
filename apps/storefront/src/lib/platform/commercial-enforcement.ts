@@ -161,7 +161,8 @@ export async function enforceHandmadePublishCredits(
   creatorId: string,
   creatorTypes: string[],
   isActive: boolean,
-  wasActive: boolean
+  wasActive: boolean,
+  productType: "handmade" | "destash" = "handmade"
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isActive || wasActive || !isCommercialGatingEnabled()) {
     return { ok: true };
@@ -187,7 +188,7 @@ export async function enforceHandmadePublishCredits(
       LISTING_CREDIT_COSTS.handmadeListing,
       "listing_create",
       undefined,
-      { product_type: "handmade" }
+      { product_type: productType }
     );
     if (!result.ok) {
       return { ok: false, error: result.error };

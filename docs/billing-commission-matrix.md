@@ -11,7 +11,8 @@ This document defines the MVP commission rules for Hobbysalon. Stripe is the pay
 | Product type     | Fee type   | Default fee | Notes                               |
 |------------------|------------|-------------|-------------------------------------|
 | `supply`         | percentage | 10%         | Marketplace materials / supplies    |
-| `handmade`       | percentage | 6%          | Handmade marketplace               |
+| `handmade`       | percentage | 6%          | Handmade marketplace (transitioning to listing fee, see `docs/listing-first-integration-plan.md`) |
+| `destash`        | n/a        | none        | Maker listing for leftover/secondhand materials; platform-only, listing fee, never falls under the `supply` commission rule |
 | `event_listing`  | flat       | TBD         | Event listing promotion/placement  |
 | `event_ticket`   | flat       | TBD         | Event tickets                      |
 | `workshop_ticket`| flat       | TBD         | Workshop bookings                  |
