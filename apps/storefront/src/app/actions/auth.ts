@@ -10,7 +10,9 @@ import {
   persistAuthSession,
   registerEmailUser,
   resolveSupabaseAccessToken,
+  sendPasswordResetEmail,
 } from "@/lib/auth/session";
+import { createPlatformClient } from "@/lib/platform/client";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import { creatorTypesRequiringApproval } from "@/lib/auth/role-request-status";
 import {
@@ -78,9 +80,14 @@ export async function loginAction(
   const { user, session, error } = await createEmailSession(email, password);
 
   if (error || !session) {
+    const message = error?.toLowerCase().includes("email not confirmed")
+      ? "Bevestig eerst je e-mailadres via de link in je inbox, of vraag een nieuwe bevestigingsmail aan."
+      : error?.toLowerCase().includes("invalid login credentials")
+        ? "Aanmelden mislukt. Controleer je e-mailadres en wachtwoord."
+        : "Aanmelden mislukt. Controleer je gegevens of gebruik ‘Wachtwoord vergeten’.";
     return {
       success: false,
-      message: "Aanmelden mislukt. Controleer je gegevens.",
+      message,
     };
   }
 
@@ -612,4 +619,72 @@ export async function completeRegistrationProfileAction(
 export async function logoutAction(): Promise<void> {
   await clearAuthSession();
   redirect("/");
+}
+
+export async function forgotPasswordAction(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
+
+  if (!email) {
+    return {
+      success: false,
+      message: "E-mailadres is verplicht.",
+    };
+  }
+
+  const { error } = await sendPasswordResetEmail(email);
+
+  if (error) {
+    console.error("Password reset email failed", { email, error });
+  }
+
+  return {
+    success: true,
+    message:
+      "Als er een account bestaat voor dit e-mailadres, ontvang je zo een e-mail met een link om je wachtwoord opnieuw in te stellen. Controleer ook je spamfolder.",
+  };
+}
+
+export async function updatePasswordAction(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const user = await getAuthUser();
+  if (!user) {
+    return {
+      success: false,
+      message: "Je sessie is verlopen. Vraag een nieuwe resetlink aan.",
+    };
+  }
+
+  const password = formData.get("password")?.toString() ?? "";
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
+
+  if (password.length < 8) {
+    return {
+      success: false,
+      message: "Wachtwoord moet minimaal 8 karakters bevatten.",
+    };
+  }
+
+  const supabase = createPlatformClient();
+  const { error } = await supabase.auth.admin.updateUserById(user.id, {
+    password,
+  });
+
+  if (error) {
+    return {
+      success: false,
+      message: "Wachtwoord opslaan mislukt. Probeer het opnieuw.",
+    };
+  }
+
+  const redirectPath = await resolvePostAuthRedirectPath({
+    userId: user.id,
+    requestedNextPath,
+    defaultPath: "/dashboard",
+  });
+  redirect(redirectPath);
 }

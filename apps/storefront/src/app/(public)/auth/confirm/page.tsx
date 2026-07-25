@@ -144,6 +144,13 @@ export default function ConfirmAccountPage() {
         </p>
         {error && (
           <form onSubmit={resendConfirmation} className="mt-6 space-y-3">
+            <p className="text-sm text-[var(--muted)]">
+              Of{" "}
+              <a href="/wachtwoord-vergeten" className="font-semibold text-[var(--accent)] underline">
+                vraag een nieuwe wachtwoordlink aan
+              </a>
+              .
+            </p>
             <label className="block">
               <span className="mb-1 block text-sm font-medium">
                 E-mailadres
