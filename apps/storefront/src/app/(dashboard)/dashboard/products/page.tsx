@@ -19,6 +19,7 @@ import {
 import { updateProductInquiryStatusAction } from "@/app/actions/product-inquiry";
 import { createCreditPackCheckoutAction } from "@/app/actions/listing-checkout";
 import { getCreditBalance } from "@/lib/platform/listing-credits";
+import { isCommercialGatingEnabled } from "@/lib/platform/commercial-entitlements";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
@@ -193,6 +194,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
+          {isCommercialGatingEnabled() && (
           <CardShell variant="default" padding="lg" className="mb-8">
             <h2 className="text-lg font-semibold">Listing credits</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
@@ -225,6 +227,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
               </div>
             )}
           </CardShell>
+          )}
 
           <CardShell variant="default" padding="lg" className="mb-8">
             <form action={createProductAction} encType="multipart/form-data">

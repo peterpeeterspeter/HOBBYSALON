@@ -55,12 +55,12 @@ const FAQ_ITEMS = [
   {
     question: "Kan ik eerst gratis starten?",
     answer:
-      "Je kunt je registreren en je profiel opzetten. Voor zichtbaarheid en publicatie gelden per segment verschillende pakketten: vaste jaarprijzen voor workshops, listingcredits voor makers, commissie op verkoop voor winkels, en eventpakketten voor organisatoren.",
+      "Ja. Je registreert je, zet je profiel op en plaatst je eerste creaties, workshops of events gratis. Voor workshops geldt op termijn een vaste jaarprijs, voor winkels commissie op verkoop en voor organisatoren eventpakketten — makers plaatsen hun handmade producten gratis, zonder commissie.",
   },
   {
     question: "Werkt Hobbysalon met commissie?",
     answer:
-      "Dat hangt af van je segment. Workshopgevers betalen een vaste jaarprijs zonder commissie per deelnemer. Makers betalen 6% commissie op handmade verkoop via de marketplace. Winkels betalen 10% commissie op materialen. Organisatoren betalen per eventpakket voor zichtbaarheid en aanvragen.",
+      "Dat hangt af van je segment. Workshopgevers betalen een vaste jaarprijs zonder commissie per deelnemer. Makers betalen geen commissie op handmade verkoop — Hobbysalon verwerkt die betaling niet, dus koper en maker regelen dat rechtstreeks. Winkels betalen 10% commissie op materialen. Organisatoren betalen per eventpakket voor zichtbaarheid en aanvragen.",
   },
 ];
 
