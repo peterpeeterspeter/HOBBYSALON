@@ -93,3 +93,91 @@ test("vendor portal only for merchant role with merchant seller link", () => {
   assert.ok(!nav.includes("/dashboard/workshops"));
   assert.ok(!nav.includes("/dashboard/events"));
 });
+
+test("organizer without approved role does not see events", () => {
+  const caps = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "creator"],
+      hasCreatorProfile: true,
+      pendingRoleRequests: [
+        {
+          id: "req-2",
+          role: "organizer",
+          status: "pending",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    },
+    creatorTypes: ["organizer"],
+    hasCreatorProfile: true,
+  });
+  assert.equal(caps.canManageEvents, false);
+});
+
+test("a rejected role request does not grant access", () => {
+  // Regression: a moderator rejected the request, but access was derived
+  // from the self-assigned creator_type, so the rejection had no effect.
+  const caps = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "creator"],
+      hasCreatorProfile: true,
+      pendingRoleRequests: [
+        {
+          id: "req-3",
+          role: "organizer",
+          status: "rejected",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    },
+    creatorTypes: ["maker", "organizer"],
+    hasCreatorProfile: true,
+  });
+  assert.equal(caps.canManageEvents, false);
+  // Being a maker is not gated on approval, so that stays available.
+  assert.equal(caps.canManageProducts, true);
+});
+
+test("orders are only for accounts with a real Medusa seller link", () => {
+  // Platform-only maker listings never produce a Medusa order, so a maker
+  // without a seller link was being shown a permanently empty page.
+  const makerWithoutLink = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "creator"],
+      hasCreatorProfile: true,
+    },
+    creatorTypes: ["maker"],
+    hasCreatorProfile: true,
+  });
+  assert.equal(makerWithoutLink.canManageProducts, true);
+  assert.equal(makerWithoutLink.canManageOrders, false);
+  assert.ok(
+    !buildRoleAwareDashboardNav(makerWithoutLink)
+      .map((item) => item.href)
+      .includes("/dashboard/orders")
+  );
+
+  const makerWithCreatorLink = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "creator"],
+      hasCreatorProfile: true,
+      sellerLinks: [{ sellerId: "sel_creator", sellerType: "creator" }],
+    },
+    creatorTypes: ["maker"],
+    hasCreatorProfile: true,
+  });
+  assert.equal(makerWithCreatorLink.canManageOrders, true);
+
+  const merchant = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "merchant"],
+      sellerLinks: [{ sellerId: "sel_merchant", sellerType: "merchant" }],
+    },
+  });
+  assert.equal(merchant.canManageOrders, true);
+});
