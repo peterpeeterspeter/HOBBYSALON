@@ -53,33 +53,43 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
   }
 
   const stripe = getStripeClient();
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card", "bancontact", "ideal"],
-    line_items: [
-      {
-        price_data: {
-          currency: pack.currency_code.toLowerCase(),
-          unit_amount: pack.price_cents,
-          product_data: {
-            name: `Hobbysalon listing credits — ${pack.name}`,
-            description: `${pack.credits} credits`,
+  let session: { url: string | null };
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      // No explicit payment_method_types: let Stripe show whatever is
+      // actually enabled for this account/currency in the Dashboard.
+      // Hardcoding a list here previously included "ideal", which this
+      // account doesn't have enabled - Stripe rejected the request and
+      // the unhandled error crashed the whole page.
+      line_items: [
+        {
+          price_data: {
+            currency: pack.currency_code.toLowerCase(),
+            unit_amount: pack.price_cents,
+            product_data: {
+              name: `Hobbysalon listing credits — ${pack.name}`,
+              description: `${pack.credits} credits`,
+            },
           },
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      metadata: {
+        kind: "credit_pack",
+        pack_code: pack.pack_code,
+        creator_id: creator.id,
+        credits: String(pack.credits),
       },
-    ],
-    metadata: {
-      kind: "credit_pack",
-      pack_code: pack.pack_code,
-      creator_id: creator.id,
-      credits: String(pack.credits),
-    },
-    success_url: absoluteUrl(
-      "/dashboard/products?checkout=pending&type=credits"
-    ),
-    cancel_url: absoluteUrl("/dashboard/products?checkout=cancelled"),
-  });
+      success_url: absoluteUrl(
+        "/dashboard/products?checkout=pending&type=credits"
+      ),
+      cancel_url: absoluteUrl("/dashboard/products?checkout=cancelled"),
+    });
+  } catch (err) {
+    console.error("Stripe checkout session creation failed (credit pack):", err);
+    fail("Kon geen betaalsessie starten. Probeer het later opnieuw.");
+  }
 
   if (!session.url) {
     fail("Kon geen betaalsessie starten. Probeer het later opnieuw.");
@@ -124,34 +134,41 @@ export async function createPlanCheckoutAction(formData: FormData): Promise<void
   }
 
   const stripe = getStripeClient();
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card", "bancontact", "ideal"],
-    line_items: [
-      {
-        price_data: {
-          currency: plan.currency_code.toLowerCase(),
-          unit_amount: plan.price_cents,
-          product_data: {
-            name: `Hobbysalon ${plan.name}`,
-            description:
-              plan.billing_period === "yearly"
-                ? "Jaarlijks abonnement"
-                : plan.billing_period,
+  let session: { url: string | null };
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: plan.currency_code.toLowerCase(),
+            unit_amount: plan.price_cents,
+            product_data: {
+              name: `Hobbysalon ${plan.name}`,
+              description:
+                plan.billing_period === "yearly"
+                  ? "Jaarlijks abonnement"
+                  : plan.billing_period,
+            },
           },
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      metadata: {
+        kind: "plan",
+        plan_code: plan.code,
+        segment: plan.segment,
+        creator_id: creator.id,
       },
-    ],
-    metadata: {
-      kind: "plan",
-      plan_code: plan.code,
-      segment: plan.segment,
-      creator_id: creator.id,
-    },
-    success_url: absoluteUrl("/dashboard/products?checkout=pending&type=plan"),
-    cancel_url: absoluteUrl("/dashboard/products?checkout=cancelled"),
-  });
+      success_url: absoluteUrl(
+        "/dashboard/products?checkout=pending&type=plan"
+      ),
+      cancel_url: absoluteUrl("/dashboard/products?checkout=cancelled"),
+    });
+  } catch (err) {
+    console.error("Stripe checkout session creation failed (plan):", err);
+    fail("Kon geen betaalsessie starten. Probeer het later opnieuw.");
+  }
 
   if (!session.url) {
     fail("Kon geen betaalsessie starten. Probeer het later opnieuw.");
