@@ -156,42 +156,38 @@ De creditkant blijft atomair afgedwongen op databaseniveau (`apply_listing_credi
 
 ---
 
-## Fase 4 — Events en exposantenwerving
+## Fase 4 — Events en exposantenwerving ✅ uitgevoerd
+
+**Belangrijk vóór het lezen:** de gebruiker heeft bevestigd dat vandaag **alles gratis is** — `COMMERCIAL_GATING_ENABLED` staat op `false`, dus geen enkele credit-check hieronder blokkeert momenteel iets. Deze fase bouwt de backend-infrastructuur die klaarstaat voor wanneer gating later aangaat, exact zoals Fase 0–3.
 
 ### 4.1 Prijs per eventtype
 
-`events.event_type` heeft de differentiatie al in het schema: `handmade_market`, `hobby_fair`, `pop_up`, `open_atelier`, `workshop_day`. Geen schemawijziging nodig — alleen een tarieventabel die `event_type` op credits mapt. Een `hobby_fair` kost een veelvoud van een `handmade_market`.
+`events.event_type` had de differentiatie al in het schema (`handmade_market`, `hobby_fair`, `pop_up`, `open_atelier`, `workshop_day`) — geen schemawijziging nodig. `EVENT_CREDIT_COSTS` in `listing-credits.ts`: `pop_up`/`open_atelier` 15 credits, `workshop_day`/`handmade_market` 30 credits, `hobby_fair` 200 credits. Nieuw: `enforceEventPublishCredits` (`commercial-enforcement.ts`), gewired in `createEventAction` — identiek patroon aan `enforceHandmadePublishCredits` (no-op zolang gating uit staat).
 
-### 4.2 Exposantenwerving (het hoogste-marge product)
+### 4.2 Exposantenwerving
 
-Een organisator die 40 standen à €200 vult, draait €8.000. €99–249 betalen om 200 relevante makers te bereiken is triviaal.
+**Ontwerpkeuze tijdens de bouw:** `event_domains` wordt nergens vanuit het dashboard geschreven — organisatoren kunnen vandaag geen domein aan hun event koppelen. Domein-matching zou dus altijd leeg blijven. V1 target daarom **alle** opt-in makers (`creators.open_to_markets = true` én `'maker' in creator_types`), zonder domeinfilter. Domein-scoping is een zinvolle verfijning zodra event-domeinselectie in de UI bestaat, niet eerder.
 
-**Verkoop nooit contactgegevens.** Dat is niet toegestaan onder GDPR — makers hebben daar geen toestemming voor gegeven. Bouw het omgekeerd:
+**Verkoopt nooit contactgegevens** (GDPR): de organizer betaalt credits (`LISTING_CREDIT_COSTS.exhibitorOutreach = 200`, `apps/storefront/src/app/actions/exhibitor-outreach.ts`) om een e-mailoproep te sturen naar opt-in makers (Resend, `exhibitor-outreach-email.ts`). Reageert een maker, dan doet die dat via het **bestaande** `event_vendor_inquiries`-inbound-formulier op de publieke eventpagina (`/agenda/[slug]#standhouders`, nieuw anker) — de maker deelt zijn eigen gegevens zelf, precies zoals gepland. Geen nieuwe responstabel nodig: het bestaande organizer-inbox op `/dashboard/events` toont deze reacties al.
 
-```sql
-alter table public.creators add column if not exists open_to_markets boolean not null default false;
-```
-
-1. Opt-in op het makerprofiel: *"Ik sta open voor markten en beurzen"*.
-2. Organisator betaalt credits om een oproep te sturen naar matchende opt-in makers, **via het platform**.
-3. Makers die willen, antwoorden — en geven hun gegevens daarmee zelf vrij.
-
-Compliant, en operationeel beter: het gesprek blijft meetbaar op het platform. `event_vendor_inquiries` dekt de inkomende richting (standhouder → organisator) al; dit is de uitgaande richting en moet nieuw.
+Nieuw: `creators.open_to_markets` (opt-in-checkbox op het makerprofiel, `CreatorProfileTab.tsx`), `event_exhibitor_outreach` (auditlog van verstuurde oproepen — bewaart geen ontvangerslijst, alleen aantal + kosten).
 
 ---
 
-## Fase 5 — Migratie van bestaande data
+## Fase 5 — Migratie van bestaande data ✅ volledig uitgevoerd
 
-Bestaande handmade-producten met een `medusa_product_id` hebben mogelijk lopende orders of open winkelmandjes. **Niet in bulk deactiveren.**
+**Eerst de cijfers, geverifieerd tegen productie (2026-07-26):** van de 26 `handmade`-rijen hadden er **25 nog een `medusa_product_id`**. Onderzoek van titels/creators/timestamps (alle 25 aangemaakt binnen enkele seconden van elkaar op 11–12 maart, generieke naampatronen als "Craft Corner"/"Yarn Paradise") bevestigde: **dit is seed/demodata, geen echte makers met echte bestellingen**. De gebruiker bevestigde dit expliciet en koos voor directe migratie in plaats van de voorzichtige per-rij aanpak hieronder.
 
-1. Zet nieuwe Medusa-aanmaak stop (Fase 1) — vanaf dan groeit de oude set niet meer.
-2. Laat lopende Medusa-orders normaal uitlopen.
-3. Vul `price_cents` op bestaande rijen vanuit de Medusa-prijs (eenmalig backfill-script).
-4. Zet de resterende rijen om naar contact-listings zodra er geen open orders meer zijn.
-5. Maker-onboarding voor Stripe Connect uit het makerpad halen; Connect blijft merchant-only.
-6. `/dashboard/orders` alleen voor merchants en dubbelrollen.
+**Uitgevoerd (2026-07-26):** alle 25 rijen in één UPDATE omgezet naar platform-only — `medusa_product_id = null`, `price_cents = 2500` (€25 placeholder, exacte prijs was niet van belang bij testdata), `currency_code = 'EUR'`. Geverifieerd: `handmade` telt nu 26 rijen, **0 met Medusa-koppeling, 0 zonder prijs**. Het backfill-script (`backfill-handmade-price-cents.ts`) blijft in de repo staan voor een eventuele toekomstige situatie met wél-echte legacy Medusa-listings, maar was hier niet nodig.
 
-Dubbelrol werkt al: `creators.creator_types` is een array en `user_account_roles` bestaat. Een maker die doorgroeit tot merchant krijgt de rol erbij en doorloopt Connect-onboarding op dát moment. Dat is meteen het verhaal: *begin met plaatsen, upgrade naar verkopen wanneer je er klaar voor bent.*
+1. ✅ Nieuwe Medusa-aanmaak stop (Fase 1) — vanaf dan groeit de oude set niet meer.
+2. ✅ Lopende Medusa-orders — niet van toepassing gebleken, dit was testdata zonder echte orders.
+3. ✅ Prijzen ingevuld (placeholder, zie boven — geen echte Medusa-prijs nodig gezien de aard van de data).
+4. ✅ Rijen omgezet naar contact-listings — direct uitgevoerd na bevestiging dat het testdata betrof.
+5. ✅ **Onnodige Medusa-sellerprovisioning verwijderd uit het makerpad** — belangrijke precisering: de gevonden koppeling was niet letterlijk "Stripe Connect" maar Medusa-**sellerregistratie** (`/admin/platform/creators/register`, maakt een Mercur-seller + shipping profile aan). 16 dashboard-acties die niets met commerce te maken hebben (portfolio-afbeeldingen, artikels, project-materialen, workshop-productkoppelingen, boekingsstatus) riepen toch de zware `getRequiredCreator()` aan — die forceert deze Medusa-sellerprovisioning puur om een `creator`-object op te halen dat ze al via de lichte `getRequiredCreatorProfile()` konden krijgen (geverifieerd: geen van de 16 gebruikt `sellerId`). Alle 16 omgezet naar `getRequiredCreatorProfile()`. Een pure maker die nooit fysiek verkoopt, krijgt nu geen Medusa-sellerrecord meer opgedrongen bij het schrijven van een artikel.
+6. ✅ **`/dashboard/orders` scoping gefixt** — `canManageOrders` in `dashboard-access.ts` stond op `canManageProducts || ...`, wat betekende dat *elke* maker (ook zuivere platform-only-listinghouders zonder ooit een Medusa-order) de "Bestellingen"-pagina te zien kreeg, altijd leeg. Nu: `hasCreatorSellerLink || hasMerchantSellerLink` — alleen wie een echte Medusa-sellerkoppeling heeft (legacy makers of merchants) ziet deze pagina. Na de migratie hierboven heeft geen enkele maker nog zo'n koppeling, dus deze pagina is nu voor niemand zichtbaar totdat er een echte merchant bijkomt.
+
+Dubbelrol werkt al: `creators.creator_types` is een array en `user_account_roles` bestaat. Een maker die doorgroeit tot merchant krijgt de rol erbij op dát moment. Dat is meteen het verhaal: *begin met plaatsen, upgrade naar verkopen wanneer je er klaar voor bent.*
 
 ---
 

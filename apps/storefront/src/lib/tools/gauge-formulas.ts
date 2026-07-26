@@ -38,14 +38,21 @@ export function c2cTotalBlocks(widthBlocks: number, heightBlocks: number): numbe
 }
 
 /**
- * C2C: blocks in a diagonal row
- * Diagonal d (1-based): has min(d, width, height, width+height-d+1) blocks
+ * C2C: blocks in a diagonal row.
+ *
+ * Diagonal d (1-based) of a width x height grid holds
+ * min(d, width, height, width + height - d) blocks: it grows one block
+ * per row, plateaus at the shorter side, then shrinks again.
+ *
+ * The final term used to be `width + height - diag + 1`, which
+ * overcounted every diagonal past the plateau by one, so the diagonals
+ * summed to more blocks than the blanket actually has.
  */
 export function c2cBlocksInDiagonal(
   diag: number,
   width: number,
   height: number
 ): number {
-  const maxBlocks = Math.min(diag, width, height, width + height - diag + 1);
+  const maxBlocks = Math.min(diag, width, height, width + height - diag);
   return Math.max(0, maxBlocks);
 }

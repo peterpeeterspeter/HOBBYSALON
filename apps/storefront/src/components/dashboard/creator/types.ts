@@ -125,6 +125,7 @@ export type CreatorProfileTabProps = {
     bio: string | null;
     creator_types: string[];
     country_code: string | null;
+    open_to_markets?: boolean;
   } | null;
   onboarding: Record<string, unknown> | null;
   accountDisplayName: string;

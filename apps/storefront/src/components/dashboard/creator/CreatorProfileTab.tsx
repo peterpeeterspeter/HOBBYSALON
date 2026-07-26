@@ -139,6 +139,28 @@ export function CreatorProfileTab({
           </div>
         </fieldset>
 
+        <fieldset className="mt-4">
+          <label className="inline-flex items-start gap-2">
+            <input
+              type="checkbox"
+              name="open_to_markets"
+              defaultChecked={creator?.open_to_markets ?? false}
+              className="mt-1"
+            />
+            <span className="text-sm">
+              <span className="font-medium text-[var(--foreground)]">
+                Ik sta open voor markten en beurzen
+              </span>
+              <br />
+              <span className="text-[var(--muted)]">
+                Organisatoren kunnen je dan via Hobbysalon een oproep sturen
+                voor standplaatsen. Je gegevens worden nooit gedeeld — reageer
+                jij op een oproep, dan geef je zelf je contactgegevens vrij.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
         <p className="text-sm text-[var(--muted)]">
           Rollen zoals workshopgever of winkel stel je in onder{" "}
           <Link href="/dashboard/account" className="font-medium text-[var(--accent)] underline">

@@ -4,7 +4,8 @@ import {
   creatorTypeToPrivilegedRole,
   creatorTypesRequiringApproval,
   hasPendingRoleRequest,
-} from "./role-request-status";
+// @ts-expect-error Node's TypeScript test runner requires the extension.
+} from "./role-request-status.ts";
 
 test("maps creator types to privileged roles", () => {
   assert.equal(creatorTypeToPrivilegedRole("workshopgever"), "workshop_host");

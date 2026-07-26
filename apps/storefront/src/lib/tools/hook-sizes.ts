@@ -42,6 +42,9 @@ export function findHookByMm(mm: number): HookSizeEntry | undefined {
 
 export function findHookByUsLetter(letter: string): HookSizeEntry | undefined {
   const normalized = letter.trim().toUpperCase();
+  // Without this guard an empty query matches the first lettered hook,
+  // because `"MN".includes("")` is true.
+  if (!normalized) return undefined;
   return HOOK_SIZES.find(
     (e) =>
       e.usLetter !== null &&

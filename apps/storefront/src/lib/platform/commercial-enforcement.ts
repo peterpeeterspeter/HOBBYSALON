@@ -16,6 +16,8 @@ import {
   canCreateHandmadeListing,
   consumeCredits,
   countActiveHandmadeProducts,
+  getCreditBalance,
+  getEventCreditCost,
   LISTING_CREDIT_COSTS,
 } from "./listing-credits";
 import { createVisibilityBoost, grantPlanVisibilityBoost } from "./ranking";
@@ -193,6 +195,35 @@ export async function enforceHandmadePublishCredits(
     if (!result.ok) {
       return { ok: false, error: result.error };
     }
+  }
+
+  return { ok: true };
+}
+
+export async function enforceEventPublishCredits(
+  creatorId: string,
+  eventType: string,
+  isActive: boolean,
+  wasActive: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isActive || wasActive || !isCommercialGatingEnabled()) {
+    return { ok: true };
+  }
+
+  const cost = getEventCreditCost(eventType);
+  const balance = await getCreditBalance(creatorId);
+  if (balance < cost) {
+    return {
+      ok: false,
+      error: `Onvoldoende credits. Dit eventtype kost ${cost} credits, je hebt er ${balance}.`,
+    };
+  }
+
+  const result = await consumeCredits(creatorId, cost, "event_publish", undefined, {
+    event_type: eventType,
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
 
   return { ok: true };

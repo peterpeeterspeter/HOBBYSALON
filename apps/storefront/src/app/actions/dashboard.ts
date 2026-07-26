@@ -21,6 +21,7 @@ import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductIm
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
+  enforceEventPublishCredits,
   enforceEventTicketingFields,
   enforceHandmadePublishCredits,
   enforceWorkshopBookingFields,
@@ -29,7 +30,11 @@ import {
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
-import { syncPrivilegedRolesFromCreatorTypes } from "@/lib/platform/queries/role-requests";
+import {
+  ROLE_REQUEST_PENDING_MESSAGE,
+  syncPrivilegedRolesFromCreatorTypes,
+} from "@/lib/platform/queries/role-requests";
+import { getUserAccountRoles } from "@/lib/platform/queries/user-registration";
 
 const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 
@@ -185,6 +190,27 @@ async function getRequiredCreatorProfile() {
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
     throw new Error("Maak eerst een creator-profiel aan.");
+  }
+
+  return { user, creator };
+}
+
+/**
+ * Creator profile + a moderator-approved privileged role.
+ *
+ * Hiding a dashboard page is not access control - server actions are
+ * callable endpoints regardless of what the nav renders. Workshop and
+ * event mutations must therefore re-check the approved role here, not
+ * rely on the page-level requireDashboardCapability alone. Selecting
+ * "workshopgever"/"organizer" only files a role request; the role itself
+ * is granted on approval.
+ */
+async function getRequiredApprovedCreator(role: "workshop_host" | "organizer") {
+  const { user, creator } = await getRequiredCreatorProfile();
+  const roles = await getUserAccountRoles(user.id);
+
+  if (!roles.includes(role)) {
+    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
   }
 
   return { user, creator };
@@ -636,6 +662,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       city: parseOptionalString(formData, "city"),
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
       creator_types: creatorTypes,
+      open_to_markets: !!formData.get("open_to_markets"),
     };
 
     const supabase = createPlatformClient();
@@ -782,7 +809,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
 
 export async function createCreatorEntityLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const targetType = parseRequiredString(formData, "target_entity_type");
     const targetId = parseRequiredUuid(formData, "target_entity_id");
     const relationType = parseRequiredString(formData, "relation_type").toLowerCase();
@@ -850,7 +877,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function deleteCreatorEntityLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const supabase = createPlatformClient();
     const { error } = await supabase
@@ -878,7 +905,7 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function createProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const altText = parseOptionalString(formData, "alt_text");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
@@ -926,7 +953,7 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
 
 export async function deleteProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -967,7 +994,7 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
 
 export async function createProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const productId = parseRequiredUuid(formData, "product_id");
     const linkType = parseOptionalString(formData, "link_type") ?? "material";
@@ -1026,7 +1053,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
 
 export async function deleteProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectProductLinkId = parseRequiredUuid(formData, "project_product_link_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1067,7 +1094,7 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
 
 export async function createProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const title = parseRequiredString(formData, "title");
     const notes = parseOptionalString(formData, "notes");
@@ -1106,7 +1133,7 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function deleteProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const soughtMaterialId = parseRequiredUuid(formData, "sought_material_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1145,7 +1172,7 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function createArticleAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const articleType = parseRequiredString(formData, "article_type");
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
@@ -1199,7 +1226,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
 
 export async function updateArticleAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const articleId = parseRequiredUuid(formData, "id");
     const title = parseRequiredString(formData, "title");
     const articleType = parseRequiredString(formData, "article_type");
@@ -1260,7 +1287,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
 
 export async function approveArticleSuggestionAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const relationType = parseOptionalString(formData, "relation_type") ?? "related";
     const supabase = createPlatformClient();
@@ -1312,7 +1339,7 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
 
 export async function dismissArticleSuggestionAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const supabase = createPlatformClient();
 
@@ -1508,7 +1535,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         creator.id,
         creator.creator_types ?? [],
         true,
-        false
+        false,
+        productType === "destash" ? "destash" : "handmade"
       );
       if (!creditCheck.ok) {
         fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
@@ -1753,7 +1781,7 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
 
 export async function createWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
@@ -1828,7 +1856,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
 export async function updateWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
     const workshopId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
@@ -1918,7 +1946,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
 
 export async function createEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("organizer");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
     const startsAt = parseRequiredString(formData, "starts_at");
@@ -1930,6 +1958,17 @@ export async function createEventAction(formData: FormData): Promise<void> {
     }
     if (!EVENT_TICKETING_MODES.has(ticketingMode)) {
       fail("/dashboard/events", "Ongeldige ticketmodus.");
+    }
+
+    const isActive = !!formData.get("is_active");
+    const creditCheck = await enforceEventPublishCredits(
+      creator.id,
+      eventType,
+      isActive,
+      false
+    );
+    if (!creditCheck.ok) {
+      fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
     }
 
     const enforcedTicketing = await enforceEventTicketingFields(
@@ -1971,7 +2010,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
       featured_image_url: featuredImageUrl,
-      is_active: !!formData.get("is_active"),
+      is_active: isActive,
     })
       .select("id")
       .single();
@@ -1995,7 +2034,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
 export async function updateEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("organizer");
     const eventId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
@@ -2027,13 +2066,29 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     const supabase = createPlatformClient();
     const { data: existingEvent, error: existingError } = await supabase
       .from("events")
-      .select("slug, featured_image_url")
+      .select("slug, featured_image_url, is_active")
       .eq("id", eventId)
       .eq("organizer_creator_id", creator.id)
       .maybeSingle();
 
     if (existingError || !existingEvent) {
       fail("/dashboard/events", "Event niet gevonden.");
+    }
+
+    // Charge on the draft -> active transition, mirroring
+    // updateProductAction. Without this, publishing via "create as draft,
+    // then edit to active" would bypass the event publish fee entirely.
+    const isActive = !!formData.get("is_active");
+    if (isActive && !existingEvent.is_active) {
+      const creditCheck = await enforceEventPublishCredits(
+        creator.id,
+        eventType,
+        true,
+        false
+      );
+      if (!creditCheck.ok) {
+        fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
+      }
     }
 
     const featuredImageUrl = await resolveProductImageUrl(formData, {
@@ -2063,7 +2118,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
         ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         featured_image_url: featuredImageUrl,
-        is_active: !!formData.get("is_active"),
+        is_active: isActive,
       })
       .eq("id", eventId)
       .eq("organizer_creator_id", creator.id);
@@ -2087,7 +2142,7 @@ export async function updateBookingRequestStatusAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const requestId = parseRequiredString(formData, "id");
     const status = parseRequiredString(formData, "status");
 
@@ -2119,7 +2174,7 @@ export async function updateBookingRequestStatusAction(
 
 export async function linkWorkshopProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const productId = parseRequiredUuid(formData, "product_id");
     const isRequired = !!formData.get("is_required");
@@ -2183,7 +2238,7 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
 
 export async function unlinkWorkshopProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const productId = parseRequiredUuid(formData, "product_id");
 
@@ -2225,7 +2280,7 @@ export async function purchaseSpotlightBoostFormAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityType = parseRequiredString(formData, "entity_type") as
       | "creator"
       | "product"

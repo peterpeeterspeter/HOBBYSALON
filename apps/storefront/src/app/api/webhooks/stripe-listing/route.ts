@@ -65,11 +65,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (insertError.code === "23505") {
       return NextResponse.json({ received: true, duplicate: true });
     }
+    // Anything else (e.g. database unreachable) is transient and the
+    // payment is unfulfilled - 5xx so Stripe retries rather than
+    // dropping it.
     console.error(
       "Stripe listing webhook: failed to record session id",
       insertError
     );
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ error: "Could not record event" }, { status: 500 });
   }
 
   try {
@@ -78,10 +81,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } else if (kind === "plan") {
       await activatePlan(supabase, creatorId, metadata, session.id);
     } else {
-      console.error("Stripe listing webhook: unknown kind", kind);
+      throw new Error(`Unknown checkout kind: ${kind}`);
     }
   } catch (err) {
-    console.error("Stripe listing webhook: processing error", err);
+    // The customer has paid but we failed to deliver. Release the
+    // idempotency row so a retry isn't rejected as a duplicate, and
+    // return 5xx so Stripe actually retries. Returning 200 here would
+    // permanently strand the payment with nothing granted.
+    console.error("Stripe listing webhook: processing failed, releasing idempotency row", err);
+    const { error: cleanupError } = await supabase
+      .from("stripe_checkout_events")
+      .delete()
+      .eq("session_id", session.id);
+
+    if (cleanupError) {
+      // Now the row is stuck and retries will be skipped - this needs a
+      // human, so make it loud.
+      console.error(
+        `Stripe listing webhook: CRITICAL - paid session ${session.id} was not fulfilled ` +
+          `and its idempotency row could not be released. Manual intervention required.`,
+        cleanupError
+      );
+    }
+
+    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
@@ -97,8 +120,12 @@ async function grantCreditPack(
   const packCode = metadata.pack_code ?? "unknown";
 
   if (!Number.isFinite(credits) || credits <= 0) {
-    console.error("Stripe listing webhook: invalid credits in metadata", metadata);
-    return;
+    // Not retryable - the session metadata is malformed, so retrying
+    // delivers the same bad payload. Surface it rather than silently
+    // dropping a paid purchase.
+    throw new Error(
+      `Invalid credits in session metadata: ${JSON.stringify(metadata)}`
+    );
   }
 
   const { error } = await supabase.rpc("apply_listing_credit_delta", {
@@ -111,7 +138,7 @@ async function grantCreditPack(
   });
 
   if (error) {
-    console.error("Stripe listing webhook: credit grant failed", error);
+    throw new Error(`Credit grant failed: ${error.message}`);
   }
 }
 
@@ -123,8 +150,9 @@ async function activatePlan(
 ): Promise<void> {
   const planCode = metadata.plan_code;
   if (!planCode) {
-    console.error("Stripe listing webhook: missing plan_code", metadata);
-    return;
+    throw new Error(
+      `Missing plan_code in session metadata: ${JSON.stringify(metadata)}`
+    );
   }
 
   const { data: plan } = await supabase
@@ -134,8 +162,7 @@ async function activatePlan(
     .maybeSingle();
 
   if (!plan) {
-    console.error("Stripe listing webhook: plan not found", planCode);
-    return;
+    throw new Error(`Plan not found for code: ${planCode}`);
   }
 
   // Expire any other active subscription in the same segment so a creator
@@ -191,6 +218,6 @@ async function activatePlan(
   });
 
   if (error) {
-    console.error("Stripe listing webhook: plan subscription insert failed", error);
+    throw new Error(`Plan subscription insert failed: ${error.message}`);
   }
 }
