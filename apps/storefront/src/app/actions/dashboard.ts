@@ -21,6 +21,7 @@ import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductIm
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
+  enforceEventPublishCredits,
   enforceEventTicketingFields,
   enforceHandmadePublishCredits,
   enforceWorkshopBookingFields,
@@ -636,6 +637,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       city: parseOptionalString(formData, "city"),
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
       creator_types: creatorTypes,
+      open_to_markets: !!formData.get("open_to_markets"),
     };
 
     const supabase = createPlatformClient();
@@ -1932,6 +1934,17 @@ export async function createEventAction(formData: FormData): Promise<void> {
       fail("/dashboard/events", "Ongeldige ticketmodus.");
     }
 
+    const isActive = !!formData.get("is_active");
+    const creditCheck = await enforceEventPublishCredits(
+      creator.id,
+      eventType,
+      isActive,
+      false
+    );
+    if (!creditCheck.ok) {
+      fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
+    }
+
     const enforcedTicketing = await enforceEventTicketingFields(
       creator.id,
       creator.creator_types ?? [],
@@ -1971,7 +1984,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
       featured_image_url: featuredImageUrl,
-      is_active: !!formData.get("is_active"),
+      is_active: isActive,
     })
       .select("id")
       .single();

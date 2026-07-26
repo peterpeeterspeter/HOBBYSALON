@@ -7,7 +7,10 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { createEventAction, updateEventAction } from "@/app/actions/dashboard";
 import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor-inquiry";
+import { sendExhibitorOutreachAction } from "@/app/actions/exhibitor-outreach";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
+import { isCommercialGatingEnabled } from "@/lib/platform/commercial-entitlements";
+import { LISTING_CREDIT_COSTS, getEventCreditCost } from "@/lib/platform/listing-credits";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
@@ -139,6 +142,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                   {EVENT_TYPES.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                      {isCommercialGatingEnabled()
+                        ? ` (${getEventCreditCost(option.value)} credits)`
+                        : ""}
                     </option>
                   ))}
                 </select>
@@ -153,6 +159,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                   ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                      {isCommercialGatingEnabled()
+                        ? ` (${getEventCreditCost(option.value)} credits)`
+                        : ""}
                     </option>
                   ))}
                 </select>
@@ -350,6 +359,35 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       </button>
                     </div>
                   </form>
+
+                  <form
+                    action={sendExhibitorOutreachAction}
+                    className="mt-4 border-t border-[var(--border)] pt-4"
+                  >
+                    <input type="hidden" name="event_id" value={event.id} />
+                    <h3 className="text-sm font-semibold">
+                      Standhouders werven
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Stuur een oproep naar makers die aangaven open te staan
+                      voor markten en beurzen.
+                      {isCommercialGatingEnabled()
+                        ? ` Kost ${LISTING_CREDIT_COSTS.exhibitorOutreach} credits.`
+                        : " Momenteel gratis."}
+                    </p>
+                    <textarea
+                      name="message"
+                      rows={2}
+                      placeholder="Korte boodschap voor makers (optioneel)"
+                      className="mt-2 w-full rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      className="mt-2 rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]"
+                    >
+                      Oproep versturen
+                    </button>
+                  </form>
                 </details>
               ))
             )}
@@ -377,7 +415,7 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                     )}
                     <form
                       className="mt-3 flex items-center gap-2"
-                      action={async (formData) => {
+                      action={async (formData: FormData) => {
                         "use server";
                         if (!creator) return;
                         await updateEventVendorInquiryStatusAction({

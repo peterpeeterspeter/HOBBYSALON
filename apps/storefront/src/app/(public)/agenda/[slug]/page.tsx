@@ -321,11 +321,13 @@ export default async function EventPage({ params }: Props) {
           )}
 
           {organizer && (
-            <EventVendorInquiryForm
-              eventId={event.id}
-              organizerCreatorId={organizer.id}
-              eventTitle={event.title}
-            />
+            <div id="standhouders">
+              <EventVendorInquiryForm
+                eventId={event.id}
+                organizerCreatorId={organizer.id}
+                eventTitle={event.title}
+              />
+            </div>
           )}
 
           {/* Graph: related events */}
