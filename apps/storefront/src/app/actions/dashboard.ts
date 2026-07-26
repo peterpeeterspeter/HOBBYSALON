@@ -1510,7 +1510,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         creator.id,
         creator.creator_types ?? [],
         true,
-        false
+        false,
+        productType === "destash" ? "destash" : "handmade"
       );
       if (!creditCheck.ok) {
         fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
@@ -2040,13 +2041,29 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     const supabase = createPlatformClient();
     const { data: existingEvent, error: existingError } = await supabase
       .from("events")
-      .select("slug, featured_image_url")
+      .select("slug, featured_image_url, is_active")
       .eq("id", eventId)
       .eq("organizer_creator_id", creator.id)
       .maybeSingle();
 
     if (existingError || !existingEvent) {
       fail("/dashboard/events", "Event niet gevonden.");
+    }
+
+    // Charge on the draft -> active transition, mirroring
+    // updateProductAction. Without this, publishing via "create as draft,
+    // then edit to active" would bypass the event publish fee entirely.
+    const isActive = !!formData.get("is_active");
+    if (isActive && !existingEvent.is_active) {
+      const creditCheck = await enforceEventPublishCredits(
+        creator.id,
+        eventType,
+        true,
+        false
+      );
+      if (!creditCheck.ok) {
+        fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
+      }
     }
 
     const featuredImageUrl = await resolveProductImageUrl(formData, {
@@ -2076,7 +2093,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
         ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         featured_image_url: featuredImageUrl,
-        is_active: !!formData.get("is_active"),
+        is_active: isActive,
       })
       .eq("id", eventId)
       .eq("organizer_creator_id", creator.id);

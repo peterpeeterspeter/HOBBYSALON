@@ -89,19 +89,6 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
       fail("Geen makers gevonden die openstaan voor markten en beurzen.");
     }
 
-    if (isCommercialGatingEnabled()) {
-      const result = await consumeCredits(
-        creator.id,
-        cost,
-        "exhibitor_outreach",
-        { type: "event", id: event.id },
-        { recipient_count: recipients.length }
-      );
-      if (!result.ok) {
-        fail(result.error ?? "Credits verbruiken mislukt.");
-      }
-    }
-
     const emailResults = await Promise.allSettled(
       recipients.map((maker) =>
         sendExhibitorOutreachEmail({
@@ -118,12 +105,37 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
       (r) => r.status === "fulfilled" && r.value
     ).length;
 
+    // Charge only after we know something actually went out. Sending
+    // first means a misconfigured/failing Resend can't bill the organizer
+    // for zero delivered emails - sendNewsletterEmail returns false
+    // silently when RESEND_API_KEY/RESEND_FROM_EMAIL are missing.
+    if (sentCount === 0) {
+      fail(
+        "Er kon geen enkele oproep verstuurd worden. Er zijn geen credits aangerekend."
+      );
+    }
+
+    let creditsSpent = 0;
+    if (isCommercialGatingEnabled()) {
+      const result = await consumeCredits(
+        creator.id,
+        cost,
+        "exhibitor_outreach",
+        { type: "event", id: event.id },
+        { recipient_count: sentCount }
+      );
+      if (!result.ok) {
+        fail(result.error ?? "Credits verbruiken mislukt.");
+      }
+      creditsSpent = cost;
+    }
+
     await supabase.from("event_exhibitor_outreach").insert({
       event_id: event.id,
       organizer_creator_id: creator.id,
       message,
       recipient_count: sentCount,
-      credits_spent: isCommercialGatingEnabled() ? cost : 0,
+      credits_spent: creditsSpent,
     });
 
     revalidatePath("/dashboard/events");

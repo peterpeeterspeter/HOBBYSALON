@@ -159,9 +159,6 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                   ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
-                      {isCommercialGatingEnabled()
-                        ? ` (${getEventCreditCost(option.value)} credits)`
-                        : ""}
                     </option>
                   ))}
                 </select>
@@ -267,6 +264,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                         {EVENT_TYPES.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
+                            {isCommercialGatingEnabled() && !event.is_active
+                              ? ` (${getEventCreditCost(option.value)} credits)`
+                              : ""}
                           </option>
                         ))}
                       </select>
