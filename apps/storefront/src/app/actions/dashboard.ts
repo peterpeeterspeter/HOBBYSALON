@@ -30,7 +30,11 @@ import {
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
-import { syncPrivilegedRolesFromCreatorTypes } from "@/lib/platform/queries/role-requests";
+import {
+  ROLE_REQUEST_PENDING_MESSAGE,
+  syncPrivilegedRolesFromCreatorTypes,
+} from "@/lib/platform/queries/role-requests";
+import { getUserAccountRoles } from "@/lib/platform/queries/user-registration";
 
 const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 
@@ -186,6 +190,27 @@ async function getRequiredCreatorProfile() {
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
     throw new Error("Maak eerst een creator-profiel aan.");
+  }
+
+  return { user, creator };
+}
+
+/**
+ * Creator profile + a moderator-approved privileged role.
+ *
+ * Hiding a dashboard page is not access control - server actions are
+ * callable endpoints regardless of what the nav renders. Workshop and
+ * event mutations must therefore re-check the approved role here, not
+ * rely on the page-level requireDashboardCapability alone. Selecting
+ * "workshopgever"/"organizer" only files a role request; the role itself
+ * is granted on approval.
+ */
+async function getRequiredApprovedCreator(role: "workshop_host" | "organizer") {
+  const { user, creator } = await getRequiredCreatorProfile();
+  const roles = await getUserAccountRoles(user.id);
+
+  if (!roles.includes(role)) {
+    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
   }
 
   return { user, creator };
@@ -1756,7 +1781,7 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
 
 export async function createWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
@@ -1831,7 +1856,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
 export async function updateWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
     const workshopId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
@@ -1921,7 +1946,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
 
 export async function createEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("organizer");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
     const startsAt = parseRequiredString(formData, "starts_at");
@@ -2009,7 +2034,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
 export async function updateEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredApprovedCreator("organizer");
     const eventId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");

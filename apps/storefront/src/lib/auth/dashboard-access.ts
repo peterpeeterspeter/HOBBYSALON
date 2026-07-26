@@ -76,6 +76,8 @@ export function resolveDashboardCapabilities(input: {
   const hasOrganizerRole = roles.includes("organizer");
   const hasCreatorRole = roles.includes("creator");
 
+  // Self-declared: what the creator says they do. Drives how their public
+  // profile presents them, never what they can manage.
   const isWorkshopgever =
     creatorTypes.includes("workshopgever") || hasWorkshopHostRole;
   const isOrganizer = creatorTypes.includes("organizer") || hasOrganizerRole;
@@ -101,8 +103,14 @@ export function resolveDashboardCapabilities(input: {
       isSupplier ||
       (creatorTypes.length === 0 && (hasCreatorRole || hasCreatorProfile)));
 
-  const canManageWorkshops = hasCreatorProfile && isWorkshopgever;
-  const canManageEvents = hasCreatorProfile && isOrganizer;
+  // Privileged capabilities follow the *approved* account role, never the
+  // self-declared creator_type. Picking "workshopgever" on the account
+  // page files a role request (syncPrivilegedRolesFromCreatorTypes) and
+  // approval grants workshop_host; deriving access from creator_types
+  // instead made that gate cosmetic - a user could grant themselves
+  // access, and a rejected request kept its access too.
+  const canManageWorkshops = hasCreatorProfile && hasWorkshopHostRole;
+  const canManageEvents = hasCreatorProfile && hasOrganizerRole;
   // Deliberately not `canManageProducts || ...`: platform-only maker
   // listings (handmade/destash without a medusa_product_id) never
   // generate a Medusa order, so every maker was seeing an always-empty
