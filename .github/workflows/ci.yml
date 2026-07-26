@@ -74,12 +74,36 @@ jobs:
           yarn workspace @mercurjs/reviews tsc --noEmit -p tsconfig.json
           yarn workspace @mercurjs/stripe-tax-provider tsc --noEmit -p tsconfig.json
 
+  test:
+    name: Test (storefront)
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          # Pinned above the repo-wide NODE_VERSION (20) on purpose: the
+          # storefront tests run on Node's built-in runner with
+          # --experimental-strip-types, which needs 22.6+.
+          node-version: "22"
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run storefront tests
+        run: yarn workspace storefront test
+
   build:
     name: Build
     runs-on: ubuntu-latest
     needs:
       - lint
       - typecheck
+      - test
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/medusa_ci
