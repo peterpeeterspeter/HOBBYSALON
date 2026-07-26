@@ -784,7 +784,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
 
 export async function createCreatorEntityLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const targetType = parseRequiredString(formData, "target_entity_type");
     const targetId = parseRequiredUuid(formData, "target_entity_id");
     const relationType = parseRequiredString(formData, "relation_type").toLowerCase();
@@ -852,7 +852,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function deleteCreatorEntityLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const supabase = createPlatformClient();
     const { error } = await supabase
@@ -880,7 +880,7 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function createProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const altText = parseOptionalString(formData, "alt_text");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
@@ -928,7 +928,7 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
 
 export async function deleteProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -969,7 +969,7 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
 
 export async function createProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const productId = parseRequiredUuid(formData, "product_id");
     const linkType = parseOptionalString(formData, "link_type") ?? "material";
@@ -1028,7 +1028,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
 
 export async function deleteProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectProductLinkId = parseRequiredUuid(formData, "project_product_link_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1069,7 +1069,7 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
 
 export async function createProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const title = parseRequiredString(formData, "title");
     const notes = parseOptionalString(formData, "notes");
@@ -1108,7 +1108,7 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function deleteProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const soughtMaterialId = parseRequiredUuid(formData, "sought_material_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1147,7 +1147,7 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function createArticleAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const articleType = parseRequiredString(formData, "article_type");
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
@@ -1201,7 +1201,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
 
 export async function updateArticleAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const articleId = parseRequiredUuid(formData, "id");
     const title = parseRequiredString(formData, "title");
     const articleType = parseRequiredString(formData, "article_type");
@@ -1262,7 +1262,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
 
 export async function approveArticleSuggestionAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const relationType = parseOptionalString(formData, "relation_type") ?? "related";
     const supabase = createPlatformClient();
@@ -1314,7 +1314,7 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
 
 export async function dismissArticleSuggestionAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const supabase = createPlatformClient();
 
@@ -2100,7 +2100,7 @@ export async function updateBookingRequestStatusAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const requestId = parseRequiredString(formData, "id");
     const status = parseRequiredString(formData, "status");
 
@@ -2132,7 +2132,7 @@ export async function updateBookingRequestStatusAction(
 
 export async function linkWorkshopProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const productId = parseRequiredUuid(formData, "product_id");
     const isRequired = !!formData.get("is_required");
@@ -2196,7 +2196,7 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
 
 export async function unlinkWorkshopProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const productId = parseRequiredUuid(formData, "product_id");
 
@@ -2238,7 +2238,7 @@ export async function purchaseSpotlightBoostFormAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityType = parseRequiredString(formData, "entity_type") as
       | "creator"
       | "product"

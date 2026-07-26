@@ -174,18 +174,18 @@ Nieuw: `creators.open_to_markets` (opt-in-checkbox op het makerprofiel, `Creator
 
 ---
 
-## Fase 5 — Migratie van bestaande data
+## Fase 5 — Migratie van bestaande data ✅ deels uitgevoerd
 
-Bestaande handmade-producten met een `medusa_product_id` hebben mogelijk lopende orders of open winkelmandjes. **Niet in bulk deactiveren.**
+**Eerst de cijfers, geverifieerd tegen productie (2026-07-26):** van de 26 `handmade`-rijen hebben er **25 nog een `medusa_product_id`**. Dit is dus geen randgeval maar de meerderheid van de echte data. Reden te meer om niets in bulk aan te raken.
 
-1. Zet nieuwe Medusa-aanmaak stop (Fase 1) — vanaf dan groeit de oude set niet meer.
-2. Laat lopende Medusa-orders normaal uitlopen.
-3. Vul `price_cents` op bestaande rijen vanuit de Medusa-prijs (eenmalig backfill-script).
-4. Zet de resterende rijen om naar contact-listings zodra er geen open orders meer zijn.
-5. Maker-onboarding voor Stripe Connect uit het makerpad halen; Connect blijft merchant-only.
-6. `/dashboard/orders` alleen voor merchants en dubbelrollen.
+1. ✅ Nieuwe Medusa-aanmaak stop (Fase 1) — vanaf dan groeit de oude set niet meer.
+2. ✅ Lopende Medusa-orders lopen normaal uit — hier is niets aan veranderd, geen actie nodig.
+3. ✅ **Backfill-script geschreven**: `apps/storefront/scripts/backfill-handmade-price-cents.ts`. Vult `price_cents`/`currency_code` op legacy rijen vanuit de Medusa Store API-prijs (dezelfde bron als `product-page.ts` gebruikt). Puur additief: raakt alleen rijen waar `price_cents` nog `null` is, wijzigt nooit `medusa_product_id`. **Kon niet zelf uitgevoerd worden** — vereist `MEDUSA_BACKEND_URL`/`NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` waar deze sessie geen toegang toe heeft. Draai met `--dry-run` eerst om te zien wat er zou gebeuren.
+4. **Nog open, bewust niet geautomatiseerd**: rijen omzetten naar pure contact-listings (`medusa_product_id` naar `null`) zodra er geen open orders meer zijn. Of een product open orders heeft, staat niet in de Supabase-platformdatabase — dat weet alleen Medusa's eigen orders-tabel, waar ik in deze sessie geen toegang toe heb. Dit blijft een **handmatige beslissing per rij**, precies zoals hierboven gewaarschuwd: niet in bulk deactiveren.
+5. ✅ **Onnodige Medusa-sellerprovisioning verwijderd uit het makerpad** — belangrijke precisering: de gevonden koppeling was niet letterlijk "Stripe Connect" maar Medusa-**sellerregistratie** (`/admin/platform/creators/register`, maakt een Mercur-seller + shipping profile aan). 16 dashboard-acties die niets met commerce te maken hebben (portfolio-afbeeldingen, artikels, project-materialen, workshop-productkoppelingen, boekingsstatus) riepen toch de zware `getRequiredCreator()` aan — die forceert deze Medusa-sellerprovisioning puur om een `creator`-object op te halen dat ze al via de lichte `getRequiredCreatorProfile()` konden krijgen (geverifieerd: geen van de 16 gebruikt `sellerId`). Alle 16 omgezet naar `getRequiredCreatorProfile()`. Een pure maker die nooit fysiek verkoopt, krijgt nu geen Medusa-sellerrecord meer opgedrongen bij het schrijven van een artikel.
+6. ✅ **`/dashboard/orders` scoping gefixt** — `canManageOrders` in `dashboard-access.ts` stond op `canManageProducts || ...`, wat betekende dat *elke* maker (ook zuivere platform-only-listinghouders zonder ooit een Medusa-order) de "Bestellingen"-pagina te zien kreeg, altijd leeg. Nu: `hasCreatorSellerLink || hasMerchantSellerLink` — alleen wie een echte Medusa-sellerkoppeling heeft (legacy makers of merchants) ziet deze pagina.
 
-Dubbelrol werkt al: `creators.creator_types` is een array en `user_account_roles` bestaat. Een maker die doorgroeit tot merchant krijgt de rol erbij en doorloopt Connect-onboarding op dát moment. Dat is meteen het verhaal: *begin met plaatsen, upgrade naar verkopen wanneer je er klaar voor bent.*
+Dubbelrol werkt al: `creators.creator_types` is een array en `user_account_roles` bestaat. Een maker die doorgroeit tot merchant krijgt de rol erbij op dát moment. Dat is meteen het verhaal: *begin met plaatsen, upgrade naar verkopen wanneer je er klaar voor bent.*
 
 ---
 

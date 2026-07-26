@@ -103,8 +103,13 @@ export function resolveDashboardCapabilities(input: {
 
   const canManageWorkshops = hasCreatorProfile && isWorkshopgever;
   const canManageEvents = hasCreatorProfile && isOrganizer;
-  const canManageOrders =
-    canManageProducts || (hasCreatorProfile && hasCreatorSellerLink);
+  // Deliberately not `canManageProducts || ...`: platform-only maker
+  // listings (handmade/destash without a medusa_product_id) never
+  // generate a Medusa order, so every maker was seeing an always-empty
+  // "Bestellingen" page. Only creators/merchants with an actual Medusa
+  // seller link (legacy Medusa-backed listings, or a merchant account)
+  // have real orders to manage.
+  const canManageOrders = hasCreatorSellerLink || hasMerchantSellerLink;
   const canViewAnalytics =
     canManageProducts ||
     canManageWorkshops ||
