@@ -10,6 +10,7 @@ export function CreatorProfileTab({
   creator,
   onboarding,
   accountDisplayName,
+  accountEmail,
   registrationCity,
   registrationCountryCode,
   domains,
@@ -51,6 +52,18 @@ export function CreatorProfileTab({
               (typeof onboarding?.business_name === "string" ? onboarding?.business_name : "")
             }
           />
+          <div>
+            <Input
+              name="email"
+              type="email"
+              label="Contact e-mailadres *"
+              required
+              defaultValue={creator?.email ?? accountEmail}
+            />
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Hierop ontvang je aanvragen van bezoekers over je plaatsingen.
+            </p>
+          </div>
           <Input
             name="city"
             label="Stad"

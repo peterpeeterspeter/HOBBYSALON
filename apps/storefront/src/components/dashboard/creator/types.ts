@@ -123,12 +123,14 @@ export type CreatorProfileTabProps = {
     avatar_url: string | null;
     banner_url: string | null;
     bio: string | null;
+    email?: string | null;
     creator_types: string[];
     country_code: string | null;
     open_to_markets?: boolean;
   } | null;
   onboarding: Record<string, unknown> | null;
   accountDisplayName: string;
+  accountEmail: string;
   registrationCity: string | null;
   registrationCountryCode: string | null;
   domains: Domain[];

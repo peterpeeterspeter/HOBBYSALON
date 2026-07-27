@@ -30,6 +30,7 @@ export type CreatorMakerData = {
   registrationContext: Awaited<ReturnType<typeof getUserRegistrationContext>>;
   onboarding: Record<string, unknown> | null;
   accountDisplayName: string;
+  accountEmail: string;
   domains: Domain[];
   activeTab: CreatorTab;
   selectedDomainIds: Set<string>;
@@ -62,6 +63,7 @@ export async function loadCreatorMakerData(
     typeof user.user_metadata?.display_name === "string"
       ? user.user_metadata.display_name
       : user.email?.split("@")[0] ?? "";
+  const accountEmail = user.email ?? "";
   const domains = await listDomainsBySort();
   const activeTab = resolveCreatorTab(tabParam ?? undefined);
 
@@ -244,6 +246,7 @@ export async function loadCreatorMakerData(
     registrationContext,
     onboarding,
     accountDisplayName,
+    accountEmail,
     domains,
     activeTab,
     selectedDomainIds,

@@ -63,14 +63,20 @@ export async function submitProductInquiry(
 
     const { data: creator } = await supabase
       .from("creators")
-      .select("display_name, email")
+      .select("display_name, email, user_id")
       .eq("id", creatorId)
       .maybeSingle();
 
-    if (creator?.email) {
+    let creatorEmail = creator?.email ?? null;
+    if (!creatorEmail && creator?.user_id) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(creator.user_id);
+      creatorEmail = authUser.user?.email ?? null;
+    }
+
+    if (creatorEmail) {
       void sendProductInquiryCreatorEmail({
-        creatorEmail: creator.email,
-        creatorName: creator.display_name ?? "maker",
+        creatorEmail,
+        creatorName: creator?.display_name ?? "maker",
         productTitle: product.title,
         productSlug: product.slug,
         inquirerName: fullName,
