@@ -70,7 +70,28 @@ test("workshopgever without approved role does not see workshops", () => {
   assert.equal(caps.canManageWorkshops, false);
 });
 
-test("vendor portal only for merchant role with merchant seller link", () => {
+test("vendor portal nav for pending merchant request", () => {
+  const pending = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user"],
+      pendingRoleRequests: [
+        {
+          id: "req-merchant",
+          role: "merchant",
+          status: "pending",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    },
+  });
+  assert.equal(pending.canAccessVendorPortal, false);
+  assert.equal(pending.canViewVendorPortalNav, true);
+  const nav = buildRoleAwareDashboardNav(pending).map((item) => item.href);
+  assert.ok(nav.includes("/dashboard/verkoper"));
+});
+
+test("vendor portal nav for merchant role with or without seller link", () => {
   const withoutLink = resolveDashboardCapabilities({
     registrationContext: {
       ...baseContext,
@@ -79,6 +100,9 @@ test("vendor portal only for merchant role with merchant seller link", () => {
     },
   });
   assert.equal(withoutLink.canAccessVendorPortal, false);
+  assert.equal(withoutLink.canViewVendorPortalNav, true);
+  const navWithoutLink = buildRoleAwareDashboardNav(withoutLink).map((item) => item.href);
+  assert.ok(navWithoutLink.includes("/dashboard/verkoper"));
 
   const withMerchant = resolveDashboardCapabilities({
     registrationContext: {
@@ -88,6 +112,7 @@ test("vendor portal only for merchant role with merchant seller link", () => {
     },
   });
   assert.equal(withMerchant.canAccessVendorPortal, true);
+  assert.equal(withMerchant.canViewVendorPortalNav, true);
   const nav = buildRoleAwareDashboardNav(withMerchant).map((item) => item.href);
   assert.ok(nav.includes("/dashboard/verkoper"));
   assert.ok(!nav.includes("/dashboard/workshops"));

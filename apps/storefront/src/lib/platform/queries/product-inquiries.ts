@@ -23,6 +23,48 @@ export async function countNewProductInquiries(
   return count ?? 0;
 }
 
+export async function countNewWorkshopBookingRequests(
+  creatorId: string
+): Promise<number> {
+  const supabase = createPlatformClient();
+  const { count, error } = await supabase
+    .from("workshop_booking_requests")
+    .select("id", { head: true, count: "exact" })
+    .eq("creator_id", creatorId)
+    .eq("status", "new");
+
+  if (error) {
+    console.error("Failed to count workshop booking requests", {
+      creatorId,
+      message: error.message,
+    });
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+export async function countNewEventVendorInquiries(
+  creatorId: string
+): Promise<number> {
+  const supabase = createPlatformClient();
+  const { count, error } = await supabase
+    .from("event_vendor_inquiries")
+    .select("id", { head: true, count: "exact" })
+    .eq("organizer_creator_id", creatorId)
+    .eq("status", "new");
+
+  if (error) {
+    console.error("Failed to count event vendor inquiries", {
+      creatorId,
+      message: error.message,
+    });
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 /** Resolve the best email to notify a creator (profile email, then auth email). */
 export async function resolveCreatorNotifyEmail(input: {
   creatorId: string;

@@ -216,6 +216,22 @@ export default async function DashboardHomePage({ searchParams }: Props) {
             </Button>
           </div>
         </CardShell>
+      ) : caps.canViewVendorPortalNav && !caps.canAccessVendorPortal ? (
+        <CardShell variant="featured" padding="lg" className="border-[var(--accent)]/30">
+          <p className="text-lg font-semibold text-[var(--foreground)]">Verkopersportaal</p>
+          <p className="mt-2 max-w-xl leading-relaxed text-[var(--muted)]">
+            {registrationContext.pendingRoleRequests.some(
+              (request) => request.role === "merchant" && request.status === "pending"
+            )
+              ? "Je merchant-aanvraag wordt beoordeeld. Zodra die is goedgekeurd, beheer je hier voorraad, verzending en uitbetalingen op verkoper.hobbysalon.be."
+              : "Je merchant-rol is actief. Zodra je winkel is gekoppeld, open je hier verkoper.hobbysalon.be."}
+          </p>
+          <div className="mt-5">
+            <Button asChild>
+              <Link href="/dashboard/verkoper">Naar verkopersportaal</Link>
+            </Button>
+          </div>
+        </CardShell>
       ) : caps.canAccessVendorPortal && !caps.canViewCreatorPage ? (
         <CardShell variant="featured" padding="lg" className="border-[var(--accent)]/30">
           <p className="text-lg font-semibold text-[var(--foreground)]">Je winkel</p>
@@ -291,7 +307,7 @@ export default async function DashboardHomePage({ searchParams }: Props) {
               </Link>
             </li>
           ) : null}
-          {caps.canAccessVendorPortal ? (
+          {caps.canViewVendorPortalNav ? (
             <li>
               <Link
                 href="/dashboard/verkoper"
@@ -299,7 +315,9 @@ export default async function DashboardHomePage({ searchParams }: Props) {
               >
                 <span className="font-medium text-[var(--foreground)]">Verkopersportaal</span>
                 <span className="mt-1 block text-[var(--muted)]">
-                  Voorraad, verzending en uitbetalingen
+                  {caps.canAccessVendorPortal
+                    ? "Voorraad, verzending en uitbetalingen"
+                    : "Status en toegang tot je winkel"}
                 </span>
               </Link>
             </li>

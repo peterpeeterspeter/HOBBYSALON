@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CardShell } from "@/components/ui/card-shell";
 import { getAuthAccessToken, getAuthUser } from "@/lib/auth/session";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { hasPendingRoleRequest } from "@/lib/auth/role-request-status";
 import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import {
   buildVendorPanelHandoffUrl,
@@ -26,7 +27,46 @@ export default async function VerkoperHandoffPage() {
     registrationContext,
     hasCreatorProfile: registrationContext.hasCreatorProfile,
   });
-  requireDashboardCapability(caps.canAccessVendorPortal);
+  requireDashboardCapability(caps.canViewVendorPortalNav);
+
+  const pendingMerchant = hasPendingRoleRequest(
+    registrationContext.pendingRoleRequests,
+    "merchant"
+  );
+
+  if (pendingMerchant && !caps.canAccessVendorPortal) {
+    return (
+      <CardShell variant="default" padding="lg">
+        <h1 className="text-xl font-semibold mb-2">Verkopersportaal</h1>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          Je merchant-aanvraag wordt beoordeeld. Zodra die is goedgekeurd, open je
+          hier je winkel op verkoper.hobbysalon.be.
+        </p>
+        <p className="text-sm">
+          <Link href="/dashboard#account" className="text-[var(--accent)] underline">
+            Bekijk je rollen in Account
+          </Link>
+        </p>
+      </CardShell>
+    );
+  }
+
+  if (!caps.canAccessVendorPortal) {
+    return (
+      <CardShell variant="default" padding="lg">
+        <h1 className="text-xl font-semibold mb-2">Verkopersportaal</h1>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          Je merchant-rol is actief, maar je winkel is nog niet gekoppeld. Neem contact
+          op met Hobbysalon als dit langer duurt dan verwacht.
+        </p>
+        <p className="text-sm">
+          <Link href="/dashboard#account" className="text-[var(--accent)] underline">
+            Bekijk je rollen in Account
+          </Link>
+        </p>
+      </CardShell>
+    );
+  }
 
   if (!accessToken) {
     redirect("/login?next=/dashboard/verkoper");

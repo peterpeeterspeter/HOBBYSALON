@@ -10,7 +10,11 @@ import {
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { isModerator } from "@/lib/platform/queries/community-showcase";
-import { countNewProductInquiries } from "@/lib/platform/queries/product-inquiries";
+import {
+  countNewEventVendorInquiries,
+  countNewProductInquiries,
+  countNewWorkshopBookingRequests,
+} from "@/lib/platform/queries/product-inquiries";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
@@ -38,14 +42,24 @@ export default async function DashboardLayout({
     hasCreatorProfile: Boolean(creator),
   });
 
-  const newProductInquiryCount =
-    creator && caps.canManageProducts
-      ? await countNewProductInquiries(creator.id)
-      : 0;
+  const [newProductInquiryCount, newWorkshopBookingCount, newEventVendorInquiryCount] =
+    creator
+      ? await Promise.all([
+          caps.canManageProducts ? countNewProductInquiries(creator.id) : Promise.resolve(0),
+          caps.canManageWorkshops
+            ? countNewWorkshopBookingRequests(creator.id)
+            : Promise.resolve(0),
+          caps.canManageEvents
+            ? countNewEventVendorInquiries(creator.id)
+            : Promise.resolve(0),
+        ])
+      : [0, 0, 0];
 
   const navItems = buildRoleAwareDashboardNav(caps, {
     userIsModerator,
     newProductInquiryCount,
+    newWorkshopBookingCount,
+    newEventVendorInquiryCount,
   });
 
   return (

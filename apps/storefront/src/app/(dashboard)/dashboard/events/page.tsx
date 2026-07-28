@@ -466,50 +466,64 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
               </p>
             ) : (
               <ul className="mt-4 space-y-4">
-                {vendorInquiries.map((inquiry) => (
-                  <li
-                    key={inquiry.id}
-                    className="rounded-lg border border-[var(--border)] p-4"
-                  >
-                    <p className="font-semibold">{inquiry.business_name}</p>
-                    <p className="text-sm text-[var(--muted)]">
-                      {inquiry.contact_name} · {inquiry.email}
-                    </p>
-                    {inquiry.message && (
-                      <p className="mt-2 text-sm">{inquiry.message}</p>
-                    )}
-                    <form
-                      className="mt-3 flex items-center gap-2"
-                      action={async (formData: FormData) => {
-                        "use server";
-                        if (!creator) return;
-                        await updateEventVendorInquiryStatusAction({
-                          inquiryId: inquiry.id,
-                          organizerCreatorId: creator.id,
-                          status: formData.get("status") as
-                            | "new"
-                            | "contacted"
-                            | "accepted"
-                            | "declined",
-                        });
-                      }}
+                {vendorInquiries.map((inquiry) => {
+                  const isNew = inquiry.status === "new";
+                  return (
+                    <li
+                      key={inquiry.id}
+                      className={`rounded-lg border p-4 ${
+                        isNew
+                          ? "border-amber-300 bg-amber-50/60"
+                          : "border-[var(--border)]"
+                      }`}
                     >
-                      <select
-                        name="status"
-                        defaultValue={inquiry.status}
-                        className="rounded-md border border-[var(--border)] px-2 py-1 text-sm"
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{inquiry.business_name}</p>
+                        {isNew ? (
+                          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                            Nieuw
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-sm text-[var(--muted)]">
+                        {inquiry.contact_name} · {inquiry.email}
+                      </p>
+                      {inquiry.message && (
+                        <p className="mt-2 text-sm">{inquiry.message}</p>
+                      )}
+                      <form
+                        className="mt-3 flex items-center gap-2"
+                        action={async (formData: FormData) => {
+                          "use server";
+                          if (!creator) return;
+                          await updateEventVendorInquiryStatusAction({
+                            inquiryId: inquiry.id,
+                            organizerCreatorId: creator.id,
+                            status: formData.get("status") as
+                              | "new"
+                              | "contacted"
+                              | "accepted"
+                              | "declined",
+                          });
+                        }}
                       >
-                        <option value="new">Nieuw</option>
-                        <option value="contacted">Gecontacteerd</option>
-                        <option value="accepted">Geaccepteerd</option>
-                        <option value="declined">Afgewezen</option>
-                      </select>
-                      <Button type="submit" variant="secondary">
-                        Status opslaan
-                      </Button>
-                    </form>
-                  </li>
-                ))}
+                        <select
+                          name="status"
+                          defaultValue={inquiry.status}
+                          className="rounded-md border border-[var(--border)] px-2 py-1 text-sm"
+                        >
+                          <option value="new">Nieuw</option>
+                          <option value="contacted">Gecontacteerd</option>
+                          <option value="accepted">Geaccepteerd</option>
+                          <option value="declined">Afgewezen</option>
+                        </select>
+                        <Button type="submit" variant="secondary">
+                          Status opslaan
+                        </Button>
+                      </form>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardShell>

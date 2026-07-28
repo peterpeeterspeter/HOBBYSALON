@@ -719,52 +719,66 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                 Nog geen boekingsaanvragen.
               </p>
             ) : (
-              bookingRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {request.full_name} · {request.email}
-                      </p>
-                      <p className="text-sm text-[var(--muted)]">
-                        Workshop:{" "}
-                        {bookingWorkshopTitle(request, workshopTitles)}
-                      </p>
-                      {request.message && (
-                        <p className="mt-1 text-sm text-[var(--foreground)]">
-                          {request.message}
+              bookingRequests.map((request) => {
+                const isNew = request.status === "new";
+                return (
+                  <div
+                    key={request.id}
+                    className={`rounded-lg border p-4 ${
+                      isNew
+                        ? "border-amber-300 bg-amber-50/60"
+                        : "border-[var(--border)] bg-[var(--card)]"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-[var(--foreground)]">
+                            {request.full_name} · {request.email}
+                          </p>
+                          {isNew ? (
+                            <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                              Nieuw
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-sm text-[var(--muted)]">
+                          Workshop:{" "}
+                          {bookingWorkshopTitle(request, workshopTitles)}
                         </p>
-                      )}
+                        {request.message && (
+                          <p className="mt-1 text-sm text-[var(--foreground)]">
+                            {request.message}
+                          </p>
+                        )}
+                      </div>
+                      <form
+                        action={updateBookingRequestStatusAction}
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="id" value={request.id} />
+                        <select
+                          name="status"
+                          defaultValue={request.status}
+                          className="rounded-md border border-[var(--border)] px-2 py-1.5 text-sm"
+                        >
+                          {REQUEST_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+                        >
+                          Update
+                        </button>
+                      </form>
                     </div>
-                    <form
-                      action={updateBookingRequestStatusAction}
-                      className="flex items-center gap-2"
-                    >
-                      <input type="hidden" name="id" value={request.id} />
-                      <select
-                        name="status"
-                        defaultValue={request.status}
-                        className="rounded-md border border-[var(--border)] px-2 py-1.5 text-sm"
-                      >
-                        {REQUEST_STATUS_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-                      >
-                        Update
-                      </button>
-                    </form>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </>

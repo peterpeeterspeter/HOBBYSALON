@@ -14,8 +14,10 @@ export type DashboardCapabilities = {
   roles: UserAccountRole[];
   creatorTypes: CreatorTypeValue[];
   hasCreatorProfile: boolean;
-  /** Merchant role + merchant Medusa seller — only then show verkopersportaal. */
+  /** Merchant role + merchant Medusa seller — handoff to verkoper.hobbysalon.be. */
   canAccessVendorPortal: boolean;
+  /** Show Verkopersportaal tab (merchant role or seller link, setup may still be pending). */
+  canViewVendorPortalNav: boolean;
   canViewSoughtMaterials: boolean;
   /** Public maker page, artikels, portfolio. */
   canViewCreatorPage: boolean;
@@ -84,7 +86,13 @@ export function resolveDashboardCapabilities(input: {
   const isSupplier = creatorTypes.includes("supplier");
   const isContentCreator = creatorTypes.includes("content_creator");
 
+  const hasPendingMerchantRequest = input.registrationContext.pendingRoleRequests.some(
+    (request) => request.role === "merchant" && request.status === "pending"
+  );
+
   const canAccessVendorPortal = hasMerchantRole && hasMerchantSellerLink;
+  const canViewVendorPortalNav =
+    hasMerchantRole || hasMerchantSellerLink || hasPendingMerchantRequest;
   const canViewSoughtMaterials = hasMerchantRole && hasMerchantSellerLink;
 
   const canViewCreatorPage =
@@ -128,6 +136,7 @@ export function resolveDashboardCapabilities(input: {
     creatorTypes,
     hasCreatorProfile,
     canAccessVendorPortal,
+    canViewVendorPortalNav,
     canViewSoughtMaterials,
     canViewCreatorPage,
     canManageProducts,
@@ -144,6 +153,8 @@ export function buildRoleAwareDashboardNav(
   options?: {
     userIsModerator?: boolean;
     newProductInquiryCount?: number;
+    newWorkshopBookingCount?: number;
+    newEventVendorInquiryCount?: number;
   }
 ): DashboardNavItemDef[] {
   const items: DashboardNavItemDef[] = [
@@ -162,18 +173,32 @@ export function buildRoleAwareDashboardNav(
   }
 
   if (caps.canManageWorkshops) {
-    items.push({ href: "/dashboard/workshops", label: "Workshops" });
+    items.push({
+      href: "/dashboard/workshops",
+      label: "Workshops",
+      badge:
+        options?.newWorkshopBookingCount && options.newWorkshopBookingCount > 0
+          ? options.newWorkshopBookingCount
+          : undefined,
+    });
   }
 
   if (caps.canManageEvents) {
-    items.push({ href: "/dashboard/events", label: "Events" });
+    items.push({
+      href: "/dashboard/events",
+      label: "Events",
+      badge:
+        options?.newEventVendorInquiryCount && options.newEventVendorInquiryCount > 0
+          ? options.newEventVendorInquiryCount
+          : undefined,
+    });
   }
 
   if (caps.canManageOrders) {
     items.push({ href: "/dashboard/orders", label: "Bestellingen" });
   }
 
-  if (caps.canAccessVendorPortal) {
+  if (caps.canViewVendorPortalNav) {
     items.push({ href: "/dashboard/verkoper", label: "Verkopersportaal" });
   }
 

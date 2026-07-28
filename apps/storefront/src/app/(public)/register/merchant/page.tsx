@@ -31,7 +31,10 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
 
   if (user) {
     const context = await getUserRegistrationContext(user.id);
-    if (context.roles.includes("merchant")) {
+    const hasMerchantSellerLink = context.sellerLinks.some(
+      (link) => link.sellerType === "merchant"
+    );
+    if (context.roles.includes("merchant") && hasMerchantSellerLink) {
       redirect(nextPath);
     }
   }
