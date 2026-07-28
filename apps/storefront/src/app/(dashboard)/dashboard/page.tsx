@@ -224,7 +224,7 @@ export default async function DashboardHomePage({ searchParams }: Props) {
               (request) => request.role === "merchant" && request.status === "pending"
             )
               ? "Je merchant-aanvraag wordt beoordeeld. Zodra die is goedgekeurd, beheer je hier voorraad, verzending en uitbetalingen op verkoper.hobbysalon.be."
-              : "Je merchant-rol is actief. Zodra je winkel is gekoppeld, open je hier verkoper.hobbysalon.be."}
+              : "Open het verkopersportaal om je winkel te koppelen en door te gaan naar verkoper.hobbysalon.be."}
           </p>
           <div className="mt-5">
             <Button asChild>

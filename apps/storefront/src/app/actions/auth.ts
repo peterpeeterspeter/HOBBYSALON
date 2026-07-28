@@ -26,10 +26,12 @@ import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registrati
 import { completeMerchantOnboarding } from "@/lib/commerce/medusa/merchant-onboarding";
 import { persistCreatorRegistrationProfile } from "@/lib/platform/queries/creator-registration";
 import {
+  getUserRegistrationContext,
   linkUserToSeller,
   persistUserRegistrationProfile,
   runRegistrationCompatibilityMigration,
 } from "@/lib/platform/queries/user-registration";
+import { ensureMerchantSellerLinked } from "@/lib/commerce/medusa/merchant-seller-link";
 import {
   LOCATION_CITY_COOKIE,
   LOCATION_COUNTRY_COOKIE,
@@ -510,6 +512,41 @@ export async function onboardMerchantForLoggedInUserAction(
   }
 
   const accessToken = await resolveSupabaseAccessToken();
+  const context = await getUserRegistrationContext(user.id);
+  const hasMerchantRole = context.roles.includes("merchant");
+  const hasMerchantLink = context.sellerLinks.some(
+    (link) => link.sellerType === "merchant"
+  );
+
+  // Already approved: ensure Medusa merchant seller is linked, then hand off.
+  if (hasMerchantRole) {
+    if (!hasMerchantLink) {
+      const linkResult = await ensureMerchantSellerLinked({
+        userId: user.id,
+        email,
+        displayName,
+        contactName,
+        phone,
+        city,
+        postalCode,
+        countryCode,
+        supabaseAccessToken: accessToken,
+      });
+
+      if (!linkResult.ok) {
+        return {
+          success: false,
+          message:
+            linkResult.error ??
+            "Merchant-winkel koppelen mislukt. Probeer opnieuw.",
+        };
+      }
+    }
+
+    revalidatePath("/dashboard");
+    redirect("/dashboard/verkoper");
+  }
+
   const onboarding = await completeMerchantOnboarding({
     userId: user.id,
     displayName,

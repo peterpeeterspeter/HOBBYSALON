@@ -31,11 +31,9 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
 
   if (user) {
     const context = await getUserRegistrationContext(user.id);
-    const hasMerchantSellerLink = context.sellerLinks.some(
-      (link) => link.sellerType === "merchant"
-    );
-    if (context.roles.includes("merchant") && hasMerchantSellerLink) {
-      redirect(nextPath);
+    if (context.roles.includes("merchant")) {
+      // Confirmed merchants go to handoff (self-heals missing seller link).
+      redirect("/dashboard/verkoper");
     }
   }
 

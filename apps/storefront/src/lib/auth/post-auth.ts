@@ -49,10 +49,9 @@ export async function resolvePostAuthRedirectPath(options: {
     (link) => link.sellerType === "merchant"
   );
 
+  // Always hand off via /dashboard/verkoper — that page self-heals a missing
+  // merchant seller link. Never bounce confirmed merchants back to registration.
   if (hasMerchantRole || hasMerchantLink) {
-    if (!hasMerchantLink) {
-      return `/register/merchant?next=${encodeURIComponent("/dashboard/verkoper")}`;
-    }
     return "/dashboard/verkoper";
   }
 

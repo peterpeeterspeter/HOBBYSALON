@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { MedusaContainer } from "@medusajs/framework";
 import {
   ContainerRegistrationKeys,
-  MedusaError,
   toHandle,
 } from "@medusajs/framework/utils";
 
@@ -82,24 +81,20 @@ export async function registerMerchantSeller(
   const email = input.email.trim().toLowerCase();
   const knex = scope.resolve(ContainerRegistrationKeys.PG_CONNECTION);
 
-  const existing = await knex("seller")
+  // Allow the same person to own a creator seller and a merchant seller.
+  // Email is not unique at DB level; only block duplicate merchant sellers.
+  const existingMerchant = await knex("seller")
     .select("id", "seller_type", "name", "email", "handle")
     .where("email", email)
+    .where("seller_type", SellerType.MERCHANT)
     .whereNull("deleted_at")
     .first();
 
-  if (existing) {
-    if (existing.seller_type !== SellerType.MERCHANT) {
-      throw new MedusaError(
-        MedusaError.Types.CONFLICT,
-        `Seller with email ${email} already exists as ${existing.seller_type}.`
-      );
-    }
-
+  if (existingMerchant) {
     return finalizeMerchantSeller(
       scope,
-      existing.id,
-      existing.seller_type,
+      existingMerchant.id,
+      existingMerchant.seller_type,
       "existing"
     );
   }
