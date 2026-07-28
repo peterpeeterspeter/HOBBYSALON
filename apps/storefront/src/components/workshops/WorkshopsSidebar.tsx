@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { WorkshopCategory } from "@/lib/platform/workshop-taxonomy";
 import {
   WORKSHOP_OFFER_TYPES,
   WORKSHOP_OFFER_TYPE_LABELS,
@@ -12,6 +11,7 @@ import {
   WORKSHOP_AGE_GROUP_LABELS,
   WORKSHOP_LANGUAGES,
   WORKSHOP_LANGUAGE_LABELS,
+  type WorkshopCategory,
 } from "@/lib/platform/workshop-taxonomy";
 
 type FilterBlockProps = {

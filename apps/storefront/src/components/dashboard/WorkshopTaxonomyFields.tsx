@@ -1,4 +1,3 @@
-import type { WorkshopCategory } from "@/lib/platform/workshop-taxonomy";
 import {
   WORKSHOP_AGE_GROUPS,
   WORKSHOP_AGE_GROUP_LABELS,
@@ -8,6 +7,7 @@ import {
   WORKSHOP_LANGUAGE_LABELS,
   WORKSHOP_OFFER_TYPES,
   WORKSHOP_OFFER_TYPE_LABELS,
+  type WorkshopCategory,
 } from "@/lib/platform/workshop-taxonomy";
 
 type WorkshopTaxonomyFieldsProps = {
