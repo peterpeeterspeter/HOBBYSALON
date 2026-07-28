@@ -4,6 +4,7 @@ import {
   computeRankingScore,
   getActiveBoostScoresForEntities,
 } from "../ranking";
+import { brusselsDayRangeToUtcIso } from "../workshop-taxonomy";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -160,8 +161,17 @@ export async function listWorkshopsByCreator(creatorId: string): Promise<Worksho
 export async function listAllWorkshops(filters?: {
   q?: string;
   domain_id?: string;
+  category_id?: string;
   difficulty_level?: string;
   format_type?: string;
+  offer_type?: string;
+  audience?: string[];
+  age?: string[];
+  language?: string[];
+  price_min_cents?: number;
+  price_max_cents?: number;
+  from_date?: string;
+  to_date?: string;
   city?: string;
   country_code?: string;
   preferred_city?: string;
@@ -169,6 +179,31 @@ export async function listAllWorkshops(filters?: {
   limit?: number;
 }): Promise<Workshop[]> {
   const supabase = createPlatformClient();
+
+  let dateScopedIds: string[] | null = null;
+  const { fromIso, toIsoExclusive } = brusselsDayRangeToUtcIso({
+    fromDate: filters?.from_date,
+    toDate: filters?.to_date,
+  });
+  if (fromIso || toIsoExclusive) {
+    let sessionQuery = supabase
+      .from("workshop_sessions")
+      .select("workshop_id")
+      .eq("is_cancelled", false);
+    if (fromIso) {
+      sessionQuery = sessionQuery.gte("starts_at", fromIso);
+    }
+    if (toIsoExclusive) {
+      sessionQuery = sessionQuery.lt("starts_at", toIsoExclusive);
+    }
+    const { data: sessions, error: sessionError } = await sessionQuery;
+    if (sessionError) return [];
+    dateScopedIds = [
+      ...new Set((sessions ?? []).map((row) => row.workshop_id as string)),
+    ];
+    if (dateScopedIds.length === 0) return [];
+  }
+
   let query = supabase
     .from("workshops")
     .select("*")
@@ -183,11 +218,35 @@ export async function listAllWorkshops(filters?: {
   if (filters?.domain_id) {
     query = query.eq("domain_id", filters.domain_id);
   }
+  if (filters?.category_id) {
+    query = query.eq("category_id", filters.category_id);
+  }
   if (filters?.difficulty_level) {
     query = query.eq("difficulty_level", filters.difficulty_level);
   }
   if (filters?.format_type) {
     query = query.eq("format_type", filters.format_type);
+  }
+  if (filters?.offer_type) {
+    query = query.eq("offer_type", filters.offer_type);
+  }
+  if (filters?.audience?.length) {
+    query = query.overlaps("audience_types", filters.audience);
+  }
+  if (filters?.age?.length) {
+    query = query.overlaps("age_groups", filters.age);
+  }
+  if (filters?.language?.length) {
+    query = query.overlaps("languages", filters.language);
+  }
+  if (typeof filters?.price_min_cents === "number") {
+    query = query.gte("price_cents", filters.price_min_cents);
+  }
+  if (typeof filters?.price_max_cents === "number") {
+    query = query.lte("price_cents", filters.price_max_cents);
+  }
+  if (dateScopedIds) {
+    query = query.in("id", dateScopedIds);
   }
   if (filters?.city) {
     query = query.ilike("city", `%${filters.city}%`);

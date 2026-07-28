@@ -177,8 +177,6 @@ export function buildRoleAwareDashboardNav(
     items.push({ href: "/dashboard/verkoper", label: "Verkopersportaal" });
   }
 
-  items.push({ href: "/dashboard/account", label: "Account" });
-
   if (options?.userIsModerator) {
     items.push(
       { href: "/dashboard/materials", label: "Materials Ops" },

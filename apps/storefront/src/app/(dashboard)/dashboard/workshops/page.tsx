@@ -10,8 +10,6 @@ import {
   createWorkshopAction,
   updateBookingRequestStatusAction,
   updateWorkshopAction,
-  linkWorkshopProductAction,
-  unlinkWorkshopProductAction,
   deleteWorkshopGalleryImageAction,
 } from "@/app/actions/dashboard";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
@@ -19,6 +17,8 @@ import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
+import { WorkshopTaxonomyFields } from "@/components/dashboard/WorkshopTaxonomyFields";
+import { listWorkshopCategories } from "@/lib/platform/queries/workshop-categories";
 import type { Workshop } from "@/types/platform";
 
 type BookingRequest = {
@@ -29,12 +29,7 @@ type BookingRequest = {
   message: string | null;
   status: string;
   created_at: string;
-  workshops?: { title: string }[] | null;
-};
-
-type MaterialOption = {
-  id: string;
-  title: string;
+  workshops?: { title: string } | { title: string }[] | null;
 };
 
 type GalleryImage = {
@@ -42,13 +37,6 @@ type GalleryImage = {
   workshop_id: string;
   image_url: string;
   sort_order: number;
-};
-
-type LinkedMaterial = {
-  workshop_id: string;
-  product_id: string;
-  is_required: boolean;
-  products: { title: string } | { title: string }[] | null;
 };
 
 type Props = {
@@ -60,13 +48,16 @@ function formatEuroFromCents(cents: number | null | undefined): string {
   return (cents / 100).toFixed(2);
 }
 
-function productTitle(
-  products: LinkedMaterial["products"],
-  fallback: string
+function bookingWorkshopTitle(
+  request: BookingRequest,
+  workshopTitles: Map<string, string>
 ): string {
-  if (!products) return fallback;
-  if (Array.isArray(products)) return products[0]?.title ?? fallback;
-  return products.title;
+  const joined = request.workshops;
+  if (joined) {
+    if (Array.isArray(joined) && joined[0]?.title) return joined[0].title;
+    if (!Array.isArray(joined) && joined.title) return joined.title;
+  }
+  return workshopTitles.get(request.workshop_id) ?? "Workshop";
 }
 
 const FORMAT_OPTIONS = [
@@ -99,11 +90,13 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
     redirect("/login?next=/dashboard/workshops");
   }
 
-  const [creator, registrationContext, domains] = await Promise.all([
-    getCreatorByUserId(user.id),
-    getUserRegistrationContext(user.id),
-    listDomainsBySort(),
-  ]);
+  const [creator, registrationContext, domains, workshopCategories] =
+    await Promise.all([
+      getCreatorByUserId(user.id),
+      getUserRegistrationContext(user.id),
+      listDomainsBySort(),
+      listWorkshopCategories({ activeOnly: true }),
+    ]);
   const caps = resolveDashboardCapabilities({
     registrationContext,
     creatorTypes: creator?.creator_types,
@@ -115,9 +108,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
 
   let workshops: Workshop[] = [];
   let bookingRequests: BookingRequest[] = [];
-  let materialOptions: MaterialOption[] = [];
   const galleryByWorkshop = new Map<string, GalleryImage[]>();
-  const materialsByWorkshop = new Map<string, LinkedMaterial[]>();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
     null;
   let primaryDomainId = "";
@@ -128,57 +119,29 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
       creator.id,
       creator.creator_types ?? []
     );
-    const [
-      workshopsResult,
-      requestsResult,
-      materialsResult,
-      creatorDomainsResult,
-      ownProductsResult,
-    ] = await Promise.all([
-      supabase
-        .from("workshops")
-        .select("*")
-        .eq("creator_id", creator.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("workshop_booking_requests")
-        .select("id, workshop_id, full_name, email, message, status, created_at, workshops(title)")
-        .eq("creator_id", creator.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("products")
-        .select("id, title")
-        .in("product_type", ["supply", "workshop_kit", "supplies"])
-        .eq("is_active", true)
-        .order("title", { ascending: true })
-        .limit(200),
-      supabase
-        .from("creator_domains")
-        .select("domain_id")
-        .eq("creator_id", creator.id),
-      supabase
-        .from("products")
-        .select("id, title")
-        .eq("creator_id", creator.id)
-        .eq("is_active", true)
-        .order("title", { ascending: true })
-        .limit(100),
-    ]);
+    const [workshopsResult, requestsResult, creatorDomainsResult] =
+      await Promise.all([
+        supabase
+          .from("workshops")
+          .select("*")
+          .eq("creator_id", creator.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("workshop_booking_requests")
+          .select(
+            "id, workshop_id, full_name, email, message, status, created_at, workshops(title)"
+          )
+          .eq("creator_id", creator.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("creator_domains")
+          .select("domain_id")
+          .eq("creator_id", creator.id),
+      ]);
 
     workshops = (workshopsResult.data ?? []) as Workshop[];
     bookingRequests = (requestsResult.data ?? []) as BookingRequest[];
-
-    const materialMap = new Map<string, MaterialOption>();
-    for (const row of (materialsResult.data ?? []) as MaterialOption[]) {
-      materialMap.set(row.id, row);
-    }
-    for (const row of (ownProductsResult.data ?? []) as MaterialOption[]) {
-      materialMap.set(row.id, row);
-    }
-    materialOptions = Array.from(materialMap.values()).sort((a, b) =>
-      a.title.localeCompare(b.title, "nl")
-    );
 
     primaryDomainId =
       ((creatorDomainsResult.data ?? []) as Array<{ domain_id: string }>)[0]
@@ -188,31 +151,23 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
 
     const workshopIds = workshops.map((workshop) => workshop.id);
     if (workshopIds.length > 0) {
-      const [galleryResult, linkedMaterialsResult] = await Promise.all([
-        supabase
-          .from("workshop_gallery_images")
-          .select("id, workshop_id, image_url, sort_order")
-          .in("workshop_id", workshopIds)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("workshop_required_products")
-          .select("workshop_id, product_id, is_required, products(title)")
-          .in("workshop_id", workshopIds)
-          .order("sort_order", { ascending: true }),
-      ]);
+      const { data: galleryData } = await supabase
+        .from("workshop_gallery_images")
+        .select("id, workshop_id, image_url, sort_order")
+        .in("workshop_id", workshopIds)
+        .order("sort_order", { ascending: true });
 
-      for (const image of (galleryResult.data ?? []) as GalleryImage[]) {
+      for (const image of (galleryData ?? []) as GalleryImage[]) {
         const list = galleryByWorkshop.get(image.workshop_id) ?? [];
         list.push(image);
         galleryByWorkshop.set(image.workshop_id, list);
       }
-      for (const link of (linkedMaterialsResult.data ?? []) as LinkedMaterial[]) {
-        const list = materialsByWorkshop.get(link.workshop_id) ?? [];
-        list.push(link);
-        materialsByWorkshop.set(link.workshop_id, list);
-      }
     }
   }
+
+  const workshopTitles = new Map(
+    workshops.map((workshop) => [workshop.id, workshop.title])
+  );
 
   const domainOptions = domains.map((domain) => ({
     value: domain.id,
@@ -262,21 +217,11 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                     className="w-full rounded-md border border-[var(--border)] px-3 py-2"
                   />
                 </label>
-                <label>
-                  <span className="mb-1 block text-sm font-medium">Categorie / domein</span>
-                  <select
-                    name="domain_id"
-                    defaultValue={primaryDomainId}
-                    className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                  >
-                    <option value="">Selecteer categorie</option>
-                    {domainOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <WorkshopTaxonomyFields
+                  categories={workshopCategories}
+                  domainOptions={domainOptions}
+                  defaults={{ domain_id: primaryDomainId }}
+                />
                 <label>
                   <span className="mb-1 block text-sm font-medium">Format *</span>
                   <select
@@ -397,33 +342,6 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                     className="w-full rounded-md border border-[var(--border)] px-3 py-2"
                   />
                 </label>
-                <label className="sm:col-span-2">
-                  <span className="mb-1 block text-sm font-medium">
-                    Materiaal koppelen (optioneel)
-                  </span>
-                  <select
-                    name="product_id"
-                    defaultValue=""
-                    className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                  >
-                    <option value="">Geen materiaal — later toevoegen kan ook</option>
-                    {materialOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.title}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    Niet verplicht. Kies een kit of materiaal uit de catalogus als deelnemers
-                    iets nodig hebben.
-                  </p>
-                </label>
-                <label className="inline-flex items-center gap-2 sm:col-span-2">
-                  <input type="checkbox" name="is_required" />
-                  <span className="text-sm">
-                    Gekozen materiaal is verplicht voor deelnemers
-                  </span>
-                </label>
                 <label className="inline-flex items-center gap-2">
                   <input type="checkbox" name="is_active" />
                   <span className="text-sm">Actief publiceren</span>
@@ -444,7 +362,6 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
             ) : (
               workshops.map((workshop) => {
                 const gallery = galleryByWorkshop.get(workshop.id) ?? [];
-                const linkedMaterials = materialsByWorkshop.get(workshop.id) ?? [];
                 return (
                   <details
                     key={workshop.id}
@@ -472,23 +389,18 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                           className="w-full rounded-md border border-[var(--border)] px-3 py-2"
                         />
                       </label>
-                      <label>
-                        <span className="mb-1 block text-sm font-medium">
-                          Categorie / domein
-                        </span>
-                        <select
-                          name="domain_id"
-                          defaultValue={workshop.domain_id ?? ""}
-                          className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                        >
-                          <option value="">Selecteer categorie</option>
-                          {domainOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <WorkshopTaxonomyFields
+                        categories={workshopCategories}
+                        domainOptions={domainOptions}
+                        defaults={{
+                          domain_id: workshop.domain_id,
+                          category_id: workshop.category_id,
+                          offer_type: workshop.offer_type,
+                          audience_types: workshop.audience_types,
+                          age_groups: workshop.age_groups,
+                          languages: workshop.languages,
+                        }}
+                      />
                       <label>
                         <span className="mb-1 block text-sm font-medium">Format</span>
                         <select
@@ -663,85 +575,6 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         </button>
                       </div>
                     </form>
-
-                    <div className="mt-4 border-t border-[var(--border)] pt-4">
-                      <p className="text-sm font-medium">
-                        Materialen (optioneel) · {linkedMaterials.length} gekoppeld
-                      </p>
-                      {linkedMaterials.length > 0 ? (
-                        <ul className="mt-2 space-y-2">
-                          {linkedMaterials.map((link) => (
-                            <li
-                              key={`${link.workshop_id}-${link.product_id}`}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
-                            >
-                              <span>
-                                {productTitle(link.products, link.product_id)}
-                                {link.is_required ? " · verplicht" : " · optioneel"}
-                              </span>
-                              <form action={unlinkWorkshopProductAction}>
-                                <input
-                                  type="hidden"
-                                  name="workshop_id"
-                                  value={workshop.id}
-                                />
-                                <input
-                                  type="hidden"
-                                  name="product_id"
-                                  value={link.product_id}
-                                />
-                                <button
-                                  type="submit"
-                                  className="text-xs text-red-700 hover:underline"
-                                >
-                                  Ontkoppelen
-                                </button>
-                              </form>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-1 text-xs text-[var(--muted)]">
-                          Geen materialen gekoppeld. Dat mag — je kan later nog iets
-                          toevoegen.
-                        </p>
-                      )}
-                      <form
-                        action={linkWorkshopProductAction}
-                        className="mt-3 grid gap-3 sm:grid-cols-2"
-                      >
-                        <input type="hidden" name="workshop_id" value={workshop.id} />
-                        <label className="sm:col-span-2">
-                          <span className="mb-1 block text-sm font-medium">
-                            Materiaal toevoegen
-                          </span>
-                          <select
-                            name="product_id"
-                            defaultValue=""
-                            className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                          >
-                            <option value="">Kies een materiaal (optioneel)</option>
-                            {materialOptions.map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {option.title}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="inline-flex items-center gap-2">
-                          <input type="checkbox" name="is_required" />
-                          <span className="text-sm">Verplicht materiaal</span>
-                        </label>
-                        <div>
-                          <button
-                            type="submit"
-                            className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]"
-                          >
-                            Koppelen
-                          </button>
-                        </div>
-                      </form>
-                    </div>
                   </details>
                 );
               })
@@ -769,7 +602,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       </p>
                       <p className="text-sm text-[var(--muted)]">
                         Workshop:{" "}
-                        {request.workshops?.[0]?.title ?? request.workshop_id}
+                        {bookingWorkshopTitle(request, workshopTitles)}
                       </p>
                       {request.message && (
                         <p className="mt-1 text-sm text-[var(--foreground)]">

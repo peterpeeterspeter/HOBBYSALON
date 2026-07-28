@@ -381,12 +381,17 @@ Fields:
 - `id` (uuid, pk)
 - `creator_id` (uuid, fk → creators)
 - `domain_id` (uuid, fk → domains)
+- `category_id` (uuid, nullable, fk → workshop_categories) — optional subcategory under the domain
 - `slug` (text, unique)
 - `title` (text)
 - `short_description` (text)
 - `description` (text)
 - `format_type` (text)
 - `difficulty_level` (text)
+- `offer_type` (text, nullable) — activity shape only: `open_workshop` | `private_group` | `ongoing_course`
+- `audience_types` (text[]) — e.g. `kids`, `parent_child`, `adults`, `team`, `bachelorette`
+- `age_groups` (text[]) — exclusive ranges: `kids_0_11`, `kids_12_15`, `teens_16_17`, `adults_18_plus`, `seniors_65_plus`
+- `languages` (text[]) — `nl` | `en` | `fr`; empty means unknown (do not invent defaults for legacy rows)
 - `price_cents` (int)
 - `currency_code` (text)
 - `duration_minutes` (int)
@@ -424,6 +429,19 @@ Allowed `booking_mode`:
 - `request`
 - `external_link`
 - `internal_booking`
+
+### Table: `workshop_categories`
+
+Domain-scoped subcategories (not a second domain tree). `domain_id` remains the primary hobby context.
+
+- `id` (uuid, pk)
+- `domain_id` (uuid, fk → domains)
+- `slug` (text)
+- `name` (text)
+- `sort_order` (int)
+- `is_active` (boolean)
+
+Unique `(domain_id, slug)`.
 
 ---
 

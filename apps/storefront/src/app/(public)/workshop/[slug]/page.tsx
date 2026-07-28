@@ -16,6 +16,16 @@ import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
+import {
+  isWorkshopAgeGroup,
+  isWorkshopAudienceType,
+  isWorkshopLanguage,
+  isWorkshopOfferType,
+  WORKSHOP_AGE_GROUP_LABELS,
+  WORKSHOP_AUDIENCE_LABELS,
+  WORKSHOP_LANGUAGE_LABELS,
+  WORKSHOP_OFFER_TYPE_LABELS,
+} from "@/lib/platform/workshop-taxonomy";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -29,6 +39,12 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   beginner: "Beginner",
   intermediate: "Gevorderd",
   advanced: "Expert",
+};
+
+const LANGUAGE_SCHEMA: Record<string, string> = {
+  nl: "nl",
+  en: "en",
+  fr: "fr",
 };
 
 function formatSessionDate(iso: string): string {
@@ -56,7 +72,7 @@ export default async function WorkshopPage({ params }: Props) {
 
   if (!data.workshop) notFound();
 
-  const { workshop, creator, domain, sessions, galleryImages, requiredProducts, optionalProducts, entitlements } =
+  const { workshop, creator, domain, category, sessions, galleryImages, requiredProducts, optionalProducts, entitlements } =
     data;
   const user = await getAuthUser();
   const workshopIsFavorite = user
@@ -76,6 +92,16 @@ export default async function WorkshopPage({ params }: Props) {
       : workshop.format_type === "online"
         ? "online"
         : "blended";
+  const languages = (workshop.languages ?? []).filter(isWorkshopLanguage);
+  const audienceTypes = (workshop.audience_types ?? []).filter(
+    isWorkshopAudienceType
+  );
+  const ageGroups = (workshop.age_groups ?? []).filter(isWorkshopAgeGroup);
+  const offerType =
+    workshop.offer_type && isWorkshopOfferType(workshop.offer_type)
+      ? workshop.offer_type
+      : null;
+
   const workshopJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Course",
@@ -154,6 +180,12 @@ export default async function WorkshopPage({ params }: Props) {
     })),
   };
 
+  if (languages.length === 1) {
+    workshopJsonLd.inLanguage = LANGUAGE_SCHEMA[languages[0]];
+  } else if (languages.length > 1) {
+    workshopJsonLd.inLanguage = languages.map((code) => LANGUAGE_SCHEMA[code]);
+  }
+
   const breadcrumbs = [
     { label: "Home", href: "/" },
     ...(domain ? [{ label: domain.name, href: `/${domain.slug}` } as const] : []),
@@ -190,6 +222,27 @@ export default async function WorkshopPage({ params }: Props) {
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
             {domain && <Badge variant="domain">{domain.name}</Badge>}
+            {category && <Badge variant="format">{category.name}</Badge>}
+            {offerType && (
+              <Badge variant="format">
+                {WORKSHOP_OFFER_TYPE_LABELS[offerType]}
+              </Badge>
+            )}
+            {languages.map((code) => (
+              <Badge key={code} variant="status">
+                {WORKSHOP_LANGUAGE_LABELS[code]}
+              </Badge>
+            ))}
+            {audienceTypes.map((value) => (
+              <Badge key={value} variant="status">
+                {WORKSHOP_AUDIENCE_LABELS[value]}
+              </Badge>
+            ))}
+            {ageGroups.map((value) => (
+              <Badge key={value} variant="status">
+                {WORKSHOP_AGE_GROUP_LABELS[value]}
+              </Badge>
+            ))}
             <Badge variant="format">
               {FORMAT_LABELS[workshop.format_type] ?? workshop.format_type}
             </Badge>

@@ -11,12 +11,12 @@ const baseContext = {
   pendingRoleRequests: [],
 };
 
-test("hobbyist only sees overview and account", () => {
+test("hobbyist only sees overview", () => {
   const caps = resolveDashboardCapabilities({
     registrationContext: { ...baseContext, roles: ["user"] },
   });
   const nav = buildRoleAwareDashboardNav(caps).map((item) => item.href);
-  assert.deepEqual(nav, ["/dashboard", "/dashboard/account"]);
+  assert.deepEqual(nav, ["/dashboard"]);
   assert.equal(caps.canAccessVendorPortal, false);
   assert.equal(caps.canManageWorkshops, false);
   assert.equal(caps.canManageEvents, false);

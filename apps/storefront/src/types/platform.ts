@@ -218,6 +218,11 @@ export type Workshop = {
   country_code: string | null;
   creator_id: string;
   domain_id: string | null;
+  category_id: string | null;
+  audience_types: string[];
+  age_groups: string[];
+  languages: string[];
+  offer_type: string | null;
   is_featured: boolean;
   is_active: boolean;
   seo_title: string | null;

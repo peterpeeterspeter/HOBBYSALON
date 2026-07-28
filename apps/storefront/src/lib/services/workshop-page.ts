@@ -10,6 +10,8 @@ import {
   type CommercialEntitlements,
 } from "@/lib/platform/commercial-entitlements";
 import type { Workshop, Creator, Domain, Product, Event, Article } from "@/types/platform";
+import type { WorkshopCategory } from "@/lib/platform/workshop-taxonomy";
+import { getWorkshopCategoryById } from "@/lib/platform/queries/workshop-categories";
 
 export type WorkshopSession = {
   id: string;
@@ -31,6 +33,7 @@ export type WorkshopPageData = {
   workshop: Workshop | null;
   creator: Creator | null;
   domain: Domain | null;
+  category: WorkshopCategory | null;
   sessions: WorkshopSession[];
   galleryImages: WorkshopGalleryImage[];
   requiredProducts: Product[];
@@ -49,6 +52,7 @@ export async function getWorkshopPageData(
       workshop: null,
       creator: null,
       domain: null,
+      category: null,
       sessions: [],
       galleryImages: [],
       requiredProducts: [],
@@ -59,7 +63,7 @@ export async function getWorkshopPageData(
     };
   }
 
-  const [creator, domain, sessions, entityLinks, galleryImages] = await Promise.all([
+  const [creator, domain, category, sessions, entityLinks, galleryImages] = await Promise.all([
     getCreatorById(workshop.creator_id),
     workshop.domain_id
       ? (async () => {
@@ -71,6 +75,9 @@ export async function getWorkshopPageData(
             .single();
           return data as Domain | null;
         })()
+      : Promise.resolve(null),
+    workshop.category_id
+      ? getWorkshopCategoryById(workshop.category_id)
       : Promise.resolve(null),
     getWorkshopSessions(workshop.id),
     getRelatedEntities("workshop", workshop.id),
@@ -137,6 +144,7 @@ export async function getWorkshopPageData(
     workshop,
     creator: creator ?? null,
     domain: domain ?? null,
+    category: category ?? null,
     sessions,
     galleryImages,
     requiredProducts,

@@ -10,6 +10,7 @@ import { countNewProductInquiries } from "@/lib/platform/queries/product-inquiri
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
+import { DashboardAccountSection } from "@/components/dashboard/DashboardAccountSection";
 
 async function getCount(
   table: "products" | "workshops" | "events",
@@ -25,11 +26,17 @@ async function getCount(
   return count ?? 0;
 }
 
-export default async function DashboardHomePage() {
+type Props = {
+  searchParams: Promise<{ success?: string; error?: string }>;
+};
+
+export default async function DashboardHomePage({ searchParams }: Props) {
   const user = await getAuthUser();
   if (!user) {
     redirect("/login?next=/dashboard");
   }
+
+  const { success, error } = await searchParams;
 
   const [creator, registrationContext] = await Promise.all([
     getCreatorByUserId(user.id),
@@ -142,6 +149,17 @@ export default async function DashboardHomePage() {
         </p>
       </header>
 
+      {success ? (
+        <p className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {success}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </p>
+      ) : null}
+
       {newInquiryCount > 0 ? (
         <CardShell
           variant="featured"
@@ -172,11 +190,11 @@ export default async function DashboardHomePage() {
           </p>
           <p className="mt-2 max-w-xl leading-relaxed text-[var(--muted)]">
             Pas interesses en locatie aan voor betere aanbevelingen. Wil je later verkopen,
-            workshops geven of events organiseren? Dat regel je onder Account.
+            workshops geven of events organiseren? Dat regel je hieronder onder Account.
           </p>
           <div className="mt-5">
             <Button asChild>
-              <Link href="/dashboard/account">Open Account</Link>
+              <Link href="#account">Naar account</Link>
             </Button>
           </div>
         </CardShell>
@@ -194,7 +212,7 @@ export default async function DashboardHomePage() {
               <Link href="/profile?tab=profiel#maker-pagina">Makerprofiel instellen</Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/dashboard/account">Rollen & voorkeuren</Link>
+              <Link href="#account">Rollen & voorkeuren</Link>
             </Button>
           </div>
         </CardShell>
@@ -273,17 +291,6 @@ export default async function DashboardHomePage() {
               </Link>
             </li>
           ) : null}
-          <li>
-            <Link
-              href="/dashboard/account"
-              className="block rounded-lg border border-[var(--border)] px-4 py-3 text-sm hover:border-[var(--accent)]"
-            >
-              <span className="font-medium text-[var(--foreground)]">Account</span>
-              <span className="mt-1 block text-[var(--muted)]">
-                Rollen en voorkeuren
-              </span>
-            </Link>
-          </li>
           {caps.canAccessVendorPortal ? (
             <li>
               <Link
@@ -312,6 +319,12 @@ export default async function DashboardHomePage() {
           ) : null}
         </ul>
       </CardShell>
+
+      <DashboardAccountSection
+        userEmail={user.email}
+        registrationContext={registrationContext}
+        creator={creator}
+      />
     </section>
   );
 }

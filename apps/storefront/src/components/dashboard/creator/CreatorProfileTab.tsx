@@ -176,7 +176,7 @@ export function CreatorProfileTab({
 
         <p className="text-sm text-[var(--muted)]">
           Rollen zoals workshopgever of winkel stel je in onder{" "}
-          <Link href="/dashboard/account" className="font-medium text-[var(--accent)] underline">
+          <Link href="/dashboard#account" className="font-medium text-[var(--accent)] underline">
             Account
           </Link>
           .

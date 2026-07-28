@@ -70,7 +70,7 @@ export function EventStandhouderRsvpCard({
             rollen aan onder Account.
           </p>
           <Button asChild variant="secondary">
-            <Link href="/dashboard/account">Rollen bekijken</Link>
+            <Link href="/dashboard#account">Rollen bekijken</Link>
           </Button>
         </div>
       ) : hasRsvped ? (

@@ -4,8 +4,6 @@ import { Calendar, Clock, MapPin, Tag } from "lucide-react";
 import { getEventPageData } from "@/lib/services/event-page";
 import { canUseExternalTicketLink } from "@/lib/platform/commercial-entitlements";
 import {
-  CreatorCard,
-  ProductCard,
   WorkshopCard,
   ArticleCard,
   EventCard,
@@ -23,6 +21,7 @@ import { getStandhouderRsvpState } from "@/app/actions/event-standhouder-rsvp";
 import { isEligibleStandhouder } from "@/lib/platform/event-standhouder";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
+import type { Creator, Product } from "@/types/platform";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -33,6 +32,33 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   open_atelier: "Open atelier",
   workshop_day: "Workshopdag",
 };
+
+const CREATOR_TYPE_LABELS: Record<string, string> = {
+  maker: "Maker",
+  workshopgever: "Workshopgever",
+  supplier: "Leverancier",
+  content_creator: "Content maker",
+  organizer: "Organisator",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  vendor: "Standhouder",
+  workshop_host: "Workshopgever",
+  speaker: "Spreker",
+  organizer: "Organisator",
+};
+
+function creatorCategoryLabel(creator: Creator, role?: string | null): string {
+  if (role && ROLE_LABELS[role]) return ROLE_LABELS[role];
+  const types = (creator.creator_types ?? [])
+    .map((type) => CREATOR_TYPE_LABELS[type] ?? type)
+    .filter(Boolean);
+  return types.length > 0 ? types.join(" · ") : "Maker";
+}
+
+function productImageUrl(product: Product): string | null {
+  return product.featured_image_url?.trim() || null;
+}
 
 const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   day: "numeric",
@@ -194,6 +220,14 @@ export default async function EventPage({ params }: Props) {
     ...(organizer ? [organizer] : []),
     ...creators.filter((c) => c.id !== organizer?.id),
   ];
+  const roleByCreatorId = new Map(
+    exhibitors.map((exhibitor) => [exhibitor.creator.id, exhibitor.role])
+  );
+  const masonryProducts = (
+    exhibitors.some((exhibitor) => exhibitor.products.length > 0)
+      ? exhibitors.flatMap((exhibitor) => exhibitor.products)
+      : relatedProducts
+  ).filter((product) => productImageUrl(product));
 
   return (
     <>
@@ -304,74 +338,57 @@ export default async function EventPage({ params }: Props) {
             <GraphSection
               tag="Creators"
               title="Makers & workshopgevers aanwezig"
-              subtitle="Ontmoet je favoriete creators en ontdek nieuwe makers."
-              seeAllHref="/creators"
             >
-              <GridLayout cols={4} gap="md">
-                {allCreators.map((c) => (
-                  <CreatorCard key={c.id} creator={c} />
+              <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+                {allCreators.map((creator) => (
+                  <li key={creator.id}>
+                    <Link
+                      href={`/creator/${creator.slug}`}
+                      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 text-[15px] transition-colors hover:text-[var(--accent)]"
+                    >
+                      <span className="font-semibold text-[var(--foreground)]">
+                        {creator.display_name}
+                      </span>
+                      <span className="text-sm text-[var(--muted)]">
+                        {creatorCategoryLabel(
+                          creator,
+                          roleByCreatorId.get(creator.id) ??
+                            (organizer?.id === creator.id ? "organizer" : null)
+                        )}
+                      </span>
+                    </Link>
+                  </li>
                 ))}
-              </GridLayout>
+              </ul>
             </GraphSection>
           )}
 
-          {/* Standhouders met hun producten */}
-          {exhibitors.some((exhibitor) => exhibitor.products.length > 0) ? (
+          {/* Standhouders producten — image-only masonry */}
+          {masonryProducts.length > 0 ? (
             <GraphSection
               tag="Marktplaats"
               title="Deze staan hier ook met hun producten"
-              subtitle="Bevestigde standhouders en hun actieve aanbod."
-              seeAllHref="/materials"
             >
-              <div className="space-y-10">
-                {exhibitors
-                  .filter((exhibitor) => exhibitor.products.length > 0)
-                  .map((exhibitor) => (
-                    <div key={exhibitor.creator.id} className="space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <Link
-                            href={`/creator/${exhibitor.creator.slug}`}
-                            className="font-[family-name:var(--font-heading)] text-lg font-semibold text-[var(--foreground)] hover:text-[var(--accent)]"
-                          >
-                            {exhibitor.creator.display_name}
-                          </Link>
-                          <p className="text-sm text-[var(--muted)]">
-                            {exhibitor.role === "vendor"
-                              ? "Standhouder"
-                              : exhibitor.role === "workshop_host"
-                                ? "Workshopgever"
-                                : exhibitor.role}
-                          </p>
-                        </div>
-                        <Link
-                          href={`/creator/${exhibitor.creator.slug}`}
-                          className="text-sm font-semibold text-[var(--accent)] hover:underline"
-                        >
-                          Bekijk profiel →
-                        </Link>
-                      </div>
-                      <GridLayout cols={4} gap="md">
-                        {exhibitor.products.slice(0, 8).map((product) => (
-                          <ProductCard key={product.id} product={product} />
-                        ))}
-                      </GridLayout>
-                    </div>
-                  ))}
+              <div className="columns-2 gap-3 sm:columns-3 lg:columns-4">
+                {masonryProducts.map((product) => {
+                  const imageUrl = productImageUrl(product);
+                  if (!imageUrl) return null;
+                  return (
+                    <Link
+                      key={product.id}
+                      href={`/product/${product.slug}`}
+                      className="mb-3 block break-inside-avoid overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={product.title}
+                        className="w-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+                        loading="lazy"
+                      />
+                    </Link>
+                  );
+                })}
               </div>
-            </GraphSection>
-          ) : relatedProducts.length > 0 ? (
-            <GraphSection
-              tag="Marktplaats"
-              title="Producten van exposerende makers"
-              subtitle="Bestel alvast online of koop ter plaatse aan de stands."
-              seeAllHref="/materials"
-            >
-              <GridLayout cols={4} gap="md">
-                {relatedProducts.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </GridLayout>
             </GraphSection>
           ) : null}
 

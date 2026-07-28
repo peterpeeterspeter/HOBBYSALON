@@ -449,7 +449,7 @@ export async function registerMerchantAction(
 
   if (session) {
     const redirectPath = onboarding?.pendingApproval
-      ? `/dashboard/account?success=${encodeURIComponent(onboarding.message)}`
+      ? `/dashboard?success=${encodeURIComponent(onboarding.message)}#account`
       : await resolvePostAuthRedirectPath({
           userId: registrationUserId ?? session.user?.id ?? null,
           requestedNextPath,
@@ -530,10 +530,10 @@ export async function onboardMerchantForLoggedInUserAction(
     };
   }
 
-  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard");
 
   redirect(
-    `/dashboard/account?success=${encodeURIComponent(onboarding.message)}`
+    `/dashboard?success=${encodeURIComponent(onboarding.message)}#account`
   );
 }
 
@@ -567,7 +567,7 @@ export async function updateAccountPreferencesAction(
     };
   }
 
-  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/onboarding");
   revalidatePath("/profile");
 

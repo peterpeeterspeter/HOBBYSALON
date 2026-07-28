@@ -35,6 +35,14 @@ import {
   syncPrivilegedRolesFromCreatorTypes,
 } from "@/lib/platform/queries/role-requests";
 import { getUserAccountRoles } from "@/lib/platform/queries/user-registration";
+import { getWorkshopCategoryById } from "@/lib/platform/queries/workshop-categories";
+import {
+  isWorkshopAgeGroup,
+  isWorkshopAudienceType,
+  isWorkshopLanguage,
+  isWorkshopOfferType,
+  parseWorkshopCodeList,
+} from "@/lib/platform/workshop-taxonomy";
 
 const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 
@@ -131,6 +139,61 @@ function parseOptionalUuid(formData: FormData, field: string): string | null {
     throw new Error(`${field} is ongeldig.`);
   }
   return raw;
+}
+
+async function parseWorkshopTaxonomyFields(
+  formData: FormData,
+  domainId: string | null
+): Promise<{
+  category_id: string | null;
+  offer_type: string | null;
+  audience_types: string[];
+  age_groups: string[];
+  languages: string[];
+}> {
+  const categoryId = parseOptionalUuid(formData, "category_id");
+  const offerRaw = parseOptionalString(formData, "offer_type");
+  if (offerRaw && !isWorkshopOfferType(offerRaw)) {
+    throw new Error("Ongeldige aanbodvorm.");
+  }
+
+  const audience_types = parseWorkshopCodeList(
+    formData.getAll("audience_types").map((value) => value.toString()),
+    isWorkshopAudienceType
+  );
+  const age_groups = parseWorkshopCodeList(
+    formData.getAll("age_groups").map((value) => value.toString()),
+    isWorkshopAgeGroup
+  );
+  const languages = parseWorkshopCodeList(
+    formData.getAll("languages").map((value) => value.toString()),
+    isWorkshopLanguage
+  );
+
+  if (languages.length === 0) {
+    throw new Error("Kies minstens één taal.");
+  }
+
+  if (categoryId) {
+    if (!domainId) {
+      throw new Error("Kies eerst een domein voor de subcategorie.");
+    }
+    const category = await getWorkshopCategoryById(categoryId);
+    if (!category || !category.is_active) {
+      throw new Error("Ongeldige subcategorie.");
+    }
+    if (category.domain_id !== domainId) {
+      throw new Error("Subcategorie hoort niet bij het gekozen domein.");
+    }
+  }
+
+  return {
+    category_id: categoryId,
+    offer_type: offerRaw,
+    audience_types,
+    age_groups,
+    languages,
+  };
 }
 
 function parseOptionalCurrencyCode(formData: FormData, field: string): string | null {
@@ -742,7 +805,6 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
-    revalidatePath("/dashboard/account");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
     ok(CREATOR_MAKER_PATH, "Creator-profiel opgeslagen.");
@@ -759,7 +821,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
   try {
     const user = await getAuthUser();
     if (!user) {
-      fail("/login?next=/dashboard/account", "Meld je eerst aan.");
+      fail("/login?next=/dashboard", "Meld je eerst aan.");
     }
 
     const creator = await getCreatorByUserId(user.id);
@@ -784,7 +846,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
       .eq("user_id", user.id);
 
     if (error) {
-      fail("/dashboard/account", "Rollen opslaan mislukt.");
+      fail("/dashboard", "Rollen opslaan mislukt.");
     }
 
     const roleSyncError = await syncCreatorAccountRoles(
@@ -793,18 +855,20 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
       supabase
     );
     if (roleSyncError) {
-      fail("/dashboard/account", "Accountrollen konden niet worden bijgewerkt.");
+      fail("/dashboard", "Accountrollen konden niet worden bijgewerkt.");
     }
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
-    revalidatePath("/dashboard/account");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/account", "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring.");
+    ok(
+      "/dashboard",
+      "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/account",
+      "/dashboard",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1791,6 +1855,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     const bookingMode = parseRequiredString(formData, "booking_mode");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const optionalProductId = parseOptionalUuid(formData, "product_id");
+    const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1835,6 +1900,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       .insert({
         creator_id: creator.id,
         domain_id: domainId,
+        category_id: taxonomy.category_id,
         slug,
         title,
         short_description: parseOptionalString(formData, "short_description"),
@@ -1842,6 +1908,10 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
         featured_image_url: featuredImageUrl,
         format_type: formatType,
         difficulty_level: difficultyLevel,
+        offer_type: taxonomy.offer_type,
+        audience_types: taxonomy.audience_types,
+        age_groups: taxonomy.age_groups,
+        languages: taxonomy.languages,
         booking_mode: enforced.booking_mode,
         booking_url: enforced.booking_url,
         city: parseOptionalString(formData, "city"),
@@ -1920,6 +1990,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
     const bookingMode = parseRequiredString(formData, "booking_mode");
     const domainId = parseOptionalUuid(formData, "domain_id");
+    const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1977,11 +2048,16 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
         slug: existingWorkshop.slug,
         title,
         domain_id: domainId,
+        category_id: taxonomy.category_id,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featured_image_url: featuredImageUrl,
         format_type: formatType,
         difficulty_level: difficultyLevel,
+        offer_type: taxonomy.offer_type,
+        audience_types: taxonomy.audience_types,
+        age_groups: taxonomy.age_groups,
+        languages: taxonomy.languages,
         booking_mode: enforced.booking_mode,
         booking_url: enforced.booking_url,
         city: parseOptionalString(formData, "city"),
