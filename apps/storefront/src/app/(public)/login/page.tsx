@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: Props) {
   const nextPath = getSafeInternalPath(next, "");
 
   if (user) {
-    redirect(nextPath || "/");
+    redirect(nextPath || "/profile");
   }
 
   return (

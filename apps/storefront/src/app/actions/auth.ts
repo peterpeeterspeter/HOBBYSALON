@@ -116,7 +116,7 @@ export async function loginAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: registrationUserId,
     requestedNextPath,
-    defaultPath: "/",
+    defaultPath: "/profile",
   });
 
   await persistAuthSession(session);
@@ -189,7 +189,7 @@ export async function registerAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: "/",
+      defaultPath: "/profile",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -336,7 +336,7 @@ export async function registerCreatorAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: "/profile?tab=profiel#maker-pagina",
+      defaultPath: "/profile",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -611,7 +611,7 @@ export async function completeRegistrationProfileAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
-    defaultPath: "/",
+    defaultPath: "/profile",
   });
   redirect(redirectPath);
 }
@@ -684,7 +684,7 @@ export async function updatePasswordAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
-    defaultPath: "/dashboard",
+    defaultPath: "/profile",
   });
   redirect(redirectPath);
 }
