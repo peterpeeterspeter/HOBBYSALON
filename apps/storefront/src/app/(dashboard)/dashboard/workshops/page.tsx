@@ -116,8 +116,8 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
   let workshops: Workshop[] = [];
   let bookingRequests: BookingRequest[] = [];
   let materialOptions: MaterialOption[] = [];
-  let galleryByWorkshop = new Map<string, GalleryImage[]>();
-  let materialsByWorkshop = new Map<string, LinkedMaterial[]>();
+  const galleryByWorkshop = new Map<string, GalleryImage[]>();
+  const materialsByWorkshop = new Map<string, LinkedMaterial[]>();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
     null;
   let primaryDomainId = "";
