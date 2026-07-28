@@ -648,11 +648,14 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       }
     );
 
+    const email = parseOptionalString(formData, "email") ?? existing?.email ?? user.email ?? null;
+
     const payload = {
       user_id: user.id,
       slug,
       display_name: displayName,
       business_name: parseOptionalString(formData, "business_name"),
+      email,
       bio: parseOptionalString(formData, "bio"),
       avatar_url: avatarUrl,
       banner_url: bannerUrl,

@@ -18,6 +18,7 @@ export function CreatorMakerSection({ data, success, error }: CreatorMakerSectio
     registrationContext,
     onboarding,
     accountDisplayName,
+    accountEmail,
     domains,
     activeTab,
     selectedDomainIds,
@@ -63,6 +64,7 @@ export function CreatorMakerSection({ data, success, error }: CreatorMakerSectio
             creator={creator}
             onboarding={onboarding}
             accountDisplayName={accountDisplayName}
+            accountEmail={accountEmail}
             registrationCity={registrationContext?.preference?.city ?? null}
             registrationCountryCode={registrationContext?.preference?.countryCode ?? null}
             domains={domains}
