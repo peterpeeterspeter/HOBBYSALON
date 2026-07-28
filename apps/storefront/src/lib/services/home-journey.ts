@@ -4,8 +4,10 @@
 
 import { getEntityConnections } from "@/lib/platform/queries/entity-links";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
-import { listFeaturedProjects } from "@/lib/platform/queries/projects";
-import { listProjectProductLinks } from "@/lib/platform/queries/projects";
+import {
+  listFeaturedProjects,
+  listProjectProductLinks,
+} from "@/lib/platform/queries/projects";
 import { createPlatformClient } from "@/lib/platform/client";
 import { isLikelyTestHomeContent } from "@/lib/services/home-router-helpers";
 import type { Article, Project } from "@/types/platform";
