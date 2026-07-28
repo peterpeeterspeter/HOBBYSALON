@@ -579,10 +579,22 @@ Fields:
 
 Allowed roles:
 
-- `vendor`
+- `vendor` — standhouder (set by authenticated maker/workshopgever RSVP)
 - `workshop_host`
 - `speaker`
 - `organizer`
+
+### Standhouder RSVP
+
+Logged-in makers and workshopgevers confirm presence on the public event page.
+That writes:
+
+1. `event_creators` with `role = vendor`
+2. `entity_links` creator → event with `relation_type = exhibits_at`
+
+The event page shows confirmed standholders and **all their active products**
+(`products.creator_id`, `is_active`, `status = active`). Creator profiles show
+participating events with a “Standhouder” badge when `role = vendor`.
 
 ---
 

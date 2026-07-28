@@ -140,9 +140,7 @@ test("a rejected role request does not grant access", () => {
   assert.equal(caps.canManageProducts, true);
 });
 
-test("orders are only for accounts with a real Medusa seller link", () => {
-  // Platform-only maker listings never produce a Medusa order, so a maker
-  // without a seller link was being shown a permanently empty page.
+test("orders are only for merchants with a Medusa seller link", () => {
   const makerWithoutLink = resolveDashboardCapabilities({
     registrationContext: {
       ...baseContext,
@@ -160,6 +158,7 @@ test("orders are only for accounts with a real Medusa seller link", () => {
       .includes("/dashboard/orders")
   );
 
+  // Creator seller links no longer unlock Bestellingen — only merchants.
   const makerWithCreatorLink = resolveDashboardCapabilities({
     registrationContext: {
       ...baseContext,
@@ -170,7 +169,17 @@ test("orders are only for accounts with a real Medusa seller link", () => {
     creatorTypes: ["maker"],
     hasCreatorProfile: true,
   });
-  assert.equal(makerWithCreatorLink.canManageOrders, true);
+  assert.equal(makerWithCreatorLink.canManageOrders, false);
+  assert.ok(
+    !buildRoleAwareDashboardNav(makerWithCreatorLink)
+      .map((item) => item.href)
+      .includes("/dashboard/orders")
+  );
+  assert.ok(
+    !buildRoleAwareDashboardNav(makerWithCreatorLink)
+      .map((item) => item.href)
+      .includes("/dashboard/analytics")
+  );
 
   const merchant = resolveDashboardCapabilities({
     registrationContext: {
@@ -180,4 +189,9 @@ test("orders are only for accounts with a real Medusa seller link", () => {
     },
   });
   assert.equal(merchant.canManageOrders, true);
+  assert.ok(
+    buildRoleAwareDashboardNav(merchant)
+      .map((item) => item.href)
+      .includes("/dashboard/orders")
+  );
 });

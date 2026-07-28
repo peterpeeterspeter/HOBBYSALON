@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  onboardMerchantForLoggedInUserAction,
-  updateAccountPreferencesAction,
-} from "@/app/actions/auth";
 import { updateCreatorTypesAction } from "@/app/actions/dashboard";
-import { RegistrationProfileForm } from "@/components/auth/RegistrationProfileForm";
-import { MerchantUpgradeForm } from "@/components/auth/MerchantUpgradeForm";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { getAuthUser } from "@/lib/auth/session";
-import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import {
@@ -39,15 +32,8 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
     getCreatorByUserId(user.id),
   ]);
 
-  const caps = resolveDashboardCapabilities({
-    registrationContext,
-    creatorTypes: creator?.creator_types,
-    hasCreatorProfile: Boolean(creator),
-  });
-  const hasMerchantRole = registrationContext.roles.includes("merchant");
   const sortedRoles = sortAccountRoles(registrationContext.roles);
   const pendingRequests = registrationContext.pendingRoleRequests;
-  const pendingMerchant = hasPendingRoleRequest(pendingRequests, "merchant");
   const pendingWorkshopHost = hasPendingRoleRequest(
     pendingRequests,
     "workshop_host"
@@ -61,7 +47,7 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
       <header>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">Account</h1>
         <p className="mt-2 max-w-2xl text-[var(--muted)]">
-          Rollen, winkel en voorkeuren. Wat je hier kiest bepaalt welke menu&apos;s je in het
+          Rollen beheren. Wat je hier kiest bepaalt welke menu&apos;s je in het
           dashboard ziet.
         </p>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -180,60 +166,6 @@ export default async function DashboardAccountPage({ searchParams }: Props) {
             </Button>
           </div>
         )}
-      </CardShell>
-
-      <CardShell variant="default" padding="lg" className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">Winkel / verkoper</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Alleen voor materialenverkopers. Beheer voorraad, verzending en uitbetalingen in het
-            verkopersportaal.
-          </p>
-        </div>
-        {caps.canAccessVendorPortal ? (
-          <div className="space-y-3">
-            <p className="text-sm text-green-800">Je winkel is actief en gekoppeld.</p>
-            <Button asChild size="sm">
-              <Link href="/dashboard/verkoper">Open verkopersportaal</Link>
-            </Button>
-          </div>
-        ) : pendingMerchant ? (
-          <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Je merchant-aanvraag wacht op goedkeuring. Je verkopersportaal opent
-            zodra we die goedkeuren.
-          </p>
-        ) : hasMerchantRole ? (
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--muted)]">
-              Je merchant-rol staat aan, maar je winkel is nog niet gekoppeld.
-            </p>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/register/merchant">Winkel koppelen</Link>
-            </Button>
-          </div>
-        ) : (
-          <MerchantUpgradeForm
-            action={onboardMerchantForLoggedInUserAction}
-            nextPath="/dashboard/account"
-            defaultEmail={user.email ?? ""}
-          />
-        )}
-      </CardShell>
-
-      <CardShell variant="default" padding="lg" className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">Voorkeuren</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Interesses en locatie voor betere aanbevelingen.
-          </p>
-        </div>
-        <RegistrationProfileForm
-          action={updateAccountPreferencesAction}
-          nextPath="/dashboard/account"
-          defaultPostalCode={registrationContext.preference?.postalCode ?? null}
-          defaultCountryCode={registrationContext.preference?.countryCode ?? null}
-          defaultInterests={registrationContext.preference?.interestTypes ?? []}
-        />
       </CardShell>
     </section>
   );

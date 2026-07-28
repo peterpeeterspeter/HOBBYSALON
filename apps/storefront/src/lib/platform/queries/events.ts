@@ -159,6 +159,20 @@ export async function listEventsByIds(ids: string[]): Promise<Event[]> {
 }
 
 export async function listEventsByCreator(creatorId: string): Promise<Event[]> {
+  const participations = await listCreatorEventParticipations(creatorId);
+  return participations.map((row) => row.event);
+}
+
+export type CreatorEventParticipation = {
+  event: Event;
+  /** null when the creator only organizes or is linked via entity_links elsewhere */
+  role: string | null;
+  source: "organizer" | "participant";
+};
+
+export async function listCreatorEventParticipations(
+  creatorId: string
+): Promise<CreatorEventParticipation[]> {
   const supabase = createPlatformClient();
 
   const [organizedResult, participationResult] = await Promise.all([
@@ -170,38 +184,66 @@ export async function listEventsByCreator(creatorId: string): Promise<Event[]> {
       .order("starts_at", { ascending: true }),
     supabase
       .from("event_creators")
-      .select("event_id")
+      .select("event_id, role")
       .eq("creator_id", creatorId),
   ]);
 
   const organizedEvents = (organizedResult.data ?? []) as Event[];
-  const participationIds = [
-    ...new Set((participationResult.data ?? []).map((row) => row.event_id)),
-  ];
-  if (participationIds.length === 0) {
-    return organizedEvents;
+  const participationRows = (participationResult.data ?? []) as Array<{
+    event_id: string;
+    role: string;
+  }>;
+  const participationIds = [...new Set(participationRows.map((row) => row.event_id))];
+
+  const roleByEventId = new Map<string, string>();
+  for (const row of participationRows) {
+    const current = roleByEventId.get(row.event_id);
+    if (!current || row.role === "vendor") {
+      roleByEventId.set(row.event_id, row.role);
+    }
   }
 
-  const { data: participationEvents, error } = await supabase
-    .from("events")
-    .select("*")
-    .in("id", participationIds)
-    .eq("is_active", true)
-    .order("starts_at", { ascending: true });
-
-  if (error) {
-    return organizedEvents;
+  let participationEvents: Event[] = [];
+  if (participationIds.length > 0) {
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .in("id", participationIds)
+      .eq("is_active", true)
+      .order("starts_at", { ascending: true });
+    if (!error) {
+      participationEvents = (data ?? []) as Event[];
+    }
   }
 
-  const mergedById = new Map<string, Event>();
+  const byId = new Map<string, CreatorEventParticipation>();
   for (const event of organizedEvents) {
-    mergedById.set(event.id, event);
+    byId.set(event.id, {
+      event,
+      role: roleByEventId.get(event.id) ?? null,
+      source: "organizer",
+    });
   }
-  for (const event of (participationEvents ?? []) as Event[]) {
-    mergedById.set(event.id, event);
+  for (const event of participationEvents) {
+    const existing = byId.get(event.id);
+    if (existing) {
+      if (!existing.role) {
+        existing.role = roleByEventId.get(event.id) ?? null;
+      }
+      continue;
+    }
+    byId.set(event.id, {
+      event,
+      role: roleByEventId.get(event.id) ?? null,
+      source: "participant",
+    });
   }
 
-  return Array.from(mergedById.values()).sort((a, b) =>
-    a.starts_at.localeCompare(b.starts_at)
-  );
+  const now = Date.now();
+  return Array.from(byId.values()).sort((a, b) => {
+    const aUpcoming = new Date(a.event.starts_at).getTime() >= now ? 0 : 1;
+    const bUpcoming = new Date(b.event.starts_at).getTime() >= now ? 0 : 1;
+    if (aUpcoming !== bUpcoming) return aUpcoming - bUpcoming;
+    return a.event.starts_at.localeCompare(b.event.starts_at);
+  });
 }

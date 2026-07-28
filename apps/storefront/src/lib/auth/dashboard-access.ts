@@ -70,9 +70,6 @@ export function resolveDashboardCapabilities(input: {
   const hasMerchantSellerLink = input.registrationContext.sellerLinks.some(
     (link) => link.sellerType === "merchant"
   );
-  const hasCreatorSellerLink = input.registrationContext.sellerLinks.some(
-    (link) => link.sellerType === "creator"
-  );
 
   const hasWorkshopHostRole = roles.includes("workshop_host");
   const hasOrganizerRole = roles.includes("organizer");
@@ -113,18 +110,11 @@ export function resolveDashboardCapabilities(input: {
   // access, and a rejected request kept its access too.
   const canManageWorkshops = hasCreatorProfile && hasWorkshopHostRole;
   const canManageEvents = hasCreatorProfile && hasOrganizerRole;
-  // Deliberately not `canManageProducts || ...`: platform-only maker
-  // listings (handmade/destash without a medusa_product_id) never
-  // generate a Medusa order, so every maker was seeing an always-empty
-  // "Bestellingen" page. Only creators/merchants with an actual Medusa
-  // seller link (legacy Medusa-backed listings, or a merchant account)
-  // have real orders to manage.
-  const canManageOrders = hasCreatorSellerLink || hasMerchantSellerLink;
-  const canViewAnalytics =
-    canManageProducts ||
-    canManageWorkshops ||
-    canManageEvents ||
-    (hasCreatorProfile && isContentCreator);
+  // Orders only for material merchants with a Medusa seller link.
+  // Maker/creator listings do not go through Medusa checkout.
+  const canManageOrders = hasMerchantRole && hasMerchantSellerLink;
+  // Analytics stays out of the Pro menu for now (page remains gated off).
+  const canViewAnalytics = false;
 
   const isHobbyistOnly =
     !hasMerchantRole &&
@@ -188,10 +178,6 @@ export function buildRoleAwareDashboardNav(
   }
 
   items.push({ href: "/dashboard/account", label: "Account" });
-
-  if (caps.canViewAnalytics) {
-    items.push({ href: "/dashboard/analytics", label: "Analytics" });
-  }
 
   if (options?.userIsModerator) {
     items.push(

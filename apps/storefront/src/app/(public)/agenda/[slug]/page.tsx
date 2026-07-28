@@ -12,11 +12,15 @@ import {
 } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { EventTicketCard } from "@/components/events/EventTicketCard";
-import { EventVendorInquiryForm } from "@/components/events/EventVendorInquiryForm";
+import { EventStandhouderRsvpCard } from "@/components/events/EventStandhouderRsvpCard";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
+import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { getStandhouderRsvpState } from "@/app/actions/event-standhouder-rsvp";
+import { isEligibleStandhouder } from "@/lib/platform/event-standhouder";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
@@ -79,6 +83,7 @@ export default async function EventPage({ params }: Props) {
     organizer,
     domains,
     creators,
+    exhibitors,
     workshops,
     relatedProducts,
     relatedArticles,
@@ -91,7 +96,24 @@ export default async function EventPage({ params }: Props) {
     : true;
 
   const user = await getAuthUser();
-  const eventIsFavorite = user ? await isFavorite(user.id, "event", event.id) : false;
+  const [eventIsFavorite, creator, registrationContext] = await Promise.all([
+    user ? isFavorite(user.id, "event", event.id) : Promise.resolve(false),
+    user ? getCreatorByUserId(user.id) : Promise.resolve(null),
+    user ? getUserRegistrationContext(user.id) : Promise.resolve(null),
+  ]);
+  const isEligible = creator
+    ? isEligibleStandhouder({
+        creatorTypes: creator.creator_types,
+        roles: registrationContext?.roles ?? [],
+      })
+    : false;
+  const hasRsvped =
+    creator != null
+      ? await getStandhouderRsvpState({
+          eventId: event.id,
+          creatorId: creator.id,
+        })
+      : false;
 
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
   const { dateLabel, timeLabel, isMultiDay } = formatDateParts(
@@ -293,8 +315,52 @@ export default async function EventPage({ params }: Props) {
             </GraphSection>
           )}
 
-          {/* Graph: products */}
-          {relatedProducts.length > 0 && (
+          {/* Standhouders met hun producten */}
+          {exhibitors.some((exhibitor) => exhibitor.products.length > 0) ? (
+            <GraphSection
+              tag="Marktplaats"
+              title="Deze staan hier ook met hun producten"
+              subtitle="Bevestigde standhouders en hun actieve aanbod."
+              seeAllHref="/materials"
+            >
+              <div className="space-y-10">
+                {exhibitors
+                  .filter((exhibitor) => exhibitor.products.length > 0)
+                  .map((exhibitor) => (
+                    <div key={exhibitor.creator.id} className="space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <Link
+                            href={`/creator/${exhibitor.creator.slug}`}
+                            className="font-[family-name:var(--font-heading)] text-lg font-semibold text-[var(--foreground)] hover:text-[var(--accent)]"
+                          >
+                            {exhibitor.creator.display_name}
+                          </Link>
+                          <p className="text-sm text-[var(--muted)]">
+                            {exhibitor.role === "vendor"
+                              ? "Standhouder"
+                              : exhibitor.role === "workshop_host"
+                                ? "Workshopgever"
+                                : exhibitor.role}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/creator/${exhibitor.creator.slug}`}
+                          className="text-sm font-semibold text-[var(--accent)] hover:underline"
+                        >
+                          Bekijk profiel →
+                        </Link>
+                      </div>
+                      <GridLayout cols={4} gap="md">
+                        {exhibitor.products.slice(0, 8).map((product) => (
+                          <ProductCard key={product.id} product={product} />
+                        ))}
+                      </GridLayout>
+                    </div>
+                  ))}
+              </div>
+            </GraphSection>
+          ) : relatedProducts.length > 0 ? (
             <GraphSection
               tag="Marktplaats"
               title="Producten van exposerende makers"
@@ -307,7 +373,7 @@ export default async function EventPage({ params }: Props) {
                 ))}
               </GridLayout>
             </GraphSection>
-          )}
+          ) : null}
 
           {/* Graph: articles */}
           {relatedArticles.length > 0 && (
@@ -320,15 +386,15 @@ export default async function EventPage({ params }: Props) {
             </GraphSection>
           )}
 
-          {organizer && (
-            <div id="standhouders">
-              <EventVendorInquiryForm
-                eventId={event.id}
-                organizerCreatorId={organizer.id}
-                eventTitle={event.title}
-              />
-            </div>
-          )}
+          <EventStandhouderRsvpCard
+            eventId={event.id}
+            eventSlug={event.slug}
+            eventTitle={event.title}
+            isLoggedIn={Boolean(user)}
+            hasCreatorProfile={Boolean(creator)}
+            isEligible={isEligible}
+            hasRsvped={hasRsvped}
+          />
 
           {/* Graph: related events */}
           {relatedEvents.length > 0 && (

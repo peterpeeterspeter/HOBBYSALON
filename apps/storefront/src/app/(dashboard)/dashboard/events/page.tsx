@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
@@ -74,6 +75,10 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     status: string;
     created_at: string;
   }> = [];
+  const standhoudersByEvent = new Map<
+    string,
+    Array<{ creator_id: string; display_name: string; slug: string }>
+  >();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
     null;
 
@@ -98,6 +103,36 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     ]);
     events = (eventsResult.data ?? []) as Event[];
     vendorInquiries = inquiriesResult.data ?? [];
+
+    const eventIds = events.map((event) => event.id);
+    if (eventIds.length > 0) {
+      const { data: rosterRows } = await supabase
+        .from("event_creators")
+        .select("event_id, creator_id, role, creators(display_name, slug)")
+        .in("event_id", eventIds)
+        .eq("role", "vendor");
+
+      for (const row of (rosterRows ?? []) as Array<{
+        event_id: string;
+        creator_id: string;
+        creators:
+          | { display_name: string; slug: string }
+          | { display_name: string; slug: string }[]
+          | null;
+      }>) {
+        const creatorMeta = Array.isArray(row.creators)
+          ? row.creators[0]
+          : row.creators;
+        if (!creatorMeta) continue;
+        const list = standhoudersByEvent.get(row.event_id) ?? [];
+        list.push({
+          creator_id: row.creator_id,
+          display_name: creatorMeta.display_name,
+          slug: creatorMeta.slug,
+        });
+        standhoudersByEvent.set(row.event_id, list);
+      }
+    }
   }
 
   const defaultStart = new Date();
@@ -359,6 +394,36 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       </button>
                     </div>
                   </form>
+
+                  {(() => {
+                    const standhouders = standhoudersByEvent.get(event.id) ?? [];
+                    return (
+                      <div className="mt-4 border-t border-[var(--border)] pt-4">
+                        <h3 className="text-sm font-semibold">
+                          Bevestigde standhouders ({standhouders.length})
+                        </h3>
+                        {standhouders.length === 0 ? (
+                          <p className="mt-1 text-xs text-[var(--muted)]">
+                            Nog geen RSVP’s. Makers en workshopgevers bevestigen
+                            zichzelf op de eventpagina.
+                          </p>
+                        ) : (
+                          <ul className="mt-2 space-y-1 text-sm">
+                            {standhouders.map((standhouder) => (
+                              <li key={standhouder.creator_id}>
+                                <Link
+                                  href={`/creator/${standhouder.slug}`}
+                                  className="font-medium text-[var(--accent)] hover:underline"
+                                >
+                                  {standhouder.display_name}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <form
                     action={sendExhibitorOutreachAction}

@@ -9,12 +9,14 @@ import { GridLayout } from "@/components/layout/grid-layout";
 import type {
   Product,
   Workshop,
-  Event,
   Article,
   Domain,
   Creator,
 } from "@/types/platform";
-import type { CreatorProjectTeaser } from "@/lib/services/creator-page";
+import type {
+  CreatorProjectTeaser,
+  CreatorEventWithRole,
+} from "@/lib/services/creator-page";
 
 type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
@@ -26,7 +28,7 @@ type Props = {
   domains: Domain[];
   projects: CreatorProjectTeaser[];
   relatedWorkshops: Workshop[];
-  relatedEvents: Event[];
+  relatedEvents: CreatorEventWithRole[];
   relatedArticles: Article[];
   relatedCreators: Creator[];
   showExternalLinks?: boolean;
@@ -37,6 +39,13 @@ const CREATOR_TYPE_LABELS: Record<string, string> = {
   workshopgever: "Workshopgever",
   supplier: "Leverancier",
   content_creator: "Content maker",
+  organizer: "Organisator",
+};
+
+const EVENT_ROLE_LABELS: Record<string, string> = {
+  vendor: "Standhouder",
+  workshop_host: "Workshopgever",
+  speaker: "Spreker",
   organizer: "Organisator",
 };
 
@@ -129,7 +138,18 @@ export function CreatorProfileTabs({
             </p>
             <GridLayout cols={2} gap="lg">
               {relatedEvents.map((e) => (
-                <EventCard key={e.id} event={e} />
+                <div key={e.id} className="space-y-2">
+                  {e.participationRole === "vendor" ? (
+                    <span className="inline-flex rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--accent)]">
+                      {EVENT_ROLE_LABELS[e.participationRole] ?? "Standhouder"}
+                    </span>
+                  ) : e.participationRole ? (
+                    <span className="inline-flex rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                      {EVENT_ROLE_LABELS[e.participationRole] ?? e.participationRole}
+                    </span>
+                  ) : null}
+                  <EventCard event={e} />
+                </div>
               ))}
             </GridLayout>
           </div>
