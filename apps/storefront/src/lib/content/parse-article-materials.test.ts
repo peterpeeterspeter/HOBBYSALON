@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-// @ts-expect-error Node's TypeScript test runner requires the extension.
 import {
   materialsTitlesMatch,
   mergeMaterialsWithProducts,
   parseArticleMaterials,
   slugifyMaterialTitle,
-} from "./parse-article-materials.ts";
+} from "./parse-article-materials";
 
 const SAMPLE_ATX = `
 Intro tekst.
