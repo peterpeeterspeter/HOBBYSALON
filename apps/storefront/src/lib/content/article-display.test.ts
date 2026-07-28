@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-// @ts-expect-error Node's TypeScript test runner requires the extension.
 import {
   formatArticleDisplayTitle,
   getArticleTypeVisitorLabel,
   hasUsableArticleImage,
-} from "./article-display.ts";
+} from "./article-display";
 
 test("strips | Hobbysalon suffix only", () => {
   assert.equal(
