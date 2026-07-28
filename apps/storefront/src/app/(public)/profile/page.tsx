@@ -32,6 +32,8 @@ import {
   createConfirmationToken,
   normalizeNewsletterEmail,
 } from "@/lib/newsletter/lead-magnet";
+import { countNewProductInquiries } from "@/lib/platform/queries/product-inquiries";
+import { CardShell } from "@/components/ui/card-shell";
 
 type Props = {
   searchParams: Promise<{ success?: string; error?: string; tab?: string }>;
@@ -137,6 +139,10 @@ export default async function ProfilePage({ searchParams }: Props) {
     creatorTypes: creator?.creator_types,
     hasCreatorProfile: Boolean(creator),
   });
+  const newInquiryCount =
+    creator && caps.canManageProducts
+      ? await countNewProductInquiries(creator.id)
+      : 0;
   const showMakerSection = caps.canViewCreatorPage || caps.isHobbyistOnly;
   const makerData = showMakerSection ? await loadCreatorMakerData(user, tab) : null;
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
@@ -209,10 +215,36 @@ export default async function ProfilePage({ searchParams }: Props) {
       }
       headerActions={
         <Button asChild variant="secondary" size="sm">
-          <Link href={ACCOUNT_NAV.pro.href}>{ACCOUNT_NAV.pro.label}</Link>
+          <Link href={ACCOUNT_NAV.pro.href}>
+            {ACCOUNT_NAV.pro.label}
+            {newInquiryCount > 0 ? ` (${newInquiryCount})` : ""}
+          </Link>
         </Button>
       }
     >
+      {newInquiryCount > 0 ? (
+        <CardShell
+          variant="featured"
+          padding="lg"
+          className="mb-8 border-amber-300 bg-amber-50"
+        >
+          <p className="text-lg font-semibold text-amber-950">
+            {newInquiryCount === 1
+              ? "1 nieuwe aanvraag voor jouw plaatsingen"
+              : `${newInquiryCount} nieuwe aanvragen voor jouw plaatsingen`}
+          </p>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-amber-900/80">
+            Open je inbox om te antwoorden via e-mail. Jullie regelen de
+            afspraak en betaling zelf.
+          </p>
+          <div className="mt-5">
+            <Button asChild>
+              <Link href="/dashboard/products#aanvragen">Open aanvragen</Link>
+            </Button>
+          </div>
+        </CardShell>
+      ) : null}
+
       {/* 1. Compact passport strip */}
       <section
         aria-label="Hobbypaspoort samenvatting"

@@ -69,6 +69,28 @@ const INQUIRY_STATUS_OPTIONS = [
   { value: "declined", label: "Afgewezen" },
 ];
 
+function inquiryStatusLabel(status: string): string {
+  return (
+    INQUIRY_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+    status
+  );
+}
+
+function buildInquiryMailto(inquiry: ProductInquiryRow): string {
+  const title = inquiryProductTitle(inquiry);
+  const subject = encodeURIComponent(`Reactie op je aanvraag: ${title}`);
+  const body = encodeURIComponent(
+    [
+      `Hallo ${inquiry.full_name},`,
+      "",
+      `Bedankt voor je interesse in “${title}” op Hobbysalon.`,
+      "",
+      "Met vriendelijke groet,",
+    ].join("\n")
+  );
+  return `mailto:${inquiry.email}?subject=${subject}&body=${body}`;
+}
+
 function formatEuroFromCents(cents: number | null | undefined): string {
   if (typeof cents !== "number") return "";
   return new Intl.NumberFormat("nl-BE", {
@@ -195,6 +217,123 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
+          <div id="aanvragen" className="scroll-mt-6 space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">
+                Aanvragen inbox ({productInquiries.length})
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Beantwoord geïnteresseerden via e-mail. Hobbysalon verwerkt geen
+                betaling — jullie regelen de deal zelf.
+              </p>
+            </div>
+            {productInquiries.length === 0 ? (
+              <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-6 text-sm text-[var(--muted)]">
+                Nog geen aanvragen. Zodra iemand reageert op een plaatsing,
+                verschijnt dat hier.
+              </p>
+            ) : (
+              productInquiries.map((inquiry) => {
+                const isNew = inquiry.status === "new";
+                return (
+                  <div
+                    key={inquiry.id}
+                    className={`rounded-lg border p-4 ${
+                      isNew
+                        ? "border-amber-300 bg-amber-50/60"
+                        : "border-[var(--border)] bg-[var(--card)]"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-[var(--foreground)]">
+                            {inquiry.full_name}
+                          </p>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              isNew
+                                ? "bg-amber-200 text-amber-950"
+                                : "bg-[var(--background)] text-[var(--muted)]"
+                            }`}
+                          >
+                            {inquiryStatusLabel(inquiry.status)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          <a
+                            href={`mailto:${inquiry.email}`}
+                            className="font-medium text-[var(--accent)] underline underline-offset-2"
+                          >
+                            {inquiry.email}
+                          </a>
+                          {" · "}
+                          Plaatsing: {inquiryProductTitle(inquiry)}
+                        </p>
+                        {inquiry.message && (
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--foreground)]">
+                            {inquiry.message}
+                          </p>
+                        )}
+                        <p className="mt-2 text-xs text-[var(--muted)]">
+                          {new Date(inquiry.created_at).toLocaleString("nl-BE")}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <a
+                        href={buildInquiryMailto(inquiry)}
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] hover:opacity-90"
+                      >
+                        Antwoord via e-mail
+                      </a>
+                      {isNew ? (
+                        <form action={updateProductInquiryStatusAction}>
+                          <input type="hidden" name="id" value={inquiry.id} />
+                          <input type="hidden" name="status" value="contacted" />
+                          <button
+                            type="submit"
+                            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 text-sm font-medium hover:border-[var(--accent)]"
+                          >
+                            Markeer als gecontacteerd
+                          </button>
+                        </form>
+                      ) : null}
+                      <form
+                        action={updateProductInquiryStatusAction}
+                        className="flex flex-wrap items-center gap-2"
+                      >
+                        <input type="hidden" name="id" value={inquiry.id} />
+                        <label className="sr-only" htmlFor={`status-${inquiry.id}`}>
+                          Status
+                        </label>
+                        <select
+                          id={`status-${inquiry.id}`}
+                          name="status"
+                          defaultValue={inquiry.status}
+                          className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 text-sm"
+                        >
+                          {INQUIRY_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border)] px-3 text-sm hover:border-[var(--accent)]"
+                        >
+                          Status opslaan
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
           {isCommercialGatingEnabled() && (
           <CardShell variant="default" padding="lg" className="mb-8">
             <h2 className="text-lg font-semibold">Listing credits</h2>
@@ -495,67 +634,6 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
               </Button>
             </form>
           </CardShell>
-
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">
-              Aanvragen inbox ({productInquiries.length})
-            </h2>
-            {productInquiries.length === 0 ? (
-              <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-6 text-sm text-[var(--muted)]">
-                Nog geen aanvragen. Zodra iemand reageert op een plaatsing,
-                verschijnt dat hier.
-              </p>
-            ) : (
-              productInquiries.map((inquiry) => (
-                <div
-                  key={inquiry.id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {inquiry.full_name} · {inquiry.email}
-                      </p>
-                      <p className="text-sm text-[var(--muted)]">
-                        Plaatsing: {inquiryProductTitle(inquiry)}
-                      </p>
-                      {inquiry.message && (
-                        <p className="mt-1 text-sm text-[var(--foreground)]">
-                          {inquiry.message}
-                        </p>
-                      )}
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {new Date(inquiry.created_at).toLocaleString("nl-BE")}
-                      </p>
-                    </div>
-                    <form
-                      action={updateProductInquiryStatusAction}
-                      className="flex items-center gap-2"
-                    >
-                      <input type="hidden" name="id" value={inquiry.id} />
-                      <select
-                        name="status"
-                        defaultValue={inquiry.status}
-                        className="rounded-md border border-[var(--border)] px-2 py-1.5 text-sm"
-                      >
-                        {INQUIRY_STATUS_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-                      >
-                        Update
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </>
       )}
     </section>

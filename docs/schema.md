@@ -472,6 +472,21 @@ This enables flows such as:
 - “Book this crochet workshop”
 - “Add the starter kit in one click”
 
+Material linking is optional when creating a workshop.
+
+## Table: `workshop_gallery_images`
+
+Extra photos for a workshop page (beyond `workshops.featured_image_url`).
+
+Fields:
+
+- `id` (uuid, pk)
+- `workshop_id` (uuid, fk → workshops)
+- `image_url` (text)
+- `alt_text` (text, nullable)
+- `sort_order` (int)
+- `created_at`
+
 ---
 
 # 14. Events

@@ -1789,6 +1789,8 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
     const bookingMode = parseRequiredString(formData, "booking_mode");
+    const domainId = parseOptionalUuid(formData, "domain_id");
+    const optionalProductId = parseOptionalUuid(formData, "product_id");
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1820,33 +1822,85 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/workshops`,
     });
+    const galleryUrls = formData
+      .getAll("gallery_image_urls")
+      .map((value) => value.toString().trim())
+      .filter((url) => url.length > 0)
+      .slice(0, 8);
+
     const supabase = createPlatformClient();
 
-    const { error } = await supabase.from("workshops").insert({
-      creator_id: creator.id,
-      slug,
-      title,
-      short_description: parseOptionalString(formData, "short_description"),
-      description: parseOptionalString(formData, "description"),
-      featured_image_url: featuredImageUrl,
-      format_type: formatType,
-      difficulty_level: difficultyLevel,
-      booking_mode: enforced.booking_mode,
-      booking_url: enforced.booking_url,
-      city: parseOptionalString(formData, "city"),
-      location_name: parseOptionalString(formData, "location_name"),
-      duration_minutes: parseOptionalInt(formData, "duration_minutes"),
-      capacity: parseOptionalInt(formData, "capacity"),
-      price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
-      currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
-      is_active: isActive,
-    });
+    const { data: createdWorkshop, error } = await supabase
+      .from("workshops")
+      .insert({
+        creator_id: creator.id,
+        domain_id: domainId,
+        slug,
+        title,
+        short_description: parseOptionalString(formData, "short_description"),
+        description: parseOptionalString(formData, "description"),
+        featured_image_url: featuredImageUrl,
+        format_type: formatType,
+        difficulty_level: difficultyLevel,
+        booking_mode: enforced.booking_mode,
+        booking_url: enforced.booking_url,
+        city: parseOptionalString(formData, "city"),
+        location_name: parseOptionalString(formData, "location_name"),
+        duration_minutes: parseOptionalInt(formData, "duration_minutes"),
+        capacity: parseOptionalInt(formData, "capacity"),
+        price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
+        currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
+        is_active: isActive,
+      })
+      .select("id, slug")
+      .single();
 
-    if (error) {
+    if (error || !createdWorkshop) {
       fail("/dashboard/workshops", "Workshop aanmaken mislukt.");
     }
 
+    if (galleryUrls.length > 0) {
+      const { error: galleryError } = await supabase
+        .from("workshop_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            workshop_id: createdWorkshop.id,
+            image_url,
+            sort_order: index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Workshop gallery insert failed:", galleryError);
+      }
+    }
+
+    if (optionalProductId) {
+      const { data: productRow } = await supabase
+        .from("products")
+        .select("product_type, creator_id")
+        .eq("id", optionalProductId)
+        .maybeSingle();
+
+      const ownsProduct = productRow?.creator_id === creator.id;
+      const isMaterialProduct =
+        productRow &&
+        ["supply", "workshop_kit", "supplies"].includes(productRow.product_type);
+
+      if (ownsProduct || isMaterialProduct) {
+        await supabase.from("workshop_required_products").upsert(
+          {
+            workshop_id: createdWorkshop.id,
+            product_id: optionalProductId,
+            is_required: !!formData.get("is_required"),
+            sort_order: 0,
+          },
+          { onConflict: "workshop_id,product_id" }
+        );
+      }
+    }
+
     revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${createdWorkshop.slug}`);
     ok("/dashboard/workshops", "Workshop aangemaakt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1865,6 +1919,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
     const bookingMode = parseRequiredString(formData, "booking_mode");
+    const domainId = parseOptionalUuid(formData, "domain_id");
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1910,11 +1965,18 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       pathPrefix: `creators/${creator.id}/workshops`,
     });
 
+    const galleryUrls = formData
+      .getAll("gallery_image_urls")
+      .map((value) => value.toString().trim())
+      .filter((url) => url.length > 0)
+      .slice(0, 8);
+
     const { error } = await supabase
       .from("workshops")
       .update({
         slug: existingWorkshop.slug,
         title,
+        domain_id: domainId,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featured_image_url: featuredImageUrl,
@@ -1936,8 +1998,72 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", "Workshop bijwerken mislukt.");
     }
 
+    if (galleryUrls.length > 0) {
+      const { count } = await supabase
+        .from("workshop_gallery_images")
+        .select("id", { head: true, count: "exact" })
+        .eq("workshop_id", workshopId);
+      const startOrder = count ?? 0;
+      await supabase.from("workshop_gallery_images").insert(
+        galleryUrls.map((image_url, index) => ({
+          workshop_id: workshopId,
+          image_url,
+          sort_order: startOrder + index,
+        }))
+      );
+    }
+
     revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${existingWorkshop.slug}`);
     ok("/dashboard/workshops", "Workshop bijgewerkt.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteWorkshopGalleryImageAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+
+    const { data: row } = await supabase
+      .from("workshop_gallery_images")
+      .select("id, workshop_id, workshops!inner(creator_id, slug)")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    const workshop = row?.workshops as
+      | { creator_id?: string; slug?: string }
+      | { creator_id?: string; slug?: string }[]
+      | null
+      | undefined;
+    const workshopMeta = Array.isArray(workshop) ? workshop[0] : workshop;
+
+    if (!row || workshopMeta?.creator_id !== creator.id) {
+      fail("/dashboard/workshops", "Foto niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("workshop_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+
+    if (error) {
+      fail("/dashboard/workshops", "Foto verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    if (workshopMeta?.slug) {
+      revalidatePath(`/workshop/${workshopMeta.slug}`);
+    }
+    ok("/dashboard/workshops", "Foto verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -2179,7 +2305,13 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
   try {
     const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
-    const productId = parseRequiredUuid(formData, "product_id");
+    const productId = parseOptionalUuid(formData, "product_id");
+    if (!productId) {
+      fail(
+        "/dashboard/workshops",
+        "Kies een materiaal om te koppelen, of sla deze stap over."
+      );
+    }
     const isRequired = !!formData.get("is_required");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
 

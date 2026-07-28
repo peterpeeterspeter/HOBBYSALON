@@ -6,6 +6,7 @@ import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
+import { countNewProductInquiries } from "@/lib/platform/queries/product-inquiries";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export default async function DashboardHomePage() {
     hasCreatorProfile: Boolean(creator),
   });
 
-  const [productCount, workshopCount, eventCount, domainCount, articleCount, projectCount] =
+  const [productCount, workshopCount, eventCount, domainCount, articleCount, projectCount, newInquiryCount] =
     creator
       ? await Promise.all([
           caps.canManageProducts
@@ -77,8 +78,11 @@ export default async function DashboardHomePage() {
               .eq("created_by_user_id", user.id);
             return count ?? 0;
           })(),
+          caps.canManageProducts
+            ? countNewProductInquiries(creator.id)
+            : Promise.resolve(0),
         ])
-      : [0, 0, 0, 0, 0, 0];
+      : [0, 0, 0, 0, 0, 0, 0];
 
   const progressSteps = caps.canViewCreatorPage
     ? getCreatorProgressSteps({
@@ -137,6 +141,29 @@ export default async function DashboardHomePage() {
           Je ziet hier alleen wat bij jouw rollen past.
         </p>
       </header>
+
+      {newInquiryCount > 0 ? (
+        <CardShell
+          variant="featured"
+          padding="lg"
+          className="border-amber-300 bg-amber-50"
+        >
+          <p className="text-lg font-semibold text-amber-950">
+            {newInquiryCount === 1
+              ? "1 nieuwe aanvraag op je plaatsingen"
+              : `${newInquiryCount} nieuwe aanvragen op je plaatsingen`}
+          </p>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-amber-900/80">
+            Iemand wil contact over een van je creaties. Open de inbox, stuur een
+            antwoord via e-mail en markeer de aanvraag als behandeld.
+          </p>
+          <div className="mt-5">
+            <Button asChild>
+              <Link href="/dashboard/products#aanvragen">Open aanvragen</Link>
+            </Button>
+          </div>
+        </CardShell>
+      ) : null}
 
       {caps.isHobbyistOnly ? (
         <CardShell variant="featured" padding="lg" className="border-[var(--accent)]/30">

@@ -56,7 +56,7 @@ export default async function WorkshopPage({ params }: Props) {
 
   if (!data.workshop) notFound();
 
-  const { workshop, creator, domain, sessions, requiredProducts, optionalProducts, entitlements } =
+  const { workshop, creator, domain, sessions, galleryImages, requiredProducts, optionalProducts, entitlements } =
     data;
   const user = await getAuthUser();
   const workshopIsFavorite = user
@@ -172,6 +172,21 @@ export default async function WorkshopPage({ params }: Props) {
             ratio="video"
             className="overflow-hidden rounded-xl"
           />
+
+          {galleryImages.length > 0 ? (
+            <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {galleryImages.map((image) => (
+                <li key={image.id}>
+                  <AspectImage
+                    src={image.image_url}
+                    alt={image.alt_text ?? workshop.title}
+                    ratio="square"
+                    className="overflow-hidden rounded-lg"
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
             {domain && <Badge variant="domain">{domain.name}</Badge>}

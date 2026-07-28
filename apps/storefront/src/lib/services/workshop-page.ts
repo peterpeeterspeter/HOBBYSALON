@@ -20,11 +20,19 @@ export type WorkshopSession = {
   booking_status: string;
 };
 
+export type WorkshopGalleryImage = {
+  id: string;
+  image_url: string;
+  alt_text: string | null;
+  sort_order: number;
+};
+
 export type WorkshopPageData = {
   workshop: Workshop | null;
   creator: Creator | null;
   domain: Domain | null;
   sessions: WorkshopSession[];
+  galleryImages: WorkshopGalleryImage[];
   requiredProducts: Product[];
   optionalProducts: Product[];
   relatedEvents: Event[];
@@ -42,6 +50,7 @@ export async function getWorkshopPageData(
       creator: null,
       domain: null,
       sessions: [],
+      galleryImages: [],
       requiredProducts: [],
       optionalProducts: [],
       relatedEvents: [],
@@ -50,7 +59,7 @@ export async function getWorkshopPageData(
     };
   }
 
-  const [creator, domain, sessions, entityLinks] = await Promise.all([
+  const [creator, domain, sessions, entityLinks, galleryImages] = await Promise.all([
     getCreatorById(workshop.creator_id),
     workshop.domain_id
       ? (async () => {
@@ -65,6 +74,7 @@ export async function getWorkshopPageData(
       : Promise.resolve(null),
     getWorkshopSessions(workshop.id),
     getRelatedEntities("workshop", workshop.id),
+    getWorkshopGalleryImages(workshop.id),
   ]);
 
   const relatedProductIds = entityLinks
@@ -128,6 +138,7 @@ export async function getWorkshopPageData(
     creator: creator ?? null,
     domain: domain ?? null,
     sessions,
+    galleryImages,
     requiredProducts,
     optionalProducts,
     relatedEvents,
@@ -150,6 +161,20 @@ async function getWorkshopSessions(
 
   if (error) return [];
   return (data ?? []) as WorkshopSession[];
+}
+
+async function getWorkshopGalleryImages(
+  workshopId: string
+): Promise<WorkshopGalleryImage[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("workshop_gallery_images")
+    .select("id, image_url, alt_text, sort_order")
+    .eq("workshop_id", workshopId)
+    .order("sort_order", { ascending: true });
+
+  if (error) return [];
+  return (data ?? []) as WorkshopGalleryImage[];
 }
 
 type WorkshopRequiredProductRow = {

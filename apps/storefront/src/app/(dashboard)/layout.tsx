@@ -10,6 +10,7 @@ import {
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { isModerator } from "@/lib/platform/queries/community-showcase";
+import { countNewProductInquiries } from "@/lib/platform/queries/product-inquiries";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,15 @@ export default async function DashboardLayout({
     hasCreatorProfile: Boolean(creator),
   });
 
-  const navItems = buildRoleAwareDashboardNav(caps, { userIsModerator });
+  const newProductInquiryCount =
+    creator && caps.canManageProducts
+      ? await countNewProductInquiries(creator.id)
+      : 0;
+
+  const navItems = buildRoleAwareDashboardNav(caps, {
+    userIsModerator,
+    newProductInquiryCount,
+  });
 
   return (
     <div className="min-h-screen bg-[var(--background)]">

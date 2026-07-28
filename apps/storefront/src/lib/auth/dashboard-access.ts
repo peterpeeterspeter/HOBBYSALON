@@ -31,6 +31,8 @@ export type DashboardCapabilities = {
 export type DashboardNavItemDef = {
   href: string;
   label: string;
+  /** Optional count badge (e.g. new product inquiries). */
+  badge?: number;
 };
 
 const CREATOR_TYPE_SET = new Set<string>([
@@ -149,14 +151,24 @@ export function resolveDashboardCapabilities(input: {
 
 export function buildRoleAwareDashboardNav(
   caps: DashboardCapabilities,
-  options?: { userIsModerator?: boolean }
+  options?: {
+    userIsModerator?: boolean;
+    newProductInquiryCount?: number;
+  }
 ): DashboardNavItemDef[] {
   const items: DashboardNavItemDef[] = [
     { href: "/dashboard", label: "Overzicht" },
   ];
 
   if (caps.canManageProducts) {
-    items.push({ href: "/dashboard/products", label: "Jouw Shop" });
+    items.push({
+      href: "/dashboard/products",
+      label: "Jouw Shop",
+      badge:
+        options?.newProductInquiryCount && options.newProductInquiryCount > 0
+          ? options.newProductInquiryCount
+          : undefined,
+    });
   }
 
   if (caps.canManageWorkshops) {
