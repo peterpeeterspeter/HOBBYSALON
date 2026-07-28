@@ -44,7 +44,6 @@ type SearchParams = Promise<{
 }>;
 
 const PAGE_SIZE = 12;
-const SPARSE_ROW_THRESHOLD = 3;
 
 const EVENT_TYPE_LABELS = Object.fromEntries(
   AGENDA_EVENT_TYPE_OPTIONS.map((o) => [o.value, o.label])
@@ -145,8 +144,6 @@ export default async function AgendaPage({
   // When totalCount is small, use rows; group the current page.
   const groupMode = customRange ? "custom" : "preset";
   const groups = groupEventsByAgendaBucket(pagedEvents, { mode: groupMode });
-  const useRows = totalCount > 0 && totalCount <= SPARSE_ROW_THRESHOLD;
-
   const current: Record<string, string | undefined> = {
     q: q ?? undefined,
     near: near ?? undefined,
@@ -200,7 +197,7 @@ export default async function AgendaPage({
   }
   if (customRange && params.from) {
     chips.push({
-      label: params.to ? `${params.from} – ${params.to}` : `Vanaf ${params.from}`,
+      label: params.to ? `${params.from} - ${params.to}` : `Vanaf ${params.from}`,
       removeHref: buildAgendaHref(current, {
         from: undefined,
         to: undefined,
@@ -233,7 +230,7 @@ export default async function AgendaPage({
   const hasExtraFilters = Boolean(params.country || params.type || params.domain || q);
 
   return (
-    <Container className="py-8">
+    <>
       <AgendaHero
         defaultQuery={params.q}
         hiddenFields={{
@@ -247,87 +244,96 @@ export default async function AgendaPage({
         }}
       />
 
-      <AgendaQuickFilters
-        placeLabel={placeLabel}
-        placeValue={near}
-        activeWhen={when}
-        customFrom={!when ? params.from : undefined}
-        customTo={!when ? params.to : undefined}
-        buildHref={buildHref}
-        currentHref={currentHref}
-        cities={cities}
-        savedRegionLabel={
-          locationPreference.hasPreference ? locationPreference.city : null
-        }
-      />
-
-      <AgendaHobbyChips
-        domains={domains}
-        activeDomainId={params.domain}
-        hrefForDomain={hrefForDomain}
-      />
-
-      <AgendaResultsHeader
-        totalCount={totalCount}
-        filtersSlot={
-          <AgendaFilterBar
-            activeType={params.type}
-            activeCountry={params.country}
-            countries={countries}
+      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+        <Container className="py-6 sm:py-8">
+          <AgendaQuickFilters
+            placeLabel={placeLabel}
+            placeValue={near}
+            activeWhen={when}
+            customFrom={!when ? params.from : undefined}
+            customTo={!when ? params.to : undefined}
             buildHref={buildHref}
-            clearHref="/agenda"
-            hasExtraFilters={hasExtraFilters}
+            currentHref={currentHref}
+            cities={cities}
+            savedRegionLabel={
+              locationPreference.hasPreference ? locationPreference.city : null
+            }
           />
-        }
-      />
 
-      <ActiveFilterChips chips={chips} clearHref="/agenda" />
+          <AgendaHobbyChips
+            domains={domains}
+            activeDomainId={params.domain}
+            hrefForDomain={hrefForDomain}
+          />
+        </Container>
+      </div>
 
-      {totalCount === 0 ? (
-        <AgendaEmptyActions
-          hasAnyResults={false}
-          hasPlaceFilter={Boolean(near)}
-          broaderPlaceHref={
-            near
-              ? buildAgendaHref(current, { near: undefined, page: undefined })
-              : null
+      <Container className="py-8 sm:py-10">
+        <AgendaResultsHeader
+          totalCount={totalCount}
+          filtersSlot={
+            <AgendaFilterBar
+              activeType={params.type}
+              activeCountry={params.country}
+              countries={countries}
+              buildHref={buildHref}
+              clearHref="/agenda"
+              hasExtraFilters={hasExtraFilters}
+            />
           }
-          belgiumHref={buildAgendaHref(
-            {
-              q: q ?? undefined,
-              when: when ?? undefined,
-              from: !when ? params.from : undefined,
-              to: !when ? params.to : undefined,
-              domain: params.domain,
-              type: params.type,
-            },
-            { near: undefined, country: undefined, page: undefined }
-          )}
         />
-      ) : (
-        <>
-          <AgendaGroupedList groups={groups} useRows={useRows} />
-          <MaterialsPagination
-            page={page}
-            hasNextPage={hasNextPage}
-            hrefForPage={hrefForPage}
-          />
+
+        <ActiveFilterChips chips={chips} clearHref="/agenda" />
+
+        {totalCount === 0 ? (
           <AgendaEmptyActions
-            hasAnyResults
+            hasAnyResults={false}
             hasPlaceFilter={Boolean(near)}
             broaderPlaceHref={
               near
                 ? buildAgendaHref(current, { near: undefined, page: undefined })
                 : null
             }
-            belgiumHref={buildAgendaHref(current, {
-              near: undefined,
-              country: undefined,
-              page: undefined,
-            })}
+            belgiumHref={buildAgendaHref(
+              {
+                q: q ?? undefined,
+                when: when ?? undefined,
+                from: !when ? params.from : undefined,
+                to: !when ? params.to : undefined,
+                domain: params.domain,
+                type: params.type,
+              },
+              { near: undefined, country: undefined, page: undefined }
+            )}
           />
-        </>
-      )}
-    </Container>
+        ) : (
+          <>
+            <AgendaGroupedList groups={groups} useRows />
+            <MaterialsPagination
+              page={page}
+              hasNextPage={hasNextPage}
+              hrefForPage={hrefForPage}
+            />
+            <AgendaEmptyActions
+              hasAnyResults
+              hasPlaceFilter={Boolean(near)}
+              broaderPlaceHref={
+                near
+                  ? buildAgendaHref(current, {
+                      near: undefined,
+                      page: undefined,
+                    })
+                  : null
+              }
+              belgiumHref={buildAgendaHref(current, {
+                near: undefined,
+                country: undefined,
+                page: undefined,
+              })}
+            />
+          </>
+        )}
+      </Container>
+    </>
   );
 }

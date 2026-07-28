@@ -13,7 +13,6 @@ import { CreatorsIntentChips } from "@/components/creators/CreatorsIntentChips";
 import { CreatorsToolbar } from "@/components/creators/CreatorsToolbar";
 import { Container } from "@/components/ui/container";
 import { EmptyState } from "@/components/ui/empty-state";
-import { GridLayout } from "@/components/layout/grid-layout";
 import {
   CREATOR_INTENT_CHIPS,
   resolveHobbyChipDomainIds,
@@ -26,7 +25,7 @@ import { listActiveDomains } from "@/lib/platform/queries/domains";
 export const metadata: Metadata = {
   title: "Makers | Hobbysalon",
   description:
-    "Vind makers die bij jouw hobby passen — workshops, creaties, materialen of hobbymarkten",
+    "Vind makers die bij jouw hobby passen: workshops, creaties, materialen of hobbymarkten",
 };
 
 type SearchParams = Promise<{
@@ -183,60 +182,66 @@ export default async function CreatorsPage({
   const hasFilters = Boolean(q || intent || domainFilter || activePlace);
 
   return (
-    <Container className="py-8">
+    <>
       <CreatorsHero hiddenFields={heroHidden} defaultQuery={q} />
 
-      <CreatorsIntentChips activeIntent={intent} buildHref={buildHref} />
+      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+        <Container className="py-6 sm:py-8">
+          <CreatorsIntentChips activeIntent={intent} buildHref={buildHref} />
 
-      <CreatorsHobbyChips
-        domains={chipDomains.length > 0 ? chipDomains : domains.slice(0, 12)}
-        activeDomainId={domainFilter}
-        hrefForDomain={hrefForDomain}
-      />
+          <CreatorsHobbyChips
+            domains={chipDomains.length > 0 ? chipDomains : domains.slice(0, 12)}
+            activeDomainId={domainFilter}
+            hrefForDomain={hrefForDomain}
+          />
+        </Container>
+      </div>
 
-      <CreatorsToolbar
-        totalCount={totalCount}
-        activeSort={sort}
-        buildHref={buildHref}
-      />
-
-      <CreatorsFilterBar
-        domains={domains}
-        activeDomainId={domainFilter}
-        activeIntent={intent}
-        activePlace={activePlace}
-        cities={uniqueCities}
-        showPlaceFilter={showPlaceFilter}
-        buildHref={buildHref}
-        clearHref="/creators"
-        hasFilters={hasFilters}
-      />
-
-      <ActiveFilterChips chips={chips} clearHref="/creators" />
-
-      {creators.length === 0 ? (
-        <EmptyState
-          title="Geen makers gevonden"
-          description="Pas je filters aan of wis alle filters."
-          action={{ label: "Alle makers", href: "/creators" }}
+      <Container className="py-8 sm:py-10">
+        <CreatorsToolbar
+          totalCount={totalCount}
+          activeSort={sort}
+          buildHref={buildHref}
         />
-      ) : (
-        <GridLayout cols={3} gap="lg">
-          {creators.map((creator) => (
-            <CreatorDiscoveryCard key={creator.id} creator={creator} />
-          ))}
-        </GridLayout>
-      )}
 
-      <MaterialsPagination
-        page={page}
-        hasNextPage={hasNextPage}
-        hrefForPage={(p) =>
-          buildHref({ page: p > 1 ? String(p) : undefined })
-        }
-      />
+        <CreatorsFilterBar
+          domains={domains}
+          activeDomainId={domainFilter}
+          activeIntent={intent}
+          activePlace={activePlace}
+          cities={uniqueCities}
+          showPlaceFilter={showPlaceFilter}
+          buildHref={buildHref}
+          clearHref="/creators"
+          hasFilters={hasFilters}
+        />
 
-      <CreatorsAfterResults />
-    </Container>
+        <ActiveFilterChips chips={chips} clearHref="/creators" />
+
+        {creators.length === 0 ? (
+          <EmptyState
+            title="Geen makers gevonden"
+            description="Pas je filters aan of wis alle filters."
+            action={{ label: "Alle makers", href: "/creators" }}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+            {creators.map((creator) => (
+              <CreatorDiscoveryCard key={creator.id} creator={creator} />
+            ))}
+          </div>
+        )}
+
+        <MaterialsPagination
+          page={page}
+          hasNextPage={hasNextPage}
+          hrefForPage={(p) =>
+            buildHref({ page: p > 1 ? String(p) : undefined })
+          }
+        />
+
+        <CreatorsAfterResults />
+      </Container>
+    </>
   );
 }

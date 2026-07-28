@@ -209,7 +209,7 @@ export function ContentHubBrowser({ items, kind }: Props) {
     <div className="pb-14">
       <section
         aria-labelledby="filters-title"
-        className="rounded-2xl border border-[var(--border)] bg-[var(--section-highlight)]/55 p-4 sm:p-5"
+        className="rounded-[1.25rem] border border-[var(--border)] bg-[var(--section-alt)] p-4 sm:p-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2

@@ -65,7 +65,6 @@ type SearchParams = Promise<{
 }>;
 
 const PAGE_SIZE = 12;
-const SPARSE_ROW_THRESHOLD = 3;
 
 const DIFFICULTY_LABELS: Record<string, string> = {
   beginner: "Beginner",
@@ -217,7 +216,6 @@ export default async function WorkshopsPage({
   const groups = groupWorkshopsByDiscoveryBucket(pagedWorkshops, {
     mode: groupMode,
   });
-  const useRows = totalCount > 0 && totalCount <= SPARSE_ROW_THRESHOLD;
 
   const current: Record<string, string | undefined> = {
     q: q ?? undefined,
@@ -366,7 +364,7 @@ export default async function WorkshopsPage({
     : "Workshops";
 
   return (
-    <Container className="py-8">
+    <>
       <WorkshopsHero
         defaultQuery={params.q}
         hiddenFields={{
@@ -385,86 +383,61 @@ export default async function WorkshopsPage({
         }}
       />
 
-      <WorkshopsQuickFilters
-        placeLabel={placeLabel}
-        placeValue={place}
-        activeWhen={when}
-        customFrom={!when ? params.from : undefined}
-        customTo={!when ? params.to : undefined}
-        beginnerActive={difficulty === "beginner"}
-        onlineActive={format === "online"}
-        buildHref={buildHref}
-        currentHref={currentHref}
-        cities={cities}
-        savedRegionLabel={
-          locationPreference.hasPreference ? locationPreference.city : null
-        }
-      />
-
-      <WorkshopsHobbyChips
-        domains={chipDomains}
-        activeDomainId={params.domain}
-        hrefForDomain={hrefForDomain}
-        categories={categories}
-        activeCategoryId={params.category}
-        hrefForCategory={hrefForCategory}
-      />
-
-      <WorkshopsResultsHeader
-        title={resultsTitle}
-        totalCount={totalCount}
-        controlsSlot={
-          <>
-            <WorkshopsSortControl activeSort={sort} buildHref={buildHref} />
-            <WorkshopsFilterBar
-              activeDifficulty={difficulty}
-              activeCountry={params.country}
-              priceMin={params.price_min}
-              priceMax={params.price_max}
-              countries={countries}
-              buildHref={buildHref}
-              clearHref="/workshops"
-              hasExtraFilters={hasExtraFilters}
-            />
-          </>
-        }
-      />
-
-      <ActiveFilterChips chips={chips} clearHref="/workshops" />
-
-      {totalCount === 0 ? (
-        <WorkshopsEmptyActions
-          hasAnyResults={false}
-          hasPlaceFilter={Boolean(place)}
-          broaderPlaceHref={
-            place
-              ? buildWorkshopsHref(current, { place: undefined, page: undefined })
-              : null
-          }
-          belgiumHref={buildWorkshopsHref(
-            {
-              q: q ?? undefined,
-              when: when ?? undefined,
-              from: !when ? params.from : undefined,
-              to: !when ? params.to : undefined,
-              domain: params.domain,
-              category: params.category,
-              difficulty,
-              format,
-            },
-            { place: undefined, country: undefined, page: undefined }
-          )}
-        />
-      ) : (
-        <>
-          <WorkshopsGroupedList groups={groups} useRows={useRows} />
-          <MaterialsPagination
-            page={page}
-            hasNextPage={hasNextPage}
-            hrefForPage={hrefForPage}
+      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+        <Container className="py-6 sm:py-8">
+          <WorkshopsQuickFilters
+            placeLabel={placeLabel}
+            placeValue={place}
+            activeWhen={when}
+            customFrom={!when ? params.from : undefined}
+            customTo={!when ? params.to : undefined}
+            beginnerActive={difficulty === "beginner"}
+            onlineActive={format === "online"}
+            buildHref={buildHref}
+            currentHref={currentHref}
+            cities={cities}
+            savedRegionLabel={
+              locationPreference.hasPreference ? locationPreference.city : null
+            }
           />
+
+          <WorkshopsHobbyChips
+            domains={chipDomains}
+            activeDomainId={params.domain}
+            hrefForDomain={hrefForDomain}
+            categories={categories}
+            activeCategoryId={params.category}
+            hrefForCategory={hrefForCategory}
+          />
+        </Container>
+      </div>
+
+      <Container className="py-8 sm:py-10">
+        <WorkshopsResultsHeader
+          title={resultsTitle}
+          totalCount={totalCount}
+          controlsSlot={
+            <>
+              <WorkshopsSortControl activeSort={sort} buildHref={buildHref} />
+              <WorkshopsFilterBar
+                activeDifficulty={difficulty}
+                activeCountry={params.country}
+                priceMin={params.price_min}
+                priceMax={params.price_max}
+                countries={countries}
+                buildHref={buildHref}
+                clearHref="/workshops"
+                hasExtraFilters={hasExtraFilters}
+              />
+            </>
+          }
+        />
+
+        <ActiveFilterChips chips={chips} clearHref="/workshops" />
+
+        {totalCount === 0 ? (
           <WorkshopsEmptyActions
-            hasAnyResults
+            hasAnyResults={false}
             hasPlaceFilter={Boolean(place)}
             broaderPlaceHref={
               place
@@ -474,14 +447,48 @@ export default async function WorkshopsPage({
                   })
                 : null
             }
-            belgiumHref={buildWorkshopsHref(current, {
-              place: undefined,
-              country: undefined,
-              page: undefined,
-            })}
+            belgiumHref={buildWorkshopsHref(
+              {
+                q: q ?? undefined,
+                when: when ?? undefined,
+                from: !when ? params.from : undefined,
+                to: !when ? params.to : undefined,
+                domain: params.domain,
+                category: params.category,
+                difficulty,
+                format,
+              },
+              { place: undefined, country: undefined, page: undefined }
+            )}
           />
-        </>
-      )}
-    </Container>
+        ) : (
+          <>
+            <WorkshopsGroupedList groups={groups} useRows />
+            <MaterialsPagination
+              page={page}
+              hasNextPage={hasNextPage}
+              hrefForPage={hrefForPage}
+            />
+            <WorkshopsEmptyActions
+              hasAnyResults
+              hasPlaceFilter={Boolean(place)}
+              broaderPlaceHref={
+                place
+                  ? buildWorkshopsHref(current, {
+                      place: undefined,
+                      page: undefined,
+                    })
+                  : null
+              }
+              belgiumHref={buildWorkshopsHref(current, {
+                place: undefined,
+                country: undefined,
+                page: undefined,
+              })}
+            />
+          </>
+        )}
+      </Container>
+    </>
   );
 }

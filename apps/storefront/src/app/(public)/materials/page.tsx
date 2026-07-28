@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Container } from "@/components/ui/container";
@@ -35,7 +34,7 @@ import {
 export const metadata: Metadata = {
   title: "Hobbymaterialen | Hobbysalon",
   description:
-    "Vind de juiste materialen voor je project — garen, klei, verf en meer",
+    "Vind de juiste materialen voor je project: garen, klei, verf en meer",
 };
 
 type SearchParams = Promise<{
@@ -287,18 +286,7 @@ export default async function MaterialsMarketplacePage({
   }));
 
   return (
-    <Container className="py-6">
-      <nav
-        aria-label="Breadcrumb"
-        className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]"
-      >
-        <Link href="/" className="transition-colors hover:text-[var(--accent)]">
-          Hobbysalon
-        </Link>
-        <span aria-hidden>›</span>
-        <span className="font-semibold text-[var(--foreground)]">Materialen</span>
-      </nav>
-
+    <>
       <MaterialsHero
         defaultQuery={params.q}
         hiddenFields={{
@@ -310,78 +298,84 @@ export default async function MaterialsMarketplacePage({
         }}
       />
 
-      <MaterialsShortcutChips
-        shortcuts={shortcuts}
-        allHref={buildMaterialsHref(baseForShortcuts, {
-          category: undefined,
-          sub: undefined,
-          page: undefined,
-        })}
-      />
-
-      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
-        <MaterialsCatalogSidebar
-          categoryOptions={sidebarCategories}
-          params={{
-            q,
-            category: categoryId,
-            sub: subId,
-            offer,
-            condition,
-            sort: sort === "recommended" ? undefined : sort,
-          }}
-          showCondition={showCondition}
-        />
-
-        <div className="min-w-0 flex-1">
-          <MaterialsCategoryNav
-            categories={navCategories}
-            activeCategoryId={categoryId}
-            hrefForCategory={hrefForCategory}
-            subcategories={childCats}
-            activeSubId={subId}
-            hrefForSub={hrefForSub}
+      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+        <Container className="py-5 sm:py-6">
+          <MaterialsShortcutChips
+            shortcuts={shortcuts}
+            allHref={buildMaterialsHref(baseForShortcuts, {
+              category: undefined,
+              sub: undefined,
+              page: undefined,
+            })}
           />
-
-          <MaterialsCatalogToolbar
-            totalCount={totalCount}
-            activeSort={sort}
-            buildHref={buildHref}
-          />
-
-          <ActiveFilterChips chips={chips} clearHref="/materials" />
-
-          {productsWithPrices.length === 0 ? (
-            <EmptyState
-              title="Geen materialen gevonden"
-              description="Pas je filters aan of bekijk alle materialen."
-              action={{ label: "Alle materialen", href: "/materials" }}
-            />
-          ) : (
-            <GridLayout cols={4} gap="lg">
-              {productsWithPrices.map((product) => (
-                <MaterialsProductCard key={product.id} product={product} />
-              ))}
-            </GridLayout>
-          )}
-
-          <MaterialsPagination
-            page={page}
-            hasNextPage={hasNextPage}
-            hrefForPage={hrefForPage}
-          />
-
-          <MaterialsAfterResults
-            workshops={workshops}
-            articles={tutorialArticles}
-            workshopsHref={
-              activeCategory?.domain_id
-                ? `/workshops?domain=${activeCategory.domain_id}`
-                : "/workshops"
-            }
-          />
-        </div>
+        </Container>
       </div>
-    </Container>
+
+      <Container className="py-6 sm:py-8">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
+          <MaterialsCatalogSidebar
+            categoryOptions={sidebarCategories}
+            params={{
+              q,
+              category: categoryId,
+              sub: subId,
+              offer,
+              condition,
+              sort: sort === "recommended" ? undefined : sort,
+            }}
+            showCondition={showCondition}
+          />
+
+          <div className="min-w-0 flex-1">
+            <MaterialsCategoryNav
+              categories={navCategories}
+              activeCategoryId={categoryId}
+              hrefForCategory={hrefForCategory}
+              subcategories={childCats}
+              activeSubId={subId}
+              hrefForSub={hrefForSub}
+            />
+
+            <MaterialsCatalogToolbar
+              totalCount={totalCount}
+              activeSort={sort}
+              buildHref={buildHref}
+            />
+
+            <ActiveFilterChips chips={chips} clearHref="/materials" />
+
+            {productsWithPrices.length === 0 ? (
+              <EmptyState
+                title="Geen materialen gevonden"
+                description="Pas je filters aan of bekijk alle materialen."
+                action={{ label: "Alle materialen", href: "/materials" }}
+              />
+            ) : (
+              <GridLayout cols={3} gap="lg">
+                {productsWithPrices.map((product) => (
+                  <MaterialsProductCard key={product.id} product={product} />
+                ))}
+              </GridLayout>
+            )}
+
+            <MaterialsPagination
+              page={page}
+              hasNextPage={hasNextPage}
+              hrefForPage={hrefForPage}
+            />
+
+            <MaterialsAfterResults
+              workshops={workshops}
+              articles={tutorialArticles}
+              workshopsHref={
+                activeCategory?.domain_id
+                  ? `/workshops?domain=${activeCategory.domain_id}`
+                  : "/workshops"
+              }
+            />
+          </div>
+        </div>
+      </Container>
+    </>
   );
 }

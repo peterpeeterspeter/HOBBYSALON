@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { DateDisplay } from "@/components/domain/date-display";
-import { LocationBadge } from "@/components/domain/location-badge";
 import type { Event } from "@/types/platform";
 import { AGENDA_EVENT_TYPE_OPTIONS } from "./AgendaFilterBar";
 
@@ -15,45 +13,48 @@ const TYPE_LABELS = Object.fromEntries(
   AGENDA_EVENT_TYPE_OPTIONS.map((o) => [o.value, o.label])
 );
 
-/**
- * Wide horizontal row for sparse agenda results (≤3 events).
- */
+/** Editorial date-led row (Taste listing, matches homepage agenda teaser). */
 export function AgendaEventRow({ event, className }: AgendaEventRowProps) {
   const typeLabel = TYPE_LABELS[event.event_type] ?? event.event_type;
+  const place =
+    event.city?.trim() || event.location_name?.trim() || "Locatie volgt";
 
   return (
     <Link
       href={`/agenda/${event.slug}`}
       className={cn(
-        "flex gap-4 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-3 transition-colors hover:border-[var(--accent)] sm:p-4",
+        "group grid gap-3 py-5 transition-colors hover:bg-[var(--section-highlight)]/80 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-2",
         className
       )}
     >
-      <div className="h-24 w-28 shrink-0 overflow-hidden rounded-[10px] bg-[var(--border)] sm:h-28 sm:w-36">
+      <div className="font-[family-name:var(--font-heading)] text-lg font-bold leading-tight text-[var(--accent)] sm:text-xl">
+        <DateDisplay date={event.starts_at} format="short" />
+      </div>
+      <div className="flex min-w-0 items-start gap-4">
         {event.featured_image_url ? (
-          <img
-            src={event.featured_image_url}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+          <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+            <img
+              src={event.featured_image_url}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </div>
         ) : null}
-      </div>
-      <div className="min-w-0 flex-1 py-0.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="domain">{typeLabel}</Badge>
-          <LocationBadge city={event.city} />
-        </div>
-        <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 sm:text-xl">
-          {event.title}
-        </h3>
-        <DateDisplay date={event.starts_at} format="long" className="mt-1" />
-        {event.short_description ? (
-          <p className="mt-1 hidden text-[15px] text-[var(--muted)] line-clamp-2 sm:block">
-            {event.short_description}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[var(--muted)]">
+            {place}
+            {" · "}
+            {typeLabel}
           </p>
-        ) : null}
+          <h3 className="mt-1 font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+            {event.title}
+          </h3>
+        </div>
       </div>
+      <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+        Bekijk event
+      </span>
     </Link>
   );
 }

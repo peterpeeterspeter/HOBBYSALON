@@ -110,50 +110,50 @@ export function WorkshopDiscoveryRow({
     <Link
       href={`/workshop/${workshop.slug}`}
       className={cn(
-        "flex gap-4 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-3 transition-colors hover:border-[var(--accent)] sm:p-4",
+        "group grid gap-3 py-5 transition-colors hover:bg-[var(--section-highlight)]/80 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-2",
         className
       )}
     >
-      <div className="h-24 w-28 shrink-0 overflow-hidden rounded-[10px] bg-[var(--border)] sm:h-28 sm:w-36">
-        {workshop.featured_image_url ? (
-          <img
-            src={workshop.featured_image_url}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : null}
+      <div className="font-[family-name:var(--font-heading)] text-lg font-bold leading-tight text-[var(--accent)] sm:text-xl">
+        <DateDisplay date={workshop.nextSession.startsAt} format="short" />
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <DifficultyIndicator level={workshop.difficulty_level} />
-          <Badge variant="format">
-            {FORMAT_LABELS[workshop.format_type] ?? workshop.format_type}
-          </Badge>
-        </div>
-        <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 sm:text-xl">
-          {workshop.title}
-        </h3>
-        <p className="mt-1 text-[15px] font-semibold text-[var(--foreground)]">
-          <DateDisplay date={workshop.nextSession.startsAt} format="short" />
-          {" · "}
-          {placeLabel}
-          {duration ? ` · ${duration}` : null}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          {workshop.price_cents > 0 ? (
-            <PriceDisplay
-              amount={workshop.price_cents}
-              currencyCode={workshop.currency_code}
+      <div className="flex min-w-0 items-start gap-4">
+        <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+          {workshop.featured_image_url ? (
+            <img
+              src={workshop.featured_image_url}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
             />
+          ) : null}
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <DifficultyIndicator level={workshop.difficulty_level} />
+            <span className="text-sm font-semibold text-[var(--muted)]">
+              {placeLabel}
+              {duration ? ` · ${duration}` : null}
+            </span>
+          </div>
+          <h3 className="mt-1 font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+            {workshop.title}
+          </h3>
+          {workshop.price_cents > 0 ? (
+            <div className="mt-1">
+              <PriceDisplay
+                amount={workshop.price_cents}
+                currencyCode={workshop.currency_code}
+              />
+            </div>
           ) : (
-            <span className="text-sm font-semibold text-[var(--muted)]">Gratis</span>
+            <p className="mt-1 text-sm font-semibold text-[var(--muted)]">Gratis</p>
           )}
-          <span className="text-[15px] font-bold text-[var(--accent)]">
-            Bekijk workshop
-          </span>
         </div>
       </div>
+      <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+        Bekijk workshop
+      </span>
     </Link>
   );
 }

@@ -35,7 +35,6 @@ export default async function HomePage() {
     makers: [],
   }));
 
-  // Auth-dependent resume stays outside the shared home cache
   let resumableProject: Awaited<
     ReturnType<typeof listResumableSavedProjects>
   >[number] | null = null;
@@ -73,32 +72,47 @@ export default async function HomePage() {
     },
   };
 
+  const heroImage =
+    data.upcomingWorkshops.find((w) => w.featured_image_url?.trim())
+      ?.featured_image_url ?? null;
+
   return (
     <>
       <JsonLd data={[orgSchema, websiteSchema]} />
 
-      <Container className="py-8 sm:py-10">
-        <HomeHero weekendHref={homeWeekendAgendaHref()} />
+      <HomeHero
+        weekendHref={homeWeekendAgendaHref()}
+        imageSrc={heroImage}
+      />
 
-        {resumableProject ? (
-          <div className="mb-8 rounded-[12px] border border-[var(--border)] bg-[var(--section-highlight)] px-4 py-4 sm:px-5">
-            <p className="text-[15px] font-semibold text-[var(--foreground)]">
-              Verder met je project
-            </p>
-            <p className="mt-1 text-[15px] text-[var(--muted)]">
-              {resumableProject.source.title}
-            </p>
+      {resumableProject ? (
+        <Container className="py-5">
+          <div className="flex flex-col gap-2 border-b border-[var(--border)] py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div>
+              <p className="text-[15px] font-semibold text-[var(--foreground)]">
+                Verder met je project
+              </p>
+              <p className="mt-1 text-[15px] text-[var(--muted)]">
+                {resumableProject.source.title}
+              </p>
+            </div>
             <Link
               href={`/profile/start/${resumableProject.entityType}/${resumableProject.entityId}`}
-              className="mt-3 inline-flex min-h-11 items-center font-bold text-[var(--accent)] underline underline-offset-4"
+              className="inline-flex min-h-11 shrink-0 items-center font-bold text-[var(--accent)] underline underline-offset-4"
             >
               Ga verder
             </Link>
           </div>
-        ) : null}
+        </Container>
+      ) : null}
 
-        <HomeHobbyChips domains={data.domainsWithLiveContent} />
+      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+        <Container className="py-8 sm:py-10">
+          <HomeHobbyChips domains={data.domainsWithLiveContent} />
+        </Container>
+      </div>
 
+      <Container className="flex flex-col gap-14 py-10 sm:gap-16 sm:py-14">
         <HomeAgendaTeaser events={data.featuredEvents} />
 
         {data.journey ? <HomeJourneySection journey={data.journey} /> : null}
@@ -109,9 +123,9 @@ export default async function HomePage() {
         />
 
         <HomeMakers makers={data.makers} />
-
-        <HomeProvidersCta />
       </Container>
+
+      <HomeProvidersCta />
     </>
   );
 }
