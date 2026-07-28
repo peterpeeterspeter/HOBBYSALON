@@ -1,7 +1,10 @@
 import { useState } from "react"
 import { ExclamationCircle } from "@medusajs/icons"
 import { Button, Heading, Select, Text } from "@medusajs/ui"
-import { useCreateStripeAccount } from "../../../hooks/api"
+import {
+  useCreateStripeAccount,
+  useCreateStripeOnboarding,
+} from "../../../hooks/api"
 
 const PAYOUT_COUNTRIES = [
   { value: "BE", label: "België" },
@@ -9,8 +12,52 @@ const PAYOUT_COUNTRIES = [
 ] as const
 
 export const NotConnected = () => {
-  const { mutateAsync, isPending } = useCreateStripeAccount()
+  const { mutateAsync: createAccount, isPending: isCreating } =
+    useCreateStripeAccount()
+  const { mutateAsync: createOnboarding, isPending: isOnboarding } =
+    useCreateStripeOnboarding()
   const [country, setCountry] = useState<(typeof PAYOUT_COUNTRIES)[number]["value"]>("BE")
+  const [error, setError] = useState<string | null>(null)
+
+  const isPending = isCreating || isOnboarding
+
+  const handleConnect = async () => {
+    setError(null)
+    try {
+      await createAccount({
+        context: {
+          country,
+        },
+      })
+
+      const hostname = window.location.href
+      const { payout_account } = await createOnboarding({
+        context: {
+          refresh_url: hostname,
+          return_url: hostname,
+        },
+      })
+
+      const url = payout_account.onboarding?.data?.url
+      if (url) {
+        window.location.replace(url)
+        return
+      }
+
+      setError("Stripe onboarding-link ontbreekt. Probeer opnieuw.")
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" &&
+              err &&
+              "message" in err &&
+              typeof (err as { message: unknown }).message === "string"
+            ? (err as { message: string }).message
+            : "Koppelen met Stripe mislukt. Probeer opnieuw."
+      setError(message)
+    }
+  }
 
   return (
     <div className="flex items-center justify-center text-center my-32 flex-col">
@@ -19,9 +66,8 @@ export const NotConnected = () => {
         Not connected
       </Heading>
       <Text className="text-ui-fg-subtle max-w-md" size="small">
-        Add payout details so Hobbysalon can pay you. Choose your country, then
-        complete Stripe&apos;s short payout onboarding (identity + bank account).
-        You do not need a full Stripe merchant account.
+        Voeg uitbetalingsgegevens toe zodat Hobbysalon je kan betalen. Kies je
+        land en rond Stripe&apos;s Express-onboarding af (identiteit + bankrekening).
       </Text>
       <div className="mt-4 w-56 text-left">
         <Text size="small" className="mb-1.5 block font-medium">
@@ -45,16 +91,15 @@ export const NotConnected = () => {
           </Select.Content>
         </Select>
       </div>
+      {error ? (
+        <Text className="text-ui-fg-error mt-3 max-w-md" size="small">
+          {error}
+        </Text>
+      ) : null}
       <Button
         isLoading={isPending}
         className="mt-4"
-        onClick={() =>
-          mutateAsync({
-            context: {
-              country,
-            },
-          })
-        }
+        onClick={() => void handleConnect()}
       >
         Connect Stripe
       </Button>

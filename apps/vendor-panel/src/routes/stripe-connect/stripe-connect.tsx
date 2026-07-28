@@ -22,7 +22,7 @@ export const StripeConnect = () => {
         <div>
           <Heading>Stripe Connect</Heading>
           <Text className="text-ui-fg-subtle" size="small">
-            Connect payouts only (BE/NL) — lighter verification for marketplace sellers
+            Koppel Stripe Express voor uitbetalingen (BE/NL)
           </Text>
         </div>
         <div>

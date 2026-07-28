@@ -53,7 +53,7 @@ export const Connected = ({
         Not onboarded
       </Heading>
       <Text className="text-ui-fg-subtle max-w-sm" size="small">
-        Finish the short payout setup (identity + bank account for BE/NL).
+        Rond de Stripe Express-setup af (identiteit + bankrekening voor BE/NL).
       </Text>
       <Button
         isLoading={isPending}

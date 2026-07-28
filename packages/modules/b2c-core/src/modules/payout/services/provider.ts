@@ -113,18 +113,19 @@ export class PayoutProvider implements IPayoutProvider {
         );
       }
 
-      // Marketplace payouts only: recipients receive transfers from the platform.
-      // Do NOT request card_payments — that triggers full merchant KYC.
-      // Recipient agreement = lighter identity + bank onboarding for sellers.
+      // BE platforms cannot use the recipient ToS for domestic (BE) connected
+      // accounts — Stripe returns: "recipient ToS agreement is not supported
+      // for platforms in BE creating accounts in BE". Use the full Express
+      // agreement with transfers (+ card_payments required by Express full).
+      // See https://docs.stripe.com/connect/service-agreement-types
       const account = await this.client_.accounts.create({
         country: country as string,
         type: "express",
         capabilities: {
+          card_payments: { requested: true },
           transfers: { requested: true },
         },
-        tos_acceptance: {
-          service_agreement: "recipient",
-        },
+        business_type: "individual",
         metadata: {
           account_id,
         },
