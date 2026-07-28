@@ -64,7 +64,6 @@ const PRODUCT_CONDITION_TYPES = new Set([
 
 const WORKSHOP_FORMATS = new Set(["physical", "online", "hybrid"]);
 const WORKSHOP_DIFFICULTY = new Set(["beginner", "intermediate", "advanced"]);
-const WORKSHOP_BOOKING_MODES = new Set(["request", "external_link"]);
 const EVENT_TYPES = new Set([
   "handmade_market",
   "hobby_fair",
@@ -113,6 +112,16 @@ function parseRequiredString(formData: FormData, field: string): string {
     throw new Error(`${field} is verplicht`);
   }
   return raw;
+}
+
+/** `datetime-local` → ISO UTC for Postgres timestamptz. */
+function parseRequiredDateTimeLocal(formData: FormData, field: string): string {
+  const raw = parseRequiredString(formData, field);
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Ongeldige datum of tijd.");
+  }
+  return date.toISOString();
 }
 
 function parseOptionalInt(formData: FormData, field: string): number | null {
@@ -1852,10 +1861,11 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
-    const bookingMode = parseRequiredString(formData, "booking_mode");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const optionalProductId = parseOptionalUuid(formData, "product_id");
     const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
+    const sessionStartsAt = parseRequiredDateTimeLocal(formData, "session_starts_at");
+    const sessionEndsAt = parseRequiredDateTimeLocal(formData, "session_ends_at");
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1863,16 +1873,17 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     if (!WORKSHOP_DIFFICULTY.has(difficultyLevel)) {
       fail("/dashboard/workshops", "Ongeldig niveau.");
     }
-    if (!WORKSHOP_BOOKING_MODES.has(bookingMode)) {
-      fail("/dashboard/workshops", "Ongeldige boekingsmethode.");
+    if (new Date(sessionEndsAt).getTime() <= new Date(sessionStartsAt).getTime()) {
+      fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
     }
 
     const isActive = !!formData.get("is_active");
+    const capacity = parseOptionalInt(formData, "capacity");
     const enforced = await enforceWorkshopBookingFields(
       creator.id,
       creator.creator_types ?? [],
       {
-        booking_mode: bookingMode,
+        booking_mode: "request",
         booking_url: null,
         is_active: isActive,
       }
@@ -1912,12 +1923,12 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
         audience_types: taxonomy.audience_types,
         age_groups: taxonomy.age_groups,
         languages: taxonomy.languages,
-        booking_mode: enforced.booking_mode,
-        booking_url: enforced.booking_url,
+        booking_mode: "request",
+        booking_url: null,
         city: parseOptionalString(formData, "city"),
         location_name: parseOptionalString(formData, "location_name"),
         duration_minutes: parseOptionalInt(formData, "duration_minutes"),
-        capacity: parseOptionalInt(formData, "capacity"),
+        capacity,
         price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         is_active: isActive,
@@ -1927,6 +1938,24 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
     if (error || !createdWorkshop) {
       fail("/dashboard/workshops", "Workshop aanmaken mislukt.");
+    }
+
+    const { error: sessionError } = await supabase.from("workshop_sessions").insert({
+      workshop_id: createdWorkshop.id,
+      starts_at: sessionStartsAt,
+      ends_at: sessionEndsAt,
+      capacity,
+      remaining_spots: capacity,
+      is_cancelled: false,
+      booking_status: "open",
+    });
+
+    if (sessionError) {
+      console.error("Workshop session insert failed:", sessionError);
+      fail(
+        "/dashboard/workshops",
+        "Workshop aangemaakt, maar de datum kon niet worden opgeslagen. Voeg een datum toe via bewerken."
+      );
     }
 
     if (galleryUrls.length > 0) {
@@ -1988,7 +2017,6 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
-    const bookingMode = parseRequiredString(formData, "booking_mode");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
 
@@ -1998,16 +2026,13 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     if (!WORKSHOP_DIFFICULTY.has(difficultyLevel)) {
       fail("/dashboard/workshops", "Ongeldig niveau.");
     }
-    if (!WORKSHOP_BOOKING_MODES.has(bookingMode)) {
-      fail("/dashboard/workshops", "Ongeldige boekingsmethode.");
-    }
 
     const isActive = !!formData.get("is_active");
     const enforced = await enforceWorkshopBookingFields(
       creator.id,
       creator.creator_types ?? [],
       {
-        booking_mode: bookingMode,
+        booking_mode: "request",
         booking_url: null,
         is_active: isActive,
         excludeWorkshopId: workshopId,
@@ -2058,8 +2083,8 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
         audience_types: taxonomy.audience_types,
         age_groups: taxonomy.age_groups,
         languages: taxonomy.languages,
-        booking_mode: enforced.booking_mode,
-        booking_url: enforced.booking_url,
+        booking_mode: "request",
+        booking_url: null,
         city: parseOptionalString(formData, "city"),
         location_name: parseOptionalString(formData, "location_name"),
         duration_minutes: parseOptionalInt(formData, "duration_minutes"),
@@ -2092,6 +2117,117 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${existingWorkshop.slug}`);
     ok("/dashboard/workshops", "Workshop bijgewerkt.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createWorkshopSessionAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const workshopId = parseRequiredUuid(formData, "workshop_id");
+    const sessionStartsAt = parseRequiredDateTimeLocal(
+      formData,
+      "session_starts_at"
+    );
+    const sessionEndsAt = parseRequiredDateTimeLocal(
+      formData,
+      "session_ends_at"
+    );
+
+    if (new Date(sessionEndsAt).getTime() <= new Date(sessionStartsAt).getTime()) {
+      fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
+    }
+
+    const supabase = createPlatformClient();
+    const { data: workshop, error: workshopError } = await supabase
+      .from("workshops")
+      .select("id, slug, capacity")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (workshopError || !workshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const capacity =
+      parseOptionalInt(formData, "capacity") ?? workshop.capacity ?? null;
+
+    const { error } = await supabase.from("workshop_sessions").insert({
+      workshop_id: workshop.id,
+      starts_at: sessionStartsAt,
+      ends_at: sessionEndsAt,
+      capacity,
+      remaining_spots: capacity,
+      is_cancelled: false,
+      booking_status: "open",
+    });
+
+    if (error) {
+      fail("/dashboard/workshops", "Datum toevoegen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${workshop.slug}`);
+    ok("/dashboard/workshops", "Datum toegevoegd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function cancelWorkshopSessionAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const sessionId = parseRequiredUuid(formData, "session_id");
+    const supabase = createPlatformClient();
+
+    const { data: row } = await supabase
+      .from("workshop_sessions")
+      .select("id, workshop_id, workshops!inner(creator_id, slug)")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    const workshop = row?.workshops as
+      | { creator_id?: string; slug?: string }
+      | { creator_id?: string; slug?: string }[]
+      | null
+      | undefined;
+    const workshopMeta = Array.isArray(workshop) ? workshop[0] : workshop;
+
+    if (!row || workshopMeta?.creator_id !== creator.id) {
+      fail("/dashboard/workshops", "Sessie niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("workshop_sessions")
+      .update({
+        is_cancelled: true,
+        booking_status: "closed",
+      })
+      .eq("id", sessionId);
+
+    if (error) {
+      fail("/dashboard/workshops", "Datum annuleren mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    if (workshopMeta?.slug) {
+      revalidatePath(`/workshop/${workshopMeta.slug}`);
+    }
+    ok("/dashboard/workshops", "Datum geannuleerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

@@ -7,7 +7,9 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import {
+  cancelWorkshopSessionAction,
   createWorkshopAction,
+  createWorkshopSessionAction,
   updateBookingRequestStatusAction,
   updateWorkshopAction,
   deleteWorkshopGalleryImageAction,
@@ -39,6 +41,17 @@ type GalleryImage = {
   sort_order: number;
 };
 
+type WorkshopSessionRow = {
+  id: string;
+  workshop_id: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number | null;
+  remaining_spots: number | null;
+  is_cancelled: boolean;
+  booking_status: string;
+};
+
 type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
@@ -46,6 +59,17 @@ type Props = {
 function formatEuroFromCents(cents: number | null | undefined): string {
   if (cents == null) return "";
   return (cents / 100).toFixed(2);
+}
+
+function formatSessionDate(value: string): string {
+  return new Intl.DateTimeFormat("nl-BE", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function bookingWorkshopTitle(
@@ -70,11 +94,6 @@ const DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "Beginner" },
   { value: "intermediate", label: "Gevorderd" },
   { value: "advanced", label: "Expert" },
-];
-
-const BOOKING_MODE_OPTIONS = [
-  { value: "request", label: "Aanvraag via Hobbysalon" },
-  { value: "external_link", label: "Externe link (Premium)" },
 ];
 
 const REQUEST_STATUS_OPTIONS = [
@@ -109,6 +128,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
   let workshops: Workshop[] = [];
   let bookingRequests: BookingRequest[] = [];
   const galleryByWorkshop = new Map<string, GalleryImage[]>();
+  const sessionsByWorkshop = new Map<string, WorkshopSessionRow[]>();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
     null;
   let primaryDomainId = "";
@@ -151,16 +171,31 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
 
     const workshopIds = workshops.map((workshop) => workshop.id);
     if (workshopIds.length > 0) {
-      const { data: galleryData } = await supabase
-        .from("workshop_gallery_images")
-        .select("id, workshop_id, image_url, sort_order")
-        .in("workshop_id", workshopIds)
-        .order("sort_order", { ascending: true });
+      const [{ data: galleryData }, { data: sessionsData }] = await Promise.all([
+        supabase
+          .from("workshop_gallery_images")
+          .select("id, workshop_id, image_url, sort_order")
+          .in("workshop_id", workshopIds)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("workshop_sessions")
+          .select(
+            "id, workshop_id, starts_at, ends_at, capacity, remaining_spots, is_cancelled, booking_status"
+          )
+          .in("workshop_id", workshopIds)
+          .order("starts_at", { ascending: true }),
+      ]);
 
       for (const image of (galleryData ?? []) as GalleryImage[]) {
         const list = galleryByWorkshop.get(image.workshop_id) ?? [];
         list.push(image);
         galleryByWorkshop.set(image.workshop_id, list);
+      }
+
+      for (const session of (sessionsData ?? []) as WorkshopSessionRow[]) {
+        const list = sessionsByWorkshop.get(session.workshop_id) ?? [];
+        list.push(session);
+        sessionsByWorkshop.set(session.workshop_id, list);
       }
     }
   }
@@ -174,11 +209,14 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
     label: domain.name,
   }));
 
+  const now = Date.now();
+
   return (
     <section className="space-y-6">
       <h1 className="text-3xl font-bold text-[var(--foreground)]">Workshopbeheer</h1>
       <p className="text-[var(--muted)]">
-        Beheer workshops en behandel boekingsaanvragen.
+        Beheer workshops met data, en behandel boekingsaanvragen. Boeken gebeurt via
+        aanvraag op Hobbysalon.
         {commercialContext?.workshopLimit != null && (
           <>
             {" "}
@@ -208,6 +246,10 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
           <CardShell variant="default" padding="lg">
             <form action={createWorkshopAction} encType="multipart/form-data">
               <h2 className="text-lg font-semibold">Nieuwe workshop</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Elke workshop heeft minstens één datum. Bezoekers sturen een aanvraag via
+                Hobbysalon.
+              </p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className="sm:col-span-2">
                   <span className="mb-1 block text-sm font-medium">Titel *</span>
@@ -250,23 +292,23 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                     ))}
                   </select>
                 </label>
-                <label className="sm:col-span-2">
-                  <span className="mb-1 block text-sm font-medium">Boekingsmode *</span>
-                  <select
-                    name="booking_mode"
-                    defaultValue="request"
+                <label>
+                  <span className="mb-1 block text-sm font-medium">Start *</span>
+                  <input
+                    name="session_starts_at"
+                    type="datetime-local"
+                    required
                     className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                  >
-                    {BOOKING_MODE_OPTIONS.filter(
-                      (option) =>
-                        option.value !== "external_link" ||
-                        commercialContext?.allowExternalBooking
-                    ).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-sm font-medium">Einde *</span>
+                  <input
+                    name="session_ends_at"
+                    type="datetime-local"
+                    required
+                    className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                  />
                 </label>
                 <label>
                   <span className="mb-1 block text-sm font-medium">Locatie of zaal</span>
@@ -362,6 +404,12 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
             ) : (
               workshops.map((workshop) => {
                 const gallery = galleryByWorkshop.get(workshop.id) ?? [];
+                const sessions = sessionsByWorkshop.get(workshop.id) ?? [];
+                const upcoming = sessions.find(
+                  (session) =>
+                    !session.is_cancelled &&
+                    new Date(session.starts_at).getTime() >= now
+                );
                 return (
                   <details
                     key={workshop.id}
@@ -372,6 +420,11 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       <span className="text-sm font-normal text-[var(--muted)]">
                         ({workshop.format_type})
                         {workshop.is_active ? " · actief" : " · concept"}
+                        {upcoming
+                          ? ` · ${formatSessionDate(upcoming.starts_at)}`
+                          : sessions.length === 0
+                            ? " · geen datum"
+                            : " · geen komende datum"}
                       </span>
                     </summary>
                     <form
@@ -423,24 +476,6 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                           className="w-full rounded-md border border-[var(--border)] px-3 py-2"
                         >
                           {DIFFICULTY_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        <span className="mb-1 block text-sm font-medium">Boekingsmode</span>
-                        <select
-                          name="booking_mode"
-                          defaultValue={workshop.booking_mode}
-                          className="w-full rounded-md border border-[var(--border)] px-3 py-2"
-                        >
-                          {BOOKING_MODE_OPTIONS.filter(
-                            (option) =>
-                              option.value !== "external_link" ||
-                              commercialContext?.allowExternalBooking
-                          ).map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -575,6 +610,100 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         </button>
                       </div>
                     </form>
+
+                    <div className="mt-6 border-t border-[var(--border)] pt-4">
+                      <h3 className="text-sm font-semibold">Data / kalender</h3>
+                      {sessions.length === 0 ? (
+                        <p className="mt-2 text-sm text-[var(--muted)]">
+                          Nog geen data. Voeg hieronder een datum toe.
+                        </p>
+                      ) : (
+                        <ul className="mt-3 space-y-2">
+                          {sessions.map((session) => (
+                            <li
+                              key={session.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                            >
+                              <div>
+                                <p
+                                  className={
+                                    session.is_cancelled
+                                      ? "text-[var(--muted)] line-through"
+                                      : undefined
+                                  }
+                                >
+                                  {formatSessionDate(session.starts_at)}
+                                  {" – "}
+                                  {new Intl.DateTimeFormat("nl-BE", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }).format(new Date(session.ends_at))}
+                                </p>
+                                <p className="text-xs text-[var(--muted)]">
+                                  {session.is_cancelled
+                                    ? "Geannuleerd"
+                                    : session.booking_status === "open"
+                                      ? "Open voor aanvragen"
+                                      : session.booking_status}
+                                  {session.capacity != null
+                                    ? ` · max. ${session.capacity}`
+                                    : ""}
+                                </p>
+                              </div>
+                              {!session.is_cancelled && (
+                                <form action={cancelWorkshopSessionAction}>
+                                  <input
+                                    type="hidden"
+                                    name="session_id"
+                                    value={session.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="text-xs text-red-700 hover:underline"
+                                  >
+                                    Annuleer datum
+                                  </button>
+                                </form>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <form
+                        action={createWorkshopSessionAction}
+                        className="mt-4 grid gap-3 sm:grid-cols-2"
+                      >
+                        <input type="hidden" name="workshop_id" value={workshop.id} />
+                        <label>
+                          <span className="mb-1 block text-sm font-medium">
+                            Nieuwe start *
+                          </span>
+                          <input
+                            name="session_starts_at"
+                            type="datetime-local"
+                            required
+                            className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                          />
+                        </label>
+                        <label>
+                          <span className="mb-1 block text-sm font-medium">
+                            Nieuw einde *
+                          </span>
+                          <input
+                            name="session_ends_at"
+                            type="datetime-local"
+                            required
+                            className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+                          />
+                        </label>
+                        <div className="sm:col-span-2">
+                          <Button type="submit" variant="secondary" size="sm">
+                            Datum toevoegen
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
                   </details>
                 );
               })

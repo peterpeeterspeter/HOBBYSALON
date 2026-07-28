@@ -581,12 +581,22 @@ export default async function HomePage() {
                   <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
                     Je was al begonnen. Ga rustig verder wanneer het jou past.
                   </p>
-                  <Link
-                    href={`/profile/start/${resumableProject.entityType}/${resumableProject.entityId}`}
-                    className="mt-4 inline-flex min-h-11 w-fit items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
-                  >
-                    Verder met dit project
-                  </Link>
+                  <div className="mt-4 flex flex-col items-start gap-2">
+                    <Link
+                      href={`/profile/start/${resumableProject.entityType}/${resumableProject.entityId}`}
+                      className="inline-flex min-h-11 w-fit items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                    >
+                      Verder met dit project
+                    </Link>
+                    {resumableProject.source.sourceHref ? (
+                      <Link
+                        href={resumableProject.source.sourceHref}
+                        className="text-base font-semibold text-[var(--accent)] underline underline-offset-4 hover:no-underline"
+                      >
+                        {resumableProject.source.sourceCtaLabel}
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </section>

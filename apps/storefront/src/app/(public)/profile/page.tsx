@@ -315,12 +315,22 @@ export default async function ProfilePage({ searchParams }: Props) {
                   <h3 className="mt-2 text-xl font-semibold leading-snug text-[var(--foreground)]">
                     {run.source.title}
                   </h3>
-                  <Link
-                    href={`/profile/start/${run.entityType}/${run.entityId}`}
-                    className="mt-5 inline-flex min-h-12 items-center rounded-lg bg-[var(--accent)] px-5 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 active:scale-[0.98]"
-                  >
-                    Verder met dit project
-                  </Link>
+                  <div className="mt-5 flex flex-col items-start gap-3">
+                    <Link
+                      href={`/profile/start/${run.entityType}/${run.entityId}`}
+                      className="inline-flex min-h-12 items-center rounded-lg bg-[var(--accent)] px-5 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 active:scale-[0.98]"
+                    >
+                      Verder met dit project
+                    </Link>
+                    {run.source.sourceHref ? (
+                      <Link
+                        href={run.source.sourceHref}
+                        className="text-base font-semibold text-[var(--accent)] underline underline-offset-4 hover:no-underline"
+                      >
+                        {run.source.sourceCtaLabel}
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             ))}
