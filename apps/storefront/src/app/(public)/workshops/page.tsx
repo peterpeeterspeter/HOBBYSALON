@@ -1,47 +1,51 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { WorkshopCard } from "@/components/cards";
-import { GridLayout } from "@/components/layout/grid-layout";
-import { Container } from "@/components/ui/container";
-import { EmptyState } from "@/components/ui/empty-state";
-import { CategoryCircles } from "@/components/materials/CategoryCircles";
 import {
   ActiveFilterChips,
   type FilterChip,
 } from "@/components/materials/ActiveFilterChips";
 import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
-import { WorkshopsSidebar } from "@/components/workshops/WorkshopsSidebar";
-import { WorkshopsToolbar } from "@/components/workshops/WorkshopsToolbar";
-import { WorkshopRow } from "@/components/workshops/WorkshopRow";
-import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
+import { Container } from "@/components/ui/container";
+import { WorkshopsHero } from "@/components/workshops/WorkshopsHero";
+import { WorkshopsQuickFilters } from "@/components/workshops/WorkshopsQuickFilters";
+import { WorkshopsHobbyChips } from "@/components/workshops/WorkshopsHobbyChips";
+import {
+  WorkshopsFilterBar,
+  WorkshopsSortControl,
+} from "@/components/workshops/WorkshopsFilterBar";
+import { WorkshopsResultsHeader } from "@/components/workshops/WorkshopsResultsHeader";
+import { WorkshopsGroupedList } from "@/components/workshops/WorkshopsGroupedList";
+import { WorkshopsEmptyActions } from "@/components/workshops/WorkshopsEmptyActions";
+import {
+  formatAgendaPlaceLabel,
+  groupWorkshopsByDiscoveryBucket,
+  resolveAgendaCustomRange,
+  resolveAgendaDatePreset,
+  resolveHobbyChipDomainIds,
+  sanitizeAgendaSearchQuery,
+} from "@/lib/workshops/workshop-discovery-helpers";
 import { getLocationPreference } from "@/lib/location/preference";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listWorkshopCategories } from "@/lib/platform/queries/workshop-categories";
-import { listAllWorkshops } from "@/lib/platform/queries/workshops";
-import { listSupplyMarketplaceProducts } from "@/lib/platform/queries/products";
+import { listDiscoveryWorkshops } from "@/lib/platform/queries/workshops";
 import { createPlatformClient } from "@/lib/platform/client";
 import {
+  WORKSHOP_EXTENDED_TAXONOMY_FILTERS_ENABLED,
   isWorkshopAgeGroup,
   isWorkshopAudienceType,
   isWorkshopLanguage,
   isWorkshopOfferType,
-  WORKSHOP_AGE_GROUP_LABELS,
-  WORKSHOP_AUDIENCE_LABELS,
-  WORKSHOP_LANGUAGE_LABELS,
-  WORKSHOP_OFFER_TYPE_LABELS,
-  type WorkshopAgeGroup,
-  type WorkshopAudienceType,
-  type WorkshopLanguage,
+  parseWorkshopCodeList,
 } from "@/lib/platform/workshop-taxonomy";
-import type { Workshop } from "@/types/platform";
 
 export const metadata: Metadata = {
   title: "Workshops | Hobbysalon",
-  description: "Ontdek en boek workshops voor je hobby",
+  description: "Vind een workshop die bij je past — dichtbij of online",
 };
 
 type SearchParams = Promise<{
   q?: string;
+  place?: string;
+  when?: string;
   domain?: string;
   category?: string;
   difficulty?: string;
@@ -58,31 +62,28 @@ type SearchParams = Promise<{
   country?: string;
   sort?: string;
   page?: string;
-  view?: string;
 }>;
 
-type ParamBag = Record<string, string | string[] | undefined>;
-
 const PAGE_SIZE = 12;
+const SPARSE_ROW_THRESHOLD = 3;
 
-function asStringList(value: string | string[] | undefined): string[] {
+const DIFFICULTY_LABELS: Record<string, string> = {
+  beginner: "Beginner",
+  intermediate: "Gevorderd",
+  advanced: "Expert",
+};
+
+function asList(value: string | string[] | undefined): string[] {
   if (!value) return [];
-  const parts = Array.isArray(value) ? value : [value];
-  return [
-    ...new Set(
-      parts
-        .flatMap((part) => part.split(","))
-        .map((part) => part.trim())
-        .filter(Boolean)
-    ),
-  ];
+  if (Array.isArray(value)) return value.flatMap((v) => v.split(","));
+  return value.split(",");
 }
 
 function eurosToCents(value: string | undefined): number | undefined {
   if (!value?.trim()) return undefined;
-  const parsed = Number.parseFloat(value.replace(",", "."));
-  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
-  return Math.round(parsed * 100);
+  const n = Number.parseFloat(value.replace(",", "."));
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return Math.round(n * 100);
 }
 
 async function getUniqueWorkshopValues(
@@ -99,36 +100,22 @@ async function getUniqueWorkshopValues(
     ...new Set(
       (data ?? [])
         .map((row) => (row as Record<typeof column, string | null>)[column])
-        .filter((value): value is string => !!value)
+        .filter((v): v is string => !!v)
     ),
   ];
   return values.sort();
 }
 
-function sortWorkshops(workshops: Workshop[], sort: string): Workshop[] {
-  if (sort === "newest") {
-    return [...workshops].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }
-  if (sort === "price_asc") {
-    return [...workshops].sort((a, b) => a.price_cents - b.price_cents);
-  }
-  return workshops;
-}
-
 function buildWorkshopsHref(
-  current: ParamBag,
-  overrides: ParamBag = {}
+  current: Record<string, string | undefined>,
+  overrides: Record<string, string | undefined> = {}
 ) {
   const merged = { ...current, ...overrides };
   const query = new URLSearchParams();
   Object.entries(merged).forEach(([key, value]) => {
-    if (value == null) return;
-    const values = Array.isArray(value) ? value : [value];
-    values.forEach((entry) => {
-      if (entry && entry.trim() && entry !== "all") {
-        query.append(key, entry);
-      }
-    });
+    if (value && value.trim() && value !== "all") {
+      query.set(key, value);
+    }
   });
   const serialized = query.toString();
   return serialized ? `/workshops?${serialized}` : "/workshops";
@@ -142,123 +129,179 @@ export default async function WorkshopsPage({
   const params = await searchParams;
   const pageRaw = Number.parseInt(params.page || "1", 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-  const view = params.view === "list" ? "list" : "grid";
-  const sort =
-    params.sort === "newest" || params.sort === "price_asc"
-      ? params.sort
-      : "relevance";
   const locationPreference = await getLocationPreference();
 
-  const audience = asStringList(params.audience).filter(isWorkshopAudienceType);
-  const age = asStringList(params.age).filter(isWorkshopAgeGroup);
-  const language = asStringList(params.language).filter(isWorkshopLanguage);
-  const offer =
-    params.offer && isWorkshopOfferType(params.offer) ? params.offer : undefined;
-  const priceMinCents = eurosToCents(params.price_min);
-  const priceMaxCents = eurosToCents(params.price_max);
+  const q = sanitizeAgendaSearchQuery(params.q) ?? undefined;
+  const place = (params.place ?? params.city)?.trim() || null;
+  const when =
+    params.when === "today" ||
+    params.when === "weekend" ||
+    params.when === "next_week" ||
+    params.when === "month"
+      ? params.when
+      : null;
 
-  const hasAdvancedFilters = Boolean(
-    offer ||
-      audience.length ||
-      age.length ||
-      language.length ||
-      params.price_min ||
-      params.price_max ||
-      params.format
-  );
+  const customRange =
+    !when && (params.from || params.to)
+      ? resolveAgendaCustomRange(params.from, params.to)
+      : null;
+  const presetRange = when ? resolveAgendaDatePreset(when) : null;
+  const dateRange = customRange ?? presetRange;
 
-  const [domains, categories, allWorkshops, cities, countries] =
-    await Promise.all([
-      listActiveDomains(),
-      listWorkshopCategories({ activeOnly: true }),
-      listAllWorkshops({
-        q: params.q,
-        domain_id: params.domain,
-        category_id: params.category,
-        difficulty_level: params.difficulty,
-        format_type: params.format,
-        offer_type: offer,
-        audience,
-        age,
-        language,
-        price_min_cents: priceMinCents,
-        price_max_cents: priceMaxCents,
-        from_date: params.from,
-        to_date: params.to,
-        city: params.city,
-        country_code: params.country,
-        preferred_city: locationPreference.city ?? undefined,
-        preferred_country_code: locationPreference.countryCode ?? undefined,
-      }),
-      getUniqueWorkshopValues("city"),
-      getUniqueWorkshopValues("country_code"),
-    ]);
+  const sort =
+    params.sort === "near" || params.sort === "price_asc" ? params.sort : "soon";
 
-  const sortedWorkshops = sortWorkshops(allWorkshops, sort);
-  const totalCount = sortedWorkshops.length;
+  const difficulty = params.difficulty?.trim() || undefined;
+  const format = params.format?.trim() || undefined;
+
+  const extendedFilters = WORKSHOP_EXTENDED_TAXONOMY_FILTERS_ENABLED
+    ? {
+        offer_type: params.offer && isWorkshopOfferType(params.offer)
+          ? params.offer
+          : undefined,
+        audience: parseWorkshopCodeList(
+          asList(params.audience),
+          isWorkshopAudienceType
+        ),
+        age: parseWorkshopCodeList(asList(params.age), isWorkshopAgeGroup),
+        language: parseWorkshopCodeList(
+          asList(params.language),
+          isWorkshopLanguage
+        ),
+      }
+    : {};
+
   const offset = (page - 1) * PAGE_SIZE;
-  const pagedWorkshops = sortedWorkshops.slice(offset, offset + PAGE_SIZE);
+
+  const [domains, discovery, cities, countries, categories] = await Promise.all([
+    listActiveDomains(),
+    listDiscoveryWorkshops({
+      q,
+      place: place ?? undefined,
+      domain_id: params.domain,
+      category_id: params.category,
+      difficulty_level: difficulty,
+      format_type: format,
+      ...extendedFilters,
+      price_min_cents: eurosToCents(params.price_min),
+      price_max_cents: eurosToCents(params.price_max),
+      from_iso: dateRange?.from,
+      to_iso: dateRange?.to,
+      country_code: params.country,
+      preferred_city: !place ? locationPreference.city ?? undefined : undefined,
+      preferred_country_code: !place
+        ? locationPreference.countryCode ?? undefined
+        : undefined,
+      sort,
+      limit: PAGE_SIZE,
+      offset,
+    }),
+    getUniqueWorkshopValues("city"),
+    getUniqueWorkshopValues("country_code"),
+    params.domain
+      ? listWorkshopCategories({ domainId: params.domain, activeOnly: true })
+      : Promise.resolve([]),
+  ]);
+
+  const { workshops: pagedWorkshops, totalCount, domainIds } = discovery;
   const hasNextPage = offset + PAGE_SIZE < totalCount;
 
-  const graphMaterials = params.domain
-    ? await listSupplyMarketplaceProducts({
-        domain_id: params.domain,
-        limit: 4,
-      })
-    : [];
+  const chipDomainIds = resolveHobbyChipDomainIds({
+    resultDomainIds: domainIds,
+    selectedDomainId: params.domain,
+    allDomainIdsOrdered: domains.map((d) => d.id),
+  });
+  const chipDomains = domains.filter((d) => chipDomainIds.includes(d.id));
 
-  const current: ParamBag = {
-    q: params.q,
+  const groupMode = customRange ? "custom" : "preset";
+  const groups = groupWorkshopsByDiscoveryBucket(pagedWorkshops, {
+    mode: groupMode,
+  });
+  const useRows = totalCount > 0 && totalCount <= SPARSE_ROW_THRESHOLD;
+
+  const current: Record<string, string | undefined> = {
+    q: q ?? undefined,
+    place: place ?? undefined,
+    when: when ?? undefined,
     domain: params.domain,
     category: params.category,
-    difficulty: params.difficulty,
-    format: params.format,
-    offer,
-    audience,
-    age,
-    language,
+    difficulty,
+    format,
+    from: !when ? params.from : undefined,
+    to: !when ? params.to : undefined,
+    country: params.country,
     price_min: params.price_min,
     price_max: params.price_max,
-    from: params.from,
-    to: params.to,
-    city: params.city,
-    country: params.country,
-    sort: params.sort,
-    view: params.view,
+    sort: sort === "soon" ? undefined : sort,
   };
 
+  const currentHref = buildWorkshopsHref(current, {
+    page: page > 1 ? String(page) : undefined,
+  });
+
+  const buildHref = (overrides: Record<string, string | undefined>) =>
+    buildWorkshopsHref(current, overrides);
   const hrefForDomain = (domainId?: string) =>
     buildWorkshopsHref(current, {
       domain: domainId,
       category: undefined,
       page: undefined,
     });
+  const hrefForCategory = (categoryId?: string) =>
+    buildWorkshopsHref(current, { category: categoryId, page: undefined });
   const hrefForPage = (target: number) =>
     buildWorkshopsHref(current, {
       page: target > 1 ? String(target) : undefined,
     });
 
-  const FORMAT_LABELS: Record<string, string> = {
-    physical: "Fysiek",
-    online: "Online",
-    hybrid: "Hybride",
-  };
-  const DIFFICULTY_LABELS: Record<string, string> = {
-    beginner: "Beginner",
-    intermediate: "Gevorderd",
-    advanced: "Expert",
-  };
+  const placeLabel = place
+    ? formatAgendaPlaceLabel({ place, mode: "in" })
+    : null;
 
   const chips: FilterChip[] = [];
-  if (params.q) {
+  if (q) {
     chips.push({
-      label: `"${params.q}"`,
+      label: `Zoek: ${q}`,
       removeHref: buildWorkshopsHref(current, { q: undefined, page: undefined }),
+    });
+  }
+  if (place) {
+    chips.push({
+      label: placeLabel ?? place,
+      removeHref: buildWorkshopsHref(current, {
+        place: undefined,
+        page: undefined,
+      }),
+    });
+  }
+  if (when) {
+    const whenLabels: Record<string, string> = {
+      today: "Vandaag",
+      weekend: "Dit weekend",
+      next_week: "Volgende week",
+      month: "Deze maand",
+    };
+    chips.push({
+      label: whenLabels[when] ?? when,
+      removeHref: buildWorkshopsHref(current, {
+        when: undefined,
+        page: undefined,
+      }),
+    });
+  }
+  if (customRange && params.from) {
+    chips.push({
+      label: params.to ? `${params.from} – ${params.to}` : `Vanaf ${params.from}`,
+      removeHref: buildWorkshopsHref(current, {
+        from: undefined,
+        to: undefined,
+        page: undefined,
+      }),
     });
   }
   if (params.domain) {
     chips.push({
-      label: domains.find((d) => d.id === params.domain)?.name ?? "Domein",
+      label: domains.find((d) => d.id === params.domain)?.name ?? "Hobby",
       removeHref: buildWorkshopsHref(current, {
         domain: undefined,
         category: undefined,
@@ -276,27 +319,20 @@ export default async function WorkshopsPage({
       }),
     });
   }
-  if (params.from || params.to) {
-    const label =
-      params.from && params.to
-        ? `${params.from} – ${params.to}`
-        : params.from
-          ? `Vanaf ${params.from}`
-          : `Tot ${params.to}`;
+  if (difficulty) {
     chips.push({
-      label,
+      label: DIFFICULTY_LABELS[difficulty] ?? difficulty,
       removeHref: buildWorkshopsHref(current, {
-        from: undefined,
-        to: undefined,
+        difficulty: undefined,
         page: undefined,
       }),
     });
   }
-  if (params.city) {
+  if (format) {
     chips.push({
-      label: params.city,
+      label: format === "online" ? "Online" : format,
       removeHref: buildWorkshopsHref(current, {
-        city: undefined,
+        format: undefined,
         page: undefined,
       }),
     });
@@ -310,60 +346,9 @@ export default async function WorkshopsPage({
       }),
     });
   }
-  if (params.difficulty) {
-    chips.push({
-      label: DIFFICULTY_LABELS[params.difficulty] ?? params.difficulty,
-      removeHref: buildWorkshopsHref(current, {
-        difficulty: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  if (offer) {
-    chips.push({
-      label: WORKSHOP_OFFER_TYPE_LABELS[offer],
-      removeHref: buildWorkshopsHref(current, {
-        offer: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  for (const value of audience) {
-    chips.push({
-      label: WORKSHOP_AUDIENCE_LABELS[value as WorkshopAudienceType],
-      removeHref: buildWorkshopsHref(current, {
-        audience: audience.filter((entry) => entry !== value),
-        page: undefined,
-      }),
-    });
-  }
-  for (const value of age) {
-    chips.push({
-      label: WORKSHOP_AGE_GROUP_LABELS[value as WorkshopAgeGroup],
-      removeHref: buildWorkshopsHref(current, {
-        age: age.filter((entry) => entry !== value),
-        page: undefined,
-      }),
-    });
-  }
-  for (const value of language) {
-    chips.push({
-      label: WORKSHOP_LANGUAGE_LABELS[value as WorkshopLanguage],
-      removeHref: buildWorkshopsHref(current, {
-        language: language.filter((entry) => entry !== value),
-        page: undefined,
-      }),
-    });
-  }
   if (params.price_min || params.price_max) {
-    const label =
-      params.price_min && params.price_max
-        ? `€${params.price_min}–€${params.price_max}`
-        : params.price_min
-          ? `Vanaf €${params.price_min}`
-          : `Tot €${params.price_max}`;
     chips.push({
-      label,
+      label: `Prijs ${params.price_min ?? "…"}–${params.price_max ?? "…"}`,
       removeHref: buildWorkshopsHref(current, {
         price_min: undefined,
         price_max: undefined,
@@ -371,136 +356,132 @@ export default async function WorkshopsPage({
       }),
     });
   }
-  if (params.format) {
-    chips.push({
-      label: FORMAT_LABELS[params.format] ?? params.format,
-      removeHref: buildWorkshopsHref(current, {
-        format: undefined,
-        page: undefined,
-      }),
-    });
-  }
+
+  const hasExtraFilters = Boolean(
+    params.country || params.price_min || params.price_max
+  );
+
+  const resultsTitle = place
+    ? `Workshops in ${place}`
+    : "Workshops";
 
   return (
     <Container className="py-8">
-      <DiscoveryHero
-        title="Kies een workshop en leer iets nieuws"
-        description="Vind een rustige eerste les of verdiep je techniek bij ervaren workshopgevers, online of bij jou in de buurt."
-        searchAction="/workshops"
-        searchPlaceholder="Zoek bijvoorbeeld haken, keramiek of Gent"
-        locationLabel={
-          locationPreference.hasPreference ? locationPreference.label : null
-        }
-        resetHref="/workshops"
-        primaryHref="/agenda"
-        primaryLabel="Bekijk creatieve events"
+      <WorkshopsHero
+        defaultQuery={params.q}
+        hiddenFields={{
+          place: place ?? undefined,
+          when: when ?? undefined,
+          from: !when ? params.from : undefined,
+          to: !when ? params.to : undefined,
+          domain: params.domain,
+          category: params.category,
+          difficulty,
+          format,
+          country: params.country,
+          price_min: params.price_min,
+          price_max: params.price_max,
+          sort: sort === "soon" ? undefined : sort,
+        }}
       />
 
-      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
-        <WorkshopsSidebar
-          domains={domains}
-          categories={categories}
-          cities={cities}
-          countries={countries}
-          hasAdvancedFilters={hasAdvancedFilters}
-          params={{
-            q: params.q,
-            domain: params.domain,
-            category: params.category,
-            format: params.format,
-            difficulty: params.difficulty,
-            city: params.city,
-            country: params.country,
-            from: params.from,
-            to: params.to,
-            offer,
-            audience,
-            age,
-            language,
-            price_min: params.price_min,
-            price_max: params.price_max,
-            sort: params.sort,
-            view: params.view,
-          }}
-        />
+      <WorkshopsQuickFilters
+        placeLabel={placeLabel}
+        placeValue={place}
+        activeWhen={when}
+        customFrom={!when ? params.from : undefined}
+        customTo={!when ? params.to : undefined}
+        beginnerActive={difficulty === "beginner"}
+        onlineActive={format === "online"}
+        buildHref={buildHref}
+        currentHref={currentHref}
+        cities={cities}
+        savedRegionLabel={
+          locationPreference.hasPreference ? locationPreference.city : null
+        }
+      />
 
-        <div className="min-w-0 flex-1">
-          <CategoryCircles
-            domains={domains}
-            activeDomain={params.domain}
-            hrefForDomain={hrefForDomain}
-          />
+      <WorkshopsHobbyChips
+        domains={chipDomains}
+        activeDomainId={params.domain}
+        hrefForDomain={hrefForDomain}
+        categories={categories}
+        activeCategoryId={params.category}
+        hrefForCategory={hrefForCategory}
+      />
 
-          <ActiveFilterChips chips={chips} clearHref="/workshops" />
-
-          {graphMaterials.length > 0 && (
-            <section className="mb-6 rounded-[10px] border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-[var(--accent)]/15 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
-                  Materialen
-                </span>
-                <span className="text-[15px] font-semibold text-[var(--foreground)]">
-                  Schaf hier de benodigdheden aan:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {graphMaterials.map((product) => (
-                    <Link
-                      key={product.id}
-                      href={`/product/${product.slug}`}
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[13px] font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                    >
-                      {product.featured_image_url && (
-                        <img
-                          src={product.featured_image_url}
-                          alt=""
-                          className="h-7 w-7 rounded object-cover"
-                          loading="lazy"
-                        />
-                      )}
-                      <span className="max-w-[200px] truncate">
-                        {product.title}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          <WorkshopsToolbar
-            resultCount={pagedWorkshops.length}
-            totalCount={totalCount}
-            view={view}
-          />
-
-          {pagedWorkshops.length === 0 ? (
-            <EmptyState
-              image="emptySearch"
-              title="Geen workshops gevonden"
-              description="Pas je filters aan of probeer een bredere zoekterm."
-              action={{ label: "Alle workshops", href: "/workshops" }}
+      <WorkshopsResultsHeader
+        title={resultsTitle}
+        totalCount={totalCount}
+        controlsSlot={
+          <>
+            <WorkshopsSortControl activeSort={sort} buildHref={buildHref} />
+            <WorkshopsFilterBar
+              activeDifficulty={difficulty}
+              activeCountry={params.country}
+              priceMin={params.price_min}
+              priceMax={params.price_max}
+              countries={countries}
+              buildHref={buildHref}
+              clearHref="/workshops"
+              hasExtraFilters={hasExtraFilters}
             />
-          ) : view === "list" ? (
-            <div className="flex flex-col gap-4">
-              {pagedWorkshops.map((workshop) => (
-                <WorkshopRow key={workshop.id} workshop={workshop} />
-              ))}
-            </div>
-          ) : (
-            <GridLayout cols={3} gap="lg">
-              {pagedWorkshops.map((workshop) => (
-                <WorkshopCard key={workshop.id} workshop={workshop} />
-              ))}
-            </GridLayout>
-          )}
+          </>
+        }
+      />
 
+      <ActiveFilterChips chips={chips} clearHref="/workshops" />
+
+      {totalCount === 0 ? (
+        <WorkshopsEmptyActions
+          hasAnyResults={false}
+          hasPlaceFilter={Boolean(place)}
+          broaderPlaceHref={
+            place
+              ? buildWorkshopsHref(current, { place: undefined, page: undefined })
+              : null
+          }
+          belgiumHref={buildWorkshopsHref(
+            {
+              q: q ?? undefined,
+              when: when ?? undefined,
+              from: !when ? params.from : undefined,
+              to: !when ? params.to : undefined,
+              domain: params.domain,
+              category: params.category,
+              difficulty,
+              format,
+            },
+            { place: undefined, country: undefined, page: undefined }
+          )}
+        />
+      ) : (
+        <>
+          <WorkshopsGroupedList groups={groups} useRows={useRows} />
           <MaterialsPagination
             page={page}
             hasNextPage={hasNextPage}
             hrefForPage={hrefForPage}
           />
-        </div>
-      </div>
+          <WorkshopsEmptyActions
+            hasAnyResults
+            hasPlaceFilter={Boolean(place)}
+            broaderPlaceHref={
+              place
+                ? buildWorkshopsHref(current, {
+                    place: undefined,
+                    page: undefined,
+                  })
+                : null
+            }
+            belgiumHref={buildWorkshopsHref(current, {
+              place: undefined,
+              country: undefined,
+              page: undefined,
+            })}
+          />
+        </>
+      )}
     </Container>
   );
 }

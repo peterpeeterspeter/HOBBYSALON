@@ -1,28 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArticleCard, ProductCard } from "@/components/cards";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Container } from "@/components/ui/container";
-import { MaterialsSidebar } from "@/components/materials/MaterialsSidebar";
-import { CategoryCircles } from "@/components/materials/CategoryCircles";
 import {
   ActiveFilterChips,
   type FilterChip,
 } from "@/components/materials/ActiveFilterChips";
-import { MaterialsToolbar } from "@/components/materials/MaterialsToolbar";
-import { MaterialProductRow } from "@/components/materials/MaterialProductRow";
 import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
-import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
-import { getLocationPreference } from "@/lib/location/preference";
-import { listActiveDomains } from "@/lib/platform/queries/domains";
-import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
+import { MaterialsHero } from "@/components/materials/MaterialsHero";
+import { MaterialsShortcutChips } from "@/components/materials/MaterialsShortcutChips";
+import { MaterialsCategoryNav } from "@/components/materials/MaterialsCategoryNav";
+import { MaterialsCatalogSidebar } from "@/components/materials/MaterialsCatalogSidebar";
+import { MaterialsCatalogToolbar } from "@/components/materials/MaterialsCatalogToolbar";
+import { MaterialsProductCard } from "@/components/materials/MaterialsProductCard";
+import { MaterialsAfterResults } from "@/components/materials/MaterialsAfterResults";
+import {
+  MATERIALS_SHORTCUTS,
+  resolveCategoryChipIds,
+  sanitizeAgendaSearchQuery,
+} from "@/lib/materials/materials-catalog-helpers";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
 import {
+  listMaterialsCatalog,
   listSupplyCategoryOptions,
-  listSupplyMarketplaceProducts,
-  type SupplyMarketplaceProduct,
+  type MaterialsCatalogItem,
 } from "@/lib/platform/queries/products";
+import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import {
   getMedusaProduct,
   getMedusaProductByHandle,
@@ -30,83 +34,51 @@ import {
 
 export const metadata: Metadata = {
   title: "Hobbymaterialen | Hobbysalon",
-  description: "Ontdek materialen van makers en handelaars op Hobbysalon.",
+  description:
+    "Vind de juiste materialen voor je project — garen, klei, verf en meer",
 };
 
 type SearchParams = Promise<{
   q?: string;
-  domain?: string;
   category?: string;
-  creator_type?: string;
+  sub?: string;
+  offer?: string;
+  condition?: string;
   sort?: string;
   page?: string;
-  view?: string;
 }>;
 
-const MATERIAL_CATEGORY_FILTERS = [
-  "Textiel & Handwerken",
-  "Tekenen & Kleuren",
-  "Stickers & Tapes",
-  "Schilderen",
-  "Knutselpakketten",
-  "Sieraden maken",
-  "Hobbygereedschap",
-  "Home deco",
-  "Modelbouw & Miniaturen",
-  "Papier & Karton",
-  "Diamond Painting & accessoires",
-  "Schrijven & Handlettering",
-  "Stempelen",
-  "Modelspoor",
-  "Boetseren",
-  "Pixelen & Strijkkralen",
-  "Leerbewerking",
-  "Gieten",
-  "Houtbewerking",
-  "Embossing & Plotten",
-  "Inkt",
-  "Slijm",
-  "Speelzand",
-  "Metaalbewerking",
-];
-
+const PAGE_SIZE = 24;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type ProductWithPrice = SupplyMarketplaceProduct & {
-  price?: { amount: number; currency_code: string } | null;
+const OFFER_LABELS: Record<string, string> = {
+  webshop: "Webshop",
+  maker: "Maker",
+  destash: "Tweedehands",
+  kit: "Workshoppakket",
 };
 
-const PAGE_SIZE = 24;
-
-async function enrichProductsWithPrices(
-  products: SupplyMarketplaceProduct[]
-): Promise<ProductWithPrice[]> {
-  const rows = await Promise.all(
+async function enrichPagePrices(
+  products: MaterialsCatalogItem[]
+): Promise<MaterialsCatalogItem[]> {
+  return Promise.all(
     products.map(async (product) => {
+      if (!product.medusa_product_id) return product;
       const medusaById = await getMedusaProduct(product.medusa_product_id);
-      const medusa = medusaById ?? (await getMedusaProductByHandle(product.slug));
-      const price = medusa?.calculated_price
-        ? {
-            amount: medusa.calculated_price.calculated_amount,
-            currency_code: medusa.calculated_price.currency_code,
-          }
-        : null;
+      const medusa =
+        medusaById ?? (await getMedusaProductByHandle(product.slug));
+      const amount = medusa?.calculated_price?.calculated_amount;
+      if (!amount || amount <= 0) return product;
       return {
         ...product,
-        medusa_product_id: product.medusa_product_id ?? medusa?.id ?? null,
-        price,
+        displayPrice: {
+          amount,
+          currency_code: medusa?.calculated_price?.currency_code ?? "eur",
+        },
       };
     })
   );
-  return rows.filter((row) => !!row.medusa_product_id);
-}
-
-function sortProducts(products: ProductWithPrice[], sort: string) {
-  if (sort === "newest") {
-    return [...products].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }
-  return products;
 }
 
 function buildMaterialsHref(
@@ -130,125 +102,192 @@ export default async function MaterialsMarketplacePage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const creatorTypeFilter =
-    params.creator_type && params.creator_type !== "all"
-      ? params.creator_type
+  const q = sanitizeAgendaSearchQuery(params.q) ?? undefined;
+  const offer =
+    params.offer === "webshop" ||
+    params.offer === "maker" ||
+    params.offer === "destash" ||
+    params.offer === "kit"
+      ? params.offer
       : undefined;
-  const categoryFilter = params.category?.trim() ? params.category.trim() : undefined;
-  const categoryIdFilter =
-    categoryFilter && UUID_RE.test(categoryFilter) ? categoryFilter : undefined;
-  const categoryNameFilter = categoryIdFilter ? undefined : categoryFilter;
+  const sort = params.sort === "newest" ? "newest" : "recommended";
+  const condition = params.condition?.trim() || undefined;
+
+  const categoryParam = params.category?.trim();
+  const subParam = params.sub?.trim();
+  const categoryId =
+    categoryParam && UUID_RE.test(categoryParam) ? categoryParam : undefined;
+  const subId = subParam && UUID_RE.test(subParam) ? subParam : undefined;
+
   const pageRaw = Number.parseInt(params.page || "1", 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
   const offset = (page - 1) * PAGE_SIZE;
-  const view = params.view === "list" ? "list" : "grid";
-  const sort = params.sort === "newest" ? "newest" : "relevance";
-  const locationPreference = await getLocationPreference();
 
-  const [domains, categoryOptions, supplyProducts, tutorialArticles] =
-    await Promise.all([
-      listActiveDomains(),
-      listSupplyCategoryOptions({ domain_id: params.domain || undefined }),
-      listSupplyMarketplaceProducts({
-        q: params.q,
-        domain_id: params.domain,
-        category_id: categoryIdFilter,
-        category_name: categoryNameFilter,
-        creator_type: creatorTypeFilter,
-        preferred_city: locationPreference.city ?? undefined,
-        preferred_country_code: locationPreference.countryCode ?? undefined,
-        limit: PAGE_SIZE + 1,
-        offset,
-      }),
-      listLatestArticles(3),
-    ]);
-
-  const hasNextPage = supplyProducts.length > PAGE_SIZE;
-  const pagedProducts = hasNextPage
-    ? supplyProducts.slice(0, PAGE_SIZE)
-    : supplyProducts;
-  const productsWithPrices = sortProducts(
-    await enrichProductsWithPrices(pagedProducts),
-    sort
-  );
-
-  // Graph: workshops that teach with materials in the selected domain.
-  const graphWorkshops = params.domain
-    ? (await listWorkshopsByDomain(params.domain)).slice(0, 4)
+  const allCategories = await listSupplyCategoryOptions();
+  const childCats = categoryId
+    ? allCategories.filter((c) => c.parent_id === categoryId)
     : [];
 
-  const categorySelectOptions = [
-    ...MATERIAL_CATEGORY_FILTERS.map((name) => ({ value: name, label: name })),
-    ...categoryOptions
-      .filter(
-        (category) =>
-          !MATERIAL_CATEGORY_FILTERS.some(
-            (name) => name.toLowerCase() === category.name.toLowerCase()
-          )
-      )
-      .map((category) => ({ value: category.id, label: category.name })),
-  ];
+  const categoryFilter =
+    subId
+      ? { category_id: subId }
+      : categoryId && childCats.length > 0
+        ? { category_parent_id: categoryId }
+        : categoryId
+          ? { category_id: categoryId }
+          : {};
 
-  const current = {
-    q: params.q,
-    domain: params.domain,
-    category: params.category,
-    creator_type: creatorTypeFilter,
-    sort: params.sort,
-    view: params.view,
+  const [catalogResult, tutorialArticles] = await Promise.all([
+    listMaterialsCatalog({
+      q,
+      ...categoryFilter,
+      offer,
+      condition,
+      sort,
+      limit: PAGE_SIZE,
+      offset,
+    }),
+    listLatestArticles(3),
+  ]);
+
+  const { products, totalCount, categoryIdsWithSupply } = catalogResult;
+  const productsWithPrices = await enrichPagePrices(products);
+  const hasNextPage = offset + PAGE_SIZE < totalCount;
+
+  const rootCategories = allCategories.filter((c) => !c.parent_id);
+  const orderedRoots =
+    rootCategories.length > 0
+      ? rootCategories
+      : allCategories.filter(
+          (c) => !allCategories.some((p) => p.id === c.parent_id)
+        );
+
+  const chipIds = resolveCategoryChipIds({
+    categoryIdsWithSupply,
+    selectedCategoryId: categoryId,
+    allCategoryIdsOrdered: orderedRoots.map((c) => c.id),
+  });
+  const navCategories =
+    chipIds.length > 0
+      ? orderedRoots.filter((c) => chipIds.includes(c.id))
+      : orderedRoots.slice(0, 12);
+
+  const baseForShortcuts = {
+    q,
+    offer,
+    sort: sort === "recommended" ? undefined : sort,
   };
 
-  const hrefForDomain = (domainId?: string) =>
-    buildMaterialsHref(current, { domain: domainId, page: undefined });
+  const shortcuts = MATERIALS_SHORTCUTS.map((shortcut) => {
+    const pool = [...navCategories, ...allCategories];
+    const match = pool.find((cat) =>
+      shortcut.nameIncludes.some((needle) =>
+        cat.name.toLowerCase().includes(needle)
+      )
+    );
+    if (!match) return null;
+    return {
+      label: shortcut.label,
+      href: buildMaterialsHref(baseForShortcuts, {
+        category: match.id,
+        page: undefined,
+      }),
+      active: categoryId === match.id,
+    };
+  }).filter(Boolean) as Array<{
+    label: string;
+    href: string;
+    active?: boolean;
+  }>;
+
+  const current: Record<string, string | undefined> = {
+    q,
+    category: categoryId,
+    sub: subId,
+    offer,
+    condition,
+    sort: sort === "recommended" ? undefined : sort,
+  };
+
+  const buildHref = (overrides: Record<string, string | undefined>) =>
+    buildMaterialsHref(current, overrides);
+  const hrefForCategory = (id?: string) =>
+    buildMaterialsHref(current, {
+      category: id,
+      sub: undefined,
+      page: undefined,
+    });
+  const hrefForSub = (id?: string) =>
+    buildMaterialsHref(current, { sub: id, page: undefined });
   const hrefForPage = (target: number) =>
-    buildMaterialsHref(current, { page: target > 1 ? String(target) : undefined });
+    buildMaterialsHref(current, {
+      page: target > 1 ? String(target) : undefined,
+    });
 
   const chips: FilterChip[] = [];
-  if (params.q) {
+  if (q) {
     chips.push({
-      label: `"${params.q}"`,
+      label: `Zoek: ${q}`,
       removeHref: buildMaterialsHref(current, { q: undefined, page: undefined }),
     });
   }
-  if (params.domain) {
-    chips.push({
-      label: domains.find((d) => d.id === params.domain)?.name ?? "Domein",
-      removeHref: buildMaterialsHref(current, { domain: undefined, page: undefined }),
-    });
-  }
-  if (categoryFilter) {
+  if (categoryId) {
     chips.push({
       label:
-        categoryNameFilter ??
-        categoryOptions.find((c) => c.id === categoryFilter)?.name ??
-        "Categorie",
-      removeHref: buildMaterialsHref(current, { category: undefined, page: undefined }),
-    });
-  }
-  if (creatorTypeFilter) {
-    chips.push({
-      label:
-        creatorTypeFilter === "supplier"
-          ? "Leveranciers"
-          : creatorTypeFilter === "maker"
-            ? "Makers"
-            : creatorTypeFilter,
+        allCategories.find((c) => c.id === categoryId)?.name ?? "Categorie",
       removeHref: buildMaterialsHref(current, {
-        creator_type: undefined,
+        category: undefined,
+        sub: undefined,
+        page: undefined,
+      }),
+    });
+  }
+  if (subId) {
+    chips.push({
+      label: allCategories.find((c) => c.id === subId)?.name ?? "Subcategorie",
+      removeHref: buildMaterialsHref(current, {
+        sub: undefined,
+        page: undefined,
+      }),
+    });
+  }
+  if (offer) {
+    chips.push({
+      label: OFFER_LABELS[offer] ?? offer,
+      removeHref: buildMaterialsHref(current, {
+        offer: undefined,
+        page: undefined,
+      }),
+    });
+  }
+  if (condition) {
+    chips.push({
+      label: `Conditie: ${condition}`,
+      removeHref: buildMaterialsHref(current, {
+        condition: undefined,
         page: undefined,
       }),
     });
   }
 
-  const activeCategoryLabel = categoryFilter
-    ? (categoryNameFilter ??
-        categoryOptions.find((c) => c.id === categoryFilter)?.name ??
-        "Categorie")
-    : null;
+  const activeCategory = allCategories.find(
+    (c) => c.id === (subId ?? categoryId)
+  );
+  const workshops = activeCategory?.domain_id
+    ? (await listWorkshopsByDomain(activeCategory.domain_id)).slice(0, 4)
+    : [];
+
+  const showCondition = offer === "destash" || offer === "maker";
+
+  const sidebarCategories = (
+    navCategories.length > 0 ? navCategories : orderedRoots
+  ).map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
 
   return (
     <Container className="py-6">
-      {/* Breadcrumb */}
       <nav
         aria-label="Breadcrumb"
         className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]"
@@ -257,101 +296,71 @@ export default async function MaterialsMarketplacePage({
           Hobbysalon
         </Link>
         <span aria-hidden>›</span>
-        <span className="font-semibold text-[var(--foreground)]">Hobbymaterialen</span>
-        {activeCategoryLabel && (
-          <>
-            <span aria-hidden>›</span>
-            <span className="font-semibold text-[var(--foreground)]">
-              {activeCategoryLabel}
-            </span>
-          </>
-        )}
+        <span className="font-semibold text-[var(--foreground)]">Materialen</span>
       </nav>
 
-      <DiscoveryHero
-        title={activeCategoryLabel ?? "Vind materialen voor je volgende project"}
-        description="Ontdek benodigdheden van makers en leveranciers. Bewaar wat past, of ga meteen verder naar een workshop die je op weg helpt."
-        searchAction="/materials"
-        searchPlaceholder="Zoek bijvoorbeeld garen, klei of verf"
-        locationLabel={locationPreference.hasPreference ? locationPreference.label : null}
-        resetHref="/materials"
-        primaryHref="/workshops"
-        primaryLabel="Eerst leren in een workshop"
+      <MaterialsHero
+        defaultQuery={params.q}
+        hiddenFields={{
+          category: categoryId,
+          sub: subId,
+          offer,
+          condition,
+          sort: sort === "recommended" ? undefined : sort,
+        }}
+      />
+
+      <MaterialsShortcutChips
+        shortcuts={shortcuts}
+        allHref={buildMaterialsHref(baseForShortcuts, {
+          category: undefined,
+          sub: undefined,
+          page: undefined,
+        })}
       />
 
       <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
-        <MaterialsSidebar
-          domains={domains}
-          categoryOptions={categorySelectOptions}
+        <MaterialsCatalogSidebar
+          categoryOptions={sidebarCategories}
           params={{
-            q: params.q,
-            domain: params.domain,
-            category: params.category,
-            creator_type: params.creator_type,
-            sort: params.sort,
-            view: params.view,
+            q,
+            category: categoryId,
+            sub: subId,
+            offer,
+            condition,
+            sort: sort === "recommended" ? undefined : sort,
           }}
+          showCondition={showCondition}
         />
 
         <div className="min-w-0 flex-1">
-          <CategoryCircles
-            domains={domains}
-            activeDomain={params.domain}
-            hrefForDomain={hrefForDomain}
+          <MaterialsCategoryNav
+            categories={navCategories}
+            activeCategoryId={categoryId}
+            hrefForCategory={hrefForCategory}
+            subcategories={childCats}
+            activeSubId={subId}
+            hrefForSub={hrefForSub}
+          />
+
+          <MaterialsCatalogToolbar
+            totalCount={totalCount}
+            activeSort={sort}
+            buildHref={buildHref}
           />
 
           <ActiveFilterChips chips={chips} clearHref="/materials" />
 
-          {graphWorkshops.length > 0 && (
-            <section className="mb-6 rounded-[10px] border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-[var(--accent)]/15 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
-                  Workshops
-                </span>
-                <span className="text-[15px] font-semibold text-[var(--foreground)]">
-                  Leer deze technieken in een workshop:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {graphWorkshops.map((workshop) => (
-                    <Link
-                      key={workshop.id}
-                      href={`/workshop/${workshop.slug}`}
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[13px] font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                    >
-                      {workshop.featured_image_url && (
-                        <img
-                          src={workshop.featured_image_url}
-                          alt=""
-                          className="h-7 w-7 rounded object-cover"
-                          loading="lazy"
-                        />
-                      )}
-                      <span className="max-w-[200px] truncate">{workshop.title}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          <MaterialsToolbar resultCount={productsWithPrices.length} view={view} />
-
           {productsWithPrices.length === 0 ? (
             <EmptyState
               title="Geen materialen gevonden"
-              description="Pas je filters aan of probeer een bredere zoekterm."
+              description="Pas je filters aan of bekijk alle materialen."
               action={{ label: "Alle materialen", href: "/materials" }}
             />
-          ) : view === "list" ? (
-            <div className="flex flex-col gap-4">
-              {productsWithPrices.map((product) => (
-                <MaterialProductRow key={product.id} product={product} />
-              ))}
-            </div>
           ) : (
             <GridLayout cols={4} gap="lg">
               {productsWithPrices.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <MaterialsProductCard key={product.id} product={product} />
               ))}
             </GridLayout>
           )}
@@ -362,30 +371,15 @@ export default async function MaterialsMarketplacePage({
             hrefForPage={hrefForPage}
           />
 
-          {tutorialArticles.length > 0 && (
-            <section className="mt-12 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="rounded-full bg-[var(--accent)]/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
-                  Artikelen
-                </span>
-                <h2 className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)]">
-                  Tutorials met deze materialen
-                </h2>
-                <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
-                <Link
-                  href="/gratis-haakpatronen"
-                  className="text-sm font-semibold text-[var(--accent)] hover:underline"
-                >
-                  Alle tutorials →
-                </Link>
-              </div>
-              <GridLayout cols={3} gap="md">
-                {tutorialArticles.map((article) => (
-                  <ArticleCard key={article.id} article={article} />
-                ))}
-              </GridLayout>
-            </section>
-          )}
+          <MaterialsAfterResults
+            workshops={workshops}
+            articles={tutorialArticles}
+            workshopsHref={
+              activeCategory?.domain_id
+                ? `/workshops?domain=${activeCategory.domain_id}`
+                : "/workshops"
+            }
+          />
         </div>
       </div>
     </Container>

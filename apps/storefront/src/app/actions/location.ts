@@ -21,6 +21,15 @@ function getSafeNextPath(referer: string | null): string {
   }
 }
 
+/** Only allow same-origin relative paths (no protocol-relative or external). */
+function getSafeInternalPath(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  if (trimmed.includes("://")) return null;
+  return trimmed;
+}
+
 export async function updateLocationPreferenceAction(
   formData: FormData
 ): Promise<void> {
@@ -54,6 +63,10 @@ export async function updateLocationPreferenceAction(
     cookieStore.delete(LOCATION_COUNTRY_COOKIE);
   }
 
+  const next = getSafeInternalPath(formData.get("next")?.toString());
+  if (next) {
+    redirect(next);
+  }
   const referer = (await headers()).get("referer");
   redirect(getSafeNextPath(referer));
 }

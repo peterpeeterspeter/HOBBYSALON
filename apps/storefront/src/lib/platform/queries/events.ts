@@ -1,10 +1,20 @@
 import { createPlatformClient } from "../client";
 import type { Event } from "@/types/platform";
+import {
+  eventIsUpcomingOrOngoing,
+  eventMatchesPlace,
+  eventOverlapsRange,
+  sanitizeAgendaSearchQuery,
+} from "@/lib/agenda/agenda-helpers";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
   if (!value) return null;
   const normalized = value.trim().toLowerCase();
   return normalized.length > 0 ? normalized : null;
+}
+
+function escapeIlikeTerm(value: string): string {
+  return value.replace(/[%,()]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function getEventLocalityScore(
@@ -61,7 +71,7 @@ export async function getEventBySlug(slug: string): Promise<Event | null> {
   return data as Event;
 }
 
-export async function listEvents(filters?: {
+export type ListEventsFilters = {
   domain_id?: string;
   event_type?: string;
   city?: string;
@@ -71,20 +81,160 @@ export async function listEvents(filters?: {
   from_date?: string;
   to_date?: string;
   limit?: number;
-}): Promise<Event[]> {
+};
+
+export type ListAgendaEventsFilters = {
+  domain_id?: string;
+  event_type?: string;
+  /** Place filter (city / location_name). Prefer over legacy `city`. */
+  near?: string;
+  city?: string;
+  country_code?: string;
+  preferred_city?: string;
+  preferred_country_code?: string;
+  /** Inclusive range start (ISO). Overlap-aware with ends_at. */
+  from_date?: string;
+  /** Inclusive range end (ISO). Overlap-aware with ends_at. */
+  to_date?: string;
+  q?: string;
+  /** Default true: hide past events (ends_at ?? starts_at < now). */
+  upcoming_only?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+async function resolveDomainEventIds(
+  domainId: string | undefined
+): Promise<string[] | null | "empty"> {
+  if (!domainId) return null;
   const supabase = createPlatformClient();
-  let domainEventIds: string[] | null = null;
+  const { data: edData, error: domainError } = await supabase
+    .from("event_domains")
+    .select("event_id")
+    .eq("domain_id", domainId);
 
-  if (filters?.domain_id) {
-    const { data: edData, error: domainError } = await supabase
-      .from("event_domains")
-      .select("event_id")
-      .eq("domain_id", filters.domain_id);
+  if (domainError) return "empty";
+  const ids = [...new Set((edData ?? []).map((row) => row.event_id))];
+  return ids.length === 0 ? "empty" : ids;
+}
 
-    if (domainError) return [];
-    domainEventIds = [...new Set((edData ?? []).map((row) => row.event_id))];
-    if (domainEventIds.length === 0) return [];
+/**
+ * Agenda listing with true total count, sanitized search, place match,
+ * overlap-aware date ranges, and upcoming-only by default.
+ */
+export async function listAgendaEvents(
+  filters?: ListAgendaEventsFilters
+): Promise<{ events: Event[]; totalCount: number }> {
+  const domainEventIds = await resolveDomainEventIds(filters?.domain_id);
+  if (domainEventIds === "empty") {
+    return { events: [], totalCount: 0 };
   }
+
+  const supabase = createPlatformClient();
+  const upcomingOnly = filters?.upcoming_only !== false;
+  const nowIso = new Date().toISOString();
+  const searchTerm = sanitizeAgendaSearchQuery(filters?.q);
+  const place = (filters?.near ?? filters?.city)?.trim() || null;
+
+  let query = supabase
+    .from("events")
+    .select("*")
+    .eq("is_active", true)
+    .order("starts_at", { ascending: true })
+    .limit(500);
+
+  if (domainEventIds) {
+    query = query.in("id", domainEventIds);
+  }
+  if (filters?.event_type) {
+    query = query.eq("event_type", filters.event_type);
+  }
+  if (filters?.country_code) {
+    query = query.eq("country_code", filters.country_code.toUpperCase());
+  }
+  // Soft window: avoid loading ancient history; refine upcoming/overlap in JS.
+  if (upcomingOnly) {
+    const softFrom = new Date(
+      Date.now() - 366 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    query = query.gte("starts_at", softFrom);
+  }
+  if (filters?.to_date) {
+    query = query.lte("starts_at", filters.to_date);
+  }
+
+  const { data, error } = await query;
+  if (error) return { events: [], totalCount: 0 };
+
+  let events = (data ?? []) as Event[];
+
+  if (upcomingOnly) {
+    events = events.filter((event) => eventIsUpcomingOrOngoing(event, nowIso));
+  }
+
+  if (filters?.from_date || filters?.to_date) {
+    const rangeFrom = filters.from_date ?? "1970-01-01T00:00:00.000Z";
+    const rangeTo = filters.to_date ?? "9999-12-31T23:59:59.999Z";
+    events = events.filter((event) =>
+      eventOverlapsRange(event, rangeFrom, rangeTo)
+    );
+  }
+
+  if (place) {
+    events = events.filter((event) => eventMatchesPlace(event, place));
+  }
+
+  if (searchTerm) {
+    const needle = searchTerm.toLowerCase();
+    events = events.filter((event) => {
+      const hay = [
+        event.title,
+        event.short_description,
+        event.location_name,
+        event.city,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+  }
+
+  events.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+
+  const preferredCity = normalizeLocationValue(filters?.preferred_city);
+  const preferredCountryCode = normalizeLocationValue(
+    filters?.preferred_country_code
+  );
+  const hasHardPlace = Boolean(place || filters?.country_code);
+  if ((preferredCity || preferredCountryCode) && !hasHardPlace) {
+    events = [...events].sort((a, b) => {
+      const scoreDelta =
+        getEventLocalityScore(b, preferredCity, preferredCountryCode) -
+        getEventLocalityScore(a, preferredCity, preferredCountryCode);
+      if (scoreDelta !== 0) return scoreDelta;
+      return a.starts_at.localeCompare(b.starts_at);
+    });
+  }
+
+  const totalCount = events.length;
+  const offset = Math.max(0, filters?.offset ?? 0);
+  const limit = filters?.limit;
+  const page =
+    typeof limit === "number" && limit > 0
+      ? events.slice(offset, offset + limit)
+      : offset > 0
+        ? events.slice(offset)
+        : events;
+
+  return { events: page, totalCount };
+}
+
+export async function listEvents(filters?: ListEventsFilters): Promise<Event[]> {
+  const domainEventIds = await resolveDomainEventIds(filters?.domain_id);
+  if (domainEventIds === "empty") return [];
+
+  const supabase = createPlatformClient();
 
   let query = supabase
     .from("events")
@@ -96,30 +246,57 @@ export async function listEvents(filters?: {
     query = query.in("id", domainEventIds);
   }
 
-  if (filters?.from_date) {
-    query = query.gte("starts_at", filters.from_date);
-  }
-  if (filters?.to_date) {
+  // Soft DB bounds; refine with overlap / upcoming semantics in JS.
+  if (filters?.from_date && filters?.to_date) {
+    // Multi-day events may have started before the window.
+    const softFrom = new Date(
+      new Date(filters.from_date).getTime() - 60 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    query = query.gte("starts_at", softFrom).lte("starts_at", filters.to_date);
+  } else if (filters?.from_date) {
+    // Upcoming: include events that may still be ongoing (started up to ~1 year ago).
+    const softFrom = new Date(
+      new Date(filters.from_date).getTime() - 366 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    query = query.gte("starts_at", softFrom);
+  } else if (filters?.to_date) {
     query = query.lte("starts_at", filters.to_date);
   }
   if (filters?.event_type) {
     query = query.eq("event_type", filters.event_type);
   }
   if (filters?.city) {
-    query = query.ilike("city", `%${filters.city}%`);
+    const like = `%${escapeIlikeTerm(filters.city)}%`;
+    query = query.ilike("city", like);
   }
   if (filters?.country_code) {
     query = query.eq("country_code", filters.country_code.toUpperCase());
   }
 
+  // Fetch extra when refining in JS so limit still roughly applies after filter.
   if (filters?.limit) {
-    query = query.limit(filters.limit);
+    query = query.limit(Math.max(filters.limit * 3, filters.limit));
   }
 
   const { data, error } = await query;
   if (error) return [];
 
-  const events = (data ?? []) as Event[];
+  let events = (data ?? []) as Event[];
+
+  if (filters?.from_date && filters?.to_date) {
+    events = events.filter((event) =>
+      eventOverlapsRange(event, filters.from_date!, filters.to_date!)
+    );
+  } else if (filters?.from_date) {
+    events = events.filter((event) =>
+      eventIsUpcomingOrOngoing(event, filters.from_date!)
+    );
+  }
+
+  if (filters?.limit && events.length > filters.limit) {
+    events = events.slice(0, filters.limit);
+  }
+
   const preferredCity = normalizeLocationValue(filters?.preferred_city);
   const preferredCountryCode = normalizeLocationValue(filters?.preferred_country_code);
   if (!preferredCity && !preferredCountryCode) {

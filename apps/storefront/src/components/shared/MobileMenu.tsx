@@ -63,7 +63,7 @@ export function MobileMenu({
   }
 
   return (
-    <div className="relative xl:hidden">
+    <div className="relative 2xl:hidden">
       <button
         ref={buttonRef}
         type="button"

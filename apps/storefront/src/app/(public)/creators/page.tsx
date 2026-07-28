@@ -1,36 +1,66 @@
 import type { Metadata } from "next";
-import { listAllCreators } from "@/lib/platform/queries/creators";
-import { listActiveDomains } from "@/lib/platform/queries/domains";
-import { CreatorCard } from "@/components/cards";
-import { Container } from "@/components/ui/container";
-import { GridLayout } from "@/components/layout/grid-layout";
-import { EmptyState } from "@/components/ui/empty-state";
-import { CategoryCircles } from "@/components/materials/CategoryCircles";
 import {
   ActiveFilterChips,
   type FilterChip,
 } from "@/components/materials/ActiveFilterChips";
-import { CreatorsSidebar } from "@/components/creators/CreatorsSidebar";
-import { DiscoveryHero } from "@/components/discovery/DiscoveryHero";
+import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
+import { CreatorDiscoveryCard } from "@/components/creators/CreatorDiscoveryCard";
+import { CreatorsAfterResults } from "@/components/creators/CreatorsAfterResults";
+import { CreatorsFilterBar } from "@/components/creators/CreatorsFilterBar";
+import { CreatorsHero } from "@/components/creators/CreatorsHero";
+import { CreatorsHobbyChips } from "@/components/creators/CreatorsHobbyChips";
+import { CreatorsIntentChips } from "@/components/creators/CreatorsIntentChips";
+import { CreatorsToolbar } from "@/components/creators/CreatorsToolbar";
+import { Container } from "@/components/ui/container";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GridLayout } from "@/components/layout/grid-layout";
+import {
+  CREATOR_INTENT_CHIPS,
+  resolveHobbyChipDomainIds,
+  sanitizeAgendaSearchQuery,
+  type CreatorIntent,
+} from "@/lib/creators/creators-directory-helpers";
+import { listCreatorsDirectory } from "@/lib/platform/queries/creators";
+import { listActiveDomains } from "@/lib/platform/queries/domains";
 
 export const metadata: Metadata = {
   title: "Makers | Hobbysalon",
-  description: "Ontdek makers, leveranciers en workshopleiders",
+  description:
+    "Vind makers die bij jouw hobby passen — workshops, creaties, materialen of hobbymarkten",
 };
 
 type SearchParams = Promise<{
   q?: string;
-  domain?: string;
+  intent?: string;
   creator_type?: string;
+  domain?: string;
+  place?: string;
+  sort?: string;
+  page?: string;
 }>;
 
-const TYPE_LABELS: Record<string, string> = {
-  maker: "Maker",
-  workshopgever: "Workshopgever",
-  supplier: "Leverancier",
-  content_creator: "Content maker",
-  organizer: "Organisator",
-};
+const PAGE_SIZE = 24;
+
+const INTENT_VALUES = new Set(
+  CREATOR_INTENT_CHIPS.map((chip) => chip.intent)
+);
+
+function parseIntent(value?: string): CreatorIntent | null {
+  const v = value?.trim().toLowerCase();
+  if (v && INTENT_VALUES.has(v as CreatorIntent)) {
+    return v as CreatorIntent;
+  }
+  return null;
+}
+
+/** Map legacy creator_type URL to intent when possible. */
+function intentFromLegacyType(type?: string): CreatorIntent | null {
+  const t = type?.trim().toLowerCase();
+  if (t === "workshopgever") return "workshops";
+  if (t === "maker") return "handmade";
+  if (t === "supplier") return "materials";
+  return null;
+}
 
 function buildCreatorsHref(
   current: Record<string, string | undefined>,
@@ -53,103 +83,160 @@ export default async function CreatorsPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const domainFilter = params.domain?.trim() || undefined;
-  const typeFilter =
-    params.creator_type && params.creator_type !== "all"
-      ? params.creator_type
+  const q = sanitizeAgendaSearchQuery(params.q) ?? undefined;
+  const intent =
+    parseIntent(params.intent) ?? intentFromLegacyType(params.creator_type);
+  const legacyCreatorType =
+    !parseIntent(params.intent) && params.creator_type?.trim()
+      ? params.creator_type.trim()
       : undefined;
+  const domainFilter = params.domain?.trim() || undefined;
+  const sort = params.sort === "newest" ? "newest" : "recommended";
+  const placeParam = params.place?.trim() || undefined;
 
-  const [domains, creators] = await Promise.all([
+  const pageRaw = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const [domains, directory] = await Promise.all([
     listActiveDomains(),
-    listAllCreators({
+    listCreatorsDirectory({
+      q,
       domainId: domainFilter,
-      creatorType: typeFilter,
-      q: params.q?.trim() || undefined,
+      intent: intent ?? undefined,
+      creatorType: legacyCreatorType,
+      place: placeParam,
+      sort,
+      limit: PAGE_SIZE,
+      offset,
     }),
   ]);
 
-  const current = {
-    q: params.q,
-    domain: params.domain,
-    creator_type: params.creator_type,
+  const {
+    creators,
+    totalCount,
+    domainIdsWithCreators,
+    placeCoverage,
+    uniqueCities,
+  } = directory;
+
+  const showPlaceFilter = placeCoverage.hasReliablePlaceFilter;
+  const activePlace =
+    showPlaceFilter && placeParam ? placeParam : undefined;
+  const hasNextPage = offset + PAGE_SIZE < totalCount;
+
+  const chipDomainIds = resolveHobbyChipDomainIds({
+    domainIdsWithCreators,
+    selectedDomainId: domainFilter,
+    allDomainIdsOrdered: domains.map((d) => d.id),
+  });
+  const chipDomains = domains.filter((d) => chipDomainIds.includes(d.id));
+
+  const current: Record<string, string | undefined> = {
+    q: q ?? undefined,
+    intent: intent ?? undefined,
+    domain: domainFilter,
+    place: activePlace,
+    sort: sort === "recommended" ? undefined : sort,
   };
 
+  const buildHref = (overrides: Record<string, string | undefined>) =>
+    buildCreatorsHref(current, overrides);
+
   const hrefForDomain = (domainId?: string) =>
-    buildCreatorsHref(current, { domain: domainId });
+    buildCreatorsHref(current, { domain: domainId, page: undefined });
+
+  const heroHidden: Record<string, string | undefined> = {
+    intent: intent ?? undefined,
+    domain: domainFilter,
+    place: activePlace,
+    sort: sort === "recommended" ? undefined : sort,
+  };
 
   const chips: FilterChip[] = [];
-  if (params.q) {
+  if (q) {
     chips.push({
-      label: `"${params.q}"`,
-      removeHref: buildCreatorsHref(current, { q: undefined }),
+      label: `"${q}"`,
+      removeHref: buildHref({ q: undefined, page: undefined }),
+    });
+  }
+  if (intent) {
+    chips.push({
+      label:
+        CREATOR_INTENT_CHIPS.find((c) => c.intent === intent)?.label ?? intent,
+      removeHref: buildHref({ intent: undefined, page: undefined }),
     });
   }
   if (domainFilter) {
     chips.push({
-      label: domains.find((d) => d.id === domainFilter)?.name ?? "Domein",
-      removeHref: buildCreatorsHref(current, { domain: undefined }),
+      label: domains.find((d) => d.id === domainFilter)?.name ?? "Hobby",
+      removeHref: buildHref({ domain: undefined, page: undefined }),
     });
   }
-  if (typeFilter) {
+  if (activePlace) {
     chips.push({
-      label: TYPE_LABELS[typeFilter] ?? typeFilter,
-      removeHref: buildCreatorsHref(current, { creator_type: undefined }),
+      label: activePlace,
+      removeHref: buildHref({ place: undefined, page: undefined }),
     });
   }
+
+  const hasFilters = Boolean(q || intent || domainFilter || activePlace);
 
   return (
     <Container className="py-8">
-      <DiscoveryHero
-        title="Ontmoet de mensen achter je hobby"
-        description="Ontdek makers, leveranciers en workshopgevers. Kijk wat ze maken, geven of verkopen en volg je volgende creatieve stap."
-        searchAction="/creators"
-        searchPlaceholder="Zoek op naam, techniek of hobby"
-        resetHref="/creators"
-        primaryHref="/voor-makers"
-        primaryLabel="Zelf maker worden"
+      <CreatorsHero hiddenFields={heroHidden} defaultQuery={q} />
+
+      <CreatorsIntentChips activeIntent={intent} buildHref={buildHref} />
+
+      <CreatorsHobbyChips
+        domains={chipDomains.length > 0 ? chipDomains : domains.slice(0, 12)}
+        activeDomainId={domainFilter}
+        hrefForDomain={hrefForDomain}
       />
 
-      <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
-        <CreatorsSidebar
-          domains={domains}
-          params={{
-            q: params.q,
-            domain: params.domain,
-            creator_type: params.creator_type,
-          }}
+      <CreatorsToolbar
+        totalCount={totalCount}
+        activeSort={sort}
+        buildHref={buildHref}
+      />
+
+      <CreatorsFilterBar
+        domains={domains}
+        activeDomainId={domainFilter}
+        activeIntent={intent}
+        activePlace={activePlace}
+        cities={uniqueCities}
+        showPlaceFilter={showPlaceFilter}
+        buildHref={buildHref}
+        clearHref="/creators"
+        hasFilters={hasFilters}
+      />
+
+      <ActiveFilterChips chips={chips} clearHref="/creators" />
+
+      {creators.length === 0 ? (
+        <EmptyState
+          title="Geen makers gevonden"
+          description="Pas je filters aan of wis alle filters."
+          action={{ label: "Alle makers", href: "/creators" }}
         />
+      ) : (
+        <GridLayout cols={3} gap="lg">
+          {creators.map((creator) => (
+            <CreatorDiscoveryCard key={creator.id} creator={creator} />
+          ))}
+        </GridLayout>
+      )}
 
-        <div className="min-w-0 flex-1">
-          <CategoryCircles
-            domains={domains}
-            activeDomain={domainFilter}
-            hrefForDomain={hrefForDomain}
-          />
+      <MaterialsPagination
+        page={page}
+        hasNextPage={hasNextPage}
+        hrefForPage={(p) =>
+          buildHref({ page: p > 1 ? String(p) : undefined })
+        }
+      />
 
-          <ActiveFilterChips chips={chips} clearHref="/creators" />
-
-          <div className="mb-5 flex items-center justify-between rounded-[10px] border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <p className="text-[15px] text-[var(--muted)]">
-              <strong className="font-bold text-[var(--foreground)]">{creators.length}</strong>{" "}
-              creator{creators.length === 1 ? "" : "s"} gevonden
-            </p>
-          </div>
-
-          {creators.length === 0 ? (
-            <EmptyState
-              title="Geen creators gevonden"
-              description="Pas je filters aan of wis alle filters."
-              action={{ label: "Alle creators", href: "/creators" }}
-            />
-          ) : (
-            <GridLayout cols={3} gap="lg">
-              {creators.map((creator) => (
-                <CreatorCard key={creator.id} creator={creator} />
-              ))}
-            </GridLayout>
-          )}
-        </div>
-      </div>
+      <CreatorsAfterResults />
     </Container>
   );
 }

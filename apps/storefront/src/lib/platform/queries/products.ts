@@ -1,5 +1,11 @@
 import { createPlatformClient } from "../client";
 import type { Product } from "@/types/platform";
+import {
+  MATERIALS_CATALOG_PRODUCT_TYPES,
+  resolveMaterialsOffer,
+  sanitizeAgendaSearchQuery,
+  type MaterialsOffer,
+} from "@/lib/materials/materials-catalog-helpers";
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   const supabase = createPlatformClient();
@@ -115,6 +121,7 @@ export type ProductCategoryOption = {
   name: string;
   slug: string;
   domain_id: string | null;
+  parent_id?: string | null;
 };
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
@@ -330,7 +337,7 @@ export async function listSupplyCategoryOptions(filters?: {
   const supabase = createPlatformClient();
   let query = supabase
     .from("product_categories")
-    .select("id, name, slug, domain_id")
+    .select("id, name, slug, domain_id, parent_id")
     .order("sort_order", { ascending: true })
     .limit(500);
 
@@ -341,4 +348,187 @@ export async function listSupplyCategoryOptions(filters?: {
   const { data, error } = await query;
   if (error) return [];
   return (data ?? []) as ProductCategoryOption[];
+}
+
+export type MaterialsCatalogItem = SupplyMarketplaceProduct & {
+  offer: MaterialsOffer;
+  displayPrice: { amount: number; currency_code: string } | null;
+};
+
+export type ListMaterialsCatalogFilters = {
+  q?: string;
+  category_id?: string;
+  /** Parent category: include this id and children when parent_id matches. */
+  category_parent_id?: string;
+  offer?: "webshop" | "maker" | "destash" | "kit";
+  condition?: string;
+  sort?: "recommended" | "newest";
+  limit?: number;
+  offset?: number;
+};
+
+function offerToProductTypes(
+  offer: ListMaterialsCatalogFilters["offer"]
+): string[] | null {
+  if (!offer) return null;
+  if (offer === "webshop") return ["supply", "supplies"];
+  if (offer === "maker") return ["handmade"];
+  if (offer === "destash") return ["destash"];
+  if (offer === "kit") return ["workshop_kit"];
+  return null;
+}
+
+/**
+ * Materials catalog: multi-offer platform listing with honest totalCount.
+ * No price/stock filter or sort (Medusa enrich is display-only after pagination).
+ */
+export async function listMaterialsCatalog(
+  filters?: ListMaterialsCatalogFilters
+): Promise<{
+  products: MaterialsCatalogItem[];
+  totalCount: number;
+  categoryIdsWithSupply: string[];
+}> {
+  const supabase = createPlatformClient();
+  const searchTerm = sanitizeAgendaSearchQuery(filters?.q);
+  const sort = filters?.sort === "newest" ? "newest" : "recommended";
+  const typeFilter = offerToProductTypes(filters?.offer);
+
+  let categoryIdsFilter: string[] | null = null;
+  if (filters?.category_id) {
+    categoryIdsFilter = [filters.category_id];
+  } else if (filters?.category_parent_id) {
+    const { data: children } = await supabase
+      .from("product_categories")
+      .select("id")
+      .eq("parent_id", filters.category_parent_id)
+      .limit(200);
+    categoryIdsFilter = [
+      filters.category_parent_id,
+      ...((children ?? []).map((row) => row.id as string)),
+    ];
+  }
+
+  // Category chip supply: distinct categories before category filter.
+  let supplyCatQuery = supabase
+    .from("products")
+    .select("category_id")
+    .eq("is_active", true)
+    .eq("status", "active")
+    .in("product_type", [...MATERIALS_CATALOG_PRODUCT_TYPES])
+    .not("category_id", "is", null)
+    .limit(2000);
+
+  if (typeFilter) {
+    supplyCatQuery = supplyCatQuery.in("product_type", typeFilter);
+  }
+  if (filters?.condition) {
+    supplyCatQuery = supplyCatQuery.eq("condition_type", filters.condition);
+  }
+  if (searchTerm) {
+    const like = `%${searchTerm}%`;
+    supplyCatQuery = supplyCatQuery.or(
+      `title.ilike.${like},short_description.ilike.${like}`
+    );
+  }
+
+  const { data: supplyCatRows } = await supplyCatQuery;
+  const categoryIdsWithSupply = [
+    ...new Set(
+      (supplyCatRows ?? [])
+        .map((row) => row.category_id as string | null)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  let query = supabase
+    .from("products")
+    .select("*", { count: "exact" })
+    .eq("is_active", true)
+    .eq("status", "active")
+    .in(
+      "product_type",
+      typeFilter ?? [...MATERIALS_CATALOG_PRODUCT_TYPES]
+    );
+
+  if (categoryIdsFilter) {
+    query = query.in("category_id", categoryIdsFilter);
+  }
+  if (filters?.condition) {
+    query = query.eq("condition_type", filters.condition);
+  }
+  if (searchTerm) {
+    const like = `%${searchTerm}%`;
+    query = query.or(
+      `title.ilike.${like},short_description.ilike.${like},description.ilike.${like}`
+    );
+  }
+
+  if (sort === "newest") {
+    query = query
+      .order("created_at", { ascending: false })
+      .order("is_featured", { ascending: false });
+  } else {
+    query = query
+      .order("is_featured", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
+
+  const offset = Math.max(0, filters?.offset ?? 0);
+  const limit = Math.max(1, filters?.limit ?? 24);
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
+  if (error) {
+    return { products: [], totalCount: 0, categoryIdsWithSupply };
+  }
+
+  const products = (data ?? []) as Product[];
+  const totalCount = typeof count === "number" ? count : products.length;
+
+  if (products.length === 0) {
+    return { products: [], totalCount, categoryIdsWithSupply };
+  }
+
+  const creatorIds = [
+    ...new Set(products.map((product) => product.creator_id).filter(Boolean)),
+  ];
+  const { data: creatorRows } = await supabase
+    .from("creators")
+    .select("id, display_name, slug, city, country_code, creator_types")
+    .in("id", creatorIds);
+
+  const creatorMap = new Map(
+    ((creatorRows ?? []) as CreatorLocation[]).map((creator) => [
+      creator.id,
+      creator,
+    ])
+  );
+
+  const items: MaterialsCatalogItem[] = products.map((product) => {
+    const creator = creatorMap.get(product.creator_id);
+    const base: SupplyMarketplaceProduct = {
+      ...product,
+      creator_display_name: creator?.display_name ?? null,
+      creator_slug: creator?.slug ?? null,
+      creator_city: creator?.city ?? null,
+      creator_country_code: creator?.country_code ?? null,
+      creator_types: Array.isArray(creator?.creator_types)
+        ? creator!.creator_types
+        : [],
+    };
+    const offer = resolveMaterialsOffer(product);
+    const displayPrice =
+      !product.medusa_product_id &&
+      typeof product.price_cents === "number" &&
+      product.price_cents > 0
+        ? {
+            amount: product.price_cents,
+            currency_code: product.currency_code ?? "eur",
+          }
+        : null;
+    return { ...base, offer, displayPrice };
+  });
+
+  return { products: items, totalCount, categoryIdsWithSupply };
 }

@@ -1,5 +1,11 @@
 /** Controlled vocabularies for workshop taxonomy filters and forms. */
 
+/**
+ * When false, offer/audience/age/language stay out of the discovery Filters UI.
+ * Flip when taxonomy data is populated enough to be useful on /workshops.
+ */
+export const WORKSHOP_EXTENDED_TAXONOMY_FILTERS_ENABLED = false;
+
 export const WORKSHOP_OFFER_TYPES = [
   "open_workshop",
   "private_group",
