@@ -37,7 +37,7 @@ export async function resolvePostAuthRedirectPath(options: {
     return safeRequested;
   }
 
-  const safeDefault = sanitizeNextPath(options.defaultPath, "/dashboard");
+  const safeDefault = sanitizeNextPath(options.defaultPath, "/profile");
 
   if (!options.userId) {
     return safeDefault;
@@ -64,7 +64,7 @@ export async function resolvePostAuthRedirectPath(options: {
   );
 
   if (hasCreatorRole || hasCreatorLink || context.hasCreatorProfile) {
-    return "/profile?tab=profiel#maker-pagina";
+    return "/profile";
   }
 
   return safeDefault;

@@ -23,7 +23,7 @@ export default async function UpdatePasswordPage({ searchParams }: Props) {
   }
 
   const { next } = await searchParams;
-  const nextPath = getSafeInternalPath(next, "/dashboard");
+  const nextPath = getSafeInternalPath(next, "/profile");
 
   return (
     <PageLayout

@@ -41,7 +41,7 @@ export function FeatureJourneyBanner({ context }: FeatureJourneyBannerProps) {
           </h2>
           <p className="mt-3 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
             Van &apos;ooit eens proberen&apos; naar &apos;dit weekend maken&apos;. Bewaar, plan en pak je
-            projecten weer op — in je eigen tempo.
+            projecten weer op, in je eigen tempo.
           </p>
           <Link
             href={isHome ? "/register" : "/favorites"}

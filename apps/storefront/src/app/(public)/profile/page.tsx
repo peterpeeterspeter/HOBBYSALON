@@ -13,14 +13,13 @@ import {
 } from "@/app/actions/location";
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
-import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ACCOUNT_NAV } from "@/config/nav";
 import type { EntityType } from "@/types/platform";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
+import { ProfileQuickLinks } from "@/components/profile/ProfileQuickLinks";
 import { EventCard } from "@/components/cards";
-import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
 import { listEvents } from "@/lib/platform/queries/events";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/saved-project-source";
@@ -55,7 +54,7 @@ const EVENT_LABELS: Record<string, string> = {
 
 const FAVORITE_LABELS: Record<EntityType, string> = {
   domain: "Domeinen",
-  creator: "Creators",
+  creator: "Makers",
   product: "Producten",
   workshop: "Workshops",
   event: "Events",
@@ -79,8 +78,8 @@ function toPercent(progressValue: number, progressTarget: number): number {
 }
 
 export const metadata: Metadata = {
-  title: "Hobbypaspoort | Hobbysalon",
-  description: "Jouw hobbyprofiel met progressie, badges, favorieten en activiteiten.",
+  title: "Mijn profiel | Hobbysalon",
+  description: "Pak projecten weer op, bekijk favorieten en beheer je makerpagina.",
 };
 
 export default async function ProfilePage({ searchParams }: Props) {
@@ -93,7 +92,17 @@ export default async function ProfilePage({ searchParams }: Props) {
   const locationPreference = await getLocationPreferenceFromCookies();
   const supabase = createPlatformClient();
   const normalizedEmail = user.email ? normalizeNewsletterEmail(user.email) : null;
-  const [passport, favoriteFeed, activityResult, savedFavorites, materialActivityResult, localEvents, confirmedGuides, creator, registrationContext] = await Promise.all([
+  const [
+    passport,
+    favoriteFeed,
+    activityResult,
+    savedFavorites,
+    materialActivityResult,
+    localEvents,
+    confirmedGuides,
+    creator,
+    registrationContext,
+  ] = await Promise.all([
     getHobbyPassportData(user.id),
     listFavoriteFeed(user.id, 6),
     supabase
@@ -148,7 +157,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       entityId: event.entity_id,
       occurredAt: event.occurred_at,
     })),
-    savedFavorites,
+    savedFavorites
   );
   const startableFavoriteSources = savedFavorites.flatMap((item) => {
     const entityType = item.entityType;
@@ -176,159 +185,107 @@ export default async function ProfilePage({ searchParams }: Props) {
     })
   );
 
+  const unlockedBadges = passport.badges.filter((badge) => badge.unlockedAt);
+  const inProgressBadges = passport.badges
+    .filter((badge) => !badge.unlockedAt)
+    .sort((a, b) => {
+      const aPct = toPercent(a.progressValue, a.progressTarget);
+      const bPct = toPercent(b.progressValue, b.progressTarget);
+      return bPct - aPct;
+    });
+  const featuredInProgress = inProgressBadges.slice(0, 3);
+  const remainingInProgress = inProgressBadges.slice(3);
+  const favoriteTypesWithCount = (Object.keys(FAVORITE_LABELS) as EntityType[]).filter(
+    (type) => passport.favoritesSummary.byType[type] > 0
+  );
+
   return (
     <PageLayout
       title="Mijn profiel"
-      description={`Ingelogd als ${user.email ?? "onbekende gebruiker"}`}
+      description={
+        user.email
+          ? `Welkom terug. Ingelogd als ${user.email}.`
+          : "Welkom terug op je creatieve plek."
+      }
       headerActions={
         <Button asChild variant="secondary" size="sm">
           <Link href={ACCOUNT_NAV.pro.href}>{ACCOUNT_NAV.pro.label}</Link>
         </Button>
       }
     >
-      <CardShell variant="default" padding="lg" className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
-          Hobbypaspoort
-        </p>
-        <GridLayout cols={4} className="mt-4">
-          <CardShell variant="default" padding="md">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Punten</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+      {/* 1. Compact passport strip */}
+      <section
+        aria-label="Hobbypaspoort samenvatting"
+        className="border-y border-[var(--border)] py-5"
+      >
+        <p className="text-sm font-semibold text-[var(--accent)]">Hobbypaspoort</p>
+        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-sm text-[var(--muted)]">Punten</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
               {passport.profile.points}
-            </p>
-          </CardShell>
-          <CardShell variant="default" padding="md">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-              Voltooide activiteiten
-            </p>
-            <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-[var(--muted)]">Afgerond</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
               {passport.profile.completedActivities}
-            </p>
-          </CardShell>
-          <CardShell variant="default" padding="md">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Favorieten</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-[var(--muted)]">Favorieten</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
               {passport.profile.favoriteCount}
-            </p>
-          </CardShell>
-          <CardShell variant="default" padding="md">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Laatste activiteit</p>
-            <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-[var(--muted)]">Laatst bezig</dt>
+            <dd className="mt-1 text-base font-medium leading-snug text-[var(--foreground)]">
               {formatDate(passport.profile.lastActivityAt)}
-            </p>
-          </CardShell>
-        </GridLayout>
-      </CardShell>
-
-      <section className="mt-8" aria-label="Wat je met je profiel kunt doen">
-        <FeatureJourneyBanner context="profile" />
+            </dd>
+          </div>
+        </dl>
       </section>
 
-      {makerData ? (
-        <CreatorMakerSection data={makerData} success={success} error={error} />
-      ) : null}
+      <ProfileQuickLinks
+        showMakerLink={Boolean(makerData)}
+        hasLocation={locationPreference.hasPreference && localEvents.length > 0}
+      />
 
-      <CardShell variant="default" padding="lg" className="mt-8">
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">Locatie</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {locationPreference.label ?? "niet ingesteld"} — gebruikt voor aanbevelingen en evenementen bij jou in de buurt.
-        </p>
-        <form
-          action={updateLocationPreferenceAction}
-          className="mt-4 flex flex-wrap items-end gap-2"
-        >
-          <input
-            type="text"
-            name="city"
-            defaultValue={locationPreference.city ?? ""}
-            placeholder="Stad (bv. Antwerpen)"
-            className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] w-40"
-          />
-          <input
-            type="text"
-            name="country_code"
-            defaultValue={locationPreference.countryCode ?? ""}
-            placeholder="Landcode (BE)"
-            className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] w-24"
-          />
-          <button
-            type="submit"
-            className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
-          >
-            Opslaan
-          </button>
-        </form>
-        {locationPreference.hasPreference && (
-          <form action={clearLocationPreferenceAction} className="mt-2">
-            <button
-              type="submit"
-              className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline"
-            >
-              Wissen
-            </button>
-          </form>
-        )}
-      </CardShell>
-
-      {locationPreference.hasPreference && localEvents.length > 0 && (
-        <section className="mt-8" aria-labelledby="local-events-heading">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 id="local-events-heading" className="text-2xl font-semibold text-[var(--foreground)]">Creatief bij jou in de buurt</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">Evenementen gerangschikt voor {locationPreference.label}.</p>
-            </div>
-            <Link href="/agenda" className="text-sm font-semibold text-[var(--accent)] hover:underline">Bekijk agenda</Link>
-          </div>
-          <GridLayout cols={3} gap="lg" className="mt-4">{localEvents.map((event) => <EventCard key={event.id} event={event} />)}</GridLayout>
-        </section>
-      )}
-
-      <CardShell variant="default" padding="lg" className="mt-8">
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">Mijn projecten</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Upload je eigen hobbyprojecten en koppel materialen uit de webshop of voeg gezochte producten toe.
-        </p>
-        <Link
-          href="/profile/projects"
-          className="mt-4 inline-block text-sm font-medium text-[var(--accent)] underline"
-        >
-          Naar mijn projecten
-        </Link>
-      </CardShell>
-
-      {resumableProjects.length > 0 && (
-        <section className="mt-8" aria-labelledby="pak-weer-op-heading">
-          <div>
-            <h2 id="pak-weer-op-heading" className="text-2xl font-semibold text-[var(--foreground)]">
-              Pak weer op
-            </h2>
-            <p className="mt-1 text-base leading-relaxed text-[var(--muted)]">
-              Je was hier al aan begonnen. Ga rustig verder wanneer het jou past.
-            </p>
-          </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      {/* 2. Continue first */}
+      {resumableProjects.length > 0 ? (
+        <section className="mt-10" aria-labelledby="pak-weer-op-heading">
+          <h2 id="pak-weer-op-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+            Pak weer op
+          </h2>
+          <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+            Je was hier al aan begonnen. Ga verder wanneer het jou past.
+          </p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
             {resumableProjects.map((run) => (
               <article
                 key={`${run.entityType}:${run.entityId}`}
-                className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)]"
+                className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
               >
-                {run.source.imageUrl && (
+                {run.source.imageUrl ? (
                   <img
                     src={run.source.imageUrl}
                     alt=""
                     className="aspect-[16/7] w-full object-cover"
                   />
-                )}
+                ) : null}
                 <div className="p-5">
-                  <p className="text-sm font-medium text-[var(--muted)]">
-                    {run.entityType === "article" ? "Artikel of patroon" : "Project"} · Laatst bezig op {formatDate(run.lastActivityAt)}
+                  <p className="text-sm text-[var(--muted)]">
+                    {run.entityType === "article" ? "Artikel of patroon" : "Project"}
+                    {" · "}
+                    Laatst bezig op {formatDate(run.lastActivityAt)}
                   </p>
-                  <h3 className="mt-2 text-xl font-semibold text-[var(--foreground)]">
+                  <h3 className="mt-2 text-xl font-semibold leading-snug text-[var(--foreground)]">
                     {run.source.title}
                   </h3>
                   <Link
                     href={`/profile/start/${run.entityType}/${run.entityId}`}
-                    className="mt-4 inline-flex min-h-11 items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                    className="mt-5 inline-flex min-h-12 items-center rounded-lg bg-[var(--accent)] px-5 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 active:scale-[0.98]"
                   >
                     Verder met dit project
                   </Link>
@@ -337,194 +294,441 @@ export default async function ProfilePage({ searchParams }: Props) {
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {materialCupboardEntries.length > 0 && (
-        <section className="mt-8" aria-labelledby="material-cupboard-heading">
-          <CardShell variant="default" padding="lg">
-            <h2 id="material-cupboard-heading" className="text-2xl font-semibold text-[var(--foreground)]">
-              Mijn materialenkast
-            </h2>
-            <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
-              Materialen die je bij je bewaarde projecten als in huis hebt bevestigd.
-            </p>
-            <ul className="mt-5 divide-y divide-[var(--border)]" aria-label="Bevestigde materialen">
-              {materialCupboardEntries.map((material) => (
-                <li key={material.key} className="flex min-h-14 flex-wrap items-center justify-between gap-2 py-3">
-                  <span className="text-lg font-semibold text-[var(--foreground)]">{material.title}</span>
-                  <span className="text-base text-[var(--muted)]">
-                    {material.activeProjectCount === 1
-                      ? "1 gekoppeld actief project"
-                      : `${material.activeProjectCount} gekoppelde actieve projecten`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </CardShell>
-        </section>
-      )}
-
-      {guidesWithDownloads.length > 0 && (
-        <section className="mt-8" aria-labelledby="mijn-gidsen-heading">
-          <CardShell variant="default" padding="lg">
-            <h2 id="mijn-gidsen-heading" className="text-2xl font-semibold text-[var(--foreground)]">
-              Mijn gidsen
-            </h2>
-            <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
-              Je bevestigde downloads staan hier rustig voor je klaar.
-            </p>
-            <ul className="mt-5 divide-y divide-[var(--border)]" aria-label="Mijn bevestigde gidsen">
-              {guidesWithDownloads.map((guide) => (
-                <li key={guide.id} className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
-                  <span className="text-lg font-semibold text-[var(--foreground)]">{guide.title}</span>
-                  {guide.token ? (
-                    <Link
-                      href={`/nieuwsbrief/download/${encodeURIComponent(guide.code)}?token=${encodeURIComponent(guide.token)}`}
-                      className="inline-flex min-h-11 items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
-                    >
-                      Download gids
-                    </Link>
-                  ) : (
-                    <span className="text-base text-[var(--muted)]">Download tijdelijk niet beschikbaar</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </CardShell>
-        </section>
-      )}
-
-      <section className="mt-8">
+      {/* 3. Saved ideas */}
+      <section id="bewaarde-ideeen" className="mt-10 scroll-mt-24" aria-labelledby="bewaarde-ideeen-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-[var(--foreground)]">Verder met je bewaarde ideeën</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Start een patroon, artikel of project wanneer jij er klaar voor bent.</p>
+            <h2
+              id="bewaarde-ideeen-heading"
+              className="text-2xl font-semibold text-[var(--foreground)]"
+            >
+              Bewaarde ideeën
+            </h2>
+            <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+              Start een patroon, artikel of project wanneer jij er klaar voor bent.
+            </p>
           </div>
-          <Link href="/favorites" className="text-sm font-semibold text-[var(--accent)] hover:underline">Alle favorieten bekijken</Link>
+          <Link
+            href="/favorites"
+            className="text-base font-semibold text-[var(--accent)] hover:underline"
+          >
+            Alle favorieten
+          </Link>
         </div>
         {favoriteFeed.length === 0 ? (
-          <CardShell variant="default" padding="lg" className="mt-4">
-            <p className="text-[var(--muted)]">Bewaar een patroon, artikel, workshop of materiaal. Hier verschijnt daarna jouw persoonlijke ideeënfeed.</p>
-          </CardShell>
+          <div className="mt-5 rounded-xl border border-dashed border-[var(--border)] bg-[var(--card)] px-5 py-8">
+            <p className="max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+              Bewaar een patroon, artikel, workshop of materiaal. Hier verschijnt daarna jouw
+              persoonlijke ideeënfeed.
+            </p>
+            <Link
+              href="/artikelen"
+              className="mt-4 inline-flex min-h-11 items-center text-base font-semibold text-[var(--accent)] hover:underline"
+            >
+              Ontdek artikelen
+            </Link>
+          </div>
         ) : (
-          <GridLayout cols={3} gap="lg" className="mt-4">
-            {favoriteFeed.map((item) => <SavedFeedCard key={`${item.entityType}:${item.id}`} item={item} />)}
+          <GridLayout cols={3} gap="lg" className="mt-5">
+            {favoriteFeed.map((item) => (
+              <SavedFeedCard key={`${item.entityType}:${item.id}`} item={item} />
+            ))}
           </GridLayout>
         )}
       </section>
 
-      <CardShell variant="default" padding="lg" className="mt-8">
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">Voortgang per domein</h2>
-        {passport.domainProgress.length === 0 ? (
-          <p className="mt-3 text-[var(--muted)]">
-            Nog geen domeinprogressie beschikbaar. Begin met favorieten opslaan of projecten bekijken.
-          </p>
-        ) : (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {passport.domainProgress.map((domain) => (
-              <div key={domain.domainId} className="rounded-lg border border-[var(--border)] p-4">
-                <div className="flex items-center justify-between">
-                  <Link href={`/${domain.domainSlug}`} className="font-semibold text-[var(--foreground)]">
-                    {domain.domainName}
-                  </Link>
-                  <span className="text-sm font-medium text-[var(--accent)]">
-                    {domain.progressPercent}%
-                  </span>
-                </div>
-                <div className="mt-2 h-2 rounded-full bg-[var(--background)]">
-                  <div
-                    className="h-2 rounded-full bg-[var(--accent)]"
-                    style={{ width: `${domain.progressPercent}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-[var(--muted)]">
-                  Signalen: {domain.signalCount} · Completions: {domain.completionCount}
-                </p>
-              </div>
+      {/* 4. Nearby events */}
+      {locationPreference.hasPreference && localEvents.length > 0 ? (
+        <section id="dichtbij" className="mt-10 scroll-mt-24" aria-labelledby="local-events-heading">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2
+                id="local-events-heading"
+                className="text-2xl font-semibold text-[var(--foreground)]"
+              >
+                Dichtbij jou
+              </h2>
+              <p className="mt-1 text-base text-[var(--muted)]">
+                Evenementen rond {locationPreference.label}.
+              </p>
+            </div>
+            <Link
+              href="/agenda"
+              className="text-base font-semibold text-[var(--accent)] hover:underline"
+            >
+              Volledige agenda
+            </Link>
+          </div>
+          <GridLayout cols={3} gap="lg" className="mt-5">
+            {localEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
             ))}
-          </div>
-        )}
-      </CardShell>
+          </GridLayout>
+        </section>
+      ) : null}
 
-      <CardShell variant="default" padding="lg" className="mt-8">
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">Badges</h2>
-        {passport.badges.length === 0 ? (
-          <p className="mt-3 text-[var(--muted)]">
-            Nog geen badges beschikbaar.
+      {/* 5. Materials + guides */}
+      {materialCupboardEntries.length > 0 ? (
+        <section className="mt-10" aria-labelledby="material-cupboard-heading">
+          <h2
+            id="material-cupboard-heading"
+            className="text-2xl font-semibold text-[var(--foreground)]"
+          >
+            Materialenkast
+          </h2>
+          <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+            Materialen die je bij bewaarde projecten als in huis hebt bevestigd.
           </p>
-        ) : (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {passport.badges.map((badge) => {
-              const progressPercent = toPercent(badge.progressValue, badge.progressTarget);
-              const unlocked = !!badge.unlockedAt;
-              return (
-                <article
-                  key={badge.id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4"
-                >
-                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                    {unlocked ? "Ontgrendeld" : "In progress"}
-                  </p>
-                  <h3 className="mt-1 font-semibold text-[var(--foreground)]">{badge.badgeName}</h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">{badge.badgeDescription}</p>
-                  <div className="mt-3 h-2 rounded-full bg-[var(--card)]">
-                    <div
-                      className={unlocked ? "h-2 rounded-full bg-green-600" : "h-2 rounded-full bg-[var(--accent)]"}
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-[var(--muted)]">
-                    {badge.progressValue}/{badge.progressTarget}
-                    {unlocked && badge.unlockedAt
-                      ? ` · ${formatDate(badge.unlockedAt)}`
-                      : ""}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </CardShell>
-
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <CardShell variant="default" padding="lg">
-          <h2 className="text-xl font-semibold text-[var(--foreground)]">Favorieten overzicht</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {(Object.keys(FAVORITE_LABELS) as EntityType[]).map((type) => (
-              <li key={type} className="flex items-center justify-between">
-                <span className="text-[var(--muted)]">{FAVORITE_LABELS[type]}</span>
-                <span className="font-semibold text-[var(--foreground)]">
-                  {passport.favoritesSummary.byType[type]}
+          <ul className="mt-5 divide-y divide-[var(--border)] border-y border-[var(--border)]">
+            {materialCupboardEntries.map((material) => (
+              <li
+                key={material.key}
+                className="flex min-h-14 flex-wrap items-center justify-between gap-2 py-3"
+              >
+                <span className="text-lg font-semibold text-[var(--foreground)]">
+                  {material.title}
+                </span>
+                <span className="text-base text-[var(--muted)]">
+                  {material.activeProjectCount === 1
+                    ? "1 actief project"
+                    : `${material.activeProjectCount} actieve projecten`}
                 </span>
               </li>
             ))}
           </ul>
-          <Link href="/favorites" className="mt-4 inline-block text-sm text-[var(--accent)] underline">
-            Bekijk volledige favorietenlijst
-          </Link>
-        </CardShell>
+        </section>
+      ) : null}
 
-        <CardShell variant="default" padding="lg">
-          <h2 className="text-xl font-semibold text-[var(--foreground)]">Recente activiteit</h2>
-          {passport.recentActivities.length === 0 ? (
-            <p className="mt-3 text-[var(--muted)]">Nog geen recente activiteiten.</p>
+      {guidesWithDownloads.length > 0 ? (
+        <section className="mt-10" aria-labelledby="mijn-gidsen-heading">
+          <h2 id="mijn-gidsen-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+            Mijn gidsen
+          </h2>
+          <p className="mt-1 text-base text-[var(--muted)]">
+            Je bevestigde downloads staan hier klaar.
+          </p>
+          <ul className="mt-5 divide-y divide-[var(--border)] border-y border-[var(--border)]">
+            {guidesWithDownloads.map((guide) => (
+              <li
+                key={guide.id}
+                className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3"
+              >
+                <span className="text-lg font-semibold text-[var(--foreground)]">{guide.title}</span>
+                {guide.token ? (
+                  <Link
+                    href={`/nieuwsbrief/download/${encodeURIComponent(guide.code)}?token=${encodeURIComponent(guide.token)}`}
+                    className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                  >
+                    Download gids
+                  </Link>
+                ) : (
+                  <span className="text-base text-[var(--muted)]">
+                    Download tijdelijk niet beschikbaar
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* 6. Own projects CTA */}
+      <section
+        className="mt-10 flex flex-col gap-4 border-y border-[var(--border)] py-6 sm:flex-row sm:items-center sm:justify-between"
+        aria-labelledby="mijn-projecten-heading"
+      >
+        <div>
+          <h2 id="mijn-projecten-heading" className="text-xl font-semibold text-[var(--foreground)]">
+            Eigen hobbyprojecten
+          </h2>
+          <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+            Upload je eigen projecten en koppel materialen uit de webshop.
+          </p>
+        </div>
+        <Button asChild variant="secondary">
+          <Link href="/profile/projects">Naar mijn projecten</Link>
+        </Button>
+      </section>
+
+      {/* 7. Maker (collapsed when complete) */}
+      {makerData ? (
+        <CreatorMakerSection data={makerData} success={success} error={error} />
+      ) : null}
+
+      {/* 8. Passport depth: badges first, then domains, then activity */}
+      <section className="mt-10" aria-labelledby="badges-heading">
+        <h2 id="badges-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+          Badges
+        </h2>
+        <p className="mt-1 text-base text-[var(--muted)]">
+          Kleine mijlpalen op je Hobbypaspoort.
+        </p>
+        {passport.badges.length === 0 ? (
+          <p className="mt-4 text-base text-[var(--muted)]">Nog geen badges beschikbaar.</p>
+        ) : (
+          <>
+            {unlockedBadges.length > 0 ? (
+              <div className="mt-5">
+                <p className="text-sm font-semibold text-[var(--accent-secondary)]">Ontgrendeld</p>
+                <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {unlockedBadges.map((badge) => (
+                    <li
+                      key={badge.id}
+                      className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                    >
+                      <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                        {badge.badgeName}
+                      </h3>
+                      <p className="mt-1 text-base leading-relaxed text-[var(--muted)]">
+                        {badge.badgeDescription}
+                      </p>
+                      {badge.unlockedAt ? (
+                        <p className="mt-3 text-sm text-[var(--muted)]">
+                          {formatDate(badge.unlockedAt)}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {featuredInProgress.length > 0 ? (
+              <div className="mt-8">
+                <p className="text-sm font-semibold text-[var(--muted)]">Bijna klaar</p>
+                <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {featuredInProgress.map((badge) => {
+                    const progressPercent = toPercent(badge.progressValue, badge.progressTarget);
+                    return (
+                      <li
+                        key={badge.id}
+                        className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                      >
+                        <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                          {badge.badgeName}
+                        </h3>
+                        <p className="mt-1 text-base leading-relaxed text-[var(--muted)]">
+                          {badge.badgeDescription}
+                        </p>
+                        <div
+                          className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--background)]"
+                          role="progressbar"
+                          aria-valuenow={progressPercent}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-label={`${badge.badgeName}: ${badge.progressValue} van ${badge.progressTarget}`}
+                        >
+                          <div
+                            className="h-full rounded-full bg-[var(--accent)]"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <p className="mt-2 text-sm text-[var(--muted)]">
+                          {badge.progressValue} van {badge.progressTarget}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            {remainingInProgress.length > 0 ? (
+              <details className="mt-6">
+                <summary className="cursor-pointer text-base font-semibold text-[var(--accent)] hover:underline">
+                  Nog {remainingInProgress.length} andere badges
+                </summary>
+                <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {remainingInProgress.map((badge) => {
+                    const progressPercent = toPercent(badge.progressValue, badge.progressTarget);
+                    return (
+                      <li
+                        key={badge.id}
+                        className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                      >
+                        <h3 className="font-semibold text-[var(--foreground)]">{badge.badgeName}</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
+                          {badge.badgeDescription}
+                        </p>
+                        <p className="mt-2 text-sm text-[var(--muted)]">
+                          {badge.progressValue} van {badge.progressTarget} ({progressPercent}%)
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      {passport.domainProgress.length > 0 ? (
+        <section className="mt-10" aria-labelledby="domein-heading">
+          <h2 id="domein-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+            Voortgang per hobby
+          </h2>
+          <p className="mt-1 text-base text-[var(--muted)]">
+            Gebaseerd op wat je bekijkt, bewaart en afrondt.
+          </p>
+          <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+            {passport.domainProgress.map((domain) => (
+              <li key={domain.domainId} className="rounded-xl border border-[var(--border)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <Link
+                    href={`/${domain.domainSlug}`}
+                    className="text-lg font-semibold text-[var(--foreground)] hover:text-[var(--accent)]"
+                  >
+                    {domain.domainName}
+                  </Link>
+                  <span className="text-base font-semibold tabular-nums text-[var(--accent)]">
+                    {domain.progressPercent}%
+                  </span>
+                </div>
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--background)]"
+                  role="progressbar"
+                  aria-valuenow={domain.progressPercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${domain.domainName}: ${domain.progressPercent} procent`}
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)]"
+                    style={{ width: `${domain.progressPercent}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  {domain.signalCount} activiteiten
+                  {domain.completionCount > 0
+                    ? `, ${domain.completionCount} afgerond`
+                    : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <div className="mt-10 grid gap-8 border-t border-[var(--border)] pt-8 lg:grid-cols-2">
+        <section aria-labelledby="favorieten-overzicht-heading">
+          <h2
+            id="favorieten-overzicht-heading"
+            className="text-xl font-semibold text-[var(--foreground)]"
+          >
+            Favorieten per soort
+          </h2>
+          {favoriteTypesWithCount.length === 0 ? (
+            <p className="mt-3 text-base text-[var(--muted)]">Nog geen favorieten bewaard.</p>
           ) : (
-            <ul className="mt-3 space-y-2 text-sm">
-              {passport.recentActivities.map((activity) => (
-                <li key={activity.id} className="rounded-md border border-[var(--border)] p-3">
+            <ul className="mt-4 space-y-3">
+              {favoriteTypesWithCount.map((type) => (
+                <li
+                  key={type}
+                  className="flex items-center justify-between gap-3 text-base"
+                >
+                  <span className="text-[var(--muted)]">{FAVORITE_LABELS[type]}</span>
+                  <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                    {passport.favoritesSummary.byType[type]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link
+            href="/favorites"
+            className="mt-4 inline-block text-base font-semibold text-[var(--accent)] hover:underline"
+          >
+            Volledige favorietenlijst
+          </Link>
+        </section>
+
+        <section aria-labelledby="recente-activiteit-heading">
+          <h2
+            id="recente-activiteit-heading"
+            className="text-xl font-semibold text-[var(--foreground)]"
+          >
+            Recente activiteit
+          </h2>
+          {passport.recentActivities.length === 0 ? (
+            <p className="mt-3 text-base text-[var(--muted)]">Nog geen recente activiteiten.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {passport.recentActivities.slice(0, 5).map((activity) => (
+                <li key={activity.id} className="border-b border-[var(--border)] pb-3 last:border-0">
                   <p className="font-medium text-[var(--foreground)]">
                     {EVENT_LABELS[activity.eventName] ?? activity.eventName}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
+                  <p className="mt-1 text-sm text-[var(--muted)]">
                     {formatDate(activity.occurredAt)}
-                    {activity.path ? ` · ${activity.path}` : ""}
                   </p>
                 </li>
               ))}
             </ul>
           )}
-        </CardShell>
+        </section>
       </div>
+
+      {/* 9. Location preferences last */}
+      <section
+        id="locatie"
+        className="mt-10 scroll-mt-24 border-t border-[var(--border)] pt-8"
+        aria-labelledby="locatie-heading"
+      >
+        <h2 id="locatie-heading" className="text-xl font-semibold text-[var(--foreground)]">
+          Jouw locatie
+        </h2>
+        <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+          {locationPreference.label
+            ? `Nu ingesteld op ${locationPreference.label}. Gebruikt voor aanbevelingen en evenementen bij jou in de buurt.`
+            : "Stel je stad in voor aanbevelingen en evenementen bij jou in de buurt."}
+        </p>
+        <form
+          action={updateLocationPreferenceAction}
+          className="mt-5 flex flex-wrap items-end gap-3"
+        >
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">Stad</span>
+            <input
+              type="text"
+              name="city"
+              defaultValue={locationPreference.city ?? ""}
+              placeholder="bv. Antwerpen"
+              className="min-h-11 w-44 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-base text-[var(--foreground)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
+              Landcode
+            </span>
+            <input
+              type="text"
+              name="country_code"
+              defaultValue={locationPreference.countryCode ?? ""}
+              placeholder="BE"
+              className="min-h-11 w-24 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-base text-[var(--foreground)]"
+            />
+          </label>
+          <button
+            type="submit"
+            className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+          >
+            Opslaan
+          </button>
+        </form>
+        {locationPreference.hasPreference ? (
+          <form action={clearLocationPreferenceAction} className="mt-3">
+            <button
+              type="submit"
+              className="text-base text-[var(--muted)] hover:text-[var(--accent)] hover:underline"
+            >
+              Locatie wissen
+            </button>
+          </form>
+        ) : null}
+      </section>
     </PageLayout>
   );
 }
