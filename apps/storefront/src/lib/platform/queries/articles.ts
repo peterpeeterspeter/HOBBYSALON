@@ -153,3 +153,25 @@ export async function listArticlesByAuthor(creatorId: string): Promise<Article[]
   if (error) return [];
   return (data ?? []) as Article[];
 }
+
+export type ArticleDomainLink = {
+  article_id: string;
+  domain_id: string;
+};
+
+/** Batched public SELECT of article↔domain links for hub enrichment. */
+export async function listArticleDomainLinks(
+  articleIds: string[]
+): Promise<ArticleDomainLink[]> {
+  if (!articleIds.length) return [];
+
+  const uniqueIds = [...new Set(articleIds)];
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("article_domains")
+    .select("article_id, domain_id")
+    .in("article_id", uniqueIds);
+
+  if (error || !data) return [];
+  return data as ArticleDomainLink[];
+}

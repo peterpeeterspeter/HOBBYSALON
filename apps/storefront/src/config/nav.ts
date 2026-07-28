@@ -18,9 +18,9 @@ export const STATIC_LINKS = {
     { href: "/creators", label: "Makers" },
   ],
   inspiratie: [
-    { href: "/tools", label: "Tools" },
-    { href: "/artikelen", label: "Artikelen" },
+    { href: "/artikelen", label: "Artikelen & tutorials" },
     { href: "/patronen", label: "Patronen" },
+    { href: "/tools", label: "Hobbytools" },
   ],
   account: [
     ACCOUNT_NAV.profile,

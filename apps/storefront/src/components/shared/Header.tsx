@@ -166,7 +166,7 @@ function ContentDropdown({ navLinkClass }: { navLinkClass: string }) {
       <summary
         className={`${navLinkClass} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}
       >
-        Ontdekken
+        Inspiratie
         <ChevronDown
           size={16}
           aria-hidden
