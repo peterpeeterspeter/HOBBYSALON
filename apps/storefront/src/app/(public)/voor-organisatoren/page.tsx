@@ -9,11 +9,15 @@ import {
   FaqSection,
   FinalCtaSection,
 } from "@/components/marketing";
+import {
+  ORGANIZER_PLAN_FAQ,
+  ORGANIZER_PLANS,
+} from "@/lib/marketing/commercial-offers";
 
 export const metadata = buildPageMetadata({
   title: "Creatief event promoten via Hobbysalon",
   description:
-    "Promoot je hobbybeurs, workshopdag, makers market of creatief event bij bezoekers en standhouders.",
+    "Promoot je hobbybeurs, workshopdag, makers market of creatief event in de Hobbysalon-agenda.",
   path: "/voor-organisatoren",
 });
 
@@ -26,54 +30,13 @@ const PAIN_POINTS = [
 
 const SOLUTION_ITEMS = [
   "Eventpagina op Hobbysalon",
-  "Agenda/categorieplaatsing",
-  "Standhouder-aanvraagflow",
-  "Bezoekerscampagne",
-  "Nieuwsbrief/social promotie",
-  "Event spotlight",
-  "Later: interne ticketing",
-];
-
-const PLANS = [
-  {
-    title: "Event Essential",
-    price: "vanaf €49 excl. btw / event",
-    features: [
-      "Eventpagina",
-      "Basis agenda-vermelding",
-      "Locatie, datum, thema's",
-      "Aanvraagflow via Hobbysalon",
-    ],
-  },
-  {
-    title: "Event Premium",
-    price: "vanaf €249 excl. btw / event",
-    featured: true,
-    features: [
-      "Alles van Essential",
-      "Uitgelichte eventplaatsing",
-      "Hogere ranking",
-      "Social/newsletter promotiekansen",
-      "Standhouder CTA",
-      "Premium eventbadge",
-    ],
-  },
-  {
-    title: "Full Promo Pack",
-    price: "vanaf €750 excl. btw",
-    features: [
-      "Bezoekerscampagne",
-      "Standhouderwerving",
-      "Nieuwsbriefblok",
-      "Social content",
-      "Post-event artikel",
-      "Spotlightperiode",
-    ],
-  },
+  "Plaatsing in de creatieve agenda",
+  "Aanvraagflow via Hobbysalon",
+  "Zichtbaarheid bij mensen die al hobby-events zoeken",
 ];
 
 const WHY_ITEMS = [
-  "Bezoekers en standhouders die actief zoeken naar creatieve events",
+  "Bezoekers die actief zoeken naar creatieve events",
   "Nicheplatform — geen algemene eventkalender",
   "Vertrouwd merk in hobby en handwerk",
   "Gerichte community, geen willekeurig advertentieverkeer",
@@ -82,18 +45,11 @@ const WHY_ITEMS = [
 const FAQ_ITEMS = [
   {
     question: "Verkopen jullie tickets?",
-    answer:
-      "Nog niet als standaard. Interne ticketing kan later volgen.",
-  },
-  {
-    question: "Kan ik een externe ticketlink tonen?",
-    answer:
-      "Alleen binnen een premium of tracked pakket.",
+    answer: ORGANIZER_PLAN_FAQ.tickets,
   },
   {
     question: "Kunnen standhouders zich aanmelden?",
-    answer:
-      "Ja, via een Hobbysalon-aanvraagflow.",
+    answer: ORGANIZER_PLAN_FAQ.standhouders,
   },
   {
     question: "Voor welke events is dit geschikt?",
@@ -106,8 +62,8 @@ export default function VoorOrganisatorenPage() {
   return (
     <>
       <MarketingHero
-        headline="Promoot je creatieve event of makers market via Hobbysalon"
-        subheadline="Maak je hobbybeurs, workshopdag, open atelier of handmade market zichtbaar bij bezoekers, makers, winkels en standhouders."
+        headline="Promoot je creatieve event via Hobbysalon"
+        subheadline="Maak je hobbybeurs, workshopdag, open atelier of handmade market zichtbaar in dé agenda waar mensen creatieve events zoeken."
         primaryCta={{ label: "Plaats je event", href: "/register/creator" }}
         secondaryCta={{ label: "Bekijk eventpakketten", href: "#pakketten" }}
       />
@@ -115,13 +71,13 @@ export default function VoorOrganisatorenPage() {
       <SolutionSection items={SOLUTION_ITEMS} />
       <PlanCardsSection
         title="Eventpakketten"
-        description="Kies het pakket dat past bij je event."
-        plans={PLANS}
+        description="Kies het pakket dat past bij je event. Prijzen per event, excl. btw."
+        plans={ORGANIZER_PLANS}
       />
       <HowItWorksSection
         steps={[
           "Plaats je event",
-          "Kies bezoekerspromotie of standhouderwerving",
+          "Kies je zichtbaarheidspakket",
           "Ontvang aanvragen via Hobbysalon",
         ]}
       />
@@ -129,7 +85,7 @@ export default function VoorOrganisatorenPage() {
       <FaqSection items={FAQ_ITEMS} />
       <FinalCtaSection
         title="Plaats je event op Hobbysalon"
-        description="Registreer je als creator, maak je eventpagina en bereik bezoekers en standhouders in de creatieve community."
+        description="Registreer je, maak je eventpagina en bereik bezoekers in de creatieve community."
         href="/register/creator"
         ctaText="Plaats je event"
         secondaryHref="#pakketten"

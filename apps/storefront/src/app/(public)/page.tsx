@@ -33,6 +33,7 @@ import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
 import { DiscoveryFeed } from "@/components/discovery/DiscoveryFeed";
 import type { CreatorWithStats } from "@/lib/platform/queries/creators";
+import { isHomeEventCampaignReady } from "@/lib/marketing/commercial-offers";
 
 export const metadata = buildPageMetadata({
   title: "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
@@ -120,32 +121,38 @@ const PLATFORM_PILLARS = [
   },
 ];
 
-const AUDIENCES = [
-  {
+const AUDIENCES = {
+  discoverer: {
     title: "Ik wil iets creatiefs doen",
-    body: "Alle workshops, winkels en events op één plek. Geen twintig tabbladen meer nodig.",
-    href: "/workshops",
-    cta: "Vind iets leuks",
+    body: "Workshops, winkels en events op één plek. Geen twintig tabbladen meer nodig.",
+    href: "/voor-hobbyisten",
+    cta: "Ontdek Hobbysalon",
   },
-  {
-    title: "Ik deel graag mijn vak",
-    body: "Toon wat je organiseert, ontvang aanvragen en laat je werk voor zich spreken.",
+  maker: {
+    title: "Ik maak graag iets met mijn handen",
+    body: "Toon je creaties en ontvang geïnteresseerde kopers via Hobbysalon.",
+    href: "/voor-makers",
+    cta: "Toon je werk",
+  },
+  workshopHost: {
+    title: "Ik geef workshops",
+    body: "Plaats je lessen, ontvang aanvragen en word gevonden door mensen die willen leren.",
     href: "/voor-workshopgevers",
-    cta: "Word aanbieder",
+    cta: "Plaats workshops",
   },
-  {
+  shop: {
     title: "Ik heb een hobbywinkel",
-    body: "Breng je materialen en lessen onder de ogen van mensen die er écht naar zoeken.",
+    body: "Breng je materialen onder de ogen van mensen die er écht naar zoeken.",
     href: "/voor-winkels",
     cta: "Toon je winkel",
   },
-  {
+  organizer: {
     title: "Ik organiseer een event",
-    body: "Zet je markt of beurs in dé agenda waar hobbyisten actief plannen.",
+    body: "Zet je markt of beurs in dé agenda waar mensen creatieve events plannen.",
     href: "/voor-organisatoren",
     cta: "Promoot je event",
   },
-];
+} as const;
 
 const GRAPH_EXAMPLES = [
   { label: "Macramé workshops in Antwerpen", query: "Macramé workshops Antwerpen" },
@@ -208,7 +215,13 @@ function CreatorFeatureCard({ creator }: { creator: CreatorWithStats }) {
   );
 }
 
-function HeroSection({ domainCount }: { domainCount: number }) {
+function HeroSection({
+  domainCount,
+  eventCampaignReady,
+}: {
+  domainCount: number;
+  eventCampaignReady: boolean;
+}) {
   return (
     <section className="relative overflow-hidden bg-[var(--hero-bg)] py-10 md:py-14 lg:py-16">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_12%,rgba(226,126,74,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(51,116,88,0.14),transparent_28%)]" aria-hidden="true" />
@@ -254,11 +267,17 @@ function HeroSection({ domainCount }: { domainCount: number }) {
           </form>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link className="home-primary-cta" href="/workshops">
-              Ontdek inspiratie
-            </Link>
-            <Link className="home-secondary-cta" href="/voor-makers">
-              Deel jouw vak
+            {eventCampaignReady ? (
+              <Link className="home-primary-cta" href="/agenda">
+                Bekijk creatieve events
+              </Link>
+            ) : (
+              <Link className="home-primary-cta" href="/workshops">
+                Ontdek workshops en events
+              </Link>
+            )}
+            <Link className="home-secondary-cta" href="/workshops">
+              Vind een workshop
             </Link>
           </div>
         </div>
@@ -336,17 +355,39 @@ function PlatformPillars() {
 
 function AudienceSection() {
   return (
-    <Section spacing="lg" variant="alt">
+    <Section spacing="lg" variant="alt" id="aanbieders">
       <Container size="wide">
-        <div className="home-audience-layout">
-          <div>
-            <h2 className="home-section-title">Iedereen vindt zijn plek.</h2>
-            <p className="home-section-copy">
-              Hobbyisten komen om te ontdekken. Makers, winkels en organisatoren krijgen een plek waar ze gevonden worden.
-            </p>
-          </div>
+        <div className="max-w-3xl">
+          <h2 className="home-section-title">Iedereen vindt zijn plek.</h2>
+          <p className="home-section-copy">
+            Mensen komen om te ontdekken. Makers, workshopgevers, winkels en organisatoren krijgen
+            een plek waar ze gevonden worden.
+          </p>
+        </div>
+
+        <div className="mt-8 space-y-4">
+          <CardShell
+            variant="featured"
+            padding="lg"
+            className="home-audience-card home-audience-card-primary"
+          >
+            <h3>{AUDIENCES.discoverer.title}</h3>
+            <p>{AUDIENCES.discoverer.body}</p>
+            <Link href={AUDIENCES.discoverer.href}>{AUDIENCES.discoverer.cta}</Link>
+          </CardShell>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            {AUDIENCES.map((item) => (
+            {[AUDIENCES.maker, AUDIENCES.workshopHost].map((item) => (
+              <CardShell key={item.title} variant="default" padding="lg" className="home-audience-card">
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+                <Link href={item.href}>{item.cta}</Link>
+              </CardShell>
+            ))}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[AUDIENCES.shop, AUDIENCES.organizer].map((item) => (
               <CardShell key={item.title} variant="default" padding="lg" className="home-audience-card">
                 <h3>{item.title}</h3>
                 <p>{item.body}</p>
@@ -512,7 +553,10 @@ export default async function HomePage() {
         }}
       />
 
-      <HeroSection domainCount={data.popularDomains.length} />
+      <HeroSection
+        domainCount={data.popularDomains.length}
+        eventCampaignReady={isHomeEventCampaignReady(data.upcomingEvents)}
+      />
 
       {resumableProject && (
         <Section spacing="sm">
@@ -762,16 +806,16 @@ export default async function HomePage() {
             <span className="home-kicker">Voor aanbieders</span>
             <h2>Jouw vak verdient publiek</h2>
             <p>
-              Geef workshops, toon je winkel of promoot je event. Hobbysalon brengt je bij mensen die
-              al zin hebben om te beginnen.
+              Toon je creaties, geef workshops, open je winkel of promoot je event. Hobbysalon
+              brengt je bij mensen die al zin hebben om te beginnen.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-            <Link href="/voor-workshopgevers" className="home-primary-cta home-primary-cta-light">
-              Word aanbieder
+            <Link href="#aanbieders" className="home-primary-cta home-primary-cta-light">
+              Kies je rol
             </Link>
-            <Link href="/agenda" className="home-secondary-cta home-secondary-cta-light">
-              Bekijk agenda
+            <Link href="/partners" className="home-secondary-cta home-secondary-cta-light">
+              Zakelijk samenwerken
             </Link>
           </div>
         </Container>

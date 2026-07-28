@@ -509,6 +509,19 @@ details > summary::-webkit-details-marker {
   border-radius: 1.5rem;
 }
 
+.home-audience-card-primary {
+  max-width: 52rem;
+}
+
+.home-audience-card-primary h3 {
+  font-size: 1.55rem;
+}
+
+.home-audience-card-primary p {
+  font-size: 1.1rem;
+  max-width: 40rem;
+}
+
 .home-audience-card h3 {
   color: var(--foreground);
   font-family: var(--font-heading), var(--font-body);

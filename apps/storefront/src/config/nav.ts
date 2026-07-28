@@ -40,9 +40,11 @@ export const FOOTER_SECTIONS = {
     { href: "/tools", label: "Tools" },
   ],
   meedoen: [
+    { href: "/voor-hobbyisten", label: "Iets moois maken" },
     { href: "/voor-makers", label: "Maker worden" },
     { href: "/voor-workshopgevers", label: "Workshop geven" },
     { href: "/voor-winkels", label: "Verkopen" },
+    { href: "/voor-organisatoren", label: "Event organiseren" },
   ],
   info: [
     { href: "/landing", label: "Over ons" },
