@@ -27,7 +27,8 @@ RUN yarn add --ignore-workspace-root-check --dev ts-node@10.9.2 typescript@5.6.2
 # Build the project and its dependencies
 COPY --from=builder /app/out/full/ .
 
-RUN yarn turbo build
+# Keep concurrency low: VPS builds OOM/thrash with parallel plugin compiles.
+RUN yarn turbo build --concurrency=1
 
 FROM base AS runner
 WORKDIR /app
