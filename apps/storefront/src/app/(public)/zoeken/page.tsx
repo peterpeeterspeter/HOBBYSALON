@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  Search,
   Layers,
   ShoppingBag,
   CalendarDays,
@@ -9,16 +8,20 @@ import {
   Newspaper,
   Scissors,
 } from "lucide-react";
+import {
+  ListingHeroBand,
+  ListingSearchShell,
+} from "@/components/shared/ListingHeroBand";
+import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { Container } from "@/components/ui/container";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   WorkshopCard,
   ProductCard,
-  CreatorCard,
-  EventCard,
   ArticleCard,
 } from "@/components/cards";
+import { AgendaEventRow } from "@/components/events/AgendaEventRow";
 import { searchAll } from "@/lib/services/search-page";
 import { getAuthUser } from "@/lib/auth/session";
 
@@ -80,41 +83,40 @@ export default async function SearchPage({
 
   return (
     <>
-      {/* Search hero */}
-      <div className="border-b border-[var(--border)] bg-gradient-to-br from-[var(--section-highlight)] to-[var(--card)]">
-        <Container className="py-10 sm:py-12">
-          <h1 className="mb-5 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-            {hasQuery ? `Zoekresultaten voor "${query}"` : "Zoeken"}
-          </h1>
-
-          <form
-            method="GET"
-            action="/zoeken"
-            role="search"
-            className="mx-auto max-w-2xl"
-          >
-            <div className="relative">
-              <Search
-                size={20}
-                aria-hidden
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-              />
-              <input
-                name="q"
-                type="search"
-                defaultValue={query}
-                placeholder="Zoek workshops, materialen, creators, evenementen..."
-                aria-label="Zoekterm"
-                autoFocus={!hasQuery}
-                className="min-h-[52px] w-full rounded-xl border-[1.5px] border-[var(--border)] bg-[var(--card)] py-3.5 pl-12 pr-4 text-[17px] text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
-              />
-            </div>
-          </form>
-        </Container>
-      </div>
+      <ListingHeroBand
+        title={hasQuery ? `Zoekresultaten voor "${query}"` : "Zoeken"}
+        lead={
+          hasQuery
+            ? undefined
+            : "Vind workshops, materialen, makers, evenementen en artikelen."
+        }
+        imageSrc={LANDING_IMAGES.craftsGrid}
+        breadcrumb={
+          <nav aria-label="Breadcrumb" className="text-sm text-white/75">
+            <ol className="flex flex-wrap gap-2">
+              <li>
+                <Link href="/" className="hover:text-white">
+                  Home
+                </Link>
+              </li>
+              <li aria-hidden>/</li>
+              <li className="text-white">Zoeken</li>
+            </ol>
+          </nav>
+        }
+      >
+        <form method="GET" action="/zoeken" role="search">
+          <ListingSearchShell
+            id="zoeken-q"
+            name="q"
+            placeholder="Zoek workshops, materialen, creators, evenementen..."
+            defaultValue={query}
+            label="Zoekterm"
+          />
+        </form>
+      </ListingHeroBand>
 
       <Container className="py-8">
-        {/* No query state — category discovery */}
         {!hasQuery && (
           <div>
             <p className="mb-6 text-[var(--muted)]">
@@ -125,7 +127,7 @@ export default async function SearchPage({
                 <Link
                   key={href}
                   href={href}
-                  className="flex flex-col items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 text-center transition-all hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 motion-reduce:hover:transform-none"
+                  className="flex flex-col items-center gap-2.5 rounded-[1rem] bg-[var(--section-alt)] px-4 py-5 text-center transition-colors hover:bg-[var(--section-highlight)]"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent)]/10 text-[var(--accent)]">
                     <Icon size={20} aria-hidden />
@@ -139,7 +141,6 @@ export default async function SearchPage({
           </div>
         )}
 
-        {/* No results */}
         {hasQuery && results.total === 0 && (
           <EmptyState
             title={`Geen resultaten voor "${query}"`}
@@ -148,10 +149,8 @@ export default async function SearchPage({
           />
         )}
 
-        {/* Results */}
         {hasQuery && results.total > 0 && (
           <>
-            {/* Type filter chips */}
             <div className="scrollbar-hide -mx-1 mb-8 flex gap-2 overflow-x-auto px-1 pb-1">
               {TABS.map((tab) => {
                 const count = counts[tab.id];
@@ -164,7 +163,7 @@ export default async function SearchPage({
                     key={tab.id}
                     href={`/zoeken?${qs.toString()}`}
                     aria-current={active ? "page" : undefined}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
                       active
                         ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
                         : "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
@@ -184,7 +183,7 @@ export default async function SearchPage({
             </div>
 
             {hasArticleResults && (
-              <aside className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--section-highlight)] px-5 py-5 sm:px-6">
+              <aside className="mb-8 rounded-[1.25rem] bg-[var(--section-highlight)] px-5 py-5 sm:px-6">
                 <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
                   Van inspiratie naar maken
                 </h2>
@@ -194,7 +193,7 @@ export default async function SearchPage({
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Link
                     href={articleResultsHref}
-                    className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-4 py-2 text-base font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent)]/90"
+                    className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-4 py-2 text-base font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
                   >
                     Bekijk inspiratie over “{query}”
                   </Link>
@@ -211,7 +210,6 @@ export default async function SearchPage({
             <div className="space-y-12">
               {show("workshops") && results.workshops.length > 0 && (
                 <ResultSection
-                  tag="Workshops"
                   title="Workshops"
                   count={results.workshops.length}
                   href="/workshops"
@@ -225,7 +223,6 @@ export default async function SearchPage({
               )}
               {show("materials") && results.products.length > 0 && (
                 <ResultSection
-                  tag="Marktplaats"
                   title="Materialen"
                   count={results.products.length}
                   href="/materials"
@@ -239,45 +236,106 @@ export default async function SearchPage({
               )}
               {show("creators") && results.creators.length > 0 && (
                 <ResultSection
-                  tag="Makers"
                   title="Creators"
                   count={results.creators.length}
                   href="/creators"
                 >
-                  <GridLayout cols={4} gap="md">
+                  <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-4 sm:overflow-visible sm:pb-0 [scrollbar-width:thin]">
                     {results.creators.map((c) => (
-                      <CreatorCard key={c.id} creator={c} />
+                      <Link
+                        key={c.id}
+                        href={`/creator/${c.slug}`}
+                        className="group w-36 shrink-0 sm:w-auto"
+                      >
+                        <div className="relative aspect-[3/4] overflow-hidden rounded-[1.25rem] bg-[var(--section-alt)]">
+                          {c.avatar_url ? (
+                            <img
+                              src={c.avatar_url}
+                              alt=""
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--muted)]/40">
+                              {c.display_name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        <p className="mt-2 font-[family-name:var(--font-heading)] text-[15px] font-bold text-[var(--foreground)] line-clamp-2">
+                          {c.display_name}
+                        </p>
+                        {c.city ? (
+                          <p className="mt-0.5 text-sm text-[var(--muted)]">{c.city}</p>
+                        ) : null}
+                      </Link>
                     ))}
-                  </GridLayout>
+                  </div>
                 </ResultSection>
               )}
               {show("events") && results.events.length > 0 && (
                 <ResultSection
-                  tag="Agenda"
                   title="Evenementen"
                   count={results.events.length}
                   href="/agenda"
                 >
-                  <GridLayout cols={3} gap="md">
+                  <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                     {results.events.map((e) => (
-                      <EventCard key={e.id} event={e} />
+                      <li key={e.id}>
+                        <AgendaEventRow event={e} />
+                      </li>
                     ))}
-                  </GridLayout>
+                  </ul>
                 </ResultSection>
               )}
               {show("articles") && results.articles.length > 0 && (
                 <ResultSection
-                  tag="Inspiratie"
                   title="Artikelen"
                   count={results.articles.length}
                   href="/gratis-haakpatronen"
                   headingId="zoekresultaten-artikelen"
                 >
-                  <GridLayout cols={3} gap="md">
-                    {results.articles.map((a) => (
-                      <ArticleCard key={a.id} article={a} />
-                    ))}
-                  </GridLayout>
+                  {activeType === "all" ? (
+                    <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+                      {results.articles.map((a) => (
+                        <li key={a.id}>
+                          <Link
+                            href={`/artikel/${a.slug}`}
+                            className="group flex items-start gap-4 py-4 transition-colors hover:bg-[var(--section-highlight)]/80 sm:px-2"
+                          >
+                            {a.featured_image_url ? (
+                              <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+                                <img
+                                  src={a.featured_image_url}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : null}
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                                {a.title}
+                              </h3>
+                              {a.excerpt ? (
+                                <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">
+                                  {a.excerpt}
+                                </p>
+                              ) : null}
+                            </div>
+                            <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+                              Lees
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <GridLayout cols={3} gap="md">
+                      {results.articles.map((a) => (
+                        <ArticleCard key={a.id} article={a} />
+                      ))}
+                    </GridLayout>
+                  )}
                 </ResultSection>
               )}
             </div>
@@ -289,14 +347,12 @@ export default async function SearchPage({
 }
 
 function ResultSection({
-  tag,
   title,
   count,
   href,
   headingId,
   children,
 }: {
-  tag: string;
   title: string;
   count: number;
   href: string;
@@ -305,26 +361,23 @@ function ResultSection({
 }) {
   return (
     <section>
-      <div className="mb-1.5 flex items-center gap-3">
-        <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
-          {tag}
-        </span>
-        <h2
-          id={headingId}
-          className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
-        >
-          {title}
-        </h2>
-        <span className="text-sm text-[var(--muted)]">{count}</span>
-        <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <h2
+            id={headingId}
+            className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
+          >
+            {title}
+          </h2>
+          <span className="text-sm text-[var(--muted)]">{count}</span>
+        </div>
         <Link
           href={href}
           className="shrink-0 text-sm font-semibold text-[var(--accent)] hover:underline"
         >
-          Bekijk alles →
+          Bekijk alles
         </Link>
       </div>
-      <div className="mb-5" />
       {children}
     </section>
   );

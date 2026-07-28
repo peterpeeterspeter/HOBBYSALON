@@ -69,9 +69,9 @@ export async function Header() {
           <Image
             src="/logo.png"
             alt="Hobbysalon"
-            width={150}
-            height={100}
-            className="h-9 w-auto object-contain md:h-10"
+            width={168}
+            height={112}
+            className="h-10 w-auto object-contain md:h-11"
             priority
           />
         </Link>
@@ -93,7 +93,7 @@ export async function Header() {
                 name="q"
                 placeholder="Zoek haken, keramiek of Herentals"
                 aria-label="Zoeken"
-                className="h-10 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
               />
             </div>
           </form>
@@ -131,13 +131,13 @@ export async function Header() {
             <div className="hidden items-center gap-2 lg:flex">
               <Link
                 href="/login"
-                className={buttonVariants({ variant: "secondary", size: "sm" })}
+                className={buttonVariants({ variant: "secondary", size: "md" })}
               >
                 Aanmelden
               </Link>
               <Link
                 href="/register"
-                className={buttonVariants({ variant: "primary", size: "sm" })}
+                className={buttonVariants({ variant: "primary", size: "md" })}
               >
                 Registreren
               </Link>

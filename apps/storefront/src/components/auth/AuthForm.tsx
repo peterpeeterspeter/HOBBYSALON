@@ -128,7 +128,7 @@ export function AuthForm({
           type="email"
           name="email"
           autoComplete="email"
-          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="naam@voorbeeld.be"
         />
       </label>
@@ -143,7 +143,7 @@ export function AuthForm({
           name="password"
           minLength={8}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
-          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Minimaal 8 karakters"
         />
       </label>
@@ -253,7 +253,7 @@ export function AuthForm({
                 name="postal_code"
                 maxLength={16}
                 autoComplete="postal-code"
-                className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+                className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
                 placeholder="Bijv. 2800"
               />
             </label>
@@ -265,7 +265,7 @@ export function AuthForm({
               <select
                 name="country_code"
                 defaultValue={REGISTRATION_DEFAULT_COUNTRY}
-                className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+                className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
               >
                 {REGISTRATION_COUNTRY_OPTIONS.map((country) => (
                   <option key={country.value} value={country.value}>

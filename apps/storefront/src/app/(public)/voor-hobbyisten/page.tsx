@@ -20,7 +20,7 @@ const PAIN_POINTS = [
   "Inspiratie zit verspreid over tientallen tabbladen en social feeds.",
   "Je vindt moeilijk een rustige eerste workshop of markt bij jou in de buurt.",
   "Materialen, lessen en events staan zelden samen.",
-  "Je wilt eerst rustig rondkijken — zonder meteen iets te moeten kopen.",
+  "Je wilt eerst rustig rondkijken, zonder meteen iets te moeten kopen.",
 ];
 
 const SOLUTION_ITEMS = [
@@ -33,7 +33,7 @@ const SOLUTION_ITEMS = [
 const WHY_ITEMS = [
   "Gemaakt voor mensen die graag iets met hun handen maken",
   "Duidelijke pagina’s, grote knoppen, rustige navigatie",
-  "Lokaal én online — België en Nederland",
+  "Lokaal én online: België en Nederland",
   "Van eerste idee tot workshop, materiaal of event",
 ];
 
@@ -60,7 +60,7 @@ export default function VoorHobbyistenPage() {
     <>
       <MarketingHero
         headline="Voor iedereen die graag iets moois maakt"
-        subheadline="Vind workshops, materialen, makers en creatieve events op één plek — rustig ontdekken, zonder twintig tabbladen."
+        subheadline="Vind workshops, materialen, makers en creatieve events op één plek. Rustig ontdekken, zonder twintig tabbladen."
         primaryCta={{ label: "Bekijk creatieve events", href: "/agenda" }}
         secondaryCta={{ label: "Vind een workshop", href: "/workshops" }}
       />

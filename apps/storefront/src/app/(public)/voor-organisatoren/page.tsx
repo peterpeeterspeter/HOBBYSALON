@@ -37,7 +37,7 @@ const SOLUTION_ITEMS = [
 
 const WHY_ITEMS = [
   "Bezoekers die actief zoeken naar creatieve events",
-  "Nicheplatform — geen algemene eventkalender",
+  "Nicheplatform, geen algemene eventkalender",
   "Vertrouwd merk in hobby en handwerk",
   "Gerichte community, geen willekeurig advertentieverkeer",
 ];

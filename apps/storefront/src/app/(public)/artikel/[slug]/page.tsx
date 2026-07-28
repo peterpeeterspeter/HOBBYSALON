@@ -4,10 +4,6 @@ import { Clock, Calendar } from "lucide-react";
 import { getArticlePageData } from "@/lib/services/article-page";
 import {
   ProductCard,
-  WorkshopCard,
-  CreatorCard,
-  EventCard,
-  ArticleCard,
 } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { StartSavedProjectButton } from "@/components/profile/StartSavedProjectButton";
@@ -146,7 +142,7 @@ export default async function ArticlePage({ params }: Props) {
       <JsonLd data={articleJsonLd} />
 
       {/* Hero */}
-      <div className="article-print-hero relative h-[320px] overflow-hidden sm:h-[380px] lg:h-[420px]">
+      <div className="article-print-hero relative h-[320px] overflow-hidden sm:h-[400px] lg:h-[460px]">
         {article.featured_image_url ? (
           <img
             src={article.featured_image_url}
@@ -156,13 +152,13 @@ export default async function ArticlePage({ params }: Props) {
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-[var(--color-amber-500)] to-[var(--color-amber-700)]" />
         )}
-        <div className="article-print-hero-overlay absolute inset-0 bg-gradient-to-t from-[rgba(77,59,42,0.90)] via-[rgba(77,59,42,0.30)] to-transparent" />
+        <div className="article-print-hero-overlay absolute inset-0 bg-gradient-to-t from-[var(--foreground)]/92 via-[var(--foreground)]/45 to-[var(--foreground)]/15" />
         <div className="article-print-hero-content absolute inset-x-0 bottom-0">
           <div className="mx-auto max-w-3xl px-4 pb-8 sm:pb-9">
-            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--accent-light)]">
+            <p className="mb-2 text-sm font-semibold text-white/80">
               {typeLabel}
             </p>
-            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-white sm:text-3xl lg:text-[2.25rem]">
+            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight tracking-[-0.03em] text-white sm:text-3xl lg:text-[2.25rem]">
               {article.title}
             </h1>
           </div>
@@ -300,7 +296,7 @@ export default async function ArticlePage({ params }: Props) {
         <div className="article-print-recommendations mx-auto max-w-6xl px-4 pb-12">
           <CommunityGallery projects={communityProjects} />
           {requiredMaterials.length > 0 && (
-            <GraphSection tag="Benodigd" title="Dit heb je nodig" seeAllHref="/materials">
+            <GraphSection title="Dit heb je nodig" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {requiredMaterials.map((product) => (
                   <ProductCard key={product.id} product={product} />
@@ -310,7 +306,7 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {requiredTools.length > 0 && (
-            <GraphSection tag="Gereedschap" title="Benodigd gereedschap" seeAllHref="/materials">
+            <GraphSection title="Benodigd gereedschap" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {requiredTools.map((product) => (
                   <ProductCard key={product.id} product={product} />
@@ -320,7 +316,7 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {optionalMaterials.length > 0 && (
-            <GraphSection tag="Optioneel" title="Handig om erbij te hebben" seeAllHref="/materials">
+            <GraphSection title="Handig om erbij te hebben" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {optionalMaterials.map((product) => (
                   <ProductCard key={product.id} product={product} />
@@ -330,45 +326,25 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {nextSteps.length > 0 && (
-            <GraphSection tag="Volgende stap" title="Ga verder met deze stap">
-              <GridLayout cols={3} gap="md">
-                {nextSteps.map((nextArticle) => (
-                  <ArticleCard key={nextArticle.id} article={nextArticle} />
-                ))}
-              </GridLayout>
+            <GraphSection title="Ga verder met deze stap">
+              <EditorialArticleStrip articles={nextSteps} />
             </GraphSection>
           )}
 
           {relatedArticles.length > 0 && (
-            <GraphSection tag="Lees ook" title="Meer over dit onderwerp" seeAllHref="/artikelen">
-              <GridLayout cols={3} gap="md">
-                {relatedArticles.map((relatedArticle) => (
-                  <ArticleCard key={relatedArticle.id} article={relatedArticle} />
-                ))}
-              </GridLayout>
+            <GraphSection title="Meer over dit onderwerp" seeAllHref="/artikelen">
+              <EditorialArticleStrip articles={relatedArticles} />
             </GraphSection>
           )}
 
           {relatedWorkshops.length > 0 && (
-            <GraphSection
-              tag="Workshops"
-              title="Leer dit in een workshop"
-              seeAllHref="/workshops"
-            >
-              <GridLayout cols={3} gap="md">
-                {relatedWorkshops.map((w) => (
-                  <WorkshopCard key={w.id} workshop={w} />
-                ))}
-              </GridLayout>
+            <GraphSection title="Leer dit in een workshop" seeAllHref="/workshops">
+              <EditorialWorkshopStrip workshops={relatedWorkshops} />
             </GraphSection>
           )}
 
           {relatedProducts.length > 0 && (
-            <GraphSection
-              tag="Materialen"
-              title="Dit heb je nodig"
-              seeAllHref="/materials"
-            >
+            <GraphSection title="Dit heb je nodig" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {relatedProducts.map((p) => (
                   <ProductCard key={p.id} product={p} />
@@ -378,30 +354,71 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {relatedCreators.length > 0 && (
-            <GraphSection
-              tag="Creators"
-              title="Van deze makers"
-              seeAllHref="/creators"
-            >
-              <GridLayout cols={4} gap="md">
+            <GraphSection title="Van deze makers" seeAllHref="/creators">
+              <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin]">
                 {relatedCreators.map((c) => (
-                  <CreatorCard key={c.id} creator={c} />
+                  <Link
+                    key={c.id}
+                    href={`/creator/${c.slug}`}
+                    className="group w-36 shrink-0 sm:w-40"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden rounded-[1.25rem] bg-[var(--section-alt)]">
+                      {c.avatar_url ? (
+                        <img
+                          src={c.avatar_url}
+                          alt=""
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--muted)]/40">
+                          {c.display_name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 font-[family-name:var(--font-heading)] text-[15px] font-bold text-[var(--foreground)] line-clamp-2">
+                      {c.display_name}
+                    </p>
+                  </Link>
                 ))}
-              </GridLayout>
+              </div>
             </GraphSection>
           )}
 
           {relatedEvents.length > 0 && (
-            <GraphSection
-              tag="Agenda"
-              title="Ontdek het in het echt"
-              seeAllHref="/agenda"
-            >
-              <GridLayout cols={3} gap="md">
+            <GraphSection title="Ontdek het in het echt" seeAllHref="/agenda">
+              <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {relatedEvents.map((e) => (
-                  <EventCard key={e.id} event={e} />
+                  <li key={e.id}>
+                    <Link
+                      href={`/agenda/${e.slug}`}
+                      className="group flex items-start gap-4 py-4 transition-colors hover:bg-[var(--section-highlight)]/80 sm:px-2"
+                    >
+                      {e.featured_image_url ? (
+                        <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+                          <img
+                            src={e.featured_image_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-[var(--muted)]">
+                          {e.city?.trim() || e.location_name?.trim() || "Locatie volgt"}
+                        </p>
+                        <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                          {e.title}
+                        </h3>
+                      </div>
+                      <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+                        Bekijk
+                      </span>
+                    </Link>
+                  </li>
                 ))}
-              </GridLayout>
+              </ul>
             </GraphSection>
           )}
         </div>
@@ -411,13 +428,11 @@ export default async function ArticlePage({ params }: Props) {
 }
 
 function GraphSection({
-  tag,
   title,
   subtitle,
   seeAllHref,
   children,
 }: {
-  tag: string;
   title: string;
   subtitle?: string;
   seeAllHref?: string;
@@ -425,26 +440,123 @@ function GraphSection({
 }) {
   return (
     <section className="mb-12">
-      <div className="mb-1.5 flex items-center gap-3">
-        <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
-          {tag}
-        </span>
-        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
-          {title}
-        </h2>
-        <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
-        {seeAllHref && (
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+            {title}
+          </h2>
+          {subtitle ? (
+            <p className="mt-1 text-[15px] text-[var(--muted)]">{subtitle}</p>
+          ) : null}
+        </div>
+        {seeAllHref ? (
           <Link
             href={seeAllHref}
             className="shrink-0 text-sm font-semibold text-[var(--accent)] hover:underline"
           >
-            Bekijk alles →
+            Bekijk alles
           </Link>
-        )}
+        ) : null}
       </div>
-      {subtitle && <p className="mb-5 text-[15px] text-[var(--muted)]">{subtitle}</p>}
-      {!subtitle && <div className="mb-5" />}
       {children}
     </section>
+  );
+}
+
+function EditorialArticleStrip({
+  articles,
+}: {
+  articles: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    excerpt?: string | null;
+    featured_image_url?: string | null;
+    article_type?: string;
+  }>;
+}) {
+  return (
+    <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+      {articles.map((article) => (
+        <li key={article.id}>
+          <Link
+            href={`/artikel/${article.slug}`}
+            className="group flex items-start gap-4 py-4 transition-colors hover:bg-[var(--section-highlight)]/80 sm:px-2"
+          >
+            {article.featured_image_url ? (
+              <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+                <img
+                  src={article.featured_image_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                {article.title}
+              </h3>
+              {article.excerpt ? (
+                <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">
+                  {article.excerpt}
+                </p>
+              ) : null}
+            </div>
+            <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+              Lees
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function EditorialWorkshopStrip({
+  workshops,
+}: {
+  workshops: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    city?: string | null;
+    location_name?: string | null;
+    featured_image_url?: string | null;
+  }>;
+}) {
+  return (
+    <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+      {workshops.map((w) => (
+        <li key={w.id}>
+          <Link
+            href={`/workshop/${w.slug}`}
+            className="group flex items-start gap-4 py-4 transition-colors hover:bg-[var(--section-highlight)]/80 sm:px-2"
+          >
+            {w.featured_image_url ? (
+              <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+                <img
+                  src={w.featured_image_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[var(--muted)]">
+                {w.city?.trim() || w.location_name?.trim() || "Workshop"}
+              </p>
+              <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                {w.title}
+              </h3>
+            </div>
+            <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+              Bekijk
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

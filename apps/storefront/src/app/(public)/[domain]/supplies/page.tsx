@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listProductsByDomain } from "@/lib/platform/queries/products";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import { ProductCard } from "@/components/cards";
-import { Container } from "@/components/ui/container";
+import { DomainSubListingShell } from "@/components/domain/DomainSubListingShell";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Product } from "@/types/platform";
@@ -51,40 +50,18 @@ export default async function DomainSuppliesPage({ params }: Props) {
   const products = await listProductsByDomain(domain.id, "supply");
   const productsWithPrices = await enrichProductsWithPrices(products);
 
+  const lead =
+    productsWithPrices.length > 0
+      ? `${productsWithPrices.length} product${productsWithPrices.length !== 1 ? "en" : ""}`
+      : undefined;
+
   return (
-    <Container className="py-8">
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Home
-            </Link>
-          </li>
-          <li>/</li>
-          <li>
-            <Link href={`/${domain.slug}`} className="hover:text-[var(--foreground)]">
-              {domain.name}
-            </Link>
-          </li>
-          <li>/</li>
-          <li className="text-[var(--foreground)]">Benodigdheden</li>
-        </ol>
-      </nav>
-
-      <header className="mb-8">
-        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-[var(--accent)]">
-          {domain.name}
-        </p>
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
-          Benodigdheden &amp; materialen
-        </h1>
-        {productsWithPrices.length > 0 && (
-          <p className="mt-1 text-[var(--muted)]">
-            {productsWithPrices.length} product{productsWithPrices.length !== 1 ? "en" : ""}
-          </p>
-        )}
-      </header>
-
+    <DomainSubListingShell
+      domain={domain}
+      title="Benodigdheden & materialen"
+      lead={lead}
+      breadcrumbLabel="Benodigdheden"
+    >
       {productsWithPrices.length === 0 ? (
         <EmptyState
           title="Nog geen benodigdheden"
@@ -98,6 +75,6 @@ export default async function DomainSuppliesPage({ params }: Props) {
           ))}
         </GridLayout>
       )}
-    </Container>
+    </DomainSubListingShell>
   );
 }

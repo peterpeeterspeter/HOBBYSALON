@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listProductsByDomain } from "@/lib/platform/queries/products";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
 import { ProductCard } from "@/components/cards";
-import { Container } from "@/components/ui/container";
+import { DomainSubListingShell } from "@/components/domain/DomainSubListingShell";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Product } from "@/types/platform";
@@ -62,31 +61,11 @@ export default async function DomainHandmadePage({ params }: Props) {
   const productsWithPrices = await enrichProductsWithPrices(products);
 
   return (
-    <Container className="py-8">
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Home
-            </Link>
-          </li>
-          <li>/</li>
-          <li>
-            <Link href={`/${domain.slug}`} className="hover:text-[var(--foreground)]">
-              {domain.name}
-            </Link>
-          </li>
-          <li>/</li>
-          <li className="text-[var(--foreground)]">Handgemaakt</li>
-        </ol>
-      </nav>
-
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          {domain.name} handgemaakt
-        </h1>
-      </header>
-
+    <DomainSubListingShell
+      domain={domain}
+      title="Handgemaakt"
+      breadcrumbLabel="Handgemaakt"
+    >
       {productsWithPrices.length === 0 ? (
         <EmptyState
           title="Nog geen handgemaakte producten"
@@ -100,6 +79,6 @@ export default async function DomainHandmadePage({ params }: Props) {
           ))}
         </GridLayout>
       )}
-    </Container>
+    </DomainSubListingShell>
   );
 }

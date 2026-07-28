@@ -70,31 +70,37 @@ export default async function RegisterCreatorPage({ searchParams }: Props) {
   }
 
   return (
-    <PageLayout
-      title={resolved.title}
-      description={resolved.description}
-      size="narrow"
-    >
-      <CardShell variant="default" padding="lg">
-        <CreatorRegisterForm
-          action={registerCreatorAction}
-          nextPath={nextPath}
-          defaultCreatorTypes={resolved.defaultCreatorTypes}
-        />
-      </CardShell>
-
-      <p className="mt-4 text-sm text-[var(--muted)]">
-        Al een account?{" "}
-        <Link
-          href={`/login?next=${encodeURIComponent(nextPath)}`}
-          className="font-medium text-[var(--accent)] underline"
+    <div className="bg-[var(--section-alt)]">
+      <PageLayout
+        title={resolved.title}
+        description={resolved.description}
+        size="narrow"
+      >
+        <CardShell
+          variant="default"
+          padding="lg"
+          className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
-          Meld je aan
-        </Link>
-        .
-      </p>
+          <CreatorRegisterForm
+            action={registerCreatorAction}
+            nextPath={nextPath}
+            defaultCreatorTypes={resolved.defaultCreatorTypes}
+          />
+        </CardShell>
 
-      <AccountChoiceCards nextPath={nextPath} current={resolved.current} />
-    </PageLayout>
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Al een account?{" "}
+          <Link
+            href={`/login?next=${encodeURIComponent(nextPath)}`}
+            className="font-medium text-[var(--accent)] underline"
+          >
+            Meld je aan
+          </Link>
+          .
+        </p>
+
+        <AccountChoiceCards nextPath={nextPath} current={resolved.current} />
+      </PageLayout>
+    </div>
   );
 }

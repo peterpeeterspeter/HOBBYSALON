@@ -7,7 +7,6 @@ import { ProductBuyCard } from "@/components/product/ProductBuyCard";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageLayout } from "@/components/layout/page-layout";
 import { AspectImage } from "@/components/ui/aspect-image";
-import { Badge } from "@/components/ui/badge";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -78,25 +77,26 @@ export default async function ProductPage({ params }: Props) {
   return (
     <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={productJsonLd} />
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_340px] lg:items-start">
         {/* Main content */}
         <div className="min-w-0">
           <AspectImage
             src={product.featured_image_url}
             alt={product.title}
             ratio="square"
-            className="max-w-xl overflow-hidden rounded-xl"
+            className="w-full max-w-2xl overflow-hidden rounded-[1.25rem] shadow-[var(--shadow-md)]"
+            fallbackImage="placeholderProduct"
           />
 
           <div className="mt-6">
-            <Badge variant="domain">
+            <p className="text-sm font-semibold text-[var(--accent)]">
               {product.product_type === "handmade"
                 ? "Handgemaakt"
                 : product.product_type === "destash"
                   ? "Restant materiaal"
                   : "Benodigdheden"}
-            </Badge>
-            <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
+            </p>
+            <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold tracking-[-0.03em] text-[var(--foreground)] md:text-4xl">
               {product.title}
             </h1>
             {creator && (

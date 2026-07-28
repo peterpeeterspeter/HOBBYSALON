@@ -3,15 +3,16 @@ import { notFound } from "next/navigation";
 import { getDomainPageData } from "@/lib/services/domain-page";
 import {
   ProductCard,
-  CreatorCard,
   WorkshopCard,
-  EventCard,
   ArticleCard,
   ProjectCard,
 } from "@/components/cards";
-import { GridLayout } from "@/components/layout/grid-layout";
+import { ListingHeroBand } from "@/components/shared/ListingHeroBand";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Container } from "@/components/ui/container";
+import { getDomainPlaceholderImage } from "@/components/ui/ai-generated-image";
+import { DateDisplay } from "@/components/domain/date-display";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -80,34 +81,8 @@ export default async function DomainPage({ params }: Props) {
       url: absoluteUrl("/"),
     },
     about: { "@type": "Thing", name: domain.name },
-    mainEntity: {
-      "@type": "ItemList",
-      numberOfItems:
-        creators.length + articles.length + workshops.length,
-      itemListElement: [
-        ...creators.map((c, i) => ({
-          "@type": "ListItem",
-          position: i + 1,
-          url: absoluteUrl(`/creator/${c.slug}`),
-          name: c.display_name,
-        })),
-        ...articles.map((a, i) => ({
-          "@type": "ListItem",
-          position: creators.length + i + 1,
-          url: absoluteUrl(`/artikel/${a.slug}`),
-          name: a.title,
-        })),
-        ...workshops.map((w, i) => ({
-          "@type": "ListItem",
-          position: creators.length + articles.length + i + 1,
-          url: absoluteUrl(`/workshop/${w.slug}`),
-          name: w.title,
-        })),
-      ],
-    },
   };
 
-  // Quick-nav links for non-empty sub-sections
   const quickNav = [
     workshops.length > 0 && {
       label: `Workshops (${workshops.length})`,
@@ -122,179 +97,179 @@ export default async function DomainPage({ params }: Props) {
       href: `/${domain.slug}/supplies`,
     },
     learningPathTeasers.length > 0 && {
-      label: `Learning paths (${learningPathTeasers.length})`,
+      label: `Leertrajecten (${learningPathTeasers.length})`,
       href: `/${domain.slug}/learning-paths`,
     },
   ].filter(Boolean) as { label: string; href: string }[];
+
+  const imageSrc =
+    domain.hero_image_url?.trim() || getDomainPlaceholderImage(domain.slug);
 
   return (
     <>
       <JsonLd data={domainJsonLd} />
 
-      {/* Hero */}
-      <div className="relative h-[280px] overflow-hidden sm:h-[340px] lg:h-[380px]">
-        {domain.hero_image_url ? (
-          <img
-            src={domain.hero_image_url}
-            alt={domain.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-[var(--color-amber-500)] to-[var(--color-amber-700)]" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(77,59,42,0.88)] via-[rgba(77,59,42,0.30)] to-transparent" />
-        <div className="absolute inset-x-0 bottom-0">
-          <div className="mx-auto max-w-6xl px-4 pb-7 sm:pb-8">
-            {domain.icon_url && (
-              <img
-                src={domain.icon_url}
-                alt=""
-                className="mb-2 h-10 w-10 rounded-full object-cover"
-                loading="eager"
-              />
-            )}
-            <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight text-white sm:text-4xl">
-              {domain.name}
-            </h1>
-            {domain.short_description && (
-              <p className="mt-1.5 max-w-2xl text-[15px] text-white/85">
-                {domain.short_description}
-              </p>
-            )}
+      <ListingHeroBand
+        title={domain.name}
+        lead={domain.short_description ?? undefined}
+        imageSrc={imageSrc}
+        footer={
+          <div className="flex flex-wrap items-center gap-3">
+            <FavoriteToggleButton
+              entityType="domain"
+              entityId={domain.id}
+              isFavorited={domainIsFavorite}
+              nextPath={`/${domain.slug}`}
+            />
+            {quickNav.slice(0, 3).map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="inline-flex min-h-11 items-center rounded-full border border-white/40 bg-white/15 px-4 text-[15px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Meta + quick-nav bar */}
-      <div className="border-b border-[var(--border)] bg-[var(--card)]">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-          <FavoriteToggleButton
-            entityType="domain"
-            entityId={domain.id}
-            isFavorited={domainIsFavorite}
-            nextPath={`/${domain.slug}`}
-          />
-          {quickNav.length > 0 && (
-            <nav
-              aria-label="Domein navigatie"
-              className="scrollbar-hide flex flex-1 gap-3 overflow-x-auto"
+      {creators.length > 0 ? (
+        <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+          <Container className="py-10 sm:py-12">
+            <DomainSection
+              title="Makers & workshopgevers"
+              seeAllHref="/creators"
             >
-              {quickNav.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="shrink-0 rounded-full border border-[var(--border)] px-3.5 py-1.5 text-[13px] font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          )}
+              <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-1 snap-x snap-mandatory sm:-mx-6 sm:px-6 [scrollbar-width:thin]">
+                {creators.slice(0, 8).map((c) => {
+                  const name = c.business_name || c.display_name;
+                  const photo = c.banner_url || c.avatar_url;
+                  return (
+                    <Link
+                      key={c.id}
+                      href={`/creator/${c.slug}`}
+                      className="group w-44 shrink-0 snap-start sm:w-52"
+                    >
+                      <div className="relative aspect-[3/4] overflow-hidden rounded-[1.25rem] bg-[var(--card)]">
+                        {photo ? (
+                          <img
+                            src={photo}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div
+                            className="flex h-full w-full items-center justify-center"
+                            aria-hidden
+                          >
+                            <span className="font-[family-name:var(--font-heading)] text-4xl font-bold text-[var(--muted)]/35">
+                              {name.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="mt-3 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2">
+                        {name}
+                      </h3>
+                    </Link>
+                  );
+                })}
+              </div>
+            </DomainSection>
+          </Container>
         </div>
-      </div>
+      ) : null}
 
-      {/* Sections */}
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        {creators.length > 0 && (
-          <GraphSection
-            tag="Makers"
-            title="Makers & workshopgevers"
-            subtitle={`${creators.length} creator${creators.length !== 1 ? "s" : ""} actief in ${domain.name}`}
-            seeAllHref="/creators"
-          >
-            <GridLayout cols={4} gap="md">
-              {creators.slice(0, 8).map((c) => (
-                <CreatorCard key={c.id} creator={c} />
-              ))}
-            </GridLayout>
-          </GraphSection>
-        )}
-
-        {workshops.length > 0 && (
-          <GraphSection
-            tag="Workshops"
+      <Container className="flex flex-col gap-14 py-10 sm:gap-16 sm:py-14">
+        {workshops.length > 0 ? (
+          <DomainSection
             title="Workshops"
             seeAllHref={`/${domain.slug}/workshops`}
           >
-            <GridLayout cols={3} gap="md">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {workshops.slice(0, 6).map((w) => (
                 <WorkshopCard key={w.id} workshop={w} />
               ))}
-            </GridLayout>
-          </GraphSection>
-        )}
+            </div>
+          </DomainSection>
+        ) : null}
 
-        {events.length > 0 && (
-          <GraphSection
-            tag="Agenda"
-            title="Aankomende evenementen"
-            seeAllHref="/agenda"
-          >
-            <GridLayout cols={3} gap="md">
-              {events.slice(0, 3).map((e) => (
-                <EventCard key={e.id} event={e} />
+        {events.length > 0 ? (
+          <DomainSection title="Aankomende evenementen" seeAllHref="/agenda">
+            <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+              {events.slice(0, 5).map((event) => (
+                <li key={event.id}>
+                  <Link
+                    href={`/agenda/${event.slug}`}
+                    className="group grid gap-2 py-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-6"
+                  >
+                    <span className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--accent)]">
+                      <DateDisplay date={event.starts_at} format="short" />
+                    </span>
+                    <span className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                      {event.title}
+                    </span>
+                  </Link>
+                </li>
               ))}
-            </GridLayout>
-          </GraphSection>
-        )}
+            </ul>
+          </DomainSection>
+        ) : null}
 
-        {articles.length > 0 && (
-          <GraphSection
-            tag="Inspiratie"
+        {articles.length > 0 ? (
+          <DomainSection
             title="Artikelen & tutorials"
             seeAllHref={`/${domain.slug}/artikels`}
           >
-            <GridLayout cols={3} gap="md">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {articles.slice(0, 6).map((a) => (
                 <ArticleCard key={a.id} article={a} />
               ))}
-            </GridLayout>
-          </GraphSection>
-        )}
+            </div>
+          </DomainSection>
+        ) : null}
 
-        {supplyProducts.length > 0 && (
-          <GraphSection
-            tag="Marktplaats"
+        {supplyProducts.length > 0 ? (
+          <DomainSection
             title="Benodigdheden & materialen"
             seeAllHref={`/${domain.slug}/supplies`}
           >
-            <GridLayout cols={4} gap="md">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {supplyProducts.slice(0, 8).map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
-            </GridLayout>
-          </GraphSection>
-        )}
+            </div>
+          </DomainSection>
+        ) : null}
 
-        {handmadeProducts.length > 0 && (
-          <GraphSection
-            tag="Handgemaakt"
+        {handmadeProducts.length > 0 ? (
+          <DomainSection
             title="Handgemaakte producten"
             seeAllHref={`/${domain.slug}/handmade`}
           >
-            <GridLayout cols={4} gap="md">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {handmadeProducts.slice(0, 8).map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
-            </GridLayout>
-          </GraphSection>
-        )}
+            </div>
+          </DomainSection>
+        ) : null}
 
-        {projects.length > 0 && (
-          <GraphSection tag="Projecten" title="Projecten om te starten">
-            <GridLayout cols={3} gap="md">
+        {projects.length > 0 ? (
+          <DomainSection title="Projecten om te starten">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {projects.slice(0, 6).map((project) => (
                 <ProjectCard key={project.id} project={project} />
               ))}
-            </GridLayout>
-          </GraphSection>
-        )}
+            </div>
+          </DomainSection>
+        ) : null}
 
-        {learningPathTeasers.length > 0 && (
-          <GraphSection
-            tag="Leertrajecten"
-            title="Learning paths"
-            subtitle="Van beginner tot gevorderd — stap voor stap."
+        {learningPathTeasers.length > 0 ? (
+          <DomainSection
+            title="Leertrajecten"
             seeAllHref={`/${domain.slug}/learning-paths`}
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -306,9 +281,9 @@ export default async function DomainPage({ params }: Props) {
                 />
               ))}
             </div>
-          </GraphSection>
-        )}
-      </div>
+          </DomainSection>
+        ) : null}
+      </Container>
     </>
   );
 }
@@ -326,64 +301,48 @@ function LearningPathCard({
   return (
     <Link
       href={`/${domainSlug}/learning-paths/${path.slug}`}
-      className="block"
+      className="block rounded-[1.25rem] border border-[var(--border)] bg-[var(--card)] p-5 transition-colors hover:border-[var(--accent)]"
     >
-      <div className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 transition-all hover:border-[var(--accent)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5 motion-reduce:hover:transform-none">
-        <span className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
-          {difficultyLabel}
-        </span>
-        <h3 className="font-[family-name:var(--font-heading)] font-bold text-[var(--foreground)]">
-          {path.title}
-        </h3>
-        {path.short_description && (
-          <p className="mt-1.5 line-clamp-2 flex-1 text-sm text-[var(--muted)]">
-            {path.short_description}
-          </p>
-        )}
-        <p className="mt-3 text-xs text-[var(--muted)]">
-          {path.step_count} stap{path.step_count === 1 ? "" : "pen"}
+      <p className="text-sm font-semibold text-[var(--muted)]">{difficultyLabel}</p>
+      <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)]">
+        {path.title}
+      </h3>
+      {path.short_description ? (
+        <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
+          {path.short_description}
         </p>
-      </div>
+      ) : null}
+      <p className="mt-3 text-sm font-semibold text-[var(--accent)]">
+        {path.step_count} stap{path.step_count === 1 ? "" : "pen"}
+      </p>
     </Link>
   );
 }
 
-function GraphSection({
-  tag,
+function DomainSection({
   title,
-  subtitle,
   seeAllHref,
   children,
 }: {
-  tag: string;
   title: string;
-  subtitle?: string;
   seeAllHref?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-12">
-      <div className="mb-1.5 flex items-center gap-3">
-        <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
-          {tag}
-        </span>
-        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+    <section>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-[-0.03em] text-[var(--foreground)]">
           {title}
         </h2>
-        <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
-        {seeAllHref && (
+        {seeAllHref ? (
           <Link
             href={seeAllHref}
-            className="shrink-0 text-sm font-semibold text-[var(--accent)] hover:underline"
+            className="inline-flex min-h-11 items-center font-bold text-[var(--accent)] underline underline-offset-4"
           >
-            Bekijk alles →
+            Bekijk alles
           </Link>
-        )}
+        ) : null}
       </div>
-      {subtitle && (
-        <p className="mb-5 text-[15px] text-[var(--muted)]">{subtitle}</p>
-      )}
-      {!subtitle && <div className="mb-5" />}
       {children}
     </section>
   );

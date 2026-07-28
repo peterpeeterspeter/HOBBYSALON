@@ -39,7 +39,7 @@ const SOLUTION_ITEMS = [
 
 const WHY_ITEMS = [
   "Mensen die materialen zoeken in de context van workshops en inspiratie",
-  "Nicheplatform — geen algemene webshop",
+  "Nicheplatform, geen algemene webshop",
   "Verkoop via Hobbysalon checkout",
   "Community en SEO gericht op craft en handwerk",
 ];

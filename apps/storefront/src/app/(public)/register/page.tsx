@@ -46,34 +46,40 @@ export default async function RegisterPage({ searchParams }: Props) {
   }
 
   return (
-    <PageLayout
-      title="Word hobbyist op Hobbysalon"
-      description="Maak een gratis account aan voor inspiratie, workshops en materialen. Aanbiedersrollen kies je apart hieronder."
-      size="narrow"
-    >
-      <CardShell variant="default" padding="lg" className="shadow-[var(--shadow-sm)]">
-        <AuthForm
-          mode="register"
-          action={registerAction}
-          nextPath={nextPath}
-          hobbyDomains={hobbyDomains}
-        />
-      </CardShell>
-
-      <p className="mt-4 text-sm text-[var(--muted)]">
-        Al een account?{" "}
-        <Link
-          href={
-            nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"
-          }
-          className="font-medium text-[var(--accent)] underline"
+    <div className="bg-[var(--section-alt)]">
+      <PageLayout
+        title="Word hobbyist op Hobbysalon"
+        description="Maak een gratis account aan voor inspiratie, workshops en materialen. Aanbiedersrollen kies je apart hieronder."
+        size="narrow"
+      >
+        <CardShell
+          variant="default"
+          padding="lg"
+          className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
-          Meld je aan
-        </Link>
-        .
-      </p>
+          <AuthForm
+            mode="register"
+            action={registerAction}
+            nextPath={nextPath}
+            hobbyDomains={hobbyDomains}
+          />
+        </CardShell>
 
-      <AccountChoiceCards nextPath={nextPath} current="member" />
-    </PageLayout>
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Al een account?{" "}
+          <Link
+            href={
+              nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"
+            }
+            className="font-medium text-[var(--accent)] underline"
+          >
+            Meld je aan
+          </Link>
+          .
+        </p>
+
+        <AccountChoiceCards nextPath={nextPath} current="member" />
+      </PageLayout>
+    </div>
   );
 }

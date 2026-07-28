@@ -7,7 +7,6 @@ import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { WorkshopBookingCard } from "@/components/workshop/WorkshopBookingCard";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { PageLayout } from "@/components/layout/page-layout";
-import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
 import { Badge } from "@/components/ui/badge";
 import { DifficultyIndicator } from "@/components/domain/difficulty-indicator";
@@ -195,14 +194,15 @@ export default async function WorkshopPage({ params }: Props) {
   return (
     <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={workshopJsonLd} />
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_340px] lg:items-start">
         {/* Main content */}
         <div className="min-w-0">
           <AspectImage
             src={workshop.featured_image_url}
             alt={workshop.title}
             ratio="video"
-            className="overflow-hidden rounded-xl"
+            className="overflow-hidden rounded-[1.25rem] shadow-[var(--shadow-md)]"
+            fallbackImage="placeholderWorkshop"
           />
 
           {galleryImages.length > 0 ? (
@@ -213,7 +213,7 @@ export default async function WorkshopPage({ params }: Props) {
                     src={image.image_url}
                     alt={image.alt_text ?? workshop.title}
                     ratio="square"
-                    className="overflow-hidden rounded-lg"
+                    className="overflow-hidden rounded-[0.75rem]"
                   />
                 </li>
               ))}
@@ -285,34 +285,36 @@ export default async function WorkshopPage({ params }: Props) {
           {sessions.length > 0 && (
             <section className="mt-10">
               <SectionTitle>Beschikbare data</SectionTitle>
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-4 divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {sessions.map((s) => (
-                  <li key={s.id}>
-                    <CardShell variant="default" padding="md">
-                      <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-[var(--foreground)]">
-                            {formatSessionDate(s.starts_at)} – {formatSessionDate(s.ends_at)}
-                          </p>
-                          {s.capacity != null && (
-                            <p className="text-sm text-[var(--muted)]">
-                              {s.remaining_spots != null
-                                ? `${s.remaining_spots} plekken over`
-                                : `${s.capacity} plekken`}
-                            </p>
-                          )}
-                        </div>
-                        <span
-                          className={
-                            s.booking_status === "open"
-                              ? "rounded-full bg-[var(--success)]/15 px-3 py-1 text-sm font-medium text-[var(--success)]"
-                              : "rounded-full bg-[var(--border)] px-3 py-1 text-sm text-[var(--muted)]"
-                          }
-                        >
-                          {s.booking_status === "open" ? "Beschikbaar" : s.booking_status}
-                        </span>
-                      </div>
-                    </CardShell>
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-center justify-between gap-4 py-4 sm:px-1"
+                  >
+                    <div>
+                      <p className="font-[family-name:var(--font-heading)] text-[17px] font-bold text-[var(--foreground)]">
+                        {formatSessionDate(s.starts_at)}
+                      </p>
+                      <p className="mt-0.5 text-sm text-[var(--muted)]">
+                        tot {formatSessionDate(s.ends_at)}
+                      </p>
+                      {s.capacity != null && (
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          {s.remaining_spots != null
+                            ? `${s.remaining_spots} plekken over`
+                            : `${s.capacity} plekken`}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={
+                        s.booking_status === "open"
+                          ? "rounded-full bg-[var(--success)]/15 px-3 py-1.5 text-sm font-semibold text-[var(--success)]"
+                          : "rounded-full bg-[var(--section-alt)] px-3 py-1.5 text-sm font-semibold text-[var(--muted)]"
+                      }
+                    >
+                      {s.booking_status === "open" ? "Beschikbaar" : s.booking_status}
+                    </span>
                   </li>
                 ))}
               </ul>

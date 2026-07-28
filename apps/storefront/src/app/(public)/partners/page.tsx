@@ -60,7 +60,7 @@ const FAQ_ITEMS = [
   {
     question: "Kan ik meerdere rollen hebben?",
     answer:
-      "Ja. Veel partners combineren rollen — bijvoorbeeld workshopgever én maker, of winkel én organisator. Kies de route die het best past bij wat je wilt bereiken.",
+      "Ja. Veel partners combineren rollen, bijvoorbeeld workshopgever én maker, of winkel én organisator. Kies de route die het best past bij wat je wilt bereiken.",
   },
   {
     question: "Kan ik eerst gratis starten?",

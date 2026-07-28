@@ -5,8 +5,6 @@ import { getEventPageData } from "@/lib/services/event-page";
 import { canUseExternalTicketLink } from "@/lib/platform/commercial-entitlements";
 import {
   WorkshopCard,
-  ArticleCard,
-  EventCard,
 } from "@/components/cards";
 import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { EventTicketCard } from "@/components/events/EventTicketCard";
@@ -194,15 +192,6 @@ export default async function EventPage({ params }: Props) {
         : undefined,
   };
 
-  const heroTags = [
-    dateLabel,
-    locationLabel,
-    workshops.length > 0
-      ? `${workshops.length} workshop${workshops.length === 1 ? "" : "s"}`
-      : null,
-    priceLabel,
-  ].filter((t): t is string => Boolean(t));
-
   const infoCells = [
     { icon: Calendar, label: "Datum", value: dateLabel },
     {
@@ -234,7 +223,7 @@ export default async function EventPage({ params }: Props) {
       <JsonLd data={eventJsonLd} />
 
       {/* Hero */}
-      <div className="relative h-[360px] overflow-hidden sm:h-[420px] lg:h-[460px]">
+      <div className="relative h-[400px] overflow-hidden sm:h-[480px] lg:h-[540px]">
         {event.featured_image_url ? (
           <img
             src={event.featured_image_url}
@@ -244,25 +233,33 @@ export default async function EventPage({ params }: Props) {
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-[var(--color-amber-500)] to-[var(--color-amber-700)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(77,59,42,0.92)] via-[rgba(77,59,42,0.35)] to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--foreground)]/92 via-[var(--foreground)]/50 to-[var(--foreground)]/20" />
         <div className="absolute inset-x-0 bottom-0">
-          <div className="mx-auto max-w-6xl px-4 pb-8 sm:pb-9">
-            <p className="mb-2.5 text-xs font-bold uppercase tracking-widest text-[var(--accent-light)]">
+          <div className="mx-auto max-w-6xl px-4 pb-8 sm:pb-10">
+            <p className="mb-2 text-sm font-semibold text-white/80">
               {typeLabel}
               {domains.length > 0 && ` · ${domains.map((d) => d.name).join(" · ")}`}
             </p>
-            <h1 className="max-w-3xl font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[2.75rem]">
+            <h1 className="max-w-3xl font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight tracking-[-0.03em] text-white sm:text-4xl lg:text-[2.75rem]">
               {event.title}
             </h1>
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {heroTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white/90 backdrop-blur-sm"
-                >
-                  {tag}
-                </span>
-              ))}
+            <div className="mt-4 space-y-1.5">
+              <p className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--accent-light)] sm:text-2xl">
+                {dateLabel}
+              </p>
+              {locationLabel ? (
+                <p className="text-base font-semibold text-white/90 sm:text-lg">
+                  {locationLabel}
+                </p>
+              ) : null}
+              <p className="text-sm font-medium text-white/75">
+                {isMultiDay ? "Meerdaags evenement" : timeLabel}
+                {" · "}
+                {priceLabel}
+                {workshops.length > 0
+                  ? ` · ${workshops.length} workshop${workshops.length === 1 ? "" : "s"}`
+                  : ""}
+              </p>
             </div>
           </div>
         </div>
@@ -272,8 +269,8 @@ export default async function EventPage({ params }: Props) {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 lg:grid-cols-[1fr_360px] lg:items-start">
         {/* Left column */}
         <div className="min-w-0">
-          {/* Info bar */}
-          <div className="mb-8 grid grid-cols-2 gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 sm:grid-cols-4 sm:gap-5 sm:px-6">
+          {/* Info band */}
+          <div className="mb-8 grid grid-cols-2 gap-4 rounded-[1.25rem] bg-[var(--section-alt)] p-5 sm:grid-cols-4 sm:gap-5 sm:px-6 sm:py-6">
             {infoCells.map((cell) => (
               <div key={cell.label} className="flex items-start gap-2.5">
                 <cell.icon
@@ -282,7 +279,7 @@ export default async function EventPage({ params }: Props) {
                   aria-hidden
                 />
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">
+                  <p className="text-sm font-semibold text-[var(--muted)]">
                     {cell.label}
                   </p>
                   <p className="text-[15px] font-semibold leading-snug text-[var(--foreground)]">
@@ -321,9 +318,8 @@ export default async function EventPage({ params }: Props) {
           {/* Graph: workshops at this event */}
           {workshops.length > 0 && (
             <GraphSection
-              tag="Workshops"
               title="Boekbare workshops op dit evenement"
-              subtitle="Schrijf je vooraf in — plaatsen zijn beperkt."
+              subtitle="Schrijf je vooraf in. Plaatsen zijn beperkt."
             >
               <GridLayout cols={2} gap="md">
                 {workshops.map((w) => (
@@ -335,10 +331,7 @@ export default async function EventPage({ params }: Props) {
 
           {/* Graph: creators attending */}
           {allCreators.length > 0 && (
-            <GraphSection
-              tag="Creators"
-              title="Makers & workshopgevers aanwezig"
-            >
+            <GraphSection title="Makers & workshopgevers aanwezig">
               <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {allCreators.map((creator) => (
                   <li key={creator.id}>
@@ -365,10 +358,7 @@ export default async function EventPage({ params }: Props) {
 
           {/* Standhouders producten — image-only masonry */}
           {masonryProducts.length > 0 ? (
-            <GraphSection
-              tag="Marktplaats"
-              title="Deze staan hier ook met hun producten"
-            >
+            <GraphSection title="Deze staan hier ook met hun producten">
               <div className="columns-2 gap-3 sm:columns-3 lg:columns-4">
                 {masonryProducts.map((product) => {
                   const imageUrl = productImageUrl(product);
@@ -394,12 +384,38 @@ export default async function EventPage({ params }: Props) {
 
           {/* Graph: articles */}
           {relatedArticles.length > 0 && (
-            <GraphSection tag="Artikelen" title="Inspiratie & voorbereiding">
-              <GridLayout cols={3} gap="md">
+            <GraphSection title="Inspiratie & voorbereiding">
+              <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {relatedArticles.map((a) => (
-                  <ArticleCard key={a.id} article={a} />
+                  <li key={a.id}>
+                    <Link
+                      href={`/artikel/${a.slug}`}
+                      className="group flex items-start gap-4 py-4 transition-colors hover:bg-[var(--section-highlight)]/80 sm:px-2"
+                    >
+                      {a.featured_image_url ? (
+                        <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+                          <img
+                            src={a.featured_image_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                          {a.title}
+                        </h3>
+                        {a.excerpt ? (
+                          <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">
+                            {a.excerpt}
+                          </p>
+                        ) : null}
+                      </div>
+                    </Link>
+                  </li>
                 ))}
-              </GridLayout>
+              </ul>
             </GraphSection>
           )}
 
@@ -415,16 +431,39 @@ export default async function EventPage({ params }: Props) {
 
           {/* Graph: related events */}
           {relatedEvents.length > 0 && (
-            <GraphSection
-              tag="Agenda"
-              title="Andere evenementen in de buurt"
-              seeAllHref="/agenda"
-            >
-              <GridLayout cols={3} gap="md">
+            <GraphSection title="Andere evenementen in de buurt" seeAllHref="/agenda">
+              <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {relatedEvents.map((e) => (
-                  <EventCard key={e.id} event={e} />
+                  <li key={e.id}>
+                    <Link
+                      href={`/agenda/${e.slug}`}
+                      className="group flex items-start gap-4 py-4 transition-colors hover:bg-[var(--section-highlight)]/80 sm:px-2"
+                    >
+                      {e.featured_image_url ? (
+                        <div className="hidden h-16 w-20 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:block">
+                          <img
+                            src={e.featured_image_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-[var(--muted)]">
+                          {e.city?.trim() || e.location_name?.trim() || "Locatie volgt"}
+                        </p>
+                        <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                          {e.title}
+                        </h3>
+                      </div>
+                      <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
+                        Bekijk
+                      </span>
+                    </Link>
+                  </li>
                 ))}
-              </GridLayout>
+              </ul>
             </GraphSection>
           )}
         </div>
@@ -444,13 +483,11 @@ export default async function EventPage({ params }: Props) {
 }
 
 function GraphSection({
-  tag,
   title,
   subtitle,
   seeAllHref,
   children,
 }: {
-  tag: string;
   title: string;
   subtitle?: string;
   seeAllHref?: string;
@@ -458,25 +495,24 @@ function GraphSection({
 }) {
   return (
     <section className="mb-12">
-      <div className="mb-1.5 flex items-center gap-3">
-        <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--accent)]">
-          {tag}
-        </span>
-        <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
-          {title}
-        </h2>
-        <span className="hidden h-px flex-1 bg-[var(--border)] sm:block" />
-        {seeAllHref && (
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+            {title}
+          </h2>
+          {subtitle ? (
+            <p className="mt-1 text-[15px] text-[var(--muted)]">{subtitle}</p>
+          ) : null}
+        </div>
+        {seeAllHref ? (
           <Link
             href={seeAllHref}
             className="shrink-0 text-sm font-semibold text-[var(--accent)] hover:underline"
           >
-            Bekijk alles →
+            Bekijk alles
           </Link>
-        )}
+        ) : null}
       </div>
-      {subtitle && <p className="mb-5 text-[15px] text-[var(--muted)]">{subtitle}</p>}
-      {!subtitle && <div className="mb-5" />}
       {children}
     </section>
   );

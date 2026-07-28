@@ -13,7 +13,7 @@ import {
 export const metadata = buildPageMetadata({
   title: "Handmade creaties tonen via Hobbysalon",
   description:
-    "Toon je creaties op Hobbysalon en ontvang geïnteresseerde kopers via het platform — gemaakt voor makers in België en Nederland.",
+    "Toon je creaties op Hobbysalon en ontvang geïnteresseerde kopers via het platform. Gemaakt voor makers in België en Nederland.",
   path: "/voor-makers",
 });
 
@@ -33,7 +33,7 @@ const SOLUTION_ITEMS = [
 
 const WHY_ITEMS = [
   "Bezoekers die actief zoeken naar handmade en creatieve producten",
-  "Nicheplatform — geen algemene verkoopsite",
+  "Nicheplatform, geen algemene verkoopsite",
   "Je werk staat in de context van workshops, materialen en inspiratie",
   "Community van makers en mensen die graag iets moois maken",
 ];
@@ -65,14 +65,14 @@ export default function VoorMakersPage() {
     <>
       <MarketingHero
         headline="Toon je creaties en ontvang geïnteresseerde kopers"
-        subheadline="Plaats je handmade werk op Hobbysalon. Bezoekers die iets moois zoeken, sturen je een aanvraag — jij regelt de verkoop verder rechtstreeks met hen."
+        subheadline="Plaats je handmade werk op Hobbysalon. Bezoekers die iets moois zoeken, sturen je een aanvraag. Jij regelt de verkoop verder rechtstreeks met hen."
         primaryCta={{ label: "Start als maker", href: "/register/creator" }}
       />
       <PainPointsSection items={PAIN_POINTS} />
       <SolutionSection items={SOLUTION_ITEMS} />
       <CommercialModelBlock
         title="Zichtbaarheid via aanvragen"
-        text="Toon je creaties en ontvang geïnteresseerde kopers via Hobbysalon. Zo sta je tussen workshops, materialen en events — op een plek waar mensen al zin hebben om iets moois te maken of te kopen."
+        text="Toon je creaties en ontvang geïnteresseerde kopers via Hobbysalon. Zo sta je tussen workshops, materialen en events, op een plek waar mensen al zin hebben om iets moois te maken of te kopen."
       />
       <HowItWorksSection
         steps={[

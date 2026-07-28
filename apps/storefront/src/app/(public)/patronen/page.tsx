@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Scissors } from "lucide-react";
+import { ListingHeroBand } from "@/components/shared/ListingHeroBand";
+import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { Container } from "@/components/ui/container";
 import { ContentHubBrowser, type ContentHubItem } from "@/components/content/ContentHubBrowser";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -29,45 +30,41 @@ export default async function PatternsHubPage() {
 
   return (
     <>
-      <div className="border-b border-[var(--border)] bg-[var(--section-highlight)]">
-        <Container size="wide" className="py-10 sm:py-14">
-          <nav aria-label="Breadcrumb" className="text-sm text-[var(--muted)]">
+      <ListingHeroBand
+        title="Kies een patroon en begin met maken"
+        lead="Vind een project dat bij je past. We verbinden je patroon met materialen, tools, workshops en makers."
+        imageSrc={LANDING_IMAGES.domainCrochet}
+        breadcrumb={
+          <nav aria-label="Breadcrumb" className="text-sm text-white/75">
             <ol className="flex flex-wrap gap-2">
               <li>
-                <Link href="/" className="hover:text-[var(--foreground)]">
+                <Link href="/" className="hover:text-white">
                   Home
                 </Link>
               </li>
               <li aria-hidden>/</li>
-              <li className="text-[var(--foreground)]">Patronen</li>
+              <li className="text-white">Patronen</li>
             </ol>
           </nav>
-          <div className="mt-7 grid items-end gap-7 md:grid-cols-[minmax(0,1fr)_minmax(14rem,0.42fr)]">
-            <div>
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent)]/12 text-[var(--accent)]">
-                <Scissors size={24} aria-hidden />
-              </span>
-              <h1 className="mt-5 max-w-3xl font-[family-name:var(--font-heading)] text-4xl font-bold leading-tight text-[var(--foreground)] sm:text-5xl">
-                Kies een patroon en begin met maken
-              </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
-                Vind een project dat bij je past. We verbinden je patroon met materialen,
-                tools, workshops en makers.
-              </p>
-            </div>
+        }
+        footer={
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/gratis-haakpatronen"
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 text-[var(--foreground)] shadow-[0_10px_24px_rgb(38_58_47_/_0.06)] transition-transform hover:-translate-y-0.5 active:translate-y-px"
+              className="inline-flex min-h-11 items-center rounded-full border border-white/40 bg-white/15 px-4 text-[15px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25 active:translate-y-px"
             >
-              <p className="text-sm font-semibold text-[var(--accent)]">Gratis beginnen</p>
-              <p className="mt-2 text-xl font-semibold">Gratis haakpatronen</p>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                Een afzonderlijke collectie met Nederlandstalige patronen.
-              </p>
+              Gratis haakpatronen
+            </Link>
+            <Link
+              href="/artikelen"
+              className="inline-flex min-h-11 items-center rounded-full border border-white/30 px-4 text-[15px] font-semibold text-white/90 transition-colors hover:bg-white/10 active:translate-y-px"
+            >
+              Naar inspiratie
             </Link>
           </div>
-        </Container>
-      </div>
+        }
+      />
+
       <Container size="wide" className="pt-8 sm:pt-10">
         {items.length === 0 ? (
           <EmptyState
