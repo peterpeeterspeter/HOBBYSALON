@@ -173,12 +173,28 @@ export async function registerAction(
 
   if (error) {
     console.error("registerAction signup failed", { email, error });
-    const alreadyRegistered = error.toLowerCase().includes("already");
+    const normalized = error.toLowerCase();
+    if (normalized.includes("rate limit")) {
+      return {
+        success: false,
+        message:
+          "Te veel bevestigingsmails verstuurd. Wacht enkele minuten, of meld je aan als je account al bestaat.",
+      };
+    }
+    if (
+      normalized.includes("already") ||
+      normalized.includes("user already registered")
+    ) {
+      return {
+        success: false,
+        message:
+          "Dit e-mailadres is al in gebruik. Meld je aan of gebruik ‘Wachtwoord vergeten’.",
+      };
+    }
     return {
       success: false,
-      message: alreadyRegistered
-        ? "Dit e-mailadres is al in gebruik. Meld je aan of gebruik een ander adres."
-        : "Registratie mislukt. Controleer je gegevens of probeer het later opnieuw.",
+      message:
+        "Registratie mislukt. Controleer je gegevens of probeer het later opnieuw.",
     };
   }
 
