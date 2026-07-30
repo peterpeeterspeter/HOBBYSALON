@@ -416,7 +416,7 @@ export async function registerMerchantAction(
   const nextPath =
     requestedNextPath?.startsWith("/") && !requestedNextPath.startsWith("//")
       ? requestedNextPath
-      : "/dashboard/verkoper";
+      : "/dashboard";
 
   let onboarding: Awaited<ReturnType<typeof completeMerchantOnboarding>> | null = null;
 
@@ -455,7 +455,7 @@ export async function registerMerchantAction(
       : await resolvePostAuthRedirectPath({
           userId: registrationUserId ?? session.user?.id ?? null,
           requestedNextPath,
-          defaultPath: "/dashboard/verkoper",
+          defaultPath: "/dashboard",
         });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -544,7 +544,7 @@ export async function onboardMerchantForLoggedInUserAction(
     }
 
     revalidatePath("/dashboard");
-    redirect("/dashboard/verkoper");
+    redirect("/dashboard");
   }
 
   const onboarding = await completeMerchantOnboarding({

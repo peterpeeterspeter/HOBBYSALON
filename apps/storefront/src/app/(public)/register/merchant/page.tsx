@@ -27,13 +27,13 @@ type Props = {
 export default async function RegisterMerchantPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, error } = await searchParams;
-  const nextPath = getSafeInternalPath(next, "/dashboard/verkoper");
+  const nextPath = getSafeInternalPath(next, "/dashboard");
 
   if (user) {
     const context = await getUserRegistrationContext(user.id);
     if (context.roles.includes("merchant")) {
-      // Confirmed merchants go to handoff (self-heals missing seller link).
-      redirect("/dashboard/verkoper");
+      // Confirmed merchants use the creator dashboard; Verkopersportaal is opt-in.
+      redirect("/dashboard");
     }
   }
 

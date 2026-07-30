@@ -49,10 +49,10 @@ export async function resolvePostAuthRedirectPath(options: {
     (link) => link.sellerType === "merchant"
   );
 
-  // Always hand off via /dashboard/verkoper — that page self-heals a missing
-  // merchant seller link. Never bounce confirmed merchants back to registration.
+  // Approved merchants land on the creator dashboard. Verkopersportaal is a
+  // deliberate handoff from /dashboard/verkoper, not an automatic login target.
   if (hasMerchantRole || hasMerchantLink) {
-    return "/dashboard/verkoper";
+    return "/dashboard";
   }
 
   const hasCreatorRole = context.roles.some((role) =>

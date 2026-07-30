@@ -122,3 +122,47 @@ export const MATERIALS_SHORTCUTS: Array<{
   { label: "Papier & kaarten", nameIncludes: ["papier", "kaart"] },
   { label: "Stoffen & naaien", nameIncludes: ["stof", "naai"] },
 ];
+
+/** Platform `condition_type` values (schema), Dutch labels for the filter UI. */
+export const MATERIALS_CONDITION_OPTIONS = [
+  { value: "new", label: "Nieuw" },
+  { value: "handmade", label: "Handgemaakt" },
+  { value: "made_to_order", label: "Op bestelling" },
+  { value: "used", label: "Gebruikt" },
+] as const;
+
+export type MaterialsPriceBand = "under_15" | "15_30" | "30_50" | "50_plus";
+
+export const MATERIALS_PRICE_BAND_OPTIONS: Array<{
+  value: MaterialsPriceBand;
+  label: string;
+  minCents: number;
+  /** Exclusive upper bound; omit for open-ended. */
+  maxCents?: number;
+}> = [
+  { value: "under_15", label: "Tot €15", minCents: 1, maxCents: 1500 },
+  { value: "15_30", label: "€15 – €30", minCents: 1500, maxCents: 3000 },
+  { value: "30_50", label: "€30 – €50", minCents: 3000, maxCents: 5000 },
+  { value: "50_plus", label: "€50 of meer", minCents: 5000 },
+];
+
+export function resolveMaterialsPriceBand(
+  band: string | null | undefined
+): { minCents: number; maxCents?: number; key: MaterialsPriceBand } | null {
+  const match = MATERIALS_PRICE_BAND_OPTIONS.find((option) => option.value === band);
+  if (!match) return null;
+  return {
+    key: match.value,
+    minCents: match.minCents,
+    maxCents: match.maxCents,
+  };
+}
+
+export type MaterialsBuyMode = "online" | "contact";
+
+export function parseMaterialsBuyMode(
+  value: string | null | undefined
+): MaterialsBuyMode | undefined {
+  if (value === "online" || value === "contact") return value;
+  return undefined;
+}

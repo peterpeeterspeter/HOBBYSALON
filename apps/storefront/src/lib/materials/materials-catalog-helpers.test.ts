@@ -4,6 +4,8 @@ import {
   productMatchesOfferFilter,
   resolveCategoryChipIds,
   resolveMaterialsOffer,
+  resolveMaterialsPriceBand,
+  parseMaterialsBuyMode,
 } from "./materials-catalog-helpers";
 
 test("supply with Medusa is Webshop checkout", () => {
@@ -91,4 +93,24 @@ test("resolveCategoryChipIds keeps selected sticky", () => {
     }),
     ["c1", "c2"]
   );
+});
+
+test("resolveMaterialsPriceBand maps known bands", () => {
+  assert.deepEqual(resolveMaterialsPriceBand("under_15"), {
+    key: "under_15",
+    minCents: 1,
+    maxCents: 1500,
+  });
+  assert.deepEqual(resolveMaterialsPriceBand("50_plus"), {
+    key: "50_plus",
+    minCents: 5000,
+    maxCents: undefined,
+  });
+  assert.equal(resolveMaterialsPriceBand("nope"), null);
+});
+
+test("parseMaterialsBuyMode accepts online and contact", () => {
+  assert.equal(parseMaterialsBuyMode("online"), "online");
+  assert.equal(parseMaterialsBuyMode("contact"), "contact");
+  assert.equal(parseMaterialsBuyMode("all"), undefined);
 });
