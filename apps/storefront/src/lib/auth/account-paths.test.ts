@@ -17,6 +17,10 @@ test("keeps a safe return path when selecting an account type", () => {
     getAccountRegistrationHref("organizer", null),
     "/register/creator?focus=organizer&next=%2Fprofile%3Ftab%3Dprofiel%23maker-pagina"
   );
+  assert.equal(
+    getAccountRegistrationHref("maker", null),
+    "/register/creator?focus=maker&next=%2Fprofile%3Ftab%3Dprofiel%23maker-pagina"
+  );
 });
 
 test("rejects external-looking return paths", () => {

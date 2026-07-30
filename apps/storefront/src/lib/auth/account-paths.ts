@@ -1,6 +1,7 @@
 export type AccountRegistrationType =
   | "member"
   | "creator"
+  | "maker"
   | "merchant"
   | "workshopgever"
   | "organizer";
@@ -8,6 +9,7 @@ export type AccountRegistrationType =
 const DEFAULT_DESTINATIONS: Record<AccountRegistrationType, string | null> = {
   member: null,
   creator: "/profile?tab=profiel#maker-pagina",
+  maker: "/profile?tab=profiel#maker-pagina",
   merchant: "/dashboard",
   workshopgever: "/profile?tab=profiel#maker-pagina",
   organizer: "/profile?tab=profiel#maker-pagina",
@@ -16,6 +18,7 @@ const DEFAULT_DESTINATIONS: Record<AccountRegistrationType, string | null> = {
 const REGISTRATION_PATHS: Record<AccountRegistrationType, string> = {
   member: "/register",
   creator: "/register/creator",
+  maker: "/register/creator?focus=maker",
   merchant: "/register/merchant",
   workshopgever: "/register/creator?focus=workshopgever",
   organizer: "/register/creator?focus=organizer",

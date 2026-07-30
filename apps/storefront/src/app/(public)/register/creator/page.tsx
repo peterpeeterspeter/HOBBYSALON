@@ -43,10 +43,20 @@ function resolveFocus(
   if (focus === "organizer") {
     return {
       current: "organizer",
-      title: "Makersmarkt organisator worden",
+      title: "Organisator worden",
       description:
         "Registreer je om je markt, beurs of open atelier in de Hobbysalon-agenda te zetten.",
       defaultCreatorTypes: ["organizer"],
+    };
+  }
+
+  if (focus === "maker") {
+    return {
+      current: "maker",
+      title: "Maker worden",
+      description:
+        "Registreer je om je creaties te tonen en hobbyisten te laten ontdekken wat je maakt.",
+      defaultCreatorTypes: ["maker"],
     };
   }
 

@@ -20,6 +20,8 @@ import {
 } from "@/lib/platform/queries/role-requests";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
+  parseRegistrationOfferRoles,
+  resolveOfferOnboardingPath,
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
 import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registration";
@@ -137,7 +139,17 @@ export async function registerAction(
   const preferredDomainIds = (formData.getAll("preferred_domain_ids") ?? [])
     .map((value) => value.toString().trim())
     .filter(Boolean);
+  const offerRoles = parseRegistrationOfferRoles(
+    (formData.getAll("offer_roles") ?? []).map((value) => value.toString())
+  );
+  const offerOnboardingPath = resolveOfferOnboardingPath(offerRoles);
   const requestedNextPath = formData.get("next")?.toString() ?? null;
+  const effectiveNextPath =
+    requestedNextPath &&
+    requestedNextPath.startsWith("/") &&
+    !requestedNextPath.startsWith("//")
+      ? requestedNextPath
+      : offerOnboardingPath;
 
   if (!email || !password) {
     return {
@@ -156,7 +168,7 @@ export async function registerAction(
   const { session, user, error } = await registerEmailUser(
     email,
     password,
-    requestedNextPath
+    effectiveNextPath
   );
 
   if (error) {
@@ -190,19 +202,30 @@ export async function registerAction(
   if (session) {
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
-      requestedNextPath,
-      defaultPath: "/profile",
+      requestedNextPath: effectiveNextPath,
+      defaultPath: offerOnboardingPath ?? "/profile",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
   }
 
   if (user) {
+    const roleLabels = offerRoles.map((role) => {
+      if (role === "merchant") return "hobbymaterialenverkoper";
+      if (role === "workshopgever") return "workshopgever";
+      if (role === "organizer") return "organisator";
+      return "maker";
+    });
+    const offerHint =
+      roleLabels.length > 0
+        ? ` Na bevestiging rond je je profiel af als ${roleLabels.join(", ")}.`
+        : "";
+
     return {
       success: true,
       message: profilePersisted
-        ? "Controleer je e-mail en bevestig je account voordat je inlogt."
-        : "Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.",
+        ? `Controleer je e-mail en bevestig je account voordat je inlogt.${offerHint}`
+        : `Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.${offerHint}`,
     };
   }
 
