@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import {
   WORKSHOP_AGE_GROUPS,
   WORKSHOP_AGE_GROUP_LABELS,
@@ -23,6 +26,17 @@ type WorkshopTaxonomyFieldsProps = {
   };
 };
 
+function categoryBelongsToDomain(
+  categories: WorkshopCategory[],
+  categoryId: string,
+  domainId: string
+): boolean {
+  if (!categoryId || !domainId) return false;
+  return categories.some(
+    (cat) => cat.id === categoryId && cat.domain_id === domainId
+  );
+}
+
 export function WorkshopTaxonomyFields({
   categories,
   domainOptions,
@@ -30,20 +44,49 @@ export function WorkshopTaxonomyFields({
 }: WorkshopTaxonomyFieldsProps) {
   const audience = new Set(defaults?.audience_types ?? []);
   const ages = new Set(defaults?.age_groups ?? []);
-  const languages = new Set(defaults?.languages ?? []);
-  const domainId = defaults?.domain_id ?? "";
-
-  const categoryOptions = categories.filter(
-    (cat) => !domainId || cat.domain_id === domainId
+  const defaultLanguages = defaults?.languages ?? [];
+  const languages = new Set(
+    defaultLanguages.length > 0 ? defaultLanguages : ["nl"]
   );
+
+  const initialDomainId = defaults?.domain_id ?? "";
+  const initialCategoryId =
+    defaults?.category_id &&
+    categoryBelongsToDomain(categories, defaults.category_id, initialDomainId)
+      ? defaults.category_id
+      : "";
+
+  const [domainId, setDomainId] = useState(initialDomainId);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+
+  const categoryOptions = useMemo(() => {
+    if (!domainId) return [];
+    return categories
+      .filter((cat) => cat.domain_id === domainId)
+      .sort((a, b) => a.name.localeCompare(b.name, "nl"));
+  }, [categories, domainId]);
+
+  function handleDomainChange(nextDomainId: string) {
+    setDomainId(nextDomainId);
+    if (
+      categoryId &&
+      !categoryBelongsToDomain(categories, categoryId, nextDomainId)
+    ) {
+      setCategoryId("");
+    }
+  }
 
   return (
     <>
       <label>
-        <span className="mb-1 block text-sm font-medium">Categorie / domein</span>
+        <span className="mb-1 block text-sm font-medium">
+          Categorie / domein *
+        </span>
         <select
           name="domain_id"
-          defaultValue={domainId}
+          required
+          value={domainId}
+          onChange={(event) => handleDomainChange(event.target.value)}
           className="w-full rounded-md border border-[var(--border)] px-3 py-2"
         >
           <option value="">Selecteer categorie</option>
@@ -58,22 +101,26 @@ export function WorkshopTaxonomyFields({
         <span className="mb-1 block text-sm font-medium">Subcategorie</span>
         <select
           name="category_id"
-          defaultValue={defaults?.category_id ?? ""}
-          className="w-full rounded-md border border-[var(--border)] px-3 py-2"
+          value={categoryId}
+          onChange={(event) => setCategoryId(event.target.value)}
+          disabled={!domainId}
+          className="w-full rounded-md border border-[var(--border)] px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <option value="">Geen subcategorie</option>
-          {(domainId ? categoryOptions : categories).map((cat) => {
-            const domainLabel =
-              domainOptions.find((d) => d.value === cat.domain_id)?.label ?? "";
-            return (
-              <option key={cat.id} value={cat.id}>
-                {domainId ? cat.name : `${domainLabel} — ${cat.name}`}
-              </option>
-            );
-          })}
+          <option value="">
+            {domainId ? "Geen subcategorie" : "Kies eerst een categorie"}
+          </option>
+          {categoryOptions.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
         </select>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Optioneel. Kies een subcategorie die bij het domein past.
+          {domainId
+            ? categoryOptions.length > 0
+              ? "Optioneel. Alleen subcategorieën van de gekozen categorie."
+              : "Geen subcategorieën voor deze categorie."
+            : "Kies eerst een categorie / domein."}
         </p>
       </label>
       <label>
