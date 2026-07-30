@@ -15,7 +15,7 @@ export function sanitizeNextPath(
   requestedPath: string | null | undefined,
   fallbackPath: string
 ): string {
-  const candidate = requestedPath?.trim();
+  const candidate = requestedPath?.trim().split("#", 1)[0]?.trim();
   if (!candidate) return fallbackPath;
 
   const isInternalPath =

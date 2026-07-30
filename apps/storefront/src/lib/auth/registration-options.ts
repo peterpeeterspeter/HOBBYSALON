@@ -123,19 +123,20 @@ export function parseRegistrationOfferRoles(
 }
 
 /**
- * First onboarding path for selected offer roles.
- * Creator roles land on the maker profile setup (works after login/confirm).
- * Merchant lands on merchant register/upgrade.
+ * First onboarding path for selected offer roles (creator focuses before merchant).
+ * Paths must stay hash-free: they are passed to Supabase emailRedirectTo via ?next=.
  */
 export function resolveOfferOnboardingPath(
   roles: RegistrationOfferRole[]
 ): string | null {
-  if (
-    roles.includes("workshopgever") ||
-    roles.includes("maker") ||
-    roles.includes("organizer")
-  ) {
-    return "/profile?tab=profiel#maker-pagina";
+  if (roles.includes("workshopgever")) {
+    return "/register/creator?focus=workshopgever";
+  }
+  if (roles.includes("maker")) {
+    return "/register/creator?focus=maker";
+  }
+  if (roles.includes("organizer")) {
+    return "/register/creator?focus=organizer";
   }
   if (roles.includes("merchant")) {
     return "/register/merchant";

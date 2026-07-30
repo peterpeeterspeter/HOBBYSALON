@@ -10,6 +10,7 @@ import {
   getSafeInternalPath,
   type AccountRegistrationType,
 } from "@/lib/auth/account-paths";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -72,11 +73,17 @@ function resolveFocus(
 export default async function RegisterCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, focus } = await searchParams;
-  const nextPath = getSafeInternalPath(next, "/profile?tab=profiel#maker-pagina");
+  // Hash-free: this path is also used in login?next= and auth confirm redirects.
+  const nextPath = getSafeInternalPath(next, "/profile?tab=profiel");
   const resolved = resolveFocus(focus);
 
   if (user) {
-    redirect(nextPath);
+    const context = await getUserRegistrationContext(user.id);
+    if (context.hasCreatorProfile) {
+      redirect(nextPath);
+    }
+    // Logged-in base account without creator profile: finish maker setup in profile.
+    redirect("/profile?tab=profiel");
   }
 
   return (

@@ -12,14 +12,14 @@ test("parseRegistrationOfferRoles keeps known roles in stable order", () => {
   );
 });
 
-test("resolveOfferOnboardingPath sends creators to maker profile setup", () => {
+test("resolveOfferOnboardingPath prefers workshopgever then maker", () => {
   assert.equal(
     resolveOfferOnboardingPath(["merchant", "maker"]),
-    "/profile?tab=profiel#maker-pagina"
+    "/register/creator?focus=maker"
   );
   assert.equal(
-    resolveOfferOnboardingPath(["workshopgever"]),
-    "/profile?tab=profiel#maker-pagina"
+    resolveOfferOnboardingPath(["merchant", "workshopgever", "maker"]),
+    "/register/creator?focus=workshopgever"
   );
   assert.equal(
     resolveOfferOnboardingPath(["merchant"]),

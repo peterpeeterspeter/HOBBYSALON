@@ -129,10 +129,18 @@ function getSiteUrl(): string {
   );
 }
 
+/** Strip hash fragments; they break Supabase redirect allowlisting and Location headers. */
+export function sanitizeAuthNextPath(nextPath?: string | null): string | null {
+  if (!nextPath?.startsWith("/") || nextPath.startsWith("//")) return null;
+  const withoutHash = nextPath.split("#", 1)[0]?.trim() ?? "";
+  return withoutHash || null;
+}
+
 export function buildAuthConfirmUrl(nextPath?: string | null): string {
   const confirmationUrl = new URL("/auth/confirm", getSiteUrl());
-  if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {
-    confirmationUrl.searchParams.set("next", nextPath);
+  const safeNext = sanitizeAuthNextPath(nextPath);
+  if (safeNext) {
+    confirmationUrl.searchParams.set("next", safeNext);
   }
   return confirmationUrl.toString();
 }
