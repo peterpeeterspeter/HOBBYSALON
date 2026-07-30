@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   productMatchesOfferFilter,
+  resolveCatalogProductTypes,
   resolveCategoryChipIds,
   resolveMaterialsOffer,
   resolveMaterialsPriceBand,
@@ -107,6 +108,20 @@ test("resolveMaterialsPriceBand maps known bands", () => {
     maxCents: undefined,
   });
   assert.equal(resolveMaterialsPriceBand("nope"), null);
+});
+
+test("resolveCatalogProductTypes scopes maker P2P", () => {
+  assert.deepEqual(resolveCatalogProductTypes("maker_p2p", null), [
+    "handmade",
+    "destash",
+  ]);
+  assert.deepEqual(resolveCatalogProductTypes("maker_p2p", "destash"), [
+    "destash",
+  ]);
+  assert.deepEqual(resolveCatalogProductTypes("all", "webshop"), [
+    "supply",
+    "supplies",
+  ]);
 });
 
 test("parseMaterialsBuyMode accepts online and contact", () => {

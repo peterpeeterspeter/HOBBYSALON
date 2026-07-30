@@ -15,7 +15,7 @@ export const STATIC_LINKS = {
     { href: "/workshops", label: "Workshops" },
     { href: "/agenda", label: "Agenda" },
     { href: "/materials", label: "Materialen" },
-    { href: "/creators", label: "Makers" },
+    { href: "/creators", label: "Makersmarkt" },
   ],
   inspiratie: [
     { href: "/artikelen", label: "Artikelen & tutorials" },
@@ -35,7 +35,7 @@ export const FOOTER_SECTIONS = {
     { href: "/workshops", label: "Workshops" },
     { href: "/agenda", label: "Evenementen" },
     { href: "/materials", label: "Materialen" },
-    { href: "/creators", label: "Makers" },
+    { href: "/creators", label: "Makersmarkt" },
     { href: "/patronen", label: "Patronen" },
     { href: "/tools", label: "Tools" },
   ],

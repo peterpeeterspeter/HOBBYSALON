@@ -1,9 +1,10 @@
 import { createPlatformClient } from "../client";
 import type { Product } from "@/types/platform";
 import {
-  MATERIALS_CATALOG_PRODUCT_TYPES,
+  resolveCatalogProductTypes,
   resolveMaterialsOffer,
   sanitizeAgendaSearchQuery,
+  type MaterialsCatalogScope,
   type MaterialsOffer,
 } from "@/lib/materials/materials-catalog-helpers";
 
@@ -362,6 +363,8 @@ export type ListMaterialsCatalogFilters = {
   category_parent_id?: string;
   domain_id?: string;
   creator_id?: string;
+  /** Restrict to full catalog or P2P handmade+destash only. */
+  catalog_scope?: MaterialsCatalogScope;
   offer?: "webshop" | "maker" | "destash" | "kit";
   condition?: string;
   /** Platform price_cents bands (maker/destash listings; Medusa prices are not filterable here). */
@@ -386,18 +389,19 @@ export type MaterialsDomainOption = {
 };
 
 /**
- * Sellers (creators) with at least one active materials catalog product.
+ * Sellers (creators) with at least one active catalog product in scope.
  */
-export async function listMaterialsSellerOptions(): Promise<
-  MaterialsSellerOption[]
-> {
+export async function listMaterialsSellerOptions(options?: {
+  catalog_scope?: MaterialsCatalogScope;
+}): Promise<MaterialsSellerOption[]> {
   const supabase = createPlatformClient();
+  const types = resolveCatalogProductTypes(options?.catalog_scope, null);
   const { data: rows, error } = await supabase
     .from("products")
     .select("creator_id")
     .eq("is_active", true)
     .eq("status", "active")
-    .in("product_type", [...MATERIALS_CATALOG_PRODUCT_TYPES])
+    .in("product_type", [...types])
     .limit(3000);
 
   if (error || !rows?.length) return [];
@@ -431,18 +435,19 @@ export async function listMaterialsSellerOptions(): Promise<
 }
 
 /**
- * Domains that currently have materials catalog products.
+ * Domains that currently have catalog products in scope.
  */
-export async function listMaterialsDomainOptions(): Promise<
-  MaterialsDomainOption[]
-> {
+export async function listMaterialsDomainOptions(options?: {
+  catalog_scope?: MaterialsCatalogScope;
+}): Promise<MaterialsDomainOption[]> {
   const supabase = createPlatformClient();
+  const types = resolveCatalogProductTypes(options?.catalog_scope, null);
   const { data: rows, error } = await supabase
     .from("products")
     .select("domain_id")
     .eq("is_active", true)
     .eq("status", "active")
-    .in("product_type", [...MATERIALS_CATALOG_PRODUCT_TYPES])
+    .in("product_type", [...types])
     .not("domain_id", "is", null)
     .limit(3000);
 
@@ -473,31 +478,24 @@ export async function listMaterialsDomainOptions(): Promise<
 }
 
 function offerToProductTypes(
-  offer: ListMaterialsCatalogFilters["offer"]
-): string[] | null {
-  if (!offer) return null;
-  if (offer === "webshop") return ["supply", "supplies"];
-  if (offer === "maker") return ["handmade"];
-  if (offer === "destash") return ["destash"];
-  if (offer === "kit") return ["workshop_kit"];
-  return null;
+  offer: ListMaterialsCatalogFilters["offer"],
+  scope?: MaterialsCatalogScope
+): string[] {
+  return [...resolveCatalogProductTypes(scope, offer)];
 }
 
 function applyMaterialsCatalogFilters(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   query: any,
   options: {
-    typeFilter: string[] | null;
+    typeFilter: string[];
     categoryIdsFilter: string[] | null;
     filters?: ListMaterialsCatalogFilters;
     searchTerm: string | null;
   }
 ) {
   const { typeFilter, categoryIdsFilter, filters, searchTerm } = options;
-  query = query.in(
-    "product_type",
-    typeFilter ?? [...MATERIALS_CATALOG_PRODUCT_TYPES]
-  );
+  query = query.in("product_type", typeFilter);
 
   if (categoryIdsFilter) {
     query = query.in("category_id", categoryIdsFilter);
@@ -555,7 +553,10 @@ export async function listMaterialsCatalog(
     filters?.sort === "price_desc"
       ? filters.sort
       : "recommended";
-  const typeFilter = offerToProductTypes(filters?.offer);
+  const typeFilter = offerToProductTypes(
+    filters?.offer,
+    filters?.catalog_scope
+  );
 
   let categoryIdsFilter: string[] | null = null;
   if (filters?.category_id) {
@@ -578,13 +579,10 @@ export async function listMaterialsCatalog(
     .select("category_id")
     .eq("is_active", true)
     .eq("status", "active")
-    .in("product_type", [...MATERIALS_CATALOG_PRODUCT_TYPES])
+    .in("product_type", typeFilter)
     .not("category_id", "is", null)
     .limit(2000);
 
-  if (typeFilter) {
-    supplyCatQuery = supplyCatQuery.in("product_type", typeFilter);
-  }
   if (filters?.condition) {
     supplyCatQuery = supplyCatQuery.eq("condition_type", filters.condition);
   }

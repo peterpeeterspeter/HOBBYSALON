@@ -90,6 +90,30 @@ export const MATERIALS_CATALOG_PRODUCT_TYPES = [
   "workshop_kit",
 ] as const;
 
+/** P2P maker marketplace: handmade creaties + destash/restanten only. */
+export const MAKER_MARKETPLACE_PRODUCT_TYPES = [
+  "handmade",
+  "destash",
+] as const;
+
+export type MaterialsCatalogScope = "all" | "maker_p2p";
+
+export function resolveCatalogProductTypes(
+  scope: MaterialsCatalogScope | undefined,
+  offer: "webshop" | "maker" | "destash" | "kit" | null | undefined
+): readonly string[] {
+  if (scope === "maker_p2p") {
+    if (offer === "maker") return ["handmade"];
+    if (offer === "destash") return ["destash"];
+    return [...MAKER_MARKETPLACE_PRODUCT_TYPES];
+  }
+  if (offer === "webshop") return ["supply", "supplies"];
+  if (offer === "maker") return ["handmade"];
+  if (offer === "destash") return ["destash"];
+  if (offer === "kit") return ["workshop_kit"];
+  return [...MATERIALS_CATALOG_PRODUCT_TYPES];
+}
+
 export function productMatchesOfferFilter(
   product: MaterialsOfferInput,
   offer: string | null | undefined

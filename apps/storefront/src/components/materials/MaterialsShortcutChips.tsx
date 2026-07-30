@@ -10,14 +10,16 @@ export type MaterialsShortcut = {
 type MaterialsShortcutChipsProps = {
   shortcuts: MaterialsShortcut[];
   allHref: string;
+  allLabel?: string;
 };
 
 export function MaterialsShortcutChips({
   shortcuts,
   allHref,
+  allLabel = "Alle materialen",
 }: MaterialsShortcutChipsProps) {
   return (
-    <div className="mb-5 flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2">
       {shortcuts.map((shortcut) => (
         <Link
           key={shortcut.label}
@@ -36,7 +38,7 @@ export function MaterialsShortcutChips({
         href={allHref}
         className="inline-flex min-h-11 items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-4 text-[15px] font-semibold text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
       >
-        Alle materialen
+        {allLabel}
       </Link>
     </div>
   );

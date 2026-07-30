@@ -16,12 +16,12 @@ export function CreatorsHero({
 }: CreatorsHeroProps) {
   return (
     <ListingHeroBand
-      title="Vind makers die bij jouw hobby passen"
-      lead="Wie kan je inspireren, iets leren, iets maken of materialen leveren?"
+      title="Koop rechtstreeks van makers"
+      lead="Handgemaakte creaties en restanten van makers. Geen webshopvoorraad, wel persoonlijke aanbiedingen."
       imageSrc={LANDING_IMAGES.community}
       footer={
         <p className="text-[15px] text-white/85">
-          Zelf maker?{" "}
+          Zelf verkopen?{" "}
           <Link
             href="/voor-makers"
             className="font-semibold text-white underline underline-offset-4 hover:text-white"
@@ -37,8 +37,8 @@ export function CreatorsHero({
         )}
         <ListingSearchShell
           id="creators-q"
-          label="Zoek makers"
-          placeholder="Zoek op naam, techniek of stad"
+          label="Zoek creaties"
+          placeholder="Zoek op product, techniek of maker"
           defaultValue={defaultQuery}
         />
       </form>
