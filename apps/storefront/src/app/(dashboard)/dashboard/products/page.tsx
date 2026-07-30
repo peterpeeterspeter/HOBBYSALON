@@ -8,7 +8,6 @@ import { getUserRegistrationContext } from "@/lib/platform/queries/user-registra
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import {
   listSupplyCategoryOptions,
-  type ProductCategoryOption,
 } from "@/lib/platform/queries/products";
 import {
   createProductAction,
@@ -27,6 +26,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DashboardProductListItem } from "@/components/dashboard/DashboardProductListItem";
+import { ProductDomainCategoryFields } from "@/components/dashboard/ProductDomainCategoryFields";
 import type { Product } from "@/types/platform";
 
 type Props = {
@@ -180,17 +180,12 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
     value: domain.id,
     label: domain.name,
   }));
-  const categoryOptionsByDomain = new Map<string, ProductCategoryOption[]>();
-  for (const category of categoryOptions) {
-    if (!category.domain_id) continue;
-    const existing = categoryOptionsByDomain.get(category.domain_id) ?? [];
-    existing.push(category);
-    categoryOptionsByDomain.set(category.domain_id, existing);
-  }
   const primaryDomainId = creatorDomainIds[0] ?? "";
-  const createCategoryOptions =
-    (primaryDomainId ? categoryOptionsByDomain.get(primaryDomainId) : null) ??
-    categoryOptions;
+  const allProductCategories = categoryOptions.map((category) => ({
+    id: category.id,
+    name: category.name,
+    domain_id: category.domain_id,
+  }));
 
   return (
     <section className="space-y-6">
@@ -439,28 +434,13 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                           defaultValue={product.currency_code ?? "EUR"}
                           maxLength={3}
                         />
-                        <Select
-                          name="domain_id"
-                          label="Domein"
-                          options={domainOptions}
-                          placeholder="Selecteer domein"
-                          defaultValue={product.domain_id ?? primaryDomainId}
-                        />
-                        <Select
-                          name="category_id"
-                          label="Categorie"
-                          options={
-                            (
-                              product.domain_id
-                                ? categoryOptionsByDomain.get(product.domain_id)
-                                : createCategoryOptions
-                            )?.map((category) => ({
-                              value: category.id,
-                              label: category.name,
-                            })) ?? []
-                          }
-                          placeholder="Selecteer categorie"
-                          defaultValue={product.category_id ?? ""}
+                        <ProductDomainCategoryFields
+                          domainOptions={domainOptions}
+                          categories={allProductCategories}
+                          defaults={{
+                            domain_id: product.domain_id ?? primaryDomainId,
+                            category_id: product.category_id,
+                          }}
                         />
                         <Select
                           name="condition_type"
@@ -575,21 +555,10 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   maxLength={3}
                   required
                 />
-                <Select
-                  name="domain_id"
-                  label="Domein"
-                  options={domainOptions}
-                  placeholder="Selecteer domein"
-                  defaultValue={primaryDomainId}
-                />
-                <Select
-                  name="category_id"
-                  label="Categorie"
-                  options={createCategoryOptions.map((category) => ({
-                    value: category.id,
-                    label: category.name,
-                  }))}
-                  placeholder="Selecteer categorie"
+                <ProductDomainCategoryFields
+                  domainOptions={domainOptions}
+                  categories={allProductCategories}
+                  defaults={{ domain_id: primaryDomainId }}
                 />
                 <Select
                   name="condition_type"

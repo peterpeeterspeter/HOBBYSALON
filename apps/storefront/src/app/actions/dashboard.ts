@@ -205,6 +205,28 @@ async function parseWorkshopTaxonomyFields(
   };
 }
 
+async function assertProductCategoryMatchesDomain(
+  categoryId: string | null,
+  domainId: string | null
+): Promise<void> {
+  if (!categoryId) return;
+  if (!domainId) {
+    throw new Error("Kies eerst een domein voor de categorie.");
+  }
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("product_categories")
+    .select("id, domain_id")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (error || !data) {
+    throw new Error("Ongeldige categorie.");
+  }
+  if (data.domain_id !== domainId) {
+    throw new Error("Categorie hoort niet bij het gekozen domein.");
+  }
+}
+
 function parseOptionalCurrencyCode(formData: FormData, field: string): string | null {
   const raw = formData.get(field)?.toString().trim().toUpperCase();
   if (!raw) return null;
@@ -1530,6 +1552,14 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
+    try {
+      await assertProductCategoryMatchesDomain(categoryId, domainId);
+    } catch (error) {
+      fail(
+        "/dashboard/products",
+        error instanceof Error ? error.message : "Ongeldige categorie."
+      );
+    }
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
@@ -1630,6 +1660,14 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
+    try {
+      await assertProductCategoryMatchesDomain(categoryId, domainId);
+    } catch (error) {
+      fail(
+        "/dashboard/products",
+        error instanceof Error ? error.message : "Ongeldige categorie."
+      );
+    }
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
