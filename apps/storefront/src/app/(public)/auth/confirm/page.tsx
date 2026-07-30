@@ -68,7 +68,7 @@ export default function ConfirmAccountPage() {
 
       const query = new URLSearchParams(window.location.search);
       query.delete("code");
-      const nextPath = safeNextPath(query.get("next"));
+      const queryNext = safeNextPath(query.get("next"));
       const sanitizedQuery = query.toString();
       window.history.replaceState(
         null,
@@ -89,6 +89,13 @@ export default function ConfirmAccountPage() {
         return;
       }
 
+      const payload = (await response.json().catch(() => null)) as {
+        next?: unknown;
+      } | null;
+      const nextPath =
+        typeof payload?.next === "string"
+          ? safeNextPath(payload.next)
+          : queryNext;
       router.replace(nextPath);
       router.refresh();
     };
@@ -107,13 +114,7 @@ export default function ConfirmAccountPage() {
       return;
     }
 
-    const nextPath = safeNextPath(
-      new URLSearchParams(window.location.search).get("next")
-    );
-    const redirectTo = new URL("/auth/confirm", window.location.origin);
-    if (nextPath !== "/") {
-      redirectTo.searchParams.set("next", nextPath);
-    }
+    const redirectTo = new URL("/auth/confirm", window.location.origin).toString();
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -125,7 +126,7 @@ export default function ConfirmAccountPage() {
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email: resendEmail,
-      options: { emailRedirectTo: redirectTo.toString() },
+      options: { emailRedirectTo: redirectTo },
     });
 
     setResendMessage(

@@ -178,7 +178,7 @@ export async function registerAction(
       return {
         success: false,
         message:
-          "Te veel bevestigingsmails verstuurd. Wacht enkele minuten, of meld je aan als je account al bestaat.",
+          "Te veel bevestigingsmails vanaf Hobbysalon (limiet per uur). Wacht ongeveer een uur en probeer opnieuw, of meld je aan als je account al bestaat.",
       };
     }
     if (

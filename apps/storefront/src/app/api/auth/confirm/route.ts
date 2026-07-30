@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  consumeAuthNextPath,
   persistAuthSession,
   validateAuthSession,
 } from "@/lib/auth/session";
@@ -26,5 +27,6 @@ export async function POST(request: Request) {
   }
 
   await persistAuthSession(session);
-  return NextResponse.json({ ok: true });
+  const next = await consumeAuthNextPath("/profile");
+  return NextResponse.json({ ok: true, next });
 }
