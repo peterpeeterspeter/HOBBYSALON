@@ -563,6 +563,19 @@ Allowed `ticketing_mode`:
 - `external_link`
 - `internal_ticket`
 
+## Table: `event_gallery_images`
+
+Extra photos for an event page (beyond `events.featured_image_url`).
+
+Fields:
+
+- `id` (uuid, pk)
+- `event_id` (uuid, fk → events)
+- `image_url` (text)
+- `alt_text` (text, nullable)
+- `sort_order` (int)
+- `created_at`
+
 ---
 
 # 15. Event Domains

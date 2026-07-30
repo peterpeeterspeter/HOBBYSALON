@@ -76,11 +76,12 @@ export async function Header() {
           />
         </Link>
 
-        <div className="pointer-events-none min-w-0 flex-1 md:pointer-events-auto">
+        <div className="min-w-0 flex-1">
           <form
             action="/zoeken"
+            method="GET"
             role="search"
-            className="hidden max-w-[480px] md:block"
+            className="max-w-[480px]"
           >
             <div className="relative">
               <Search
@@ -91,8 +92,8 @@ export async function Header() {
               <input
                 type="search"
                 name="q"
-                placeholder="Zoek haken, keramiek of Herentals"
-                aria-label="Zoeken"
+                placeholder="Zoek workshops, materialen, makers…"
+                aria-label="Zoek overal op Hobbysalon"
                 className="min-h-11 w-full rounded-full border-[1.5px] border-[var(--border)] bg-[var(--background)] pl-10 pr-4 text-[15px] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
               />
             </div>

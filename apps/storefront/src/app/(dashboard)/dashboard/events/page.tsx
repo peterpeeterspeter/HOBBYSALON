@@ -6,7 +6,7 @@ import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capabil
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
-import { createEventAction, updateEventAction } from "@/app/actions/dashboard";
+import { createEventAction, updateEventAction, deleteEventGalleryImageAction } from "@/app/actions/dashboard";
 import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor-inquiry";
 import { sendExhibitorOutreachAction } from "@/app/actions/exhibitor-outreach";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
@@ -15,10 +15,18 @@ import { LISTING_CREDIT_COSTS, getEventCreditCost } from "@/lib/platform/listing
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
 import type { Event } from "@/types/platform";
 
 type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
+};
+
+type GalleryImage = {
+  id: string;
+  event_id: string;
+  image_url: string;
+  sort_order: number;
 };
 
 const EVENT_TYPES = [
@@ -79,6 +87,7 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     string,
     Array<{ creator_id: string; display_name: string; slug: string }>
   >();
+  const galleryByEvent = new Map<string, GalleryImage[]>();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
     null;
 
@@ -106,11 +115,18 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
 
     const eventIds = events.map((event) => event.id);
     if (eventIds.length > 0) {
-      const { data: rosterRows } = await supabase
-        .from("event_creators")
-        .select("event_id, creator_id, role, creators(display_name, slug)")
-        .in("event_id", eventIds)
-        .eq("role", "vendor");
+      const [{ data: rosterRows }, { data: galleryData }] = await Promise.all([
+        supabase
+          .from("event_creators")
+          .select("event_id, creator_id, role, creators(display_name, slug)")
+          .in("event_id", eventIds)
+          .eq("role", "vendor"),
+        supabase
+          .from("event_gallery_images")
+          .select("id, event_id, image_url, sort_order")
+          .in("event_id", eventIds)
+          .order("sort_order", { ascending: true }),
+      ]);
 
       for (const row of (rosterRows ?? []) as Array<{
         event_id: string;
@@ -131,6 +147,12 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
           slug: creatorMeta.slug,
         });
         standhoudersByEvent.set(row.event_id, list);
+      }
+
+      for (const image of (galleryData ?? []) as GalleryImage[]) {
+        const list = galleryByEvent.get(image.event_id) ?? [];
+        list.push(image);
+        galleryByEvent.set(image.event_id, list);
       }
     }
   }
@@ -248,9 +270,16 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
               <div className="sm:col-span-2">
                 <ImageUploadField
                   name="featured_image_file"
-                  label="Eventfoto"
+                  label="Hoofdfoto"
                   uploadPathPrefix={`creators/${creator.id}/events`}
-                  hint="Foto voor in de agenda. JPEG, PNG, WebP of GIF."
+                  hint="Deze foto verschijnt als eerste in de agenda."
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <MultiImageUploadField
+                  uploadPathPrefix={`creators/${creator.id}/events/gallery`}
+                  label="Extra foto's"
+                  hint="Optioneel. Voeg meerdere foto's toe van de locatie, stands of sfeer."
                 />
               </div>
               <label className="sm:col-span-2">
@@ -279,7 +308,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                 Nog geen events.
               </p>
             ) : (
-              events.map((event) => (
+              events.map((event) => {
+                const gallery = galleryByEvent.get(event.id) ?? [];
+                return (
                 <details key={event.id} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
                   <summary className="cursor-pointer list-none font-medium">
                     {event.title}{" "}
@@ -370,10 +401,46 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                     <div className="sm:col-span-2">
                       <ImageUploadField
                         name="featured_image_file"
-                        label="Eventfoto"
+                        label="Hoofdfoto"
                         currentUrl={event.featured_image_url}
                         uploadPathPrefix={`creators/${creator.id}/events`}
-                        hint="Foto voor in de agenda. Laat leeg om de huidige foto te behouden."
+                        hint="Laat leeg om de huidige foto te behouden."
+                      />
+                    </div>
+                    <div className="sm:col-span-2 space-y-3">
+                      <p className="text-sm font-medium">Extra foto&apos;s ({gallery.length})</p>
+                      {gallery.length > 0 ? (
+                        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {gallery.map((image) => (
+                            <li key={image.id} className="space-y-1">
+                              <img
+                                src={image.image_url}
+                                alt=""
+                                className="aspect-square w-full rounded-lg border border-[var(--border)] object-cover"
+                              />
+                              <form action={deleteEventGalleryImageAction}>
+                                <input
+                                  type="hidden"
+                                  name="gallery_image_id"
+                                  value={image.id}
+                                />
+                                <button
+                                  type="submit"
+                                  className="text-xs text-red-700 hover:underline"
+                                >
+                                  Verwijder
+                                </button>
+                              </form>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-[var(--muted)]">Nog geen extra foto&apos;s.</p>
+                      )}
+                      <MultiImageUploadField
+                        uploadPathPrefix={`creators/${creator.id}/events/gallery`}
+                        label="Extra foto's toevoegen"
+                        hint="Worden bewaard wanneer je Opslaan klikt."
                       />
                     </div>
                     <label className="sm:col-span-2">
@@ -454,7 +521,8 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                     </button>
                   </form>
                 </details>
-              ))
+                );
+              })
             )}
           </div>
 

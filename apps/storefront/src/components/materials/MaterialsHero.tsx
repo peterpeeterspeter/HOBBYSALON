@@ -2,6 +2,7 @@ import {
   ListingHeroBand,
   ListingSearchShell,
 } from "@/components/shared/ListingHeroBand";
+import { ListingSearchEverywhereHint } from "@/components/shared/ListingSearchEverywhereHint";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 
 type MaterialsHeroProps = {
@@ -16,9 +17,10 @@ export function MaterialsHero({
   return (
     <ListingHeroBand
       title="Vind de juiste materialen voor je project"
-      lead="Zoek op materiaal, merk, kleur of techniek."
+      lead="Filter materialen op materiaal, merk, kleur of techniek."
       imageSrc={LANDING_IMAGES.craftsGrid}
       size="compact"
+      footer={<ListingSearchEverywhereHint query={defaultQuery} />}
     >
       <form method="GET" action="/materials" role="search">
         {Object.entries(hiddenFields).map(([key, value]) =>
@@ -26,8 +28,8 @@ export function MaterialsHero({
         )}
         <ListingSearchShell
           id="materials-q"
-          label="Zoek materialen"
-          placeholder="Zoek garen, klei, verf of een merk"
+          label="Filter materialen"
+          placeholder="Filter op garen, klei, verf of een merk"
           defaultValue={defaultQuery}
         />
       </form>

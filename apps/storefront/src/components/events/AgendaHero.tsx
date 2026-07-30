@@ -2,6 +2,7 @@ import {
   ListingHeroBand,
   ListingSearchShell,
 } from "@/components/shared/ListingHeroBand";
+import { ListingSearchEverywhereHint } from "@/components/shared/ListingSearchEverywhereHint";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 
 type AgendaHeroProps = {
@@ -13,8 +14,9 @@ export function AgendaHero({ hiddenFields = {}, defaultQuery }: AgendaHeroProps)
   return (
     <ListingHeroBand
       title="Ga eropuit voor je hobby"
-      lead="Handmade markten, beurzen en open ateliers. Plan een creatief uitje."
+      lead="Filter handmade markten, beurzen en open ateliers."
       imageSrc={LANDING_IMAGES.community}
+      footer={<ListingSearchEverywhereHint query={defaultQuery} />}
     >
       <form method="GET" action="/agenda" role="search">
         {Object.entries(hiddenFields).map(([key, value]) =>
@@ -22,8 +24,8 @@ export function AgendaHero({ hiddenFields = {}, defaultQuery }: AgendaHeroProps)
         )}
         <ListingSearchShell
           id="agenda-q"
-          label="Zoek een event, plaats of hobby"
-          placeholder="Zoek een event, plaats of hobby"
+          label="Filter events"
+          placeholder="Filter op event, plaats of hobby"
           defaultValue={defaultQuery}
         />
       </form>

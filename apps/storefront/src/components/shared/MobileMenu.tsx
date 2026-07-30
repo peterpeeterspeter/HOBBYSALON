@@ -90,6 +90,25 @@ export function MobileMenu({
             aria-label="Mobiele navigatie"
             className="fixed right-4 top-[3.75rem] z-[70] w-[min(18rem,calc(100vw-2rem))] max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-lg"
           >
+            <form
+              action="/zoeken"
+              method="GET"
+              role="search"
+              className="mb-2 px-2 pt-1"
+              onSubmit={closeMenu}
+            >
+              <label htmlFor="mobile-zoeken-q" className="sr-only">
+                Zoek overal op Hobbysalon
+              </label>
+              <input
+                id="mobile-zoeken-q"
+                type="search"
+                name="q"
+                placeholder="Zoek workshops, materialen…"
+                className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[15px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+              />
+            </form>
+
             <div className="space-y-0.5">
               {mainLinks.map((link) => (
                 <Link

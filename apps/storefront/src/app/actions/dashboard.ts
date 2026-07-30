@@ -2328,6 +2328,11 @@ export async function createEventAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/events`,
     });
+    const galleryUrls = formData
+      .getAll("gallery_image_urls")
+      .map((value) => value.toString().trim())
+      .filter((url) => url.length > 0)
+      .slice(0, 8);
     const supabase = createPlatformClient();
 
     const { data: createdEvent, error } = await supabase
@@ -2353,7 +2358,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       featured_image_url: featuredImageUrl,
       is_active: isActive,
     })
-      .select("id")
+      .select("id, slug")
       .single();
 
     if (error || !createdEvent?.id) {
@@ -2362,7 +2367,26 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
     await attachDefaultEventPlan(createdEvent.id as string);
 
+    if (galleryUrls.length > 0) {
+      const { error: galleryError } = await supabase
+        .from("event_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            event_id: createdEvent.id,
+            image_url,
+            sort_order: index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Event gallery insert failed:", galleryError);
+      }
+    }
+
     revalidatePath("/dashboard/events");
+    if (createdEvent.slug) {
+      revalidatePath(`/agenda/${createdEvent.slug}`);
+      revalidatePath(`/event/${createdEvent.slug}`);
+    }
     ok("/dashboard/events", "Event aangemaakt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -2438,6 +2462,11 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       existingUrl: existingEvent.featured_image_url,
       pathPrefix: `creators/${creator.id}/events`,
     });
+    const galleryUrls = formData
+      .getAll("gallery_image_urls")
+      .map((value) => value.toString().trim())
+      .filter((url) => url.length > 0)
+      .slice(0, 8);
 
     const { error } = await supabase
       .from("events")
@@ -2468,8 +2497,74 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       fail("/dashboard/events", "Event bijwerken mislukt.");
     }
 
+    if (galleryUrls.length > 0) {
+      const { count } = await supabase
+        .from("event_gallery_images")
+        .select("id", { head: true, count: "exact" })
+        .eq("event_id", eventId);
+      const startOrder = count ?? 0;
+      await supabase.from("event_gallery_images").insert(
+        galleryUrls.map((image_url, index) => ({
+          event_id: eventId,
+          image_url,
+          sort_order: startOrder + index,
+        }))
+      );
+    }
+
     revalidatePath("/dashboard/events");
+    revalidatePath(`/agenda/${existingEvent.slug}`);
+    revalidatePath(`/event/${existingEvent.slug}`);
     ok("/dashboard/events", "Event bijgewerkt.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/events",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteEventGalleryImageAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredApprovedCreator("organizer");
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+
+    const { data: row } = await supabase
+      .from("event_gallery_images")
+      .select("id, event_id, events!inner(organizer_creator_id, slug)")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    const event = row?.events as
+      | { organizer_creator_id?: string; slug?: string }
+      | { organizer_creator_id?: string; slug?: string }[]
+      | null
+      | undefined;
+    const eventMeta = Array.isArray(event) ? event[0] : event;
+
+    if (!row || eventMeta?.organizer_creator_id !== creator.id) {
+      fail("/dashboard/events", "Foto niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("event_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+
+    if (error) {
+      fail("/dashboard/events", "Foto verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/events");
+    if (eventMeta?.slug) {
+      revalidatePath(`/agenda/${eventMeta.slug}`);
+      revalidatePath(`/event/${eventMeta.slug}`);
+    }
+    ok("/dashboard/events", "Foto verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

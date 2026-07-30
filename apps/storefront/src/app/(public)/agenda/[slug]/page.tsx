@@ -109,6 +109,7 @@ export default async function EventPage({ params }: Props) {
     creators,
     exhibitors,
     workshops,
+    galleryImages,
     relatedProducts,
     relatedArticles,
     relatedEvents,
@@ -264,6 +265,22 @@ export default async function EventPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {galleryImages.length > 0 ? (
+        <div className="mx-auto max-w-6xl px-4 pt-6">
+          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {galleryImages.map((image) => (
+              <li key={image.id}>
+                <img
+                  src={image.image_url}
+                  alt={image.alt_text ?? event.title}
+                  className="aspect-square w-full rounded-[0.75rem] object-cover"
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Main layout */}
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 lg:grid-cols-[1fr_360px] lg:items-start">

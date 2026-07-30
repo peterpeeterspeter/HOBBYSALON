@@ -22,6 +22,13 @@ export type EventExhibitor = {
   products: Product[];
 };
 
+export type EventGalleryImage = {
+  id: string;
+  image_url: string;
+  alt_text: string | null;
+  sort_order: number;
+};
+
 export type EventPageData = {
   event: Event | null;
   organizer: Creator | null;
@@ -29,6 +36,7 @@ export type EventPageData = {
   creators: Creator[];
   exhibitors: EventExhibitor[];
   workshops: Workshop[];
+  galleryImages: EventGalleryImage[];
   relatedProducts: Product[];
   relatedArticles: Article[];
   relatedEvents: Event[];
@@ -47,6 +55,7 @@ export async function getEventPageData(
       creators: [],
       exhibitors: [],
       workshops: [],
+      galleryImages: [],
       relatedProducts: [],
       relatedArticles: [],
       relatedEvents: [],
@@ -179,11 +188,19 @@ export async function getEventPageData(
   const relatedArticles = await listArticlesByIds(relatedArticleIds);
 
   const nowIso = new Date().toISOString();
-  const upcoming = await listEvents({
-    domain_id: domainIds[0],
-    from_date: nowIso,
-    limit: 7,
-  });
+  const [{ data: galleryData }, upcoming] = await Promise.all([
+    supabase
+      .from("event_gallery_images")
+      .select("id, image_url, alt_text, sort_order")
+      .eq("event_id", event.id)
+      .order("sort_order", { ascending: true }),
+    listEvents({
+      domain_id: domainIds[0],
+      from_date: nowIso,
+      limit: 7,
+    }),
+  ]);
+  const galleryImages = (galleryData ?? []) as EventGalleryImage[];
   let relatedEvents = upcoming.filter((e) => e.id !== event.id).slice(0, 3);
   if (relatedEvents.length === 0) {
     const anyUpcoming = await listEvents({ from_date: nowIso, limit: 7 });
@@ -197,6 +214,7 @@ export async function getEventPageData(
     creators,
     exhibitors,
     workshops,
+    galleryImages,
     relatedProducts,
     relatedArticles,
     relatedEvents,
