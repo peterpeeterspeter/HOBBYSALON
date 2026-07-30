@@ -123,23 +123,74 @@ export function parseRegistrationOfferRoles(
 }
 
 /**
- * First onboarding path for selected offer roles (creator focuses before merchant).
- * Paths must stay hash-free: they are passed to Supabase emailRedirectTo via ?next=.
+ * Primary offer role for routing, copy, and analytics.
+ * Priority: workshopgever → maker → organizer → merchant.
+ */
+export function resolvePrimaryOfferRole(
+  roles: RegistrationOfferRole[]
+): RegistrationOfferRole | null {
+  if (roles.includes("workshopgever")) return "workshopgever";
+  if (roles.includes("maker")) return "maker";
+  if (roles.includes("organizer")) return "organizer";
+  if (roles.includes("merchant")) return "merchant";
+  return null;
+}
+
+/**
+ * First onboarding path after registration.
+ * Paths must stay hash-free (auth next cookie / redirects).
+ * Intent is persisted in user_preferences; /onboarding reads from DB.
  */
 export function resolveOfferOnboardingPath(
   roles: RegistrationOfferRole[]
 ): string | null {
-  if (roles.includes("workshopgever")) {
-    return "/register/creator?focus=workshopgever";
+  const primary = resolvePrimaryOfferRole(roles);
+  if (!primary) return null;
+  if (primary === "merchant") return "/register/merchant";
+  return "/onboarding";
+}
+
+export function getOfferRoleLabel(role: RegistrationOfferRole): string {
+  return (
+    REGISTRATION_OFFER_ROLE_OPTIONS.find((option) => option.value === role)
+      ?.label ?? role
+  );
+}
+
+export function getOnboardingProfileCopy(role: RegistrationOfferRole): {
+  title: string;
+  lead: string;
+  cta: string;
+  photoLabel: string;
+} {
+  if (role === "workshopgever") {
+    return {
+      title: "Jouw workshopgeverprofiel",
+      lead: "Dit zien bezoekers wanneer ze jouw workshops bekijken.",
+      cta: "Workshopgeverprofiel instellen",
+      photoLabel: "Foto of logo",
+    };
   }
-  if (roles.includes("maker")) {
-    return "/register/creator?focus=maker";
+  if (role === "organizer") {
+    return {
+      title: "Jouw organisatorprofiel",
+      lead: "Toon wie achter je markten en evenementen zit.",
+      cta: "Organisatorprofiel instellen",
+      photoLabel: "Foto of logo",
+    };
   }
-  if (roles.includes("organizer")) {
-    return "/register/creator?focus=organizer";
+  if (role === "merchant") {
+    return {
+      title: "Jouw verkopersprofiel",
+      lead: "Presenteer je winkel aan hobbyisten.",
+      cta: "Verkopersprofiel instellen",
+      photoLabel: "Foto of logo",
+    };
   }
-  if (roles.includes("merchant")) {
-    return "/register/merchant";
-  }
-  return null;
+  return {
+    title: "Jouw makerprofiel",
+    lead: "Toon wie je bent en wat je maakt.",
+    cta: "Makerprofiel instellen",
+    photoLabel: "Foto of logo",
+  };
 }

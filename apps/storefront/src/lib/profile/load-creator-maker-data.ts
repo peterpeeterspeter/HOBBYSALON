@@ -239,6 +239,10 @@ export async function loadCreatorMakerData(
     eventCount,
     articleCount: dashboardArticles.length,
     projectCount: creatorProjects.length,
+    primaryOfferRole: registrationContext.preference?.primaryOfferRole ?? null,
+    canPublish:
+      registrationContext.roles.includes("workshop_host") ||
+      registrationContext.roles.includes("organizer"),
   });
 
   return {

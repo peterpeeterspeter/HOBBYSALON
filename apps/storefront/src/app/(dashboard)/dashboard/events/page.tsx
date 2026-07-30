@@ -68,7 +68,7 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     creatorTypes: creator?.creator_types,
     hasCreatorProfile: Boolean(creator),
   });
-  requireDashboardCapability(caps.canManageEvents);
+  requireDashboardCapability(caps.canDraftEvents);
 
   const { success, error } = await searchParams;
 

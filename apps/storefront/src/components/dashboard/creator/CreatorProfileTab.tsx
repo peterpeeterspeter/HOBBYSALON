@@ -97,12 +97,18 @@ export function CreatorProfileTab({
             label="Profielfoto"
             hint="Je profielfoto op je maker-pagina en in overzichten."
             currentUrl={creator?.avatar_url}
+            uploadPathPrefix={
+              creator?.id ? `creators/${creator.id}/avatar` : "creators/avatar"
+            }
           />
           <ImageUploadField
             name="banner_file"
             label="Omslagfoto"
             hint="Grote foto bovenaan je maker-pagina (optioneel)."
             currentUrl={creator?.banner_url}
+            uploadPathPrefix={
+              creator?.id ? `creators/${creator.id}/banner` : "creators/banner"
+            }
             previewClassName="h-20 w-full max-w-sm rounded-lg object-cover"
           />
           <div className="sm:col-span-2">

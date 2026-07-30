@@ -9,8 +9,11 @@ import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveHeaderDisplayName } from "@/lib/auth/header-display-name";
 import { logoutAction } from "@/app/actions/auth";
-import { STATIC_LINKS } from "@/config/nav";
+import { STATIC_LINKS, resolveAanbodNav } from "@/config/nav";
 import type { User } from "@supabase/supabase-js";
+import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 
 async function loadDomainLinksSafely() {
   try {
@@ -46,6 +49,23 @@ export async function Header() {
   const hasSession = Boolean(user);
   const displayName = user ? displayNameFromUser(user) : null;
   const mobileDomainLinks = domainLinks.slice(0, 12);
+
+  let aanbodNav: { href: string; label: string } | null = null;
+  if (user) {
+    const [creator, registrationContext] = await Promise.all([
+      getCreatorByUserId(user.id),
+      getUserRegistrationContext(user.id),
+    ]);
+    const caps = resolveDashboardCapabilities({
+      registrationContext,
+      creatorTypes: creator?.creator_types,
+      hasCreatorProfile: Boolean(creator),
+    });
+    aanbodNav = resolveAanbodNav({
+      hasCreatorProfile: Boolean(creator),
+      hasOfferIntent: caps.hasOfferIntent,
+    });
+  }
 
   const navLinkClass =
     "inline-flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-[15px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
@@ -127,6 +147,7 @@ export async function Header() {
             <ProfileDropdown
               displayName={displayName}
               logoutAction={logoutAction}
+              aanbodNav={aanbodNav}
             />
           ) : (
             <div className="hidden items-center gap-2 lg:flex">
@@ -152,6 +173,7 @@ export async function Header() {
             }))}
             inspiratieLinks={[...STATIC_LINKS.inspiratie]}
             user={hasSession}
+            aanbodNav={aanbodNav}
             mobileLinkClass={mobileLinkClass}
             iconBtnClass={iconBtnClass}
           />

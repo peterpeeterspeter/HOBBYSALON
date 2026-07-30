@@ -4,10 +4,14 @@ import { createPlatformClient } from "../client";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
   REGISTRATION_DEFAULT_COUNTRY,
+  REGISTRATION_OFFER_ROLES,
+  resolvePrimaryOfferRole,
   type RegistrationInterestType,
+  type RegistrationOfferRole,
 } from "@/lib/auth/registration-options";
 
 const ALLOWED_INTEREST_SET = new Set<string>(REGISTRATION_ALLOWED_INTEREST_TYPES);
+const OFFER_ROLE_SET = new Set<string>(REGISTRATION_OFFER_ROLES);
 
 type PersistUserRegistrationInput = {
   userId: string;
@@ -15,6 +19,12 @@ type PersistUserRegistrationInput = {
   countryCode?: string | null;
   interestTypes?: string[];
   preferredDomainIds?: string[];
+  offerRoles?: RegistrationOfferRole[];
+  primaryOfferRole?: RegistrationOfferRole | null;
+  marketingOptIn?: boolean;
+  marketingConsentSource?: string | null;
+  /** When true, marks hobbyist onboarding done. Offer users stay incomplete until /onboarding finishes. */
+  onboardingCompleted?: boolean;
 };
 
 type CompatibilityMigrationInput = {
@@ -44,6 +54,12 @@ export type UserPreferenceSnapshot = {
   countryCode: string;
   interestTypes: RegistrationInterestType[];
   preferredDomainIds: string[];
+  offerRoles: RegistrationOfferRole[];
+  primaryOfferRole: RegistrationOfferRole | null;
+  marketingOptIn: boolean;
+  marketingOptedInAt: string | null;
+  marketingOptedOutAt: string | null;
+  marketingConsentSource: string | null;
   onboardingCompleted: boolean;
 };
 
@@ -127,6 +143,19 @@ function sanitizePreferredDomainIds(
   );
 }
 
+function sanitizeOfferRoles(
+  values: string[] | null | undefined
+): RegistrationOfferRole[] {
+  if (!values || values.length === 0) return [];
+  const seen = new Set<RegistrationOfferRole>();
+  for (const raw of values) {
+    const value = raw.trim().toLowerCase();
+    if (!OFFER_ROLE_SET.has(value)) continue;
+    seen.add(value as RegistrationOfferRole);
+  }
+  return REGISTRATION_OFFER_ROLES.filter((role) => seen.has(role));
+}
+
 export async function persistUserRegistrationProfile(
   input: PersistUserRegistrationInput
 ): Promise<PersistResult> {
@@ -139,17 +168,38 @@ export async function persistUserRegistrationProfile(
   const preferredDomainIds = sanitizePreferredDomainIds(
     input.preferredDomainIds
   );
+  const offerRoles = sanitizeOfferRoles(input.offerRoles);
+  const primaryOfferRole =
+    input.primaryOfferRole !== undefined
+      ? input.primaryOfferRole
+      : resolvePrimaryOfferRole(offerRoles);
+
+  const nowIso = new Date().toISOString();
+  const marketingOptIn = !!input.marketingOptIn;
+  const onboardingCompleted =
+    input.onboardingCompleted !== undefined
+      ? input.onboardingCompleted
+      : offerRoles.length === 0;
 
   const preferencePayload: Record<string, unknown> = {
     user_id: input.userId,
     postal_code: postalCode,
     country_code: countryCode,
     interest_types: interestTypes,
-    onboarding_completed: true,
+    offer_roles: offerRoles,
+    primary_offer_role: primaryOfferRole,
+    marketing_opt_in: marketingOptIn,
+    onboarding_completed: onboardingCompleted,
   };
 
   if (input.preferredDomainIds !== undefined) {
     preferencePayload.preferred_domain_ids = preferredDomainIds;
+  }
+
+  if (marketingOptIn) {
+    preferencePayload.marketing_opted_in_at = nowIso;
+    preferencePayload.marketing_consent_source =
+      input.marketingConsentSource?.trim() || "register";
   }
 
   const [preferenceResult, roleResult] = await Promise.all([
@@ -177,6 +227,81 @@ export async function persistUserRegistrationProfile(
     ok: errors.length === 0,
     errors,
   };
+}
+
+export async function updateUserOfferIntent(input: {
+  userId: string;
+  offerRoles: RegistrationOfferRole[];
+  primaryOfferRole?: RegistrationOfferRole | null;
+}): Promise<PersistResult> {
+  const supabase = createPlatformClient();
+  const offerRoles = sanitizeOfferRoles(input.offerRoles);
+  const primaryOfferRole =
+    input.primaryOfferRole !== undefined
+      ? input.primaryOfferRole
+      : resolvePrimaryOfferRole(offerRoles);
+
+  const { error } = await supabase.from("user_preferences").upsert(
+    {
+      user_id: input.userId,
+      offer_roles: offerRoles,
+      primary_offer_role: primaryOfferRole,
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) {
+    return { ok: false, errors: [error.message] };
+  }
+  return { ok: true, errors: [] };
+}
+
+export async function setOnboardingCompleted(
+  userId: string,
+  completed = true
+): Promise<PersistResult> {
+  const supabase = createPlatformClient();
+  const { error } = await supabase.from("user_preferences").upsert(
+    {
+      user_id: userId,
+      onboarding_completed: completed,
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) {
+    return { ok: false, errors: [error.message] };
+  }
+  return { ok: true, errors: [] };
+}
+
+export async function setMarketingOptIn(input: {
+  userId: string;
+  optIn: boolean;
+  source?: string | null;
+}): Promise<PersistResult> {
+  const supabase = createPlatformClient();
+  const nowIso = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    user_id: input.userId,
+    marketing_opt_in: input.optIn,
+  };
+
+  if (input.optIn) {
+    payload.marketing_opted_in_at = nowIso;
+    payload.marketing_consent_source = input.source?.trim() || "account";
+  } else {
+    payload.marketing_opted_out_at = nowIso;
+  }
+
+  const { error } = await supabase
+    .from("user_preferences")
+    .upsert(payload, { onConflict: "user_id" });
+
+  if (error) {
+    return { ok: false, errors: [error.message] };
+  }
+  return { ok: true, errors: [] };
 }
 
 export async function ensureUserRole(
@@ -471,7 +596,7 @@ export async function getUserRegistrationContext(
       supabase
         .from("user_preferences")
         .select(
-          "city,postal_code,country_code,interest_types,preferred_domain_ids,onboarding_completed"
+          "city,postal_code,country_code,interest_types,preferred_domain_ids,offer_roles,primary_offer_role,marketing_opt_in,marketing_opted_in_at,marketing_opted_out_at,marketing_consent_source,onboarding_completed"
         )
         .eq("user_id", userId)
         .maybeSingle(),
@@ -511,6 +636,30 @@ export async function getUserRegistrationContext(
             | null
             | undefined
         ),
+        offerRoles: sanitizeOfferRoles(
+          preferenceResult.data.offer_roles as string[] | null | undefined
+        ),
+        primaryOfferRole: (() => {
+          const raw = preferenceResult.data.primary_offer_role;
+          if (typeof raw !== "string") return null;
+          const cleaned = raw.trim().toLowerCase();
+          return OFFER_ROLE_SET.has(cleaned)
+            ? (cleaned as RegistrationOfferRole)
+            : null;
+        })(),
+        marketingOptIn: !!preferenceResult.data.marketing_opt_in,
+        marketingOptedInAt:
+          typeof preferenceResult.data.marketing_opted_in_at === "string"
+            ? preferenceResult.data.marketing_opted_in_at
+            : null,
+        marketingOptedOutAt:
+          typeof preferenceResult.data.marketing_opted_out_at === "string"
+            ? preferenceResult.data.marketing_opted_out_at
+            : null,
+        marketingConsentSource:
+          typeof preferenceResult.data.marketing_consent_source === "string"
+            ? preferenceResult.data.marketing_consent_source
+            : null,
         onboardingCompleted: !!preferenceResult.data.onboarding_completed,
       }
     : null;

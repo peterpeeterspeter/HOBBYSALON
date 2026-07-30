@@ -113,6 +113,7 @@ export type LinkTargetOption = { id: string; label: string };
 
 export type CreatorProfileTabProps = {
   creator: {
+    id?: string;
     display_name: string;
     slug: string;
     business_name: string | null;

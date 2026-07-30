@@ -8,6 +8,7 @@ import { ACCOUNT_NAV } from "@/config/nav";
 type ProfileDropdownProps = {
   displayName: string | null;
   logoutAction: () => void | Promise<void>;
+  aanbodNav?: { href: string; label: string } | null;
 };
 
 const itemClass =
@@ -16,6 +17,7 @@ const itemClass =
 export function ProfileDropdown({
   displayName,
   logoutAction,
+  aanbodNav = null,
 }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -82,9 +84,11 @@ export function ProfileDropdown({
           >
             {ACCOUNT_NAV.profile.label}
           </Link>
-          <Link href={ACCOUNT_NAV.pro.href} className={itemClass} onClick={close}>
-            {ACCOUNT_NAV.pro.label}
-          </Link>
+          {aanbodNav ? (
+            <Link href={aanbodNav.href} className={itemClass} onClick={close}>
+              {aanbodNav.label}
+            </Link>
+          ) : null}
           <div className="my-1 border-t border-[var(--border)]" />
           <form action={logoutAction}>
             <button type="submit" className={`${itemClass} text-left`}>

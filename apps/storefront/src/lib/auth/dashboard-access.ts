@@ -22,12 +22,22 @@ export type DashboardCapabilities = {
   /** Public maker page, artikels, portfolio. */
   canViewCreatorPage: boolean;
   canManageProducts: boolean;
+  /** Create/edit workshop drafts (profile + host role, type, or pending request). */
+  canDraftWorkshops: boolean;
+  /** Publish workshops publicly (approved workshop_host only). */
+  canPublishWorkshops: boolean;
+  /** @deprecated Prefer canDraftWorkshops / canPublishWorkshops */
   canManageWorkshops: boolean;
+  canDraftEvents: boolean;
+  canPublishEvents: boolean;
+  /** @deprecated Prefer canDraftEvents / canPublishEvents */
   canManageEvents: boolean;
   canManageOrders: boolean;
   canViewAnalytics: boolean;
   /** No provider roles — hobbyist discovery account. */
   isHobbyistOnly: boolean;
+  /** Offer intent without creator profile yet. */
+  hasOfferIntent: boolean;
 };
 
 export type DashboardNavItemDef = {
@@ -110,14 +120,46 @@ export function resolveDashboardCapabilities(input: {
       isSupplier ||
       (creatorTypes.length === 0 && (hasCreatorRole || hasCreatorProfile)));
 
-  // Privileged capabilities follow the *approved* account role, never the
-  // self-declared creator_type. Picking "workshopgever" on the account
-  // page files a role request (syncPrivilegedRolesFromCreatorTypes) and
-  // approval grants workshop_host; deriving access from creator_types
-  // instead made that gate cosmetic - a user could grant themselves
-  // access, and a rejected request kept its access too.
-  const canManageWorkshops = hasCreatorProfile && hasWorkshopHostRole;
-  const canManageEvents = hasCreatorProfile && hasOrganizerRole;
+  const hasPendingWorkshopHostRequest =
+    input.registrationContext.pendingRoleRequests.some(
+      (request) => request.role === "workshop_host" && request.status === "pending"
+    );
+  const hasRejectedWorkshopHostRequest =
+    input.registrationContext.pendingRoleRequests.some(
+      (request) => request.role === "workshop_host" && request.status === "rejected"
+    );
+  const hasPendingOrganizerRequest =
+    input.registrationContext.pendingRoleRequests.some(
+      (request) => request.role === "organizer" && request.status === "pending"
+    );
+  const hasRejectedOrganizerRequest =
+    input.registrationContext.pendingRoleRequests.some(
+      (request) => request.role === "organizer" && request.status === "rejected"
+    );
+
+  const offerRoles = input.registrationContext.preference?.offerRoles ?? [];
+  const hasOfferIntent =
+    offerRoles.length > 0 ||
+    Boolean(input.registrationContext.preference?.primaryOfferRole);
+
+  // Draft: approved role, pending request, or declared type (unless rejected).
+  // Publish: approved privileged account role only.
+  const canDraftWorkshops =
+    hasCreatorProfile &&
+    (hasWorkshopHostRole ||
+      hasPendingWorkshopHostRequest ||
+      (creatorTypes.includes("workshopgever") && !hasRejectedWorkshopHostRequest));
+  const canPublishWorkshops = hasCreatorProfile && hasWorkshopHostRole;
+  const canManageWorkshops = canDraftWorkshops;
+
+  const canDraftEvents =
+    hasCreatorProfile &&
+    (hasOrganizerRole ||
+      hasPendingOrganizerRequest ||
+      (creatorTypes.includes("organizer") && !hasRejectedOrganizerRequest));
+  const canPublishEvents = hasCreatorProfile && hasOrganizerRole;
+  const canManageEvents = canDraftEvents;
+
   // Orders only for material merchants with a Medusa seller link.
   // Maker/creator listings do not go through Medusa checkout.
   const canManageOrders = hasMerchantRole && hasMerchantSellerLink;
@@ -129,7 +171,8 @@ export function resolveDashboardCapabilities(input: {
     !hasCreatorRole &&
     !hasWorkshopHostRole &&
     !hasOrganizerRole &&
-    !hasCreatorProfile;
+    !hasCreatorProfile &&
+    !hasOfferIntent;
 
   return {
     roles,
@@ -140,11 +183,16 @@ export function resolveDashboardCapabilities(input: {
     canViewSoughtMaterials,
     canViewCreatorPage,
     canManageProducts,
+    canDraftWorkshops,
+    canPublishWorkshops,
     canManageWorkshops,
+    canDraftEvents,
+    canPublishEvents,
     canManageEvents,
     canManageOrders,
     canViewAnalytics,
     isHobbyistOnly,
+    hasOfferIntent,
   };
 }
 
@@ -172,7 +220,7 @@ export function buildRoleAwareDashboardNav(
     });
   }
 
-  if (caps.canManageWorkshops) {
+  if (caps.canDraftWorkshops) {
     items.push({
       href: "/dashboard/workshops",
       label: "Workshops",
@@ -183,7 +231,7 @@ export function buildRoleAwareDashboardNav(
     });
   }
 
-  if (caps.canManageEvents) {
+  if (caps.canDraftEvents) {
     items.push({
       href: "/dashboard/events",
       label: "Events",

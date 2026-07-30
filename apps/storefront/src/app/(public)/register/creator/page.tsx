@@ -80,10 +80,20 @@ export default async function RegisterCreatorPage({ searchParams }: Props) {
   if (user) {
     const context = await getUserRegistrationContext(user.id);
     if (context.hasCreatorProfile) {
-      redirect(nextPath);
+      redirect(nextPath.startsWith("/profile") ? "/onboarding" : nextPath);
     }
-    // Logged-in base account without creator profile: finish maker setup in profile.
-    redirect("/profile?tab=profiel");
+    // Logged-in base account: finish via role onboarding (DB intent), not generic profile.
+    if (focus === "workshopgever" || focus === "maker" || focus === "organizer") {
+      const { updateUserOfferIntent } = await import(
+        "@/lib/platform/queries/user-registration"
+      );
+      await updateUserOfferIntent({
+        userId: user.id,
+        offerRoles: [focus],
+        primaryOfferRole: focus,
+      });
+    }
+    redirect("/onboarding");
   }
 
   return (

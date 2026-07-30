@@ -13,6 +13,7 @@ type MobileMenuProps = {
   domainLinks: NavItem[];
   inspiratieLinks: NavItem[];
   user: boolean;
+  aanbodNav?: { href: string; label: string } | null;
   mobileLinkClass: string;
   iconBtnClass: string;
 };
@@ -22,6 +23,7 @@ export function MobileMenu({
   domainLinks,
   inspiratieLinks,
   user,
+  aanbodNav = null,
   mobileLinkClass,
   iconBtnClass,
 }: MobileMenuProps) {
@@ -181,9 +183,11 @@ export function MobileMenu({
                   <Link href={ACCOUNT_NAV.profile.href} className={mobileLinkClass} onClick={closeMenu}>
                     {ACCOUNT_NAV.profile.label}
                   </Link>
-                  <Link href={ACCOUNT_NAV.pro.href} className={mobileLinkClass} onClick={closeMenu}>
-                    {ACCOUNT_NAV.pro.label}
-                  </Link>
+                  {aanbodNav ? (
+                    <Link href={aanbodNav.href} className={mobileLinkClass} onClick={closeMenu}>
+                      {aanbodNav.label}
+                    </Link>
+                  ) : null}
                   <form action={logoutAction}>
                     <button
                       type="submit"

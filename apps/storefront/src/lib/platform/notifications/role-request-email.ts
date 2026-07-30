@@ -43,3 +43,33 @@ export async function sendRoleRequestAdminEmail(input: {
     `,
   });
 }
+
+function publishPathForRole(role: PrivilegedRole): string {
+  if (role === "workshop_host") return "https://www.hobbysalon.be/dashboard/workshops";
+  if (role === "organizer") return "https://www.hobbysalon.be/dashboard/events";
+  return "https://www.hobbysalon.be/dashboard/verkoper";
+}
+
+export async function sendRoleApprovedUserEmail(input: {
+  role: PrivilegedRole;
+  toEmail: string;
+  displayName?: string | null;
+}): Promise<boolean> {
+  const email = input.toEmail.trim().toLowerCase();
+  if (!email) return false;
+
+  const roleLabel = ROLE_LABELS[input.role];
+  const publishUrl = publishPathForRole(input.role);
+  const name = input.displayName?.trim() || "hallo";
+
+  return sendNewsletterEmail({
+    to: email,
+    subject: `Goedgekeurd: je kunt nu publiceren als ${roleLabel}`,
+    html: `
+      <p>Hoi ${name},</p>
+      <p>Goed nieuws: je aanvraag als <strong>${roleLabel}</strong> is goedgekeurd.</p>
+      <p>Je kunt je concepten nu publiceren zodat bezoekers je vinden.</p>
+      <p><a href="${publishUrl}">Ga naar publiceren</a></p>
+    `,
+  });
+}

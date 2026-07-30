@@ -17,7 +17,7 @@ import {
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
 import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
+import { requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
@@ -34,7 +34,7 @@ import {
   ROLE_REQUEST_PENDING_MESSAGE,
   syncPrivilegedRolesFromCreatorTypes,
 } from "@/lib/platform/queries/role-requests";
-import { getUserAccountRoles } from "@/lib/platform/queries/user-registration";
+import { getUserAccountRoles, getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getWorkshopCategoryById } from "@/lib/platform/queries/workshop-categories";
 import {
   isWorkshopAgeGroup,
@@ -268,24 +268,65 @@ async function getRequiredCreatorProfile() {
 }
 
 /**
- * Creator profile + a moderator-approved privileged role.
- *
- * Hiding a dashboard page is not access control - server actions are
- * callable endpoints regardless of what the nav renders. Workshop and
- * event mutations must therefore re-check the approved role here, not
- * rely on the page-level requireDashboardCapability alone. Selecting
- * "workshopgever"/"organizer" only files a role request; the role itself
- * is granted on approval.
+ * Creator profile + draft permission for workshops/events.
+ * Drafts: approved role OR matching creator_type OR pending role request.
+ * Publishing (is_active) still requires getRequiredPublishCreator.
  */
-async function getRequiredApprovedCreator(role: "workshop_host" | "organizer") {
+async function getRequiredDraftCreator(role: "workshop_host" | "organizer") {
   const { user, creator } = await getRequiredCreatorProfile();
-  const roles = await getUserAccountRoles(user.id);
+  const [roles, context] = await Promise.all([
+    getUserAccountRoles(user.id),
+    getUserRegistrationContext(user.id),
+  ]);
 
-  if (!roles.includes(role)) {
+  if (roles.includes(role)) {
+    return { user, creator, canPublish: true as const };
+  }
+
+  const creatorTypes = (creator.creator_types ?? []).map((value) =>
+    value.toLowerCase()
+  );
+  const declaredType =
+    role === "workshop_host" ? "workshopgever" : "organizer";
+  const wantsRole = creatorTypes.includes(declaredType);
+  const pending = context.pendingRoleRequests.some(
+    (request) => request.role === role && request.status === "pending"
+  );
+  const rejected = context.pendingRoleRequests.some(
+    (request) => request.role === role && request.status === "rejected"
+  );
+
+  if (rejected && !pending) {
     throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
   }
 
-  return { user, creator };
+  if (!wantsRole && !pending) {
+    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
+  }
+
+  return { user, creator, canPublish: false as const };
+}
+
+async function assertCanPublishListing(
+  canPublish: boolean,
+  isActive: boolean,
+  failPath: string
+): Promise<void> {
+  if (isActive && !canPublish) {
+    fail(
+      failPath,
+      "Publiceren kan pas nadat je aanbiedersrol is goedgekeurd. Sla op als concept."
+    );
+  }
+}
+
+/** @deprecated Prefer getRequiredDraftCreator + assertCanPublishListing */
+async function getRequiredApprovedCreator(role: "workshop_host" | "organizer") {
+  const result = await getRequiredDraftCreator(role);
+  if (!result.canPublish) {
+    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
+  }
+  return result;
 }
 
 /** Creator profile + optional Medusa seller (only needed for commerce-linked products). */
@@ -697,18 +738,18 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         ? submittedTypes
         : (existing?.creator_types ?? ["maker"])
     );
-    const avatarUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "avatar_file",
-      existing?.avatar_url,
-      `creators/${user.id}/avatar`
-    );
-    const bannerUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "banner_file",
-      existing?.banner_url,
-      `creators/${user.id}/banner`
-    );
+    const avatarUrl = await resolveProductImageUrl(formData, {
+      fileField: "avatar_file",
+      urlField: "avatar_file_uploaded_url",
+      existingUrl: existing?.avatar_url,
+      pathPrefix: `creators/${user.id}/avatar`,
+    });
+    const bannerUrl = await resolveProductImageUrl(formData, {
+      fileField: "banner_file",
+      urlField: "banner_file_uploaded_url",
+      existingUrl: existing?.banner_url,
+      pathPrefix: `creators/${user.id}/banner`,
+    });
 
     const socialUrls = await enforceCreatorSocialUrls(
       existing?.id ?? "",
@@ -1857,7 +1898,7 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
 
 export async function createWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const { creator, canPublish } = await getRequiredDraftCreator("workshop_host");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
@@ -1878,6 +1919,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     }
 
     const isActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, isActive, "/dashboard/workshops");
     const capacity = parseOptionalInt(formData, "capacity");
     const enforced = await enforceWorkshopBookingFields(
       creator.id,
@@ -2000,7 +2042,11 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${createdWorkshop.slug}`);
-    ok("/dashboard/workshops", "Workshop aangemaakt.");
+    const onboardingNext = formData.get("onboarding_next")?.toString();
+    if (onboardingNext?.startsWith("/") && !onboardingNext.startsWith("//")) {
+      ok(onboardingNext, "Workshop opgeslagen als concept.");
+    }
+    ok("/dashboard/workshops", isActive ? "Workshop aangemaakt." : "Workshop opgeslagen als concept.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -2012,7 +2058,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
 export async function updateWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const { creator, canPublish } = await getRequiredDraftCreator("workshop_host");
     const workshopId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
@@ -2028,6 +2074,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     }
 
     const isActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, isActive, "/dashboard/workshops");
     const enforced = await enforceWorkshopBookingFields(
       creator.id,
       creator.creator_types ?? [],
@@ -2130,7 +2177,7 @@ export async function createWorkshopSessionAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const { creator } = await getRequiredDraftCreator("workshop_host");
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const sessionStartsAt = parseRequiredDateTimeLocal(
       formData,
@@ -2190,7 +2237,7 @@ export async function cancelWorkshopSessionAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const { creator } = await getRequiredDraftCreator("workshop_host");
     const sessionId = parseRequiredUuid(formData, "session_id");
     const supabase = createPlatformClient();
 
@@ -2241,7 +2288,7 @@ export async function deleteWorkshopGalleryImageAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("workshop_host");
+    const { creator } = await getRequiredDraftCreator("workshop_host");
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
 
@@ -2287,7 +2334,7 @@ export async function deleteWorkshopGalleryImageAction(
 
 export async function createEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("organizer");
+    const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
     const startsAt = parseRequiredString(formData, "starts_at");
@@ -2302,6 +2349,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
     }
 
     const isActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, isActive, "/dashboard/events");
     const creditCheck = await enforceEventPublishCredits(
       creator.id,
       eventType,
@@ -2387,7 +2435,14 @@ export async function createEventAction(formData: FormData): Promise<void> {
       revalidatePath(`/agenda/${createdEvent.slug}`);
       revalidatePath(`/event/${createdEvent.slug}`);
     }
-    ok("/dashboard/events", "Event aangemaakt.");
+    const onboardingNext = formData.get("onboarding_next")?.toString();
+    if (onboardingNext?.startsWith("/") && !onboardingNext.startsWith("//")) {
+      ok(onboardingNext, "Evenement opgeslagen als concept.");
+    }
+    ok(
+      "/dashboard/events",
+      isActive ? "Event aangemaakt." : "Event opgeslagen als concept."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -2399,7 +2454,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
 export async function updateEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("organizer");
+    const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const eventId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
@@ -2444,6 +2499,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     // updateProductAction. Without this, publishing via "create as draft,
     // then edit to active" would bypass the event publish fee entirely.
     const isActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, isActive, "/dashboard/events");
     if (isActive && !existingEvent.is_active) {
       const creditCheck = await enforceEventPublishCredits(
         creator.id,
@@ -2529,7 +2585,7 @@ export async function deleteEventGalleryImageAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredApprovedCreator("organizer");
+    const { creator } = await getRequiredDraftCreator("organizer");
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
 

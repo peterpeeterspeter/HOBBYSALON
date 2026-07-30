@@ -14,7 +14,7 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { Button } from "@/components/ui/button";
-import { ACCOUNT_NAV } from "@/config/nav";
+import { resolveAanbodNav } from "@/config/nav";
 import type { EntityType } from "@/types/platform";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
@@ -80,8 +80,8 @@ function toPercent(progressValue: number, progressTarget: number): number {
 }
 
 export const metadata: Metadata = {
-  title: "Mijn profiel | Hobbysalon",
-  description: "Pak projecten weer op, bekijk favorieten en beheer je makerpagina.",
+  title: "Mijn Hobbysalon | Hobbysalon",
+  description: "Pak projecten weer op, bekijk favorieten en beheer je aanbod.",
 };
 
 export default async function ProfilePage({ searchParams }: Props) {
@@ -143,7 +143,13 @@ export default async function ProfilePage({ searchParams }: Props) {
     creator && caps.canManageProducts
       ? await countNewProductInquiries(creator.id)
       : 0;
-  const showMakerSection = caps.canViewCreatorPage || caps.isHobbyistOnly;
+  const showMakerSection =
+    caps.canViewCreatorPage ||
+    (caps.hasOfferIntent && !caps.isHobbyistOnly);
+  const aanbodNav = resolveAanbodNav({
+    hasCreatorProfile: Boolean(creator),
+    hasOfferIntent: caps.hasOfferIntent,
+  });
   const makerData = showMakerSection ? await loadCreatorMakerData(user, tab) : null;
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
   const guidesWithDownloads = confirmedGuides.map((guide) => ({
@@ -207,19 +213,21 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   return (
     <PageLayout
-      title="Mijn profiel"
+      title="Mijn Hobbysalon"
       description={
         user.email
           ? `Welkom terug. Ingelogd als ${user.email}.`
           : "Welkom terug op je creatieve plek."
       }
       headerActions={
-        <Button asChild variant="secondary" size="sm">
-          <Link href={ACCOUNT_NAV.pro.href}>
-            {ACCOUNT_NAV.pro.label}
-            {newInquiryCount > 0 ? ` (${newInquiryCount})` : ""}
-          </Link>
-        </Button>
+        aanbodNav ? (
+          <Button asChild variant="secondary" size="sm">
+            <Link href={aanbodNav.href}>
+              {aanbodNav.label}
+              {newInquiryCount > 0 ? ` (${newInquiryCount})` : ""}
+            </Link>
+          </Button>
+        ) : null
       }
     >
       {newInquiryCount > 0 ? (
@@ -282,6 +290,17 @@ export default async function ProfilePage({ searchParams }: Props) {
       <ProfileQuickLinks
         showMakerLink={Boolean(makerData)}
         hasLocation={locationPreference.hasPreference && localEvents.length > 0}
+        hasCreatorProfile={Boolean(creator)}
+        hasOfferIntent={caps.hasOfferIntent}
+        primaryOfferLabel={
+          registrationContext.preference?.primaryOfferRole === "workshopgever"
+            ? "Workshopgever"
+            : registrationContext.preference?.primaryOfferRole === "organizer"
+              ? "Organisator"
+              : registrationContext.preference?.primaryOfferRole === "maker"
+                ? "Maker"
+                : null
+        }
       />
 
       {/* 2. Continue first */}

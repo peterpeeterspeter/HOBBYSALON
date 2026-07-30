@@ -121,7 +121,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
     creatorTypes: creator?.creator_types,
     hasCreatorProfile: Boolean(creator),
   });
-  requireDashboardCapability(caps.canManageWorkshops);
+  requireDashboardCapability(caps.canDraftWorkshops);
 
   const { success, error } = await searchParams;
 
@@ -225,6 +225,28 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
           </>
         )}
       </p>
+
+      {!caps.canPublishWorkshops ? (
+        <CardShell
+          variant="featured"
+          padding="md"
+          className="border-amber-300 bg-amber-50"
+        >
+          <p className="font-semibold text-amber-950">Status: In beoordeling</p>
+          <p className="mt-1 text-sm leading-relaxed text-amber-900/80">
+            Je kunt workshops opslaan als concept. Publiceren kan pas nadat je
+            workshopgeverrol is goedgekeurd. We sturen je een e-mail zodra dat
+            gebeurt.
+          </p>
+        </CardShell>
+      ) : (
+        <CardShell variant="default" padding="md">
+          <p className="text-sm text-[var(--muted)]">
+            Status: <span className="font-semibold text-[var(--foreground)]">Goedgekeurd</span> —
+            je mag concepten publiceren.
+          </p>
+        </CardShell>
+      )}
 
       {success && (
         <p className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">

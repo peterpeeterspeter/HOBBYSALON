@@ -55,6 +55,21 @@ export async function resolvePostAuthRedirectPath(options: {
     return "/dashboard";
   }
 
+  const primaryOffer = context.preference?.primaryOfferRole;
+  const offerRoles = context.preference?.offerRoles ?? [];
+  const needsOfferOnboarding =
+    !context.preference?.onboardingCompleted &&
+    (primaryOffer || offerRoles.length > 0) &&
+    primaryOffer !== "merchant";
+
+  if (needsOfferOnboarding) {
+    return "/onboarding";
+  }
+
+  if (primaryOffer === "merchant" && !hasMerchantRole && !hasMerchantLink) {
+    return "/register/merchant";
+  }
+
   const hasCreatorRole = context.roles.some((role) =>
     CREATOR_DASHBOARD_ROLES.has(role)
   );

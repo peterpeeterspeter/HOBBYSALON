@@ -822,6 +822,12 @@ Fields:
 - `radius_km` (int, default 25)
 - `preferred_domain_ids` (uuid[])
 - `interest_types` (text[])
+- `offer_roles` (text[], default `{}`) — self-declared aanbiedersrollen at registration
+- `primary_offer_role` (text, nullable) — routing / copy / analytics primary
+- `marketing_opt_in` (boolean, default false)
+- `marketing_opted_in_at` (timestamptz, nullable)
+- `marketing_opted_out_at` (timestamptz, nullable) — opt-out does not erase prior opt-in history
+- `marketing_consent_source` (text, nullable) — e.g. `register`
 - `onboarding_completed` (boolean)
 - `created_at`
 - `updated_at`
@@ -833,6 +839,13 @@ Allowed `interest_types`:
 - `handmade`
 - `event`
 - `article`
+
+Allowed `offer_roles` / `primary_offer_role`:
+
+- `workshopgever`
+- `maker`
+- `organizer`
+- `merchant`
 
 ## Table: `user_account_roles`
 

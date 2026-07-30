@@ -56,18 +56,34 @@ test("organizer sees events but not workshops or vendor portal", () => {
   assert.ok(!nav.includes("/dashboard/verkoper"));
 });
 
-test("workshopgever without approved role does not see workshops", () => {
+test("workshopgever without approved role can draft but not publish", () => {
   const caps = resolveDashboardCapabilities({
     registrationContext: {
       ...baseContext,
       roles: ["user", "creator"],
       hasCreatorProfile: true,
       pendingRoleRequests: [{ id: "req-1", role: "workshop_host", status: "pending", createdAt: "2026-01-01T00:00:00.000Z" }],
+      preference: {
+        city: null,
+        postalCode: null,
+        countryCode: "BE",
+        interestTypes: [],
+        preferredDomainIds: [],
+        offerRoles: ["workshopgever"],
+        primaryOfferRole: "workshopgever",
+        marketingOptIn: false,
+        marketingOptedInAt: null,
+        marketingOptedOutAt: null,
+        marketingConsentSource: null,
+        onboardingCompleted: false,
+      },
     },
     creatorTypes: ["workshopgever"],
     hasCreatorProfile: true,
   });
-  assert.equal(caps.canManageWorkshops, false);
+  assert.equal(caps.canDraftWorkshops, true);
+  assert.equal(caps.canPublishWorkshops, false);
+  assert.equal(caps.canManageWorkshops, true);
 });
 
 test("vendor portal nav for pending merchant request", () => {
@@ -119,7 +135,7 @@ test("vendor portal nav for merchant role with or without seller link", () => {
   assert.ok(!nav.includes("/dashboard/events"));
 });
 
-test("organizer without approved role does not see events", () => {
+test("organizer without approved role can draft but not publish", () => {
   const caps = resolveDashboardCapabilities({
     registrationContext: {
       ...baseContext,
@@ -137,7 +153,9 @@ test("organizer without approved role does not see events", () => {
     creatorTypes: ["organizer"],
     hasCreatorProfile: true,
   });
-  assert.equal(caps.canManageEvents, false);
+  assert.equal(caps.canDraftEvents, true);
+  assert.equal(caps.canPublishEvents, false);
+  assert.equal(caps.canManageEvents, true);
 });
 
 test("a rejected role request does not grant access", () => {
@@ -160,6 +178,8 @@ test("a rejected role request does not grant access", () => {
     creatorTypes: ["maker", "organizer"],
     hasCreatorProfile: true,
   });
+  assert.equal(caps.canDraftEvents, false);
+  assert.equal(caps.canPublishEvents, false);
   assert.equal(caps.canManageEvents, false);
   // Being a maker is not gated on approval, so that stays available.
   assert.equal(caps.canManageProducts, true);

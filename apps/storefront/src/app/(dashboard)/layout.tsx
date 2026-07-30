@@ -78,7 +78,7 @@ export default async function DashboardLayout({
                 />
               </Link>
               <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                {ACCOUNT_NAV.pro.label}
+                {ACCOUNT_NAV.aanbod.label}
               </p>
               <p className="truncate text-xs text-[var(--muted)]">
                 {user.email ?? "Ingelogd"}

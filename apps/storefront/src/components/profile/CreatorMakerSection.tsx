@@ -5,6 +5,7 @@ import { CreatorArticlesTab } from "@/components/dashboard/creator/CreatorArticl
 import { CreatorPortfolioTab } from "@/components/dashboard/creator/CreatorPortfolioTab";
 import { CardShell } from "@/components/ui/card-shell";
 import type { CreatorMakerData } from "@/lib/profile/load-creator-maker-data";
+import { getOnboardingProfileCopy } from "@/lib/auth/registration-options";
 
 type CreatorMakerSectionProps = {
   data: CreatorMakerData;
@@ -35,6 +36,17 @@ export function CreatorMakerSection({ data, success, error }: CreatorMakerSectio
     materialProductOptions,
     progressSteps,
   } = data;
+
+  const primaryRole =
+    registrationContext?.preference?.primaryOfferRole ??
+    (creator?.creator_types?.includes("workshopgever")
+      ? "workshopgever"
+      : creator?.creator_types?.includes("organizer")
+        ? "organizer"
+        : "maker");
+  const copy = getOnboardingProfileCopy(
+    primaryRole === "merchant" ? "maker" : primaryRole
+  );
 
   const allDone =
     progressSteps.length > 0 && progressSteps.every((step) => step.done);
@@ -117,6 +129,8 @@ export function CreatorMakerSection({ data, success, error }: CreatorMakerSectio
           creatorSlug={creator?.slug ?? null}
           progressSteps={progressSteps}
           compact
+          title={copy.title}
+          lead={copy.lead}
         />
 
         {forceOpen ? (

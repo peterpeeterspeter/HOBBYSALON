@@ -419,6 +419,27 @@ export function RegisterIntentForm({
           </label>
         </div>
 
+        <fieldset className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <legend className="px-1 text-base font-semibold text-[var(--foreground)]">
+            Hou me op de hoogte
+          </legend>
+          <label className="mt-2 flex min-h-11 cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              name="marketing_opt_in"
+              className="mt-1 size-5 accent-[var(--accent)]"
+            />
+            <span className="text-sm leading-relaxed text-[var(--foreground)]">
+              Stuur mij inspiratie, nieuwe workshops, evenementen en nieuws van
+              Hobbysalon.
+              <span className="mt-1 block text-[var(--muted)]">
+                Niet nodig om een account aan te maken. Je kunt dit later
+                uitzetten.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
         {state.message ? (
           <p
             className={

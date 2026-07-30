@@ -1,14 +1,34 @@
 /**
  * Shared navigation config for Header and Footer.
  * Domains are injected at runtime from the platform DB.
+ *
+ * Single source for account-zone links — do not duplicate these labels elsewhere.
  */
 
-/** Logged-in account zone: hobby profile vs aanbiedersdashboard. */
+/** Logged-in account zone: hobby profile vs aanbod. */
 export const ACCOUNT_NAV = {
-  profile: { href: "/profile", label: "Mijn profiel" },
-  pro: { href: "/dashboard", label: "Aanbiedersdashboard" },
+  profile: { href: "/profile", label: "Mijn Hobbysalon" },
+  /** Offer users only — use via helpers that check offer intent/creator. */
+  aanbod: { href: "/dashboard", label: "Mijn aanbod" },
+  /** Setup entry when offer intent exists but no creator profile yet. */
+  aanbodSetup: { href: "/onboarding", label: "Mijn aanbod instellen" },
+  /** @deprecated Use aanbod — kept for gradual migration of imports */
+  pro: { href: "/dashboard", label: "Mijn aanbod" },
   backToHobby: { href: "/profile", label: "Terug naar Hobbysalon" },
 } as const;
+
+export function resolveAanbodNav(input: {
+  hasCreatorProfile: boolean;
+  hasOfferIntent: boolean;
+}): { href: string; label: string } | null {
+  if (input.hasCreatorProfile) {
+    return ACCOUNT_NAV.aanbod;
+  }
+  if (input.hasOfferIntent) {
+    return ACCOUNT_NAV.aanbodSetup;
+  }
+  return null;
+}
 
 export const STATIC_LINKS = {
   main: [
@@ -24,7 +44,7 @@ export const STATIC_LINKS = {
   ],
   account: [
     ACCOUNT_NAV.profile,
-    ACCOUNT_NAV.pro,
+    ACCOUNT_NAV.aanbod,
     { href: "/register", label: "Registreer" },
     { href: "/login", label: "Inloggen" },
   ],

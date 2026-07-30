@@ -142,6 +142,7 @@ export async function registerAction(
   const offerRoles = parseRegistrationOfferRoles(
     (formData.getAll("offer_roles") ?? []).map((value) => value.toString())
   );
+  const marketingOptIn = formData.get("marketing_opt_in") === "on";
   const offerOnboardingPath = resolveOfferOnboardingPath(offerRoles);
   const requestedNextPath = formData.get("next")?.toString() ?? null;
   const effectiveNextPath =
@@ -208,6 +209,10 @@ export async function registerAction(
       countryCode,
       interestTypes,
       preferredDomainIds,
+      offerRoles,
+      marketingOptIn,
+      marketingConsentSource: marketingOptIn ? "register" : null,
+      onboardingCompleted: offerRoles.length === 0,
     });
 
     if (!profileResult.ok) {
