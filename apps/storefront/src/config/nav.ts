@@ -12,6 +12,8 @@ export const ACCOUNT_NAV = {
   aanbod: { href: "/dashboard", label: "Mijn aanbod" },
   /** Setup entry when offer intent exists but no creator profile yet. */
   aanbodSetup: { href: "/onboarding", label: "Mijn aanbod instellen" },
+  /** Soft entry for hobbyists who have not started offer onboarding yet. */
+  aanbodStart: { href: "/profile#rollen-upgraden", label: "Aanbod starten" },
   /** @deprecated Use aanbod — kept for gradual migration of imports */
   pro: { href: "/dashboard", label: "Mijn aanbod" },
   backToHobby: { href: "/profile", label: "Terug naar Hobbysalon" },
@@ -20,14 +22,14 @@ export const ACCOUNT_NAV = {
 export function resolveAanbodNav(input: {
   hasCreatorProfile: boolean;
   hasOfferIntent: boolean;
-}): { href: string; label: string } | null {
+}): { href: string; label: string } {
   if (input.hasCreatorProfile) {
     return ACCOUNT_NAV.aanbod;
   }
   if (input.hasOfferIntent) {
     return ACCOUNT_NAV.aanbodSetup;
   }
-  return null;
+  return ACCOUNT_NAV.aanbodStart;
 }
 
 export const STATIC_LINKS = {

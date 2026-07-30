@@ -189,12 +189,13 @@ export default async function DashboardHomePage({ searchParams }: Props) {
             Jouw hobby-account
           </p>
           <p className="mt-2 max-w-xl leading-relaxed text-[var(--muted)]">
-            Pas interesses en locatie aan voor betere aanbevelingen. Wil je later verkopen,
-            workshops geven of events organiseren? Dat regel je hieronder onder Account.
+            Pas interesses en locatie aan voor betere aanbevelingen. Wil je zelf
+            iets aanbieden — als maker, workshopgever, organisator of winkel?
+            Start hieronder.
           </p>
           <div className="mt-5">
             <Button asChild>
-              <Link href="#account">Naar account</Link>
+              <Link href="#account">Aanbieder worden</Link>
             </Button>
           </div>
         </CardShell>

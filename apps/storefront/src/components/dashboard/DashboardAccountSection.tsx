@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { updateCreatorTypesAction } from "@/app/actions/dashboard";
+import { RoleUpgradeSection } from "@/components/auth/RoleUpgradeSection";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,49 +110,60 @@ export function DashboardAccountSection({
         ) : null}
 
         {creator ? (
-          <form action={updateCreatorTypesAction} className="space-y-4">
-            <div className="space-y-2">
-              {CREATOR_TYPES.map((type) => (
-                <label
-                  key={type.value}
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5"
-                >
-                  <input
-                    type="checkbox"
-                    name="creator_types"
-                    value={type.value}
-                    defaultChecked={
-                      selectedCreatorTypes.size > 0
-                        ? selectedCreatorTypes.has(type.value)
-                        : type.value === "maker"
-                    }
-                    className="mt-1"
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-[var(--foreground)]">
-                      {type.label}
+          <>
+            <form action={updateCreatorTypesAction} className="space-y-4">
+              <div className="space-y-2">
+                {CREATOR_TYPES.map((type) => (
+                  <label
+                    key={type.value}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5"
+                  >
+                    <input
+                      type="checkbox"
+                      name="creator_types"
+                      value={type.value}
+                      defaultChecked={
+                        selectedCreatorTypes.size > 0
+                          ? selectedCreatorTypes.has(type.value)
+                          : type.value === "maker"
+                      }
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-[var(--foreground)]">
+                        {type.label}
+                      </span>
+                      <span className="block text-xs text-[var(--muted)]">
+                        {type.description}
+                      </span>
                     </span>
-                    <span className="block text-xs text-[var(--muted)]">
-                      {type.description}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-            <Button type="submit">Rollen opslaan</Button>
-          </form>
+                  </label>
+                ))}
+              </div>
+              <Button type="submit">Rollen opslaan</Button>
+            </form>
+            <RoleUpgradeSection
+              roles={registrationContext.roles}
+              creatorTypes={creator.creator_types}
+              hasCreatorProfile
+              pendingRoleRequests={pendingRequests}
+              title="Nog een rol toevoegen?"
+              lead="Wil je ook materialen verkopen via een winkelaccount? Start hieronder."
+              className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4"
+              showEmptyState={false}
+            />
+          </>
         ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--muted)]">
-              Maak eerst je maker-pagina aan. Daarna kies je hier of je maker,
-              workshopgever, leverancier, contentmaker of organisator bent.
-            </p>
-            <Button asChild size="sm">
-              <Link href="/profile?tab=profiel#maker-pagina">
-                Makerprofiel aanmaken
-              </Link>
-            </Button>
-          </div>
+          <RoleUpgradeSection
+            roles={registrationContext.roles}
+            creatorTypes={null}
+            hasCreatorProfile={false}
+            pendingRoleRequests={pendingRequests}
+            title="Aanbieder worden"
+            lead="Kies een rol om je makerprofiel in te stellen. Je kunt later altijd uitbreiden."
+            className="space-y-3"
+            showEmptyState
+          />
         )}
       </CardShell>
     </section>

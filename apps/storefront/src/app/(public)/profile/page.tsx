@@ -27,6 +27,7 @@ import { resolveResumableSavedProjects } from "@/lib/profile/resumable-saved-pro
 import { getMaterialCupboardEntries } from "@/lib/profile/material-cupboard";
 import { listConfirmedNewsletterGuides } from "@/lib/platform/queries/confirmed-newsletter-guides";
 import { CreatorMakerSection } from "@/components/profile/CreatorMakerSection";
+import { RoleUpgradeSection } from "@/components/auth/RoleUpgradeSection";
 import { loadCreatorMakerData } from "@/lib/profile/load-creator-maker-data";
 import {
   createConfirmationToken,
@@ -220,14 +221,12 @@ export default async function ProfilePage({ searchParams }: Props) {
           : "Welkom terug op je creatieve plek."
       }
       headerActions={
-        aanbodNav ? (
-          <Button asChild variant="secondary" size="sm">
-            <Link href={aanbodNav.href}>
-              {aanbodNav.label}
-              {newInquiryCount > 0 ? ` (${newInquiryCount})` : ""}
-            </Link>
-          </Button>
-        ) : null
+        <Button asChild variant="secondary" size="sm">
+          <Link href={aanbodNav.href}>
+            {aanbodNav.label}
+            {newInquiryCount > 0 ? ` (${newInquiryCount})` : ""}
+          </Link>
+        </Button>
       }
     >
       {newInquiryCount > 0 ? (
@@ -302,6 +301,15 @@ export default async function ProfilePage({ searchParams }: Props) {
                 : null
         }
       />
+
+      {!creator && !caps.hasOfferIntent ? (
+        <RoleUpgradeSection
+          roles={registrationContext.roles}
+          creatorTypes={null}
+          hasCreatorProfile={false}
+          pendingRoleRequests={registrationContext.pendingRoleRequests}
+        />
+      ) : null}
 
       {/* 2. Continue first */}
       {resumableProjects.length > 0 ? (

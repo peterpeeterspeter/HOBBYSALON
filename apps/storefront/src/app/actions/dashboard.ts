@@ -34,7 +34,7 @@ import {
   ROLE_REQUEST_PENDING_MESSAGE,
   syncPrivilegedRolesFromCreatorTypes,
 } from "@/lib/platform/queries/role-requests";
-import { getUserAccountRoles, getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { getUserAccountRoles, getUserRegistrationContext, updateUserOfferIntent } from "@/lib/platform/queries/user-registration";
 import { getWorkshopCategoryById } from "@/lib/platform/queries/workshop-categories";
 import {
   isWorkshopAgeGroup,
@@ -868,8 +868,8 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
     const creator = await getCreatorByUserId(user.id);
     if (!creator) {
       fail(
-        "/profile?tab=profiel",
-        "Maak eerst je maker-pagina aan voordat je rollen kiest."
+        "/dashboard#account",
+        "Start eerst als aanbieder voordat je rollen kiest."
       );
     }
 
@@ -897,6 +897,26 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
     );
     if (roleSyncError) {
       fail("/dashboard", "Accountrollen konden niet worden bijgewerkt.");
+    }
+
+    const { creatorTypesToOfferRoles } = await import("@/lib/auth/role-upgrades");
+    const context = await getUserRegistrationContext(user.id);
+    const fromTypes = creatorTypesToOfferRoles(creatorTypes);
+    const existingOffer = context.preference?.offerRoles ?? [];
+    const merchantKept = existingOffer.includes("merchant") ? (["merchant"] as const) : [];
+    const mergedOfferRoles = Array.from(
+      new Set([...existingOffer.filter((r) => r !== "merchant"), ...fromTypes, ...merchantKept])
+    );
+    if (mergedOfferRoles.length > 0) {
+      await updateUserOfferIntent({
+        userId: user.id,
+        offerRoles: mergedOfferRoles,
+        primaryOfferRole:
+          context.preference?.primaryOfferRole &&
+          mergedOfferRoles.includes(context.preference.primaryOfferRole)
+            ? context.preference.primaryOfferRole
+            : mergedOfferRoles[0] ?? null,
+      });
     }
 
     revalidatePath("/dashboard");

@@ -124,6 +124,50 @@ export async function skipOfferOnboardingAction(): Promise<void> {
   redirect("/profile");
 }
 
+/** Logged-in hobbyist starts maker / workshopgever / organizer upgrade → /onboarding. */
+export async function startOfferRoleUpgradeAction(
+  formData: FormData
+): Promise<void> {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect("/login?next=/onboarding");
+  }
+
+  const existing = await getCreatorByUserId(user.id);
+  if (existing) {
+    redirect("/dashboard#account");
+  }
+
+  const roleRaw = parseOptionalString(formData, "offer_role");
+  const roles = parseRegistrationOfferRoles(roleRaw ? [roleRaw] : []);
+  const role = resolvePrimaryOfferRole(roles);
+  if (!role || role === "merchant") {
+    fail("/profile#rollen-upgraden", "Kies een geldige aanbiedersrol.");
+  }
+
+  const { getUserRegistrationContext } = await import(
+    "@/lib/platform/queries/user-registration"
+  );
+  const context = await getUserRegistrationContext(user.id);
+  const mergedOfferRoles = Array.from(
+    new Set([...(context.preference?.offerRoles ?? []), role])
+  );
+
+  await updateUserOfferIntent({
+    userId: user.id,
+    offerRoles: mergedOfferRoles,
+    primaryOfferRole: role,
+  });
+
+  // Incomplete offer onboarding so /onboarding is not skipped.
+  await setOnboardingCompleted(user.id, false);
+
+  revalidatePath("/onboarding");
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  redirect(`/onboarding?role=${encodeURIComponent(role)}`);
+}
+
 export async function saveOnboardingProfileAction(
   formData: FormData
 ): Promise<void> {
