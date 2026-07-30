@@ -297,7 +297,15 @@ export async function saveOnboardingProfileAction(
     revalidatePath("/onboarding");
     revalidatePath("/profile");
     revalidatePath("/dashboard");
-    ok(getFirstListingPath(role), "Profiel opgeslagen. Voeg nu je eerste aanbod toe.");
+    await setOnboardingCompleted(user.id, true);
+    const listingPath = getFirstListingPath(role);
+    const listingHint =
+      role === "workshopgever"
+        ? "Profiel opgeslagen. Maak nu je eerste workshop aan."
+        : role === "organizer"
+          ? "Profiel opgeslagen. Maak nu je eerste evenement aan."
+          : "Profiel opgeslagen. Voeg nu je eerste creatie toe.";
+    ok(listingPath, listingHint);
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

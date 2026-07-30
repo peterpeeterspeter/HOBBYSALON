@@ -32,11 +32,9 @@ export function resolveOnboardingRole(
   return null;
 }
 
+/** Where to create the first listing after the profile step — real dashboard forms, no thin duplicate. */
 export function getFirstListingPath(role: RegistrationOfferRole): string {
-  if (role === "workshopgever") return "/onboarding/workshop";
-  if (role === "organizer") return "/onboarding/event";
-  if (role === "maker") return "/onboarding/product";
-  return "/register/merchant";
+  return getPublishPath(role);
 }
 
 export function getPublishPath(role: RegistrationOfferRole): string {
