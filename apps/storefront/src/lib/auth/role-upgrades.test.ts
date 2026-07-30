@@ -4,7 +4,7 @@ import {
   creatorTypesToOfferRoles,
   isOfferRoleCovered,
   listMissingOfferUpgrades,
-} from "./role-upgrades.ts";
+} from "./role-upgrades";
 
 test("hobbyist sees all four offer upgrades", () => {
   const upgrades = listMissingOfferUpgrades({
