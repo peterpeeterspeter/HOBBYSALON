@@ -74,8 +74,7 @@ const BUY_LABELS: Record<string, string> = {
   contact: "Via maker vragen",
 };
 
-const SORT_VALUES = ["recommended", "newest", "price_asc", "price_desc"] as const;
-type MaterialsSort = (typeof SORT_VALUES)[number];
+type MaterialsSort = "recommended" | "newest" | "price_asc" | "price_desc";
 
 async function enrichPagePrices(
   products: MaterialsCatalogItem[]
