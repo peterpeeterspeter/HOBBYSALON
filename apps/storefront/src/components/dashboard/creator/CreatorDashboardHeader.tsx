@@ -1,8 +1,8 @@
 import Link from "next/link";
-import type { CreatorProgressStep } from "@/lib/dashboard/creator-progress";
 import {
   getCreatorProgressPercent,
   getNextProgressStep,
+  type CreatorProgressStep,
 } from "@/lib/dashboard/creator-progress";
 import { Button } from "@/components/ui/button";
 

@@ -12,14 +12,14 @@ test("parseRegistrationOfferRoles keeps known roles in stable order", () => {
   );
 });
 
-test("resolveOfferOnboardingPath prefers workshopgever then maker", () => {
+test("resolveOfferOnboardingPath routes creators to /onboarding and merchants separately", () => {
   assert.equal(
     resolveOfferOnboardingPath(["merchant", "maker"]),
-    "/register/creator?focus=maker"
+    "/onboarding"
   );
   assert.equal(
     resolveOfferOnboardingPath(["merchant", "workshopgever", "maker"]),
-    "/register/creator?focus=workshopgever"
+    "/onboarding"
   );
   assert.equal(
     resolveOfferOnboardingPath(["merchant"]),

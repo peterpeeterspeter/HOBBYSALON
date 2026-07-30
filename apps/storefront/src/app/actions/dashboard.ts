@@ -320,15 +320,6 @@ async function assertCanPublishListing(
   }
 }
 
-/** @deprecated Prefer getRequiredDraftCreator + assertCanPublishListing */
-async function getRequiredApprovedCreator(role: "workshop_host" | "organizer") {
-  const result = await getRequiredDraftCreator(role);
-  if (!result.canPublish) {
-    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
-  }
-  return result;
-}
-
 /** Creator profile + optional Medusa seller (only needed for commerce-linked products). */
 async function getRequiredCreator() {
   const { user, creator } = await getRequiredCreatorProfile();

@@ -9,6 +9,7 @@ import {
   type RegistrationOfferRole,
 } from "@/lib/auth/registration-options";
 import {
+  ensureUserRole,
   setOnboardingCompleted,
   updateUserOfferIntent,
 } from "@/lib/platform/queries/user-registration";
@@ -17,7 +18,6 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { resolveProductImageUrl } from "@/lib/storage/upload-image";
 import { syncPrivilegedRolesFromCreatorTypes } from "@/lib/platform/queries/role-requests";
 import { getFirstListingPath } from "@/lib/onboarding/offer-onboarding";
-import { ensureUserRole } from "@/lib/platform/queries/user-registration";
 
 function isNextRedirectError(error: unknown): boolean {
   return (

@@ -69,7 +69,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
     listDomainsBySort(),
   ]);
 
-  let role = resolveOnboardingRole(context, bootstrapRole);
+  const role = resolveOnboardingRole(context, bootstrapRole);
   if (
     !context.preference?.primaryOfferRole &&
     role &&
