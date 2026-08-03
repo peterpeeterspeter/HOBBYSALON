@@ -22,6 +22,7 @@ export type ProductPageData = {
   domain: Domain | null;
   price: { amount: number; currency_code: string } | null;
   variants: Array<{ id: string; title: string }>;
+  galleryImages: string[];
   relatedWorkshops: Workshop[];
   relatedSupplies: Product[];
   relatedArticles: Article[];
@@ -43,6 +44,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       domain: null,
       price: null,
       variants: [],
+      galleryImages: [],
       relatedWorkshops: [] as Workshop[],
       relatedSupplies: [],
       relatedArticles: [],
@@ -50,7 +52,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     };
   }
 
-  const [creator, domain, entityLinks] = await Promise.all([
+  const [creator, domain, entityLinks, galleryResult] = await Promise.all([
     product.creator_id ? getCreatorById(product.creator_id) : Promise.resolve(null),
     product.domain_id
       ? (async () => {
@@ -64,7 +66,15 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
         })()
       : Promise.resolve(null),
     getRelatedEntities("product", product.id),
+    createPlatformClient()
+      .from("product_gallery_images")
+      .select("image_url")
+      .eq("product_id", product.id)
+      .order("sort_order", { ascending: true }),
   ]);
+  const galleryImages = ((galleryResult.data ?? []) as Array<{ image_url: string }>)
+    .map((row) => row.image_url)
+    .filter(Boolean);
   // Maker listings (handmade/destash) are platform-only: price is an
   // indicative asking price from products.price_cents, not a Medusa
   // checkout price. A maker listing created before this cutover may still
@@ -159,6 +169,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     domain: domain ?? null,
     price,
     variants,
+    galleryImages,
     relatedWorkshops,
     relatedSupplies,
     relatedArticles,

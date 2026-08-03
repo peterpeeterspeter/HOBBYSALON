@@ -12,6 +12,7 @@ import {
 import {
   createProductAction,
   deleteProductAction,
+  deleteProductGalleryImageAction,
   unpublishProductAction,
   updateProductAction,
 } from "@/app/actions/dashboard";
@@ -22,6 +23,7 @@ import { isCommercialGatingEnabled } from "@/lib/platform/commercial-entitlement
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -99,6 +101,18 @@ function formatEuroFromCents(cents: number | null | undefined): string {
   }).format(cents / 100);
 }
 
+function centsToEuroInput(cents: number | null | undefined): string {
+  if (typeof cents !== "number") return "";
+  return (cents / 100).toFixed(2);
+}
+
+type ProductGalleryImage = {
+  id: string;
+  product_id: string;
+  image_url: string;
+  sort_order: number;
+};
+
 function inquiryProductTitle(inquiry: ProductInquiryRow): string {
   const products = inquiry.products;
   if (!products) return inquiry.product_id;
@@ -134,6 +148,7 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
   let productInquiries: ProductInquiryRow[] = [];
   let creditPacks: CreditPackRow[] = [];
   let creditBalance = 0;
+  const galleryByProduct = new Map<string, ProductGalleryImage[]>();
   if (creator) {
     const supabase = createPlatformClient();
     const [
@@ -174,6 +189,22 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
     productInquiries = (inquiryData ?? []) as ProductInquiryRow[];
     creditPacks = (creditPackData ?? []) as CreditPackRow[];
     creditBalance = balance;
+
+    if (products.length > 0) {
+      const { data: galleryRows } = await supabase
+        .from("product_gallery_images")
+        .select("id, product_id, image_url, sort_order")
+        .in(
+          "product_id",
+          products.map((product) => product.id)
+        )
+        .order("sort_order", { ascending: true });
+      for (const row of (galleryRows ?? []) as ProductGalleryImage[]) {
+        const list = galleryByProduct.get(row.product_id) ?? [];
+        list.push(row);
+        galleryByProduct.set(row.product_id, list);
+      }
+    }
   }
 
   const domainOptions = domains.map((domain) => ({
@@ -388,6 +419,42 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                       product={product}
                       priceLabel={formatEuroFromCents(product.price_cents)}
                     >
+                      {(galleryByProduct.get(product.id) ?? []).length > 0 ? (
+                        <div className="mb-4 space-y-2">
+                          <p className="text-sm font-medium">Extra foto&apos;s</p>
+                          <ul className="grid gap-2 sm:grid-cols-3">
+                            {(galleryByProduct.get(product.id) ?? []).map((image) => (
+                              <li
+                                key={image.id}
+                                className="overflow-hidden rounded-md border border-[var(--border)]"
+                              >
+                                <img
+                                  src={image.image_url}
+                                  alt=""
+                                  className="aspect-square w-full object-cover"
+                                />
+                                <form
+                                  action={deleteProductGalleryImageAction}
+                                  className="p-2"
+                                >
+                                  <input
+                                    type="hidden"
+                                    name="gallery_image_id"
+                                    value={image.id}
+                                  />
+                                  <Button
+                                    type="submit"
+                                    variant="secondary"
+                                    size="sm"
+                                  >
+                                    Verwijder
+                                  </Button>
+                                </form>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                       <form
                         action={updateProductAction}
                         encType="multipart/form-data"
@@ -405,11 +472,6 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                           required
                           defaultValue={product.title}
                         />
-                        <Input
-                          name="slug"
-                          label="Slug"
-                          defaultValue={product.slug}
-                        />
                         <Select
                           name="product_type"
                           label="Type *"
@@ -418,22 +480,15 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                           defaultValue={product.product_type}
                         />
                         <Input
-                          name="price_cents"
-                          label="Richtprijs (cent)"
+                          name="price_euro"
+                          label="Richtprijs (€) *"
                           type="number"
                           min={0}
-                          defaultValue={
-                            typeof product.price_cents === "number"
-                              ? String(product.price_cents)
-                              : ""
-                          }
+                          step={0.01}
+                          required
+                          defaultValue={centsToEuroInput(product.price_cents)}
                         />
-                        <Input
-                          name="currency_code"
-                          label="Valuta"
-                          defaultValue={product.currency_code ?? "EUR"}
-                          maxLength={3}
-                        />
+                        <input type="hidden" name="currency_code" value="EUR" />
                         <ProductDomainCategoryFields
                           domainOptions={domainOptions}
                           categories={allProductCategories}
@@ -458,10 +513,15 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                         <div className="grid gap-4 rounded-lg border border-[var(--border)] p-4 sm:col-span-2">
                           <ImageUploadField
                             name="featured_image_file"
-                            label="Foto van je creatie"
+                            label="Hoofdfoto"
                             currentUrl={product.featured_image_url}
                             uploadPathPrefix={`creators/${creator.id}/products`}
                             hint="Laat leeg om de huidige foto te behouden."
+                          />
+                          <MultiImageUploadField
+                            uploadPathPrefix={`creators/${creator.id}/products/gallery`}
+                            label="Extra foto's toevoegen"
+                            hint="Optioneel. Max. 8 extra foto's van je creatie."
                           />
                         </div>
                         <Input
@@ -532,7 +592,6 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
               <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Input name="title" label="Titel *" required />
-                <Input name="slug" label="Slug" />
                 <Select
                   name="product_type"
                   label="Type *"
@@ -541,20 +600,16 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   defaultValue="handmade"
                 />
                 <Input
-                  name="price_cents"
-                  label="Richtprijs (cent) *"
+                  name="price_euro"
+                  label="Richtprijs (€) *"
                   type="number"
                   min={0}
+                  step={0.01}
                   required
                   defaultValue="0"
+                  placeholder="45.00"
                 />
-                <Input
-                  name="currency_code"
-                  label="Valuta *"
-                  defaultValue="EUR"
-                  maxLength={3}
-                  required
-                />
+                <input type="hidden" name="currency_code" value="EUR" />
                 <ProductDomainCategoryFields
                   domainOptions={domainOptions}
                   categories={allProductCategories}
@@ -575,9 +630,14 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                 <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
                   <ImageUploadField
                     name="featured_image_file"
-                    label="Foto van je creatie"
+                    label="Hoofdfoto"
                     uploadPathPrefix={`creators/${creator.id}/products`}
-                    hint="Deze foto verschijnt als hoofdafbeelding in je shop."
+                    hint="Deze foto verschijnt als eerste op je productpagina."
+                  />
+                  <MultiImageUploadField
+                    uploadPathPrefix={`creators/${creator.id}/products/gallery`}
+                    label="Extra foto's"
+                    hint="Optioneel. Voeg meerdere foto's toe van detail, materiaal of resultaat."
                   />
                 </div>
                 <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />

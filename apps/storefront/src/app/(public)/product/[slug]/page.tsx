@@ -35,19 +35,24 @@ export default async function ProductPage({ params }: Props) {
 
   if (!data.product) notFound();
 
-  const { product, creator, domain, price, variants } = data;
+  const { product, creator, domain, price, variants, galleryImages } = data;
   const user = await getAuthUser();
   const productIsFavorite = user
     ? await isFavorite(user.id, "product", product.id)
     : false;
+  const productImages = [
+    ...(product.featured_image_url ? [product.featured_image_url] : []),
+    ...galleryImages.filter((url) => url !== product.featured_image_url),
+  ];
   const productJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
     description: product.short_description ?? product.description ?? undefined,
-    image: product.featured_image_url
-      ? [absoluteUrl(product.featured_image_url)]
-      : undefined,
+    image:
+      productImages.length > 0
+        ? productImages.map((url) => absoluteUrl(url))
+        : undefined,
     sku: product.medusa_product_id ?? product.id,
     brand: creator
       ? {
@@ -87,6 +92,21 @@ export default async function ProductPage({ params }: Props) {
             className="w-full max-w-2xl overflow-hidden rounded-[1.25rem] shadow-[var(--shadow-md)]"
             fallbackImage="placeholderProduct"
           />
+          {galleryImages.length > 0 ? (
+            <ul className="mt-3 grid max-w-2xl grid-cols-3 gap-2 sm:grid-cols-4">
+              {galleryImages.map((url) => (
+                <li key={url}>
+                  <AspectImage
+                    src={url}
+                    alt=""
+                    ratio="square"
+                    className="overflow-hidden rounded-lg"
+                    fallbackImage="placeholderProduct"
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           <div className="mt-6">
             <p className="text-sm font-semibold text-[var(--accent)]">

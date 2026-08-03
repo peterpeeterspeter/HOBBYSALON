@@ -1542,8 +1542,9 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
-    const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
-    const currencyCode = parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
+    const priceCents = parseOptionalEuroToCents(formData, "price_euro");
+    const currencyCode =
+      parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
     const conditionType = parseOptionalString(formData, "condition_type");
     const estimatedDispatchDays = parseOptionalNonNegativeInt(
       formData,
@@ -1575,7 +1576,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", "Ongeldige conditie.");
     }
     if (priceCents === null) {
-      fail("/dashboard/products", "Richtprijs (in cent) is verplicht.");
+      fail("/dashboard/products", "Richtprijs is verplicht.");
     }
 
     const isActive = !!formData.get("is_active");
@@ -1590,40 +1591,63 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
     }
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("products", preferredSlug);
+    const slug = await ensureUniqueSlug("products", title);
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/products`,
     });
+    const galleryUrls = formData
+      .getAll("gallery_image_urls")
+      .map((value) => value.toString().trim())
+      .filter(Boolean)
+      .slice(0, 8);
 
     const supabase = createPlatformClient();
-    const { error } = await supabase.from("products").insert({
-      creator_id: creator.id,
-      domain_id: domainId,
-      category_id: categoryId,
-      slug,
-      title,
-      short_description: parseOptionalString(formData, "short_description"),
-      description: parseOptionalString(formData, "description"),
-      featured_image_url: featuredImageUrl,
-      condition_type: conditionType,
-      personalization_available: personalizationAvailable,
-      estimated_dispatch_days: estimatedDispatchDays,
-      product_type: productType,
-      price_cents: priceCents,
-      currency_code: currencyCode,
-      status: isActive ? "active" : "draft",
-      is_active: isActive,
-      medusa_product_id: null,
-    });
+    const { data: createdProduct, error } = await supabase
+      .from("products")
+      .insert({
+        creator_id: creator.id,
+        domain_id: domainId,
+        category_id: categoryId,
+        slug,
+        title,
+        short_description: parseOptionalString(formData, "short_description"),
+        description: parseOptionalString(formData, "description"),
+        featured_image_url: featuredImageUrl,
+        condition_type: conditionType,
+        personalization_available: personalizationAvailable,
+        estimated_dispatch_days: estimatedDispatchDays,
+        product_type: productType,
+        price_cents: priceCents,
+        currency_code: currencyCode,
+        status: isActive ? "active" : "draft",
+        is_active: isActive,
+        medusa_product_id: null,
+      })
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !createdProduct) {
       fail(
         "/dashboard/products",
-        `Plaatsing aanmaken mislukt. ${error.message}`
+        `Plaatsing aanmaken mislukt. ${error?.message ?? ""}`.trim()
       );
+    }
+
+    if (galleryUrls.length > 0) {
+      const { error: galleryError } = await supabase
+        .from("product_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            product_id: createdProduct.id,
+            image_url,
+            sort_order: index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Product gallery insert failed:", galleryError);
+      }
     }
 
     revalidatePath("/dashboard/products");
@@ -1650,8 +1674,11 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
     const stockMode = parseOptionalString(formData, "stock_mode") ?? "made_to_order";
-    const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
-    const currencyCode = parseOptionalCurrencyCode(formData, "currency_code");
+    const priceCents =
+      parseOptionalEuroToCents(formData, "price_euro") ??
+      parseOptionalNonNegativeInt(formData, "price_cents");
+    const currencyCode =
+      parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
     const conditionType = parseOptionalString(formData, "condition_type");
     const estimatedDispatchDays = parseOptionalNonNegativeInt(
       formData,
@@ -1660,6 +1687,11 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
+    const galleryUrls = formData
+      .getAll("gallery_image_urls")
+      .map((value) => value.toString().trim())
+      .filter(Boolean)
+      .slice(0, 8);
     try {
       await assertProductCategoryMatchesDomain(categoryId, domainId);
     } catch (error) {
@@ -1730,7 +1762,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         medusaProductId,
         platformCreatorId: creator.id,
         title,
-        slug: parseOptionalString(formData, "slug"),
+        slug: undefined,
         shortDescription: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featuredImageUrl,
@@ -1767,8 +1799,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       );
     }
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("products", preferredSlug, productId);
+    const slug = await ensureUniqueSlug("products", title, productId);
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
       urlField: "featured_image_file_uploaded_url",
@@ -1800,6 +1831,31 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     if (error) {
       fail("/dashboard/products", "Plaatsing bijwerken mislukt.");
+    }
+
+    if (galleryUrls.length > 0) {
+      const { data: existingGallery } = await supabase
+        .from("product_gallery_images")
+        .select("sort_order")
+        .eq("product_id", productId)
+        .order("sort_order", { ascending: false })
+        .limit(1);
+      const startOrder =
+        typeof existingGallery?.[0]?.sort_order === "number"
+          ? existingGallery[0].sort_order + 1
+          : 0;
+      const { error: galleryError } = await supabase
+        .from("product_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            product_id: productId,
+            image_url,
+            sort_order: startOrder + index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Product gallery insert failed:", galleryError);
+      }
     }
 
     revalidatePath("/dashboard/products");
@@ -2376,6 +2432,55 @@ export async function deleteWorkshopGalleryImageAction(
     if (isNextRedirectError(error)) throw error;
     fail(
       "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteProductGalleryImageAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredCreatorProfile();
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+
+    const { data: row } = await supabase
+      .from("product_gallery_images")
+      .select("id, product_id, products!inner(creator_id, slug)")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    const product = row?.products as
+      | { creator_id?: string; slug?: string }
+      | { creator_id?: string; slug?: string }[]
+      | null
+      | undefined;
+    const productMeta = Array.isArray(product) ? product[0] : product;
+
+    if (!row || productMeta?.creator_id !== creator.id) {
+      fail("/dashboard/products", "Foto niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("product_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+
+    if (error) {
+      fail("/dashboard/products", "Foto verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/products");
+    if (productMeta?.slug) {
+      revalidatePath(`/product/${productMeta.slug}`);
+      revalidatePath(`/creator/${creator.slug}`);
+    }
+    ok("/dashboard/products", "Foto verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/products",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
