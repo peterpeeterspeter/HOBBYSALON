@@ -112,66 +112,90 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return nodes;
 }
 
-function renderBlock(block: string, index: number): React.ReactNode {
-  const trimmed = block.trim();
-  if (!trimmed) return null;
-
-  const lines = trimmed.split("\n").map((line) => line.trimEnd());
-
-  if (lines.every((line) => line.startsWith("- "))) {
-    return (
-      <ul key={`block-${index}`} className="my-4 list-disc space-y-1 pl-5 text-[var(--foreground)]">
-        {lines.map((line, liIndex) => (
-          <li key={`li-${index}-${liIndex}`}>{renderInline(line.slice(2), `b${index}-li${liIndex}`)}</li>
-        ))}
-      </ul>
-    );
-  }
-
-  const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
-  if (headingMatch) {
-    const level = headingMatch[1].length;
-    const content = renderInline(headingMatch[2], `b${index}-h`);
-    if (level === 1) {
-      return (
-        <h2 key={`h-${index}`} className="mt-6 text-2xl font-semibold text-[var(--foreground)]">
-          {content}
-        </h2>
-      );
-    }
-    if (level === 2) {
-      return (
-        <h3 key={`h-${index}`} className="mt-5 text-xl font-semibold text-[var(--foreground)]">
-          {content}
-        </h3>
-      );
-    }
-    return (
-      <h4 key={`h-${index}`} className="mt-4 text-lg font-semibold text-[var(--foreground)]">
-        {content}
-      </h4>
-    );
-  }
-
-  // Check if this paragraph is an emoji+UPPERCASE section header
-  const sectionId = SECTION_HEADER_RE.test(trimmed) ? slugify(trimmed) : undefined;
-
-  return (
-    <p
-      key={`p-${index}`}
-      {...(sectionId ? { id: sectionId, "data-section": "header", className: "mt-6 mb-2 text-lg font-bold text-[var(--foreground)] scroll-mt-20" } : { className: "my-4 whitespace-pre-wrap leading-7 text-[var(--foreground)]" })}
-    >
-      {renderInline(trimmed, `b${index}-p`)}
-    </p>
-  );
-}
-
 export function MarkdownContent({ markdown, className }: MarkdownContentProps) {
-  const blocks = markdown
-    .replace(/\r\n/g, "\n")
-    .split(/\n\s*\n/)
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const nodes: React.ReactNode[] = [];
+  let paragraph: string[] = [];
+  let nodeIndex = 0;
 
-  return <div className={className}>{blocks.map((block, index) => renderBlock(block, index))}</div>;
+  const flushParagraph = () => {
+    const text = paragraph.join(" ").trim();
+    paragraph = [];
+    if (!text) return;
+
+    const sectionId = SECTION_HEADER_RE.test(text) ? slugify(text) : undefined;
+    nodes.push(
+      <p
+        key={`p-${nodeIndex++}`}
+        {...(sectionId
+          ? {
+              id: sectionId,
+              "data-section": "header",
+              className: "mt-6 mb-2 text-lg font-bold text-[var(--foreground)] scroll-mt-20",
+            }
+          : { className: "my-4 leading-7 text-[var(--foreground)]" })}
+      >
+        {renderInline(text, `p${nodeIndex}`)}
+      </p>
+    );
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index].trimEnd();
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      const level = Math.min(headingMatch[1].length + 1, 4);
+      const content = renderInline(headingMatch[2], `h${nodeIndex}`);
+      const headingClassName =
+        level === 2
+          ? "mt-6 text-2xl font-semibold text-[var(--foreground)]"
+          : level === 3
+            ? "mt-5 text-xl font-semibold text-[var(--foreground)]"
+            : "mt-4 text-lg font-semibold text-[var(--foreground)]";
+      const Heading = (`h${level}`) as React.ElementType;
+      nodes.push(
+        <Heading key={`h-${nodeIndex++}`} className={headingClassName}>
+          {content}
+        </Heading>
+      );
+      continue;
+    }
+
+    const listMatch = trimmed.match(/^([-*+] |\d+[.)] )(.+)$/);
+    if (listMatch) {
+      flushParagraph();
+      const ordered = /^\d/.test(listMatch[1]);
+      const items: string[] = [listMatch[2]];
+      while (index + 1 < lines.length) {
+        const nextMatch = lines[index + 1].trim().match(/^([-*+] |\d+[.)] )(.+)$/);
+        if (!nextMatch || /^\d/.test(nextMatch[1]) !== ordered) break;
+        items.push(nextMatch[2]);
+        index += 1;
+      }
+      const List = (ordered ? "ol" : "ul") as React.ElementType;
+      nodes.push(
+        <List
+          key={`list-${nodeIndex++}`}
+          className={`${ordered ? "list-decimal" : "list-disc"} my-4 space-y-1 pl-5 text-[var(--foreground)]`}
+        >
+          {items.map((item, itemIndex) => (
+            <li key={`li-${nodeIndex}-${itemIndex}`}>{renderInline(item, `l${nodeIndex}-${itemIndex}`)}</li>
+          ))}
+        </List>
+      );
+      continue;
+    }
+
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  return <div className={className}>{nodes}</div>;
 }
