@@ -3,15 +3,29 @@ import type { Article } from "@/types/platform";
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const supabase = createPlatformClient();
-  const { data, error } = await supabase
-    .from("articles")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_published", true)
-    .single();
+  const candidates = new Set([slug, decodeURIComponentSafe(slug), slug.normalize("NFC")]);
 
-  if (error || !data) return null;
-  return data as Article;
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from("articles")
+      .select("*")
+      .eq("slug", candidate)
+      .eq("is_published", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data) return data as Article;
+  }
+
+  return null;
+}
+
+function decodeURIComponentSafe(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export async function listArticlesByDomain(domainId: string): Promise<Article[]> {
