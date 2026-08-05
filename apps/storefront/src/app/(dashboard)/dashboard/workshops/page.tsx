@@ -593,7 +593,8 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         <MultiImageUploadField
                           uploadPathPrefix={`creators/${creator.id}/workshops/gallery`}
                           label="Extra foto's toevoegen"
-                          hint="Worden bewaard wanneer je Opslaan klikt."
+                          existingCount={gallery.length}
+                          hint="Worden bewaard wanneer je Opslaan klikt. Vierkant · min. 1000×1000 px."
                         />
                       </div>
                       <label className="sm:col-span-2">

@@ -2,7 +2,7 @@
 -- Run via Supabase SQL Editor or: psql $DATABASE_URL -f scripts/seed-platform.sql
 -- Prerequisite: Platform schema (docs/SQL.md) must be applied first
 
--- Domains (14)
+-- Domains (19)
 INSERT INTO public.domains (id, slug, name, short_description, sort_order, is_active, seo_title, seo_description) VALUES
   ('d1111111-1111-1111-1111-111111111101', 'crochet', 'Crochet', 'Haakwerk en amigurumi', 1, true, 'Crochet | Hobbysalon', 'Ontdek haakprojecten, patronen en makers'),
   ('d1111111-1111-1111-1111-111111111102', 'knitting', 'Breien', 'Breien en tricot', 2, true, 'Breien | Hobbysalon', 'Breipatronen en wol van makers'),
@@ -17,7 +17,12 @@ INSERT INTO public.domains (id, slug, name, short_description, sort_order, is_ac
   ('d1111111-1111-1111-1111-11111111110b', 'painting', 'Schilderen', 'Aquarel, acryl en mixed media', 11, true, 'Schilderen | Hobbysalon', 'Schilderworkshops, verf en inspiratie'),
   ('d1111111-1111-1111-1111-11111111110c', 'candle-making', 'Kaarsen maken', 'Gieten, kleuren en geuren', 12, true, 'Kaarsen maken | Hobbysalon', 'Kaarsenworkshops en materialen'),
   ('d1111111-1111-1111-1111-11111111110d', 'woodworking', 'Houtbewerking', 'Snijden, schuren en afwerken', 13, true, 'Houtbewerking | Hobbysalon', 'Houtprojecten en tools'),
-  ('d1111111-1111-1111-1111-11111111110e', 'quilting', 'Quilten', 'Patchwork en quilts', 14, true, 'Quilten | Hobbysalon', 'Quiltprojecten, stoffen en patronen')
+  ('d1111111-1111-1111-1111-11111111110e', 'quilting', 'Quilten', 'Patchwork en quilts', 14, true, 'Quilten | Hobbysalon', 'Quiltprojecten, stoffen en patronen'),
+  ('d1111111-1111-1111-1111-11111111110f', 'felting', 'Vilten', 'Natvilten, naaldvilten en wolprojecten', 15, true, 'Vilten | Hobbysalon', 'Vilten workshops, materialen en makers'),
+  ('d1111111-1111-1111-1111-111111111110', 'leathercraft', 'Leerbewerking', 'Tassen, riemen en leeraccessoires', 16, true, 'Leerbewerking | Hobbysalon', 'Leerprojecten, workshops en materialen'),
+  ('d1111111-1111-1111-1111-111111111111', 'polymer-clay', 'Polymer klei', 'Figuren, sieraden en miniaturen', 17, true, 'Polymer klei | Hobbysalon', 'Polymer klei projecten en makers'),
+  ('d1111111-1111-1111-1111-111111111112', 'lettering', 'Lettering & kalligrafie', 'Handlettering, brush lettering en kalligrafie', 18, true, 'Lettering | Hobbysalon', 'Lettering workshops en inspiratie'),
+  ('d1111111-1111-1111-1111-111111111113', 'glass-art', 'Glas & glasfusie', 'Glas-in-lood, fusie en glasbewerking', 19, true, 'Glas | Hobbysalon', 'Glasprojecten, workshops en makers')
 ON CONFLICT (id) DO UPDATE SET
   slug = EXCLUDED.slug,
   name = EXCLUDED.name,

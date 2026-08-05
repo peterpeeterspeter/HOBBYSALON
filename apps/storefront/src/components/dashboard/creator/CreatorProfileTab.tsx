@@ -4,6 +4,7 @@ import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { formatSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import type { CreatorProfileTabProps } from "./types";
 
 export function CreatorProfileTab({
@@ -95,7 +96,7 @@ export function CreatorProfileTab({
           <ImageUploadField
             name="avatar_file"
             label="Profielfoto"
-            hint="Je profielfoto op je maker-pagina en in overzichten."
+            hint="Vierkant · min. 600×600 px. De foto wordt bijgesneden tot een vierkant op je pagina."
             currentUrl={creator?.avatar_url}
             uploadPathPrefix={
               creator?.id ? `creators/${creator.id}/avatar` : "creators/avatar"
@@ -104,7 +105,7 @@ export function CreatorProfileTab({
           <ImageUploadField
             name="banner_file"
             label="Omslagfoto"
-            hint="Grote foto bovenaan je maker-pagina (optioneel)."
+            hint="Breed formaat · ca. 1600×600 px (ongeveer 8:3). Te hoge of smalle foto's worden bijgesneden."
             currentUrl={creator?.banner_url}
             uploadPathPrefix={
               creator?.id ? `creators/${creator.id}/banner` : "creators/banner"
@@ -138,7 +139,7 @@ export function CreatorProfileTab({
         <fieldset className="mt-4">
           <legend className="text-sm font-medium text-[var(--foreground)]">Je hobby&apos;s</legend>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Kies je hobby&apos;s — zo vindt men je op Hobbysalon.
+            Kies je hobby&apos;s — zo vindt men je op Hobbysalon. Je mag er meerdere aankruisen.
           </p>
           <div className="mt-2 flex flex-wrap gap-3">
             {domains.map((domain) => (
@@ -155,6 +156,17 @@ export function CreatorProfileTab({
                 <span className="text-sm">{domain.name}</span>
               </label>
             ))}
+          </div>
+          <div className="mt-4">
+            <Input
+              name="specialty_tags"
+              label="Andere hobby of specialiteit"
+              placeholder="bijv. vilten, glas-in-lood, soap making"
+              defaultValue={formatSpecialtyTagsInput(creator?.specialty_tags)}
+            />
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Staat jouw craft er niet bij? Vul die hier in (max. 8, scheid met een komma).
+            </p>
           </div>
         </fieldset>
 

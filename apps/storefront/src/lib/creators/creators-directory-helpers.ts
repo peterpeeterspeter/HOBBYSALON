@@ -112,16 +112,20 @@ export function resolveCreatorCardPhoto(creator: {
 
 export function formatCreatorSpecialtyLine(options: {
   domainNames: string[];
+  specialtyTags?: string[] | null;
   city?: string | null;
   bio?: string | null;
 }): string {
+  const tags = (options.specialtyTags ?? []).map((t) => t.trim()).filter(Boolean);
   const domains = options.domainNames.filter(Boolean);
   const specialty =
-    domains.length > 0
-      ? domains.slice(0, 2).join(" · ")
-      : options.bio?.trim()
-        ? options.bio.trim().slice(0, 60)
-        : "";
+    tags.length > 0
+      ? tags.slice(0, 2).join(" · ")
+      : domains.length > 0
+        ? domains.slice(0, 2).join(" · ")
+        : options.bio?.trim()
+          ? options.bio.trim().slice(0, 60)
+          : "";
   const city = options.city?.trim();
   if (specialty && city) return `${specialty} · ${city}`;
   if (specialty) return specialty;

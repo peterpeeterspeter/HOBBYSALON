@@ -24,6 +24,11 @@ import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
 import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
+import {
+  FormWithDraft,
+  draftString,
+  draftStringArray,
+} from "@/components/ui/form-with-draft";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -516,12 +521,15 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                             label="Hoofdfoto"
                             currentUrl={product.featured_image_url}
                             uploadPathPrefix={`creators/${creator.id}/products`}
-                            hint="Laat leeg om de huidige foto te behouden."
+                            hint="Vierkant of liggend · min. 1000×1000 px. Laat leeg om de huidige foto te behouden."
                           />
                           <MultiImageUploadField
                             uploadPathPrefix={`creators/${creator.id}/products/gallery`}
                             label="Extra foto's toevoegen"
-                            hint="Optioneel. Max. 8 extra foto's van je creatie."
+                            existingCount={
+                              (galleryByProduct.get(product.id) ?? []).length
+                            }
+                            hint="Optioneel. Vierkant werkt het best · min. 1000×1000 px."
                           />
                         </div>
                         <Input
@@ -588,16 +596,27 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
 
 
           <CardShell variant="default" padding="lg" className="mb-8">
-            <form action={createProductAction} encType="multipart/form-data">
+            <FormWithDraft
+              storageKey="hs-draft:product-create"
+              action={createProductAction}
+              encType="multipart/form-data"
+            >
+              {({ draft }) => (
+                <>
               <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Input name="title" label="Titel *" required />
+                <Input
+                  name="title"
+                  label="Titel *"
+                  required
+                  defaultValue={draftString(draft, "title")}
+                />
                 <Select
                   name="product_type"
                   label="Type *"
                   options={PRODUCT_TYPE_OPTIONS}
                   required
-                  defaultValue="handmade"
+                  defaultValue={draftString(draft, "product_type") ?? "handmade"}
                 />
                 <Input
                   name="price_euro"
@@ -606,62 +625,98 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
                   min={0}
                   step={0.01}
                   required
-                  defaultValue="0"
+                  defaultValue={draftString(draft, "price_euro") ?? "0"}
                   placeholder="45.00"
                 />
                 <input type="hidden" name="currency_code" value="EUR" />
                 <ProductDomainCategoryFields
                   domainOptions={domainOptions}
                   categories={allProductCategories}
-                  defaults={{ domain_id: primaryDomainId }}
+                  defaults={{
+                    domain_id:
+                      draftString(draft, "domain_id") ?? primaryDomainId,
+                    category_id: draftString(draft, "category_id") ?? null,
+                  }}
                 />
                 <Select
                   name="condition_type"
                   label="Conditie"
                   options={PRODUCT_CONDITION_OPTIONS}
-                  defaultValue="handmade"
+                  defaultValue={
+                    draftString(draft, "condition_type") ?? "handmade"
+                  }
                 />
                 <Input
                   name="estimated_dispatch_days"
                   label="Verzending binnen (dagen)"
                   type="number"
                   min={0}
+                  defaultValue={draftString(draft, "estimated_dispatch_days")}
                 />
                 <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
                   <ImageUploadField
+                    key={
+                      draftString(draft, "featured_image_file_uploaded_url") ??
+                      "featured-new"
+                    }
                     name="featured_image_file"
                     label="Hoofdfoto"
                     uploadPathPrefix={`creators/${creator.id}/products`}
-                    hint="Deze foto verschijnt als eerste op je productpagina."
+                    urlDefaultValue={draftString(
+                      draft,
+                      "featured_image_file_uploaded_url"
+                    )}
+                    hint="Vierkant of liggend · min. 1000×1000 px. Deze foto verschijnt als eerste op je productpagina."
                   />
                   <MultiImageUploadField
+                    key={
+                      draftStringArray(draft, "gallery_image_urls").join("|") ||
+                      "gallery-new"
+                    }
                     uploadPathPrefix={`creators/${creator.id}/products/gallery`}
                     label="Extra foto's"
-                    hint="Optioneel. Voeg meerdere foto's toe van detail, materiaal of resultaat."
+                    initialUrls={draftStringArray(draft, "gallery_image_urls")}
+                    hint="Optioneel. Vierkant werkt het best · min. 1000×1000 px. Detail, materiaal of resultaat."
                   />
                 </div>
-                <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
+                <Input
+                  name="short_description"
+                  label="Korte omschrijving"
+                  className="sm:col-span-2"
+                  defaultValue={draftString(draft, "short_description")}
+                />
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
                   <textarea
                     name="description"
                     rows={3}
+                    defaultValue={draftString(draft, "description")}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                   />
                 </div>
                 <label className="inline-flex items-center gap-2 sm:col-span-2">
-                  <input type="checkbox" name="is_active" />
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    defaultChecked={Boolean(draft?.is_active)}
+                  />
                   <span className="text-sm">Direct zichtbaar in je shop</span>
                 </label>
                 <label className="inline-flex items-center gap-2 sm:col-span-2">
-                  <input type="checkbox" name="personalization_available" />
+                  <input
+                    type="checkbox"
+                    name="personalization_available"
+                    defaultChecked={Boolean(draft?.personalization_available)}
+                  />
                   <span className="text-sm">Personalisatie mogelijk</span>
                 </label>
               </div>
               <Button type="submit" className="mt-4">
                 Plaatsing toevoegen
               </Button>
-            </form>
+                </>
+              )}
+            </FormWithDraft>
           </CardShell>
         </>
       )}

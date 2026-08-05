@@ -10,6 +10,10 @@ type MultiImageUploadFieldProps = {
   hint?: string;
   uploadPathPrefix: string;
   maxImages?: number;
+  /** Already stored gallery images (edit forms). Counts toward maxImages. */
+  existingCount?: number;
+  /** Pre-fill from a restored form draft. */
+  initialUrls?: string[];
 };
 
 const ALLOWED_TYPES = new Set([
@@ -49,19 +53,29 @@ export function MultiImageUploadField({
   hint = "Voeg meerdere foto's toe van je workshop.",
   uploadPathPrefix,
   maxImages = 8,
+  existingCount = 0,
+  initialUrls,
 }: MultiImageUploadFieldProps) {
   const inputId = useId();
-  const [urls, setUrls] = useState<string[]>([]);
+  const slotsForNew = Math.max(0, maxImages - Math.max(0, existingCount));
+  const [urls, setUrls] = useState<string[]>(() =>
+    (initialUrls ?? []).filter(Boolean).slice(0, slotsForNew)
+  );
   const [uploading, setUploading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const remaining = slotsForNew - urls.length;
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
     setLocalError(null);
 
-    const remaining = maxImages - urls.length;
     if (remaining <= 0) {
-      setLocalError(`Je kan maximaal ${maxImages} extra foto's toevoegen.`);
+      setLocalError(
+        existingCount > 0
+          ? `Je hebt al ${existingCount} foto's. Maximum is ${maxImages} in totaal.`
+          : `Je kan maximaal ${maxImages} extra foto's toevoegen.`
+      );
       return;
     }
 
@@ -97,7 +111,7 @@ export function MultiImageUploadField({
       }
 
       if (uploaded.length > 0) {
-        setUrls((prev) => [...prev, ...uploaded].slice(0, maxImages));
+        setUrls((prev) => [...prev, ...uploaded].slice(0, slotsForNew));
       }
     } catch (error) {
       setLocalError(
@@ -148,7 +162,7 @@ export function MultiImageUploadField({
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
         multiple
-        disabled={uploading || urls.length >= maxImages}
+        disabled={uploading || remaining <= 0}
         onChange={(event) => {
           void handleFiles(event.target.files);
           event.target.value = "";
@@ -166,8 +180,10 @@ export function MultiImageUploadField({
       ) : null}
       {hint ? <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p> : null}
       <p className="mt-1 text-xs text-[var(--muted)]">
-        Max. {maxImages} extra foto&apos;s · JPEG/PNG/WebP/GIF · max.{" "}
-        {formatMegabytes(MAX_IMAGE_BYTES)} MB per foto.
+        {existingCount > 0
+          ? `Nog ${remaining} van ${maxImages} foto's mogelijk (${existingCount} al opgeslagen) · `
+          : `Max. ${maxImages} extra foto's · `}
+        JPEG/PNG/WebP/GIF · max. {formatMegabytes(MAX_IMAGE_BYTES)} MB per foto.
       </p>
     </div>
   );

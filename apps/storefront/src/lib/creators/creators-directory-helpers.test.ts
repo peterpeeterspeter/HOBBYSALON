@@ -82,6 +82,17 @@ test("formatCreatorSpecialtyLine combines domain and city", () => {
   );
 });
 
+test("formatCreatorSpecialtyLine prefers free-text specialty tags", () => {
+  assert.equal(
+    formatCreatorSpecialtyLine({
+      domainNames: ["DIY"],
+      specialtyTags: ["Vilten", "Soap making"],
+      city: "Antwerpen",
+    }),
+    "Vilten · Soap making · Antwerpen"
+  );
+});
+
 test("hasReliableCreatorPlaceCoverage uses 30% threshold", () => {
   assert.equal(
     hasReliableCreatorPlaceCoverage([

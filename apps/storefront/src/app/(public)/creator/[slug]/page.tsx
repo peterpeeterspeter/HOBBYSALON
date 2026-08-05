@@ -172,6 +172,11 @@ export default async function CreatorPage({ params }: Props) {
                     </Badge>
                   </Link>
                 ))}
+                {(creator.specialty_tags ?? []).map((tag) => (
+                  <Badge key={tag} variant="domain">
+                    {tag}
+                  </Badge>
+                ))}
                 {creator.is_verified && (
                   <Badge variant="new">Geverifieerd</Badge>
                 )}

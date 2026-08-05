@@ -136,6 +136,7 @@ export type Creator = {
   accepts_bookings?: boolean;
   accepts_marketplace_orders?: boolean;
   open_to_markets?: boolean;
+  specialty_tags?: string[];
   created_at: string;
   updated_at: string;
 };

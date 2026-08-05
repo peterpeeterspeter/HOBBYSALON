@@ -188,6 +188,8 @@ Fields:
 - `is_featured` (boolean)
 - `accepts_bookings` (boolean)
 - `accepts_marketplace_orders` (boolean)
+- `open_to_markets` (boolean)
+- `specialty_tags` (text[], free-text hobby labels when fixed domains don't fit)
 - `created_at`
 - `updated_at`
 

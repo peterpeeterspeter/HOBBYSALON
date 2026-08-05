@@ -242,7 +242,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
           <ImageUploadField
             name="avatar_file"
             label={`${copy.photoLabel} (aanbevolen)`}
-            hint="Niet verplicht om verder te gaan. Helpt bezoekers je sneller herkennen."
+            hint="Vierkant · min. 600×600 px. Niet verplicht om verder te gaan. Helpt bezoekers je sneller herkennen."
             currentUrl={creator?.avatar_url}
             uploadPathPrefix={
               creator?.id ? `creators/${creator.id}/avatar` : "creators/avatar"
@@ -265,8 +265,11 @@ export default async function OnboardingPage({ searchParams }: Props) {
 
           <fieldset>
             <legend className="mb-2 text-sm font-medium text-[var(--foreground)]">
-              Hobby / categorie *
+              Hobby / categorie
             </legend>
+            <p className="mb-2 text-sm text-[var(--muted)]">
+              Kies minstens één hobby, of vul hieronder je eigen specialiteit in.
+            </p>
             <div className="flex flex-wrap gap-2">
               {domains.map((domain) => {
                 const checked = existingDomainIds.includes(domain.id);
@@ -287,6 +290,21 @@ export default async function OnboardingPage({ searchParams }: Props) {
                 );
               })}
             </div>
+            <label className="mt-3 block">
+              <span className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
+                Andere hobby of specialiteit
+              </span>
+              <input
+                name="specialty_tags"
+                type="text"
+                defaultValue={(creator?.specialty_tags ?? []).join(", ")}
+                placeholder="bijv. vilten, glas-in-lood, soap making"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+              <span className="mt-1 block text-xs text-[var(--muted)]">
+                Optioneel. Max. 8, scheid met een komma.
+              </span>
+            </label>
           </fieldset>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

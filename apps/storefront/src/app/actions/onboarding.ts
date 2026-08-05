@@ -18,6 +18,7 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { resolveProductImageUrl } from "@/lib/storage/upload-image";
 import { syncPrivilegedRolesFromCreatorTypes } from "@/lib/platform/queries/role-requests";
 import { getFirstListingPath } from "@/lib/onboarding/offer-onboarding";
+import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 
 function isNextRedirectError(error: unknown): boolean {
   return (
@@ -200,8 +201,14 @@ export async function saveOnboardingProfileAction(
     }
 
     const domainIds = parseUuidValues(formData, "domain_ids");
-    if (domainIds.length === 0) {
-      fail("/onboarding", "Kies minstens één hobby of categorie.");
+    const specialtyTags = parseSpecialtyTagsInput(
+      parseOptionalString(formData, "specialty_tags")
+    );
+    if (domainIds.length === 0 && specialtyTags.length === 0) {
+      fail(
+        "/onboarding",
+        "Kies minstens één hobby, of vul je specialiteit in."
+      );
     }
 
     const { getUserRegistrationContext } = await import(
@@ -239,6 +246,7 @@ export async function saveOnboardingProfileAction(
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
       creator_types: creatorTypes,
       open_to_markets: false,
+      specialty_tags: specialtyTags,
     };
 
     const supabase = createPlatformClient();

@@ -41,18 +41,58 @@ const getUserForAccessToken = cache(async (accessToken: string): Promise<User | 
   return data.user ?? null;
 });
 
-export async function getAuthUser(): Promise<User | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get(AUTH_ACCESS_COOKIE)?.value;
-  if (!accessToken) {
-    return null;
+/**
+ * Refresh may succeed even when cookie writes are blocked (RSC render).
+ * Cookie mutation is only allowed in Server Actions / Route Handlers.
+ */
+async function tryPersistAuthSession(session: Session): Promise<void> {
+  try {
+    await persistAuthSession(session);
+  } catch {
+    // Ignore — caller still gets a valid user for this request.
   }
-  return getUserForAccessToken(accessToken);
 }
 
-export async function getAuthAccessToken(): Promise<string | null> {
+async function refreshAuthSession(
+  accessToken: string | null,
+  refreshToken: string
+): Promise<Session | null> {
+  if (accessToken) {
+    const fromSetSession = await validateAuthSession(accessToken, refreshToken);
+    if (fromSetSession) return fromSetSession;
+  }
+
+  const supabase = getSupabaseAuthClient();
+  const { data, error } = await supabase.auth.refreshSession({
+    refresh_token: refreshToken,
+  });
+  if (error) return null;
+  return data.session;
+}
+
+export const getAuthUser = cache(async (): Promise<User | null> => {
   const cookieStore = await cookies();
-  return cookieStore.get(AUTH_ACCESS_COOKIE)?.value ?? null;
+  const accessToken = cookieStore.get(AUTH_ACCESS_COOKIE)?.value ?? null;
+  const refreshToken = cookieStore.get(AUTH_REFRESH_COOKIE)?.value ?? null;
+
+  if (accessToken) {
+    const user = await getUserForAccessToken(accessToken);
+    if (user) return user;
+  }
+
+  if (refreshToken) {
+    const session = await refreshAuthSession(accessToken, refreshToken);
+    if (session?.user) {
+      await tryPersistAuthSession(session);
+      return session.user;
+    }
+  }
+
+  return null;
+});
+
+export async function getAuthAccessToken(): Promise<string | null> {
+  return resolveSupabaseAccessToken();
 }
 
 export async function resolveSupabaseAccessToken(): Promise<string | null> {
@@ -67,15 +107,15 @@ export async function resolveSupabaseAccessToken(): Promise<string | null> {
     }
   }
 
-  if (accessToken && refreshToken) {
-    const session = await validateAuthSession(accessToken, refreshToken);
+  if (refreshToken) {
+    const session = await refreshAuthSession(accessToken, refreshToken);
     if (session) {
-      await persistAuthSession(session);
+      await tryPersistAuthSession(session);
       return session.access_token;
     }
   }
 
-  return accessToken;
+  return null;
 }
 
 export async function hasAuthSessionCookie(): Promise<boolean> {

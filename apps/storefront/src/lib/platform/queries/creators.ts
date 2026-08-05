@@ -369,6 +369,7 @@ export async function listCreatorsDirectory(
       ),
       specialtyLine: formatCreatorSpecialtyLine({
         domainNames,
+        specialtyTags: creator.specialty_tags,
         city: creator.city,
         bio: creator.bio,
       }),

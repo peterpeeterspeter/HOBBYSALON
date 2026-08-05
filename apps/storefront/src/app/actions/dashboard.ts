@@ -30,6 +30,7 @@ import {
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
+import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import {
   ROLE_REQUEST_PENDING_MESSAGE,
   syncPrivilegedRolesFromCreatorTypes,
@@ -275,10 +276,14 @@ function toSlug(input: string): string {
     .slice(0, 80);
 }
 
-async function getRequiredCreatorProfile() {
+async function getRequiredCreatorProfile(loginNext = "/dashboard") {
   const user = await getAuthUser();
   if (!user) {
-    throw new Error("Je bent niet ingelogd.");
+    redirect(
+      `/login?next=${encodeURIComponent(loginNext)}&error=${encodeURIComponent(
+        "Je sessie is verlopen. Meld je opnieuw aan — je formulier wordt hersteld als je terugkomt."
+      )}`
+    );
   }
 
   const creator = await getCreatorByUserId(user.id);
@@ -287,6 +292,29 @@ async function getRequiredCreatorProfile() {
   }
 
   return { user, creator };
+}
+
+const MAX_GALLERY_IMAGES = 8;
+
+function parseGalleryImageUrls(formData: FormData, max = MAX_GALLERY_IMAGES): string[] {
+  return formData
+    .getAll("gallery_image_urls")
+    .map((value) => value.toString().trim())
+    .filter((url) => url.length > 0)
+    .slice(0, max);
+}
+
+async function countGalleryImages(
+  table: "product_gallery_images" | "workshop_gallery_images" | "event_gallery_images",
+  foreignKey: "product_id" | "workshop_id" | "event_id",
+  entityId: string
+): Promise<number> {
+  const supabase = createPlatformClient();
+  const { count } = await supabase
+    .from(table)
+    .select("id", { head: true, count: "exact" })
+    .eq(foreignKey, entityId);
+  return count ?? 0;
 }
 
 /**
@@ -775,6 +803,9 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     );
 
     const email = parseOptionalString(formData, "email") ?? existing?.email ?? user.email ?? null;
+    const specialtyTags = parseSpecialtyTagsInput(
+      parseOptionalString(formData, "specialty_tags")
+    );
 
     const payload = {
       user_id: user.id,
@@ -792,6 +823,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
       creator_types: creatorTypes,
       open_to_markets: !!formData.get("open_to_markets"),
+      specialty_tags: specialtyTags,
     };
 
     const supabase = createPlatformClient();
@@ -1539,7 +1571,7 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
 export async function createProductAction(formData: FormData): Promise<void> {
   try {
     // Makers create platform listings only (contact/lead). No Medusa checkout.
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredCreatorProfile("/dashboard/products");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
     const priceCents = parseOptionalEuroToCents(formData, "price_euro");
@@ -1597,11 +1629,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/products`,
     });
-    const galleryUrls = formData
-      .getAll("gallery_image_urls")
-      .map((value) => value.toString().trim())
-      .filter(Boolean)
-      .slice(0, 8);
+    const galleryUrls = parseGalleryImageUrls(formData);
 
     const supabase = createPlatformClient();
     const { data: createdProduct, error } = await supabase
@@ -1669,7 +1697,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
 export async function updateProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredCreatorProfile("/dashboard/products");
     const productId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
@@ -1687,11 +1715,15 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
-    const galleryUrls = formData
-      .getAll("gallery_image_urls")
-      .map((value) => value.toString().trim())
-      .filter(Boolean)
-      .slice(0, 8);
+    const existingGalleryCount = await countGalleryImages(
+      "product_gallery_images",
+      "product_id",
+      productId
+    );
+    const galleryUrls = parseGalleryImageUrls(
+      formData,
+      Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
+    );
     try {
       await assertProductCategoryMatchesDomain(categoryId, domainId);
     } catch (error) {
@@ -2045,11 +2077,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/workshops`,
     });
-    const galleryUrls = formData
-      .getAll("gallery_image_urls")
-      .map((value) => value.toString().trim())
-      .filter((url) => url.length > 0)
-      .slice(0, 8);
+    const galleryUrls = parseGalleryImageUrls(formData);
 
     const supabase = createPlatformClient();
 
@@ -2213,11 +2241,15 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       pathPrefix: `creators/${creator.id}/workshops`,
     });
 
-    const galleryUrls = formData
-      .getAll("gallery_image_urls")
-      .map((value) => value.toString().trim())
-      .filter((url) => url.length > 0)
-      .slice(0, 8);
+    const existingGalleryCount = await countGalleryImages(
+      "workshop_gallery_images",
+      "workshop_id",
+      workshopId
+    );
+    const galleryUrls = parseGalleryImageUrls(
+      formData,
+      Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
+    );
 
     const { error } = await supabase
       .from("workshops")
@@ -2252,16 +2284,11 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     }
 
     if (galleryUrls.length > 0) {
-      const { count } = await supabase
-        .from("workshop_gallery_images")
-        .select("id", { head: true, count: "exact" })
-        .eq("workshop_id", workshopId);
-      const startOrder = count ?? 0;
       await supabase.from("workshop_gallery_images").insert(
         galleryUrls.map((image_url, index) => ({
           workshop_id: workshopId,
           image_url,
-          sort_order: startOrder + index,
+          sort_order: existingGalleryCount + index,
         }))
       );
     }
@@ -2530,11 +2557,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/events`,
     });
-    const galleryUrls = formData
-      .getAll("gallery_image_urls")
-      .map((value) => value.toString().trim())
-      .filter((url) => url.length > 0)
-      .slice(0, 8);
+    const galleryUrls = parseGalleryImageUrls(formData);
     const supabase = createPlatformClient();
 
     const { data: createdEvent, error } = await supabase
@@ -2672,11 +2695,15 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       existingUrl: existingEvent.featured_image_url,
       pathPrefix: `creators/${creator.id}/events`,
     });
-    const galleryUrls = formData
-      .getAll("gallery_image_urls")
-      .map((value) => value.toString().trim())
-      .filter((url) => url.length > 0)
-      .slice(0, 8);
+    const existingGalleryCount = await countGalleryImages(
+      "event_gallery_images",
+      "event_id",
+      eventId
+    );
+    const galleryUrls = parseGalleryImageUrls(
+      formData,
+      Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
+    );
 
     const { error } = await supabase
       .from("events")
@@ -2708,16 +2735,11 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     }
 
     if (galleryUrls.length > 0) {
-      const { count } = await supabase
-        .from("event_gallery_images")
-        .select("id", { head: true, count: "exact" })
-        .eq("event_id", eventId);
-      const startOrder = count ?? 0;
       await supabase.from("event_gallery_images").insert(
         galleryUrls.map((image_url, index) => ({
           event_id: eventId,
           image_url,
-          sort_order: startOrder + index,
+          sort_order: existingGalleryCount + index,
         }))
       );
     }
