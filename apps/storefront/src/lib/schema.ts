@@ -6,6 +6,7 @@
  */
 
 import { absoluteUrl } from "@/lib/seo";
+import { parseArticleSteps } from "@/lib/content/parse-article-steps";
 
 export type JsonLdObject = Record<string, unknown>;
 
@@ -129,16 +130,13 @@ export function buildFaqSchema(bodyMarkdown: string): JsonLdObject | null {
 }
 
 /**
- * Parse HowTo steps from article body_markdown.
+ * Parse HowTo steps from article body_markdown via parseArticleSteps.
  *
  * The Hobbysalon article format has a section like:
  *
  *   📋 STAP VOOR STAP
  *
  *   Stap 1: Het papier voorbereiden
- *   Detailed instructions...
- *
- *   Stap 2: Het papier uitwringen
  *   Detailed instructions...
  *
  * Returns null if fewer than 3 steps are found.
@@ -148,62 +146,22 @@ export function buildHowToSchema(
   articleTitle: string,
   articleImage?: string | null
 ): JsonLdObject | null {
-  // Find the "STAP" section
-  const stapMatch = bodyMarkdown.match(
-    /(?:📋\s*)?STAP(?:\s+(?:VOOR|VOORSTAP|SGEWIJS))\s+STAP/i
-  );
-  if (!stapMatch) return null;
-
-  const afterStap = bodyMarkdown.slice(stapMatch.index! + stapMatch[0].length);
-
-  // Stop at the next major section
-  const nextSectionMatch = afterStap.match(
-    /\n\s*(?:🌟🌸📈🛒💡🎨⭐❓⚖🎯🚀✅🔍📊🎉💪🌈💎)\s*[A-Z]/
-  );
-  const stapSection = nextSectionMatch
-    ? afterStap.slice(0, nextSectionMatch.index)
-    : afterStap;
-
-  // Match "Stap N: Title" followed by description
-  const stepRegex = /Stap\s+(\d+)\s*:\s*(.+?)(?:\n\n|$)/g;
-  const steps: { name: string; text: string }[] = [];
-  let match: RegExpExecArray | null;
-
-  const stepHeaders: { name: string; startPos: number }[] = [];
-  while ((match = stepRegex.exec(stapSection)) !== null) {
-    stepHeaders.push({
-      name: match[2].trim(),
-      startPos: match.index! + match[0].length,
-    });
-  }
-
-  // Extract text between steps
-  for (let i = 0; i < stepHeaders.length; i++) {
-    const header = stepHeaders[i];
-    const endPos =
-      i + 1 < stepHeaders.length
-        ? stapSection.indexOf("Stap", header.startPos)
-        : stapSection.length;
-    const text = stapSection
-      .slice(header.startPos, endPos > header.startPos ? endPos : stapSection.length)
-      .trim();
-    if (text.length > 0) {
-      steps.push({ name: header.name, text: text.substring(0, 500) });
-    }
-  }
-
-  if (steps.length < 3) return null;
+  const parsed = parseArticleSteps(bodyMarkdown);
+  if (parsed.length < 3) return null;
 
   return {
     "@context": "https://schema.org",
     "@type": "HowTo",
     name: articleTitle,
     ...(articleImage ? { image: absoluteUrl(articleImage) } : {}),
-    step: steps.map((s, i) => ({
-      "@type": "HowToStep",
-      position: i + 1,
-      name: s.name,
-      text: s.text,
-    })),
+    step: parsed.map((s, i) => {
+      const shortName = s.title.replace(/^Stap\s+\d+\s*:\s*/i, "").trim();
+      return {
+        "@type": "HowToStep",
+        position: i + 1,
+        name: shortName || s.title,
+        text: s.detail ?? s.title,
+      };
+    }),
   };
 }

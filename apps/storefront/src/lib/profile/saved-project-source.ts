@@ -11,6 +11,7 @@ import {
   mergeMaterialsWithProducts,
   parseArticleMaterials,
 } from "@/lib/content/parse-article-materials";
+import { parseArticleSteps } from "@/lib/content/parse-article-steps";
 import type { EntityType } from "@/types/platform";
 import type { ProjectRequirementItem } from "./project-requirements";
 
@@ -174,6 +175,7 @@ export async function getSavedProjectSource(
 
   const checklist = parseArticleMaterials(article.body_markdown);
   const { materials, offers } = mergeMaterialsWithProducts(checklist, products);
+  const articleSteps = parseArticleSteps(article.body_markdown);
 
   return {
     entityType,
@@ -195,6 +197,12 @@ export async function getSavedProjectSource(
         linkLabel: sourceCtaLabel,
         kind: "step",
       },
+      ...articleSteps.map((step) => ({
+        key: step.key,
+        title: step.title,
+        detail: step.detail,
+        kind: "step" as const,
+      })),
       ...materials,
       ...offers,
       ...orderedWorkshops.map((workshop) => ({
