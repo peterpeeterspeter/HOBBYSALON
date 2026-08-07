@@ -8,6 +8,8 @@ type MarketingHeroProps = {
   subheadline: string;
   primaryCta: { label: string; href: string };
   secondaryCta?: { label: string; href: string };
+  /** Optional section label under the brand (e.g. "Prijzen en mogelijkheden") */
+  label?: string;
   trustLine?: string;
   /** Full-bleed craft photo; defaults to community landing image */
   imageSrc?: string;
@@ -18,6 +20,7 @@ function MarketingHero({
   subheadline,
   primaryCta,
   secondaryCta,
+  label,
   trustLine,
   imageSrc,
 }: MarketingHeroProps) {
@@ -38,6 +41,11 @@ function MarketingHero({
         <p className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-[-0.03em] text-white sm:text-3xl">
           Hobbysalon
         </p>
+        {label ? (
+          <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-white/80 md:text-base">
+            {label}
+          </p>
+        ) : null}
         <h1 className="mt-3 max-w-3xl font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.1] tracking-[-0.035em] text-white md:text-5xl lg:text-6xl">
           {headline}
         </h1>

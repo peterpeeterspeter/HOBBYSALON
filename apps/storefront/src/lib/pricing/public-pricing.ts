@@ -2,6 +2,8 @@
  * PUBLIC PRESENTATION ONLY — not billing or access-control source.
  * Commercial enforcement uses seed-commercial-plans.sql, commercial-enforcement.ts
  * and COMMERCIAL_GATING_ENABLED. Marketing copy may diverge until launch migration.
+ *
+ * Copy source: approved marketing brief. Do not paraphrase on pages — render these strings.
  */
 
 export type PricingStatus = "confirmed" | "pilot" | "pending";
@@ -22,10 +24,51 @@ export type PublicPricingOffer = {
   description?: string;
 };
 
+export type PricingRouteCard = {
+  id: string;
+  title: string;
+  description: string;
+  features: string[];
+  href: string;
+  ctaLabel: string;
+};
+
+export type PricingComparisonRow = {
+  audience: string;
+  now: string;
+  expansion: string;
+  benefit: string;
+};
+
+export type PricingHowtoBlock = {
+  title: string;
+  text: string;
+};
+
+export type PricingFaqItem = {
+  question: string;
+  answer: string;
+};
+
+export type DetailPageCopy = {
+  metaTitle: string;
+  metaDescription: string;
+  headline: string;
+  subheadline: string;
+  primaryCta: { label: string; href: string };
+  secondaryCta?: { label: string; href: string };
+  sections: Array<{
+    title: string;
+    paragraphs?: string[];
+    bullets?: string[];
+    listIntro?: string;
+  }>;
+};
+
 export const PRICING_STATUS_LABEL: Record<PricingStatus, string | null> = {
   confirmed: null,
   pilot: "Pilotprijs",
-  pending: "In voorbereiding",
+  pending: "Binnenkort",
 };
 
 export const WORKSHOP_COMMISSION_NOTE =
@@ -37,67 +80,234 @@ export const SUPPLIER_COMMISSION_NOTE =
 export const P2P_COMMISSION_NOTE =
   "Geen commissie op P2P-verkoop. Je regelt betaling en verzending rechtstreeks met de koper.";
 
-export const CREDITS_EXPLANATION = {
-  title: "Credits voor publicatie en zichtbaarheid",
-  paragraphs: [
-    "Sommige formules werken met credits: je gebruikt ze om advertenties te publiceren, actief te houden of extra zichtbaarheid te kopen.",
-    "P2P-makers kunnen maximaal 10 actieve handmade- of destash-advertenties hebben. Contentmakers kunnen credits gebruiken voor optionele AI-hulp, vertalingen of promotie — niet om gewone content te publiceren.",
-    "Exacte creditprijzen en betaling volgen bij de commerciële lancering. Op deze pagina's tonen we geen pack-tarieven.",
-  ],
+/* -------------------------------------------------------------------------- */
+/* /prijzen — page chrome                                                     */
+/* -------------------------------------------------------------------------- */
+
+export const PRIJZEN_PAGE = {
+  metaTitle: "Prijzen en mogelijkheden voor aanbieders | Hobbysalon",
+  metaDescription:
+    "Vergelijk de formules voor contentmakers, makers, workshopgevers, organisatoren en hobbymaterialenwinkels. Begin gratis of betaal alleen voor wat je publiceert.",
+  heroLabel: "Prijzen en mogelijkheden",
+  heroHeadline: "Ontdek de route die bij jou past",
+  heroSubheadline:
+    "Deel creatieve kennis, bied handmade werk aan, promoot workshops en evenementen of verkoop hobbymaterialen. Je betaalt voor wat bij jouw aanbod hoort — niet voor één abonnement dat alles moet dekken.",
+  primaryCta: { label: "Ontdek de routes", href: "#routes" },
+  secondaryCta: { label: "Vergelijk de mogelijkheden", href: "#vergelijking" },
+  routesTitle: "Wat wil je aanbieden?",
+  comparisonTitle: "Basis of extra zichtbaarheid?",
+  comparisonIntro:
+    "Je kunt laagdrempelig starten. Uitbreidingen zijn optioneel en lonen pas wanneer je meer bereik of inzicht nodig hebt.",
+  comparisonFootnote:
+    'Uitbreiden betekent niet automatisch een abonnement: afhankelijk van je route werk je met credits, een eventpagina, een promotiepakket of een afspraak op maat. Bij "binnenkort" is de functie gepland, maar nog niet beschikbaar.',
+  howtoTitle: "Hoe werkt de prijsopbouw?",
+  faqTitle: "Veelgestelde vragen",
+  closingTitle: "Klaar om jouw aanbod zichtbaar te maken?",
+  closingDescription:
+    "Kies je route. Op elke detailpagina vind je de volledige uitleg en de eerste stap.",
+  closingLinks: [
+    { label: "Content delen", href: "/voor-contentmakers" },
+    { label: "Verkopen als maker", href: "/voor-makers" },
+    { label: "Workshop publiceren", href: "/voor-workshopgevers" },
+    { label: "Event aankondigen", href: "/voor-organisatoren" },
+    { label: "Materialen verkopen", href: "/voor-winkels" },
+  ] as const,
 };
 
-export const WHY_DIFFERENT_FORMULAS = {
-  title: "Waarom verschillende formules?",
-  text: "Een hobbyist met enkele handmade creaties heeft iets anders nodig dan een professionele materialenwinkel, workshopgever of beursorganisator. Hobbysalon houdt P2P laagdrempelig — zonder commissie op directe verkoop — terwijl merchants meer catalogus-, checkout- en ordermogelijkheden krijgen voor grotere assortimenten.",
-};
+export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
+  {
+    id: "content",
+    title: "Contentmaker — gratis publiceren",
+    description:
+      "Deel tutorials, patronen, projecten en reviews. Hobbysalon herkent de materialen in je content en koppelt ze aan producten, zodat lezers meteen verder kunnen.",
+    features: [
+      "Publiceren is gratis",
+      "Eigen makersprofiel",
+      "Materialenlijsten gekoppeld",
+      "Verdienen via affiliate en digitale patronen: binnenkort",
+    ],
+    href: "/voor-contentmakers",
+    ctaLabel: "Bekijk de mogelijkheden",
+  },
+  {
+    id: "maker",
+    title: "Maker — 3 gratis advertenties, daarna credits",
+    description:
+      "Start met drie gratis advertenties voor je handmade werk of destash. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+    features: [
+      "Eerste 3 advertenties gratis",
+      "Tot 10 extra met credits",
+      "Geen commissie op je verkoop",
+      "Boosts met extra credits",
+    ],
+    href: "/voor-makers",
+    ctaLabel: "Bekijk de mogelijkheden",
+  },
+  {
+    id: "workshop",
+    title: "Workshopgever — €9,99 per workshop, 3 maanden zichtbaar",
+    description:
+      "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
+    features: [
+      "Tot drie sessiedata in één vermelding",
+      "Geen commissie per deelnemer",
+      "Drie maanden zichtbaar, daarna opnieuw te activeren",
+      "Extra promotie: binnenkort",
+    ],
+    href: "/voor-workshopgevers",
+    ctaLabel: "Bekijk de mogelijkheden",
+  },
+  {
+    id: "organizer",
+    title: "Organisator — gratis in de kalender, uitgebreid vanaf €50",
+    description:
+      "Zet je hobbybeurs of makers market gratis in de evenementenkalender. Wil je meer dan datum en locatie tonen, dan kies je een eventpagina.",
+    features: [
+      "Gratis kalendervermelding voor beide eventtypes",
+      "Eventpagina hobbybeurs vanaf €50 per maand",
+      "Eventpagina makers market vanaf €69 per event",
+      "Promotie op maat tijdens de pilot",
+    ],
+    href: "/voor-organisatoren",
+    ctaLabel: "Bekijk de mogelijkheden",
+  },
+  {
+    id: "supplier",
+    title: "Hobbymaterialenwinkel — €0 per maand, 10% commissie",
+    description:
+      "Verkoop professionele hobbymaterialen via Hobbysalon. Geen vast maandbedrag in de basisformule.",
+    features: [
+      "Productcatalogus met varianten en voorraad",
+      "Checkout en orderbeheer",
+      "Verzending via je eigen instellingen",
+      "Premium zichtbaarheid en analyses: binnenkort",
+    ],
+    href: "/voor-winkels",
+    ctaLabel: "Bekijk de mogelijkheden",
+  },
+];
+
+export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
+  {
+    audience: "Contentmaker",
+    now: "Gratis tutorials, patronen, reviews en video's publiceren",
+    expansion: "Digitale patronen verkopen en affiliate-inkomsten — binnenkort",
+    benefit: "Je verdient mee aan de materialen en patronen bij je content",
+  },
+  {
+    audience: "Maker",
+    now: "Gratis profiel en je eerste 3 advertenties gratis",
+    expansion: "Tot 10 extra advertenties en boosts met credits",
+    benefit:
+      "Meer werk tegelijk aanbieden en geselecteerde advertenties tijdelijk hoger in de overzichten",
+  },
+  {
+    audience: "Workshopgever",
+    now: "€9,99 per workshop, drie maanden zichtbaar",
+    expansion: "Promotie en bereikstatistieken — binnenkort",
+    benefit: "Prominentere plaatsing en meetbaar resultaat",
+  },
+  {
+    audience: "Organisator",
+    now: "Gratis vermelding in de evenementenkalender",
+    expansion:
+      "Eventpagina vanaf €50 per maand (hobbybeurs) of €69 per event (makers market)",
+    benefit:
+      "Een volledige pagina met programma, standhouders en updates in plaats van alleen datum en locatie",
+  },
+  {
+    audience: "Hobbymaterialenwinkel",
+    now: "€0 per maand, 10% commissie bij verkoop",
+    expansion: "Premium zichtbaarheid en analyses — binnenkort",
+    benefit: "Meer bereik voor je producten en inzicht in prestaties",
+  },
+];
+
+export const PRICING_HOWTO_BLOCKS: PricingHowtoBlock[] = [
+  {
+    title: "Laagdrempelig beginnen.",
+    text: "Een profiel aanmaken, content publiceren, je eerste drie advertenties plaatsen en je evenement in de kalender zetten is gratis. Verder betaal je per plaatsing, met credits, of alleen wanneer er echt iets verkocht wordt.",
+  },
+  {
+    title: "Uitbreiden wanneer het nuttig wordt.",
+    text: "Extra zichtbaarheid en analyses zijn optioneel. Gebruik je ze niet, dan blijft je basisaanbod gewoon staan.",
+  },
+  {
+    title: "Rollen combineren.",
+    text: "Een maker kan ook tutorials delen of workshops geven. De formule geldt per soort activiteit, niet per persoon.",
+  },
+];
+
+export const PRICING_PAGE_FAQ: PricingFaqItem[] = [
+  {
+    question: "Moet ik een abonnement nemen?",
+    answer:
+      "Nee. Contentmakers publiceren gratis, makers werken met credits, organisatoren staan gratis in de kalender, workshopgevers betalen per vermelding en winkels betalen in de basis alleen commissie bij verkoop.",
+  },
+  {
+    question: "Wat kan ik gratis doen op Hobbysalon?",
+    answer:
+      "Een profiel aanmaken, tutorials en patronen publiceren, je eerste drie makersadvertenties plaatsen, en je hobbybeurs of makers market in de evenementenkalender zetten. Daar zijn geen kosten aan verbonden.",
+  },
+  {
+    question: "Wat zijn credits?",
+    answer:
+      "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten worden bij de commerciële lancering getoond.",
+  },
+  {
+    question: "Kan ik meerdere soorten aanbod publiceren?",
+    answer:
+      "Ja, vanuit hetzelfde profiel. Je kunt bijvoorbeeld contentmaker én workshopgever zijn.",
+  },
+  {
+    question: 'Wat betekent "binnenkort"?',
+    answer:
+      "De functie is gepland, maar heeft nog geen tarief of vaste datum. Je hoeft er niet op te wachten om met de basisformule te starten.",
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Offer cards (detail / SingleOfferSection)                                  */
+/* -------------------------------------------------------------------------- */
 
 export const CONTENT_CREATOR_OFFER: PublicPricingOffer = {
   id: "content",
-  audience: "Content creators",
+  audience: "Contentmakers",
   title: "Gratis publiceren",
   priceLabel: "Gratis",
-  periodLabel: "tutorials, projecten, patronen, reviews en video's",
+  periodLabel: "tutorials, patronen, projecten en reviews",
   status: "confirmed",
   description:
-    "Publiceer creatieve content zonder te betalen voor een plaatsing. Materialen kunnen gekoppeld worden aan de centrale productdatabase.",
+    "Deel tutorials, patronen, projecten en reviews. Hobbysalon herkent de materialen in je content en koppelt ze aan producten, zodat lezers meteen verder kunnen.",
   features: [
-    "Tutorials, projecten, patronen, reviews en video's",
-    "Materialenlijsten koppelen aan producten en winkels",
-    "Makersprofiel en vindbaarheid in inspiratie",
-    "Credits optioneel voor AI, vertalingen, SEO of extra promotie",
-  ],
-  limitations: [
-    "Affiliate-inkomsten staan in voorbereiding — geen vaste verdeling gepubliceerd",
-    "Geen checkout voor content zelf",
+    "Publiceren is gratis",
+    "Eigen makersprofiel",
+    "Materialenlijsten gekoppeld",
+    "Verdienen via affiliate en digitale patronen: binnenkort",
   ],
   href: "/register/creator",
-  ctaLabel: "Start als contentmaker",
-  finePrint: "Gratis publiceren geldt voor standaard content. Optionele credits volgen later.",
+  ctaLabel: "Word contentmaker",
 };
 
 export const P2P_MAKER_OFFER: PublicPricingOffer = {
   id: "handmade",
-  audience: "P2P-makers",
+  audience: "Makers",
   title: "Handmade en destash",
-  priceLabel: "Credits",
-  periodLabel: "maximaal 10 actieve advertenties · geen commissie",
+  priceLabel: "3 gratis",
+  periodLabel: "daarna tot 10 extra met credits · geen commissie",
   status: "confirmed",
   description:
-    "Voor hobbyisten en makers die zelfgemaakte creaties of destash tonen — niet voor professionele materiaalverkoop.",
+    "Start met drie gratis advertenties voor je handmade werk of destash. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
   features: [
-    "Gratis makersprofiel",
-    "Maximaal 10 actieve handmade- of destash-advertenties",
-    "Geen commissie op P2P-verkoop",
-    "Aanvragen via Hobbysalon; jij regelt verkoop en betaling",
-    "Credits voor publicatie, verlenging en boosts",
-  ],
-  limitations: [
-    "Geen professionele webshop-checkout",
-    "Minder catalogus- en ordertools dan een merchant",
-    "Professionele materialen → zie hobbymaterialenwinkels",
+    "Eerste 3 advertenties gratis",
+    "Tot 10 extra met credits",
+    "Geen commissie op je verkoop",
+    "Boosts met extra credits",
   ],
   href: "/register/creator",
-  ctaLabel: "Start als maker",
+  ctaLabel: "Maak je makersprofiel",
+  finePrint:
+    "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
 };
 
 export const WORKSHOP_OFFER: PublicPricingOffer = {
@@ -105,171 +315,345 @@ export const WORKSHOP_OFFER: PublicPricingOffer = {
   audience: "Workshopgevers",
   title: "Workshopvermelding",
   priceLabel: "€9,99",
-  periodLabel: "3 maanden zichtbaar per unieke workshop",
+  periodLabel: "per workshop, 3 maanden zichtbaar",
   status: "confirmed",
   description:
-    "Eén prijs per workshopvermelding, inclusief sessiedata binnen de zichtbaarheidstermijn. Jij beheert contact, inschrijving en betaling.",
+    "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
   features: [
-    "Workshoppagina met foto's, beschrijving en praktische info",
-    "Datum, locatie, prijs en doelgroep",
-    "Materialenlijst en koppeling met tutorials",
-    "Profiel van de workshopgever",
-    "Contact of externe inschrijflink waar de UI dat toelaat",
+    "Tot drie sessiedata in één vermelding",
     "Geen commissie per deelnemer",
-  ],
-  limitations: [
-    "Geen abonnement",
-    "Geen automatische verlenging — na 3 maanden opnieuw zichtbaar maken",
-    "Geen betaling per lead of per boeking via Hobbysalon",
+    "Drie maanden zichtbaar, daarna opnieuw te activeren",
+    "Extra promotie: binnenkort",
   ],
   href: "/register/creator",
   ctaLabel: "Plaats je workshop",
-  finePrint:
-    "Prijsmodel voor lancering; betalen en checkout volgen later. Zichtbaarheid start bij publicatie.",
+  finePrint: "Prijsmodel voor lancering.",
 };
 
 export const HOBBYBEURZEN_OFFER: PublicPricingOffer = {
-  id: "hobbybeurs",
+  id: "hobbybeurzen",
   audience: "Organisatoren",
-  title: "Hobbybeurs promotie",
+  title: "Eventpagina hobbybeurs",
   priceLabel: "vanaf €50",
-  periodLabel: "per maand (pilot)",
+  periodLabel: "per maand · Pilotprijs",
   status: "pilot",
-  description: "Uitgebreide eventpagina, agenda en optionele promotie voor hobbybeurzen.",
+  description:
+    "Gratis in de evenementenkalender. Wil je meer dan datum en locatie tonen, dan kies je een eventpagina.",
   features: [
-    "Uitgebreide beurs- en programmapagina",
-    "Datum, locatie en programma",
-    "Zichtbaarheid in de agenda",
-    "Deelnemende standhouders en workshopgevers tonen",
-    "Optionele promotie en bereikstatistieken wanneer beschikbaar",
-  ],
-  limitations: [
-    "Pilotprijs — definitieve scope en checkout volgen",
-    "Geen automatische ticketverkoop als standaard",
+    "Programma en tijdschema",
+    "Deelnemende standhouders en makers",
+    "Workshops en activiteiten tijdens het evenement",
+    "Foto's en sfeerbeelden van vorige edities",
+    "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
+    "Updates voor bezoekers in de aanloop naar de dag zelf",
   ],
   href: "/register/creator",
-  ctaLabel: "Bekijk aanbod voor organisatoren",
+  ctaLabel: "Bespreek een eventpagina",
+  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
 };
 
 export const MAKERS_MARKET_OFFER: PublicPricingOffer = {
   id: "makers_market",
   audience: "Organisatoren",
-  title: "Makers market promotie",
+  title: "Eventpagina makers market",
   priceLabel: "vanaf €69",
-  periodLabel: "per event (pilot)",
+  periodLabel: "per event · Pilotprijs",
   status: "pilot",
-  description: "Eventvermelding voor makers markets met deelnemende makers en workshops.",
+  description:
+    "Gratis in de evenementenkalender. Wil je meer dan datum en locatie tonen, dan kies je een eventpagina.",
   features: [
-    "Uitgebreide eventpagina",
-    "Vermelding in de evenementenkalender",
-    "Deelnemende makers tonen",
-    "Workshops en demonstraties",
-    "Optionele promotie via inspiratie en nieuwsbrief",
-  ],
-  limitations: [
-    "Pilotprijs — definitieve scope en checkout volgen",
-    "Eenmalige eventvermelding, geen maandabonnement",
+    "Programma en tijdschema",
+    "Deelnemende standhouders en makers",
+    "Workshops en activiteiten tijdens het evenement",
+    "Foto's en sfeerbeelden van vorige edities",
+    "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
+    "Updates voor bezoekers in de aanloop naar de dag zelf",
   ],
   href: "/register/creator",
-  ctaLabel: "Bekijk aanbod voor organisatoren",
+  ctaLabel: "Bespreek een eventpagina",
+  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
 };
 
 export const SUPPLIER_OFFER: PublicPricingOffer = {
   id: "webshop",
   audience: "Hobbymaterialenwinkels",
-  title: "Merchant verkoop",
-  priceLabel: "€0",
-  periodLabel: "per maand + 10% commissie per verkoop",
+  title: "Basisformule",
+  priceLabel: "€0 / maand",
+  periodLabel: "10% commissie op verkopen via Hobbysalon",
   status: "confirmed",
   description:
-    "Professionele materialenverkoop via Hobbysalon checkout — meer mogelijkheden dan P2P-handmade.",
+    "Verkoop professionele hobbymaterialen via Hobbysalon. Geen vast maandbedrag in de basisformule.",
   features: [
-    "Merchantprofiel en professionele productcatalogus",
-    "Voorraad, varianten, bestellingen en verzending",
-    "Checkout en orderbeheer via Hobbysalon",
-    "Zichtbaarheid naast tutorials, projecten en workshops",
-    "10% commissie op verkopen via het platform",
-  ],
-  limitations: [
-    "Geen P2P-aanvraagflow — dit is merchant-commerce",
-    "Premium promotie en analytics: in voorbereiding, geen vast tarief gepubliceerd",
+    "Productcatalogus met varianten en voorraad",
+    "Checkout en orderbeheer",
+    "Verzending via je eigen instellingen",
+    "Premium zichtbaarheid en analyses: binnenkort",
   ],
   href: "/register/merchant",
-  ctaLabel: "Start als winkel",
-  finePrint: SUPPLIER_COMMISSION_NOTE,
+  ctaLabel: "Meld je winkel aan",
 };
 
 export const SUPPLIER_PREMIUM_NOTE: PublicPricingOffer = {
   id: "webshop_premium",
   audience: "Hobbymaterialenwinkels",
   title: "Premium zichtbaarheid",
-  priceLabel: "Optioneel",
+  priceLabel: "Binnenkort",
   status: "pending",
-  description: "Extra zichtbaarheid, promotie en analytics voor merchants — tarief volgt bij lancering.",
+  description:
+    "Premium zichtbaarheid (uitgelichte plaatsing in categorieën en nieuwsbrief) en verkoopanalyses zijn in ontwikkeling. Tarieven en beschikbaarheid volgen.",
   features: [
-    "Hogere categoriepositie",
-    "Uitgelichte winkel",
-    "Promotie in inspiratiecontext",
-    "Uitgebreidere analyses",
+    "Uitgelichte plaatsing in categorieën",
+    "Nieuwsbrief",
+    "Verkoopanalyses",
   ],
   href: "/register/merchant",
-  ctaLabel: "Start als winkel",
+  ctaLabel: "Meld je winkel aan",
 };
 
+/** @deprecated Prefer PRICING_ROUTE_CARDS — kept for any remaining offer-array consumers */
 export const PRICING_OVERVIEW_OFFERS: PublicPricingOffer[] = [
   CONTENT_CREATOR_OFFER,
   P2P_MAKER_OFFER,
   WORKSHOP_OFFER,
   {
     ...HOBBYBEURZEN_OFFER,
-    title: "Eventpromotie",
-    description: "Hobbybeurzen en makers markets — aparte pilotformules.",
+    title: "Organisator — gratis in de kalender, uitgebreid vanaf €50",
+    description:
+      "Zet je hobbybeurs of makers market gratis in de evenementenkalender. Wil je meer dan datum en locatie tonen, dan kies je een eventpagina.",
     href: "/voor-organisatoren",
-    ctaLabel: "Voor organisatoren",
+    ctaLabel: "Bekijk de mogelijkheden",
   },
   SUPPLIER_OFFER,
 ];
 
-export const PARTNER_AUDIENCE_CARDS = [
-  {
-    title: "Content creators",
-    text: "Publiceer gratis tutorials, projecten en patronen. Materialen koppelen aan de productgrafiek.",
-    ctaLabel: "Voor contentmakers",
-    href: "/voor-contentmakers",
-  },
-  {
-    title: "P2P-makers",
-    text: "Maximaal 10 handmade-advertenties, geen commissie. Credits voor publicatie en boosts.",
-    ctaLabel: "Voor makers",
-    href: "/voor-makers",
-  },
-  {
-    title: "Workshopgevers",
-    text: `Plaats je workshop drie maanden voor €9,99. ${WORKSHOP_COMMISSION_NOTE}`,
-    ctaLabel: "Voor workshopgevers",
-    href: "/voor-workshopgevers",
-  },
-  {
-    title: "Organisatoren",
-    text: "Promoot hobbybeurzen en makers markets in de creatieve agenda.",
-    ctaLabel: "Voor organisatoren",
-    href: "/voor-organisatoren",
-  },
-  {
-    title: "Hobbymaterialenwinkels",
-    text: "€0 per maand en 10% commissie op verkopen via Hobbysalon checkout.",
-    ctaLabel: "Voor winkels",
-    href: "/voor-winkels",
-  },
-  {
-    title: "Iets moois maken",
-    text: "Ontdek workshops, materialen, makers en events op één plek.",
-    ctaLabel: "Voor hobbyisten",
-    href: "/voor-hobbyisten",
-  },
-];
+/* -------------------------------------------------------------------------- */
+/* Detail pages — verbatim brief                                              */
+/* -------------------------------------------------------------------------- */
 
-export const WORKSHOP_FAQ = [
+export const CONTENT_PAGE: DetailPageCopy = {
+  metaTitle: "Contentmakers | Gratis publiceren",
+  metaDescription:
+    "Publiceer tutorials, patronen en praktische gidsen onder je eigen makersprofiel — gratis. Materialen koppelen aan producten. Affiliate en digitale patronen: binnenkort.",
+  headline: "Deel je kennis. Verdien mee aan wat je maakt.",
+  subheadline:
+    "Publiceer tutorials, patronen en praktische gidsen onder je eigen makersprofiel — gratis, vanaf vandaag. Hobbysalon zorgt dat je content vindbaar is bij een community van ruim 40.000 hobbyisten.",
+  primaryCta: { label: "Word contentmaker", href: "/register/creator" },
+  secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
+  sections: [
+    {
+      title: "Zo werkt de materiaalkoppeling",
+      paragraphs: [
+        "Hobbysalon herkent de materialen die je in je tutorial gebruikt en koppelt ze aan passende producten uit de catalogus. Je lezer ziet direct waar het garen, papier of gereedschap te koop is en hoeft niet zelf te zoeken. Jij hoeft alleen je project te beschrijven.",
+      ],
+    },
+    {
+      title: "Binnenkort: verkopen en verdienen",
+      paragraphs: [
+        "De verkoop van digitale patronen en het affiliateprogramma voor contentmakers zijn in ontwikkeling. Bij een aankoop via jouw persoonlijke link ontvang je dan een vergoeding. Voorwaarden en inkomstenverdeling maken we bekend zodra de functie live gaat. Publiceer je nu al, dan staat je content klaar op het moment dat het zover is.",
+      ],
+    },
+  ],
+};
+
+export const MAKERS_PAGE: DetailPageCopy = {
+  metaTitle: "Handmade en destash verkopen | Makers",
+  metaDescription:
+    "Maak gratis een makersprofiel en plaats je eerste drie advertenties zonder te betalen. Tot 10 extra met credits. Geen commissie op je verkoop.",
+  headline: "Verkoop je handmade werk. Zonder commissie.",
+  subheadline:
+    "Maak gratis een makersprofiel aan en plaats je eerste drie advertenties zonder te betalen: handgemaakte creaties, of materialen uit je eigen voorraad die je niet meer gebruikt. Geïnteresseerden nemen rechtstreeks contact met je op — Hobbysalon zit niet tussen jou en je koper.",
+  primaryCta: { label: "Maak je makersprofiel", href: "/register/creator" },
+  secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
+  sections: [
+    {
+      title: "Zo werkt het",
+      paragraphs: [
+        "Je plaatst een advertentie met foto's, beschrijving en vraagprijs. Een geïnteresseerde stuurt je een bericht via je profiel. Prijs, betaling en verzending spreek je onderling af. Wat je verkoopt, houd je volledig zelf.",
+      ],
+    },
+    {
+      title: "Twee soorten advertenties",
+      bullets: [
+        "Handmade — je eigen creaties: gehaakt, genaaid, gedraaid, geschilderd. Alles wat je met de hand maakt.",
+        "Destash — garen, stof, kralen, gereedschap of materiaal uit je voorraad dat een nieuwe bestemming verdient.",
+      ],
+    },
+    {
+      title: "Begin met drie gratis advertenties",
+      paragraphs: [
+        "Je profiel en je eerste drie advertenties kosten niets. Genoeg om te testen of Hobbysalon werkt voor jouw werk, zonder vooraf iets uit te geven.",
+      ],
+    },
+    {
+      title: "Uitbreiden met credits",
+      paragraphs: [
+        "Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits. Je betaalt per plaatsing, niet per maand — geen abonnement, geen vaste kost. Ook het verlengen van een aflopende advertentie gaat met credits. Verleng je niet, dan verdwijnt de advertentie vanzelf uit de overzichten en komt de plek weer vrij.",
+        "Met extra credits kun je een advertentie tijdelijk boosten: hij verschijnt dan hoger in de overzichten en in de uitgelichte plaatsingen op relevante pagina's. Nuttig voor seizoensgebonden werk of een grote destash die snel weg moet.",
+        "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
+      ],
+    },
+    {
+      title: "Waarom hier en niet op een algemene marktplaats",
+      paragraphs: [
+        "De bezoekers van Hobbysalon zijn zelf hobbyist. Ze weten wat merinowol kost, herkennen goed afgewerkt werk en zoeken gericht naar materialen voor hun eigen project. Je hoeft minder uit te leggen en je verkoopt aan mensen die de waarde van handwerk kennen.",
+      ],
+    },
+  ],
+};
+
+export const WORKSHOP_PAGE: DetailPageCopy = {
+  metaTitle: "Workshops aanbieden | €9,99 voor 3 maanden",
+  metaDescription:
+    "Presenteer je workshop aan hobbyisten die actief op zoek zijn naar nieuwe technieken. €9,99 per vermelding, drie maanden zichtbaar. Geen commissie per deelnemer.",
+  headline: "Zet je workshop op de kaart",
+  subheadline:
+    "Presenteer je workshop aan hobbyisten die actief op zoek zijn naar nieuwe technieken. Deelnemers schrijven zich rechtstreeks bij jou in — Hobbysalon rekent geen commissie per deelnemer.",
+  primaryCta: { label: "Plaats je workshop", href: "/register/creator" },
+  secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
+  sections: [
+    {
+      title: "In één vermelding",
+      bullets: [
+        "Foto's, beschrijving en praktische informatie",
+        "datum, locatie, prijs en doelgroep",
+        "tot drie sessiedata",
+        "benodigde materialen gekoppeld aan de catalogus",
+        "je eigen contactgegevens of externe inschrijflink",
+      ],
+    },
+    {
+      title: "Controleer je data vóór publicatie",
+      paragraphs: [
+        "De sessiedata worden vastgelegd op het moment dat je publiceert en kunnen daarna niet meer worden aangepast. Neem de datums en tijden dus rustig door voor je op publiceren klikt.",
+      ],
+    },
+    {
+      title: "€9,99 per workshopvermelding.",
+      paragraphs: ["Drie maanden zichtbaar, daarna opnieuw te activeren."],
+    },
+  ],
+};
+
+export const ORGANIZER_PAGE: DetailPageCopy = {
+  metaTitle: "Hobbybeurzen en makers markets | Organisatoren",
+  metaDescription:
+    "Zet je hobbybeurs of makers market gratis in de evenementenkalender. Eventpagina vanaf €50 per maand (hobbybeurs) of €69 per event (makers market).",
+  headline: "Begin gratis in de kalender",
+  subheadline:
+    "Elke hobbybeurs en elke makers market kan gratis worden opgenomen in de evenementenkalender van Hobbysalon. Bezoekers die naar creatieve evenementen zoeken, vinden je daar terug — zonder dat je iets betaalt.",
+  primaryCta: {
+    label: "Zet je evenement in de kalender",
+    href: "/register/creator",
+  },
+  secondaryCta: {
+    label: "Bespreek een eventpagina",
+    href: "/register/creator",
+  },
+  sections: [
+    {
+      title: "Wat een gratis kalendervermelding toont",
+      bullets: [
+        "Naam van je evenement",
+        "datum en openingsuren",
+        "locatie",
+        "eventtype (hobbybeurs of makers market)",
+        "een link naar je eigen website of Facebookpagina",
+      ],
+      paragraphs: [
+        "Dat is genoeg om gevonden te worden. Meer heb je niet nodig om te starten.",
+      ],
+    },
+    {
+      title: "Wil je meer laten zien? Kies een eventpagina",
+      listIntro: "Een eventpagina is je eigen plek op Hobbysalon, met ruimte voor het volledige verhaal:",
+      bullets: [
+        "Programma en tijdschema",
+        "Deelnemende standhouders en makers",
+        "Workshops en activiteiten tijdens het evenement",
+        "Foto's en sfeerbeelden van vorige edities",
+        "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
+        "Updates voor bezoekers in de aanloop naar de dag zelf",
+      ],
+    },
+    {
+      title: "Tarieven tijdens de pilot",
+      paragraphs: [
+        "Hobbybeurs: eventpagina vanaf €50 per maand · Makers market: eventpagina vanaf €69 per event.",
+        "Extra promotie — nieuwsbrief, uitgelichte plaatsing of een bredere zichtbaarheidscampagne — bespreken we tijdens de pilot op maat.",
+      ],
+    },
+    {
+      title: "Twijfel je?",
+      paragraphs: [
+        "Zet je evenement eerst gratis in de kalender. Loopt het goed, dan kun je later nog altijd upgraden naar een volledige eventpagina.",
+      ],
+    },
+  ],
+};
+
+export const SUPPLIER_PAGE: DetailPageCopy = {
+  metaTitle: "Hobbymaterialen verkopen | €0 + 10% commissie",
+  metaDescription:
+    "Verkoop professionele hobbymaterialen via Hobbysalon. €0 per maand, 10% commissie bij verkoop. Geen instapkosten, geen listinglimiet, geen jaarcontract.",
+  headline: "Verkoop je hobbymaterialen aan een publiek dat weet wat het zoekt",
+  subheadline:
+    "Hobbysalon brengt professionele hobbymaterialenwinkels samen met een community van ruim 40.000 creatieve hobbyisten. Je betaalt geen vast maandbedrag: in de basisformule reken je alleen af wanneer er daadwerkelijk verkocht wordt.",
+  primaryCta: { label: "Meld je winkel aan", href: "/register/merchant" },
+  secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
+  sections: [
+    {
+      title: "€0 per maand · 10% commissie op verkopen via Hobbysalon",
+      paragraphs: [
+        "Geen instapkosten, geen listinglimiet, geen jaarcontract. Verkoop je niets, dan betaal je niets.",
+      ],
+    },
+    {
+      title: "Wat je krijgt",
+      bullets: [
+        "Volledige productcatalogus met varianten (kleur, maat, gewicht), voorraadbeheer en eigen verzendinstellingen.",
+        "Checkout en orderbeheer binnen Hobbysalon — je klant rondt af zonder de site te verlaten, jij verwerkt de bestelling vanuit je eigen dashboard.",
+        "Winkelprofiel met je verhaal, assortiment en — als je een fysieke winkel hebt — je locatie en openingsuren.",
+        "Koppeling met content: gebruikt een contentmaker jouw product in een tutorial, dan verschijnt het bij de materialenlijst van dat artikel. Zo bereik je kopers op het moment dat ze het materiaal echt nodig hebben.",
+      ],
+    },
+    {
+      title: "Zowel online als fysiek",
+      paragraphs: [
+        "Heb je een winkel in de straat en geen webshop? Dan is Hobbysalon je online verkoopkanaal. Heb je er al een? Dan is dit een extra vindplaats voor je assortiment, gericht op de doelgroep die je toch al bedient.",
+      ],
+    },
+    {
+      title: "Binnenkort",
+      paragraphs: [
+        "Premium zichtbaarheid (uitgelichte plaatsing in categorieën en nieuwsbrief) en verkoopanalyses zijn in ontwikkeling. Tarieven en beschikbaarheid volgen. De basisformule blijft ongewijzigd beschikbaar.",
+      ],
+    },
+    {
+      title: "Onboarding",
+      paragraphs: [
+        "Je hoeft je catalogus niet met de hand in te voeren. Bij aanmelding kijken we samen naar de snelste route om je assortiment binnen te halen.",
+      ],
+    },
+  ],
+};
+
+/* -------------------------------------------------------------------------- */
+/* Legacy explainers / FAQs kept for imports                                  */
+/* -------------------------------------------------------------------------- */
+
+export const CREDITS_EXPLANATION = {
+  title: "Wat zijn credits?",
+  paragraphs: [
+    "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten worden bij de commerciële lancering getoond.",
+  ],
+};
+
+export const WHY_DIFFERENT_FORMULAS = {
+  title: "Hoe werkt de prijsopbouw?",
+  text: "Een profiel aanmaken, content publiceren, je eerste drie advertenties plaatsen en je evenement in de kalender zetten is gratis. Verder betaal je per plaatsing, met credits, of alleen wanneer er echt iets verkocht wordt.",
+};
+
+export const WORKSHOP_FAQ: PricingFaqItem[] = [
   {
     question: "Nemen jullie commissie op mijn workshops?",
     answer:
@@ -278,45 +662,38 @@ export const WORKSHOP_FAQ = [
   {
     question: "Moet ik een boekingssysteem van Hobbysalon gebruiken?",
     answer:
-      "Nee. Deelnemers kunnen contact opnemen via Hobbysalon. Jij regelt inschrijving en betaling zelf. Een externe inschrijflink is mogelijk waar de workshop-UI dat toelaat.",
+      "Nee. Deelnemers schrijven zich rechtstreeks bij jou in. Een externe inschrijflink is mogelijk waar de workshop-UI dat toelaat.",
   },
   {
-    question: "Wanneer start de zichtbaarheid?",
-    answer: "Bij publicatie van je workshopvermelding. Na drie maanden is de vermelding niet meer actief zichtbaar tot je vernieuwt.",
-  },
-  {
-    question: "Is er automatische verlenging?",
-    answer: "Nee. Na afloop maak je opnieuw zichtbaar via betaling of credits — dat volgt bij de commerciële lancering.",
+    question: "Kunnen sessiedata na publicatie nog wijzigen?",
+    answer:
+      "Nee. De sessiedata worden vastgelegd op het moment dat je publiceert. Controleer datums en tijden rustig vóór je publiceert.",
   },
 ];
 
-export const MAKERS_FAQ = [
+export const MAKERS_FAQ: PricingFaqItem[] = [
   {
     question: "Hoe werkt een aanvraag?",
     answer:
-      "Een bezoeker stuurt een bericht via Hobbysalon. Jij neemt contact op om verkoop, betaling en verzending te regelen.",
+      "Een geïnteresseerde stuurt je een bericht via je profiel. Prijs, betaling en verzending spreek je onderling af.",
   },
   {
     question: "Betaal ik commissie?",
-    answer: "Nee. Op P2P-handmade en destash geldt geen verkoopcommissie.",
+    answer: "Nee. Geen commissie op je verkoop.",
   },
   {
     question: "Hoeveel advertenties kan ik tonen?",
-    answer: "Maximaal 10 actieve handmade- of destash-advertenties tegelijk.",
-  },
-  {
-    question: "Verkoop ik materialen als winkel?",
     answer:
-      "Nee. Professionele materialenverkoop hoort bij hobbymaterialenwinkels (merchant). Zie /voor-winkels.",
+      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits.",
   },
   {
     question: "Wat kosten credits?",
     answer:
-      "Credits gebruik je voor publicatie, verlenging en extra zichtbaarheid. Packprijzen publiceren we pas bij de lancering.",
+      "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
   },
 ];
 
-export const SUPPLIER_FAQ = [
+export const SUPPLIER_FAQ: PricingFaqItem[] = [
   {
     question: "Gaat de klant naar mijn eigen webshop?",
     answer: "Nee. Verkoop verloopt via Hobbysalon checkout.",
@@ -330,71 +707,65 @@ export const SUPPLIER_FAQ = [
     answer: "€0 vaste maandelijkse basiskost. Alleen commissie bij verkoop.",
   },
   {
-    question: "Hoe verschilt dit van P2P-makers?",
-    answer:
-      "Merchants krijgen catalogus, voorraad, varianten, checkout, verzending en grotere assortimenten. P2P-makers tonen maximaal 10 handmade-advertenties zonder commissie.",
-  },
-  {
     question: "Wat is Premium?",
     answer:
-      "Optionele extra zichtbaarheid en analytics — tarief volgt bij lancering. Geen verplicht abonnement.",
+      "Premium zichtbaarheid en analyses: binnenkort. Tarieven volgen. De basisformule blijft ongewijzigd.",
   },
 ];
 
-export const ORGANIZER_FAQ = [
+export const ORGANIZER_FAQ: PricingFaqItem[] = [
   {
-    question: "Verkopen jullie tickets?",
-    answer: "Niet als standaard. Met pilotpromotie kun je bezoekers naar je eigen ticketflow leiden.",
-  },
-  {
-    question: "Wat is het verschil tussen hobbybeurs en makers market?",
+    question: "Moet ik betalen om in de kalender te staan?",
     answer:
-      "Hobbybeurzen zijn grotere periodieke events (pilot: vanaf €50/maand). Makers markets zijn compactere events (pilot: vanaf €69 per event).",
+      "Nee. Elke hobbybeurs en elke makers market kan gratis worden opgenomen in de evenementenkalender.",
   },
   {
-    question: "Kunnen standhouders zich aanmelden?",
-    answer: "Ja. Bezoekers en standhouders kunnen via Hobbysalon contact opnemen.",
+    question: "Wat is een eventpagina?",
+    answer:
+      "Een volledige pagina met programma, standhouders, workshops, foto's, praktische info en updates — meer dan alleen datum en locatie.",
+  },
+  {
+    question: "Wat kosten eventpagina's tijdens de pilot?",
+    answer:
+      "Hobbybeurs: vanaf €50 per maand. Makers market: vanaf €69 per event. Extra promotie bespreken we op maat.",
   },
 ];
 
-export const CONTENT_FAQ = [
+export const CONTENT_FAQ: PricingFaqItem[] = [
   {
     question: "Betaal ik om content te publiceren?",
-    answer: "Nee. Tutorials, projecten, patronen, reviews en video's publiceren is gratis.",
+    answer: "Nee. Publiceren is gratis.",
   },
   {
     question: "Verdien ik aan affiliate?",
     answer:
-      "Affiliate-inkomsten staan in voorbereiding. We publiceren geen vaste verdeling tot het model live is.",
-  },
-  {
-    question: "Waarvoor gebruik ik credits?",
-    answer: "Optioneel voor AI-teksten, vertalingen, SEO-hulp of extra zichtbaarheid — niet voor standaard publicatie.",
+      "Verdienen via affiliate en digitale patronen: binnenkort. Voorwaarden maken we bekend zodra de functie live gaat.",
   },
 ];
 
-export const PARTNERS_FAQ = [
+export const PARTNERS_FAQ: PricingFaqItem[] = [
   {
     question: "Voor wie is Hobbysalon?",
     answer:
-      "Contentmakers, P2P-makers, workshopgevers, hobbymaterialenwinkels en eventorganisatoren — plus hobbyisten die iets moois willen maken.",
+      "Contentmakers, makers, workshopgevers, hobbymaterialenwinkels en eventorganisatoren — plus hobbyisten die iets moois willen maken.",
   },
   {
     question: "Waar vind ik alle prijzen?",
-    answer: "Op /prijzen staat een overzicht per doelgroep, zonder verouderde jaarplannen.",
+    answer: "Op /prijzen staat een overzicht per doelgroep.",
   },
   {
     question: "Kan ik meerdere rollen hebben?",
-    answer: "Ja. Veel partners combineren rollen. Kies per activiteit de juiste formule.",
+    answer:
+      "Ja, vanuit hetzelfde profiel. Je kunt bijvoorbeeld contentmaker én workshopgever zijn.",
   },
   {
     question: "Werkt Hobbysalon met commissie?",
     answer:
-      "Alleen op merchant-verkoop van materialen (10%). P2P-handmade heeft geen commissie. Workshops: vaste vermelding, geen commissie per deelnemer.",
+      "Alleen op merchant-verkoop van materialen (10%). Makers hebben geen commissie. Workshops: vaste vermelding, geen commissie per deelnemer.",
   },
 ];
 
-/** @deprecated Use WORKSHOP_OFFER — kept for imports migrating off plan cards */
+/** @deprecated Use WORKSHOP_OFFER */
 export const WORKSHOP_PLANS = [] as const;
 
 /** @deprecated Use SUPPLIER_OFFER */

@@ -37,7 +37,20 @@ export type { TrustBulletsProps } from "./trust-bullets";
 export { PublicPricingCards } from "./public-pricing-cards";
 export type { PublicPricingCardsProps } from "./public-pricing-cards";
 
+export { PricingRouteCards } from "./pricing-route-cards";
+export type { PricingRouteCardsProps } from "./pricing-route-cards";
+
+export { PricingComparisonTable } from "./pricing-comparison-table";
+export type { PricingComparisonTableProps } from "./pricing-comparison-table";
+
 export { SingleOfferSection } from "./single-offer-section";
 export type { SingleOfferSectionProps } from "./single-offer-section";
 
-export { PricingExplainerSections } from "./pricing-explainer-sections";
+export {
+  PricingExplainerSections,
+  PricingClosingLinks,
+} from "./pricing-explainer-sections";
+export type { PricingClosingLinksProps } from "./pricing-explainer-sections";
+
+export { MarketingNarrativeSections } from "./marketing-narrative-sections";
+export type { MarketingNarrativeSectionsProps } from "./marketing-narrative-sections";

@@ -1,16 +1,20 @@
 import { buildPageMetadata } from "@/lib/seo";
 import {
   MarketingHero,
-  PublicPricingCards,
+  PricingRouteCards,
+  PricingComparisonTable,
   PricingExplainerSections,
-  FinalCtaSection,
+  PricingClosingLinks,
 } from "@/components/marketing";
-import { PRICING_OVERVIEW_OFFERS } from "@/lib/pricing/public-pricing";
+import {
+  PRIJZEN_PAGE,
+  PRICING_ROUTE_CARDS,
+  PRICING_COMPARISON_ROWS,
+} from "@/lib/pricing/public-pricing";
 
 export const metadata = buildPageMetadata({
-  title: "Prijzen voor makers, workshops, winkels en events | Hobbysalon",
-  description:
-    "Bekijk de formules van Hobbysalon voor content creators, P2P-makers, workshopgevers, organisatoren en hobbymaterialenwinkels.",
+  title: "Prijzen en mogelijkheden voor aanbieders",
+  description: PRIJZEN_PAGE.metaDescription,
   path: "/prijzen",
 });
 
@@ -18,25 +22,29 @@ export default function PrijzenPage() {
   return (
     <>
       <MarketingHero
-        headline="Formules voor elke soort aanbieder"
-        subheadline="Hobbysalon is geen gewone webshop. Content, handmade, workshops, events en materialen hangen samen in één creatieve grafiek — met een formule die past bij jouw rol."
-        primaryCta={{ label: "Kies je doelgroep", href: "#formules" }}
-        secondaryCta={{ label: "Zakelijk overzicht", href: "/partners" }}
+        label={PRIJZEN_PAGE.heroLabel}
+        headline={PRIJZEN_PAGE.heroHeadline}
+        subheadline={PRIJZEN_PAGE.heroSubheadline}
+        primaryCta={PRIJZEN_PAGE.primaryCta}
+        secondaryCta={PRIJZEN_PAGE.secondaryCta}
       />
-      <PublicPricingCards
-        id="formules"
-        title="Vijf routes op Hobbysalon"
-        description="Geen abonnementsvergelijkingstabel — wel een helder overzicht per type aanbieder."
-        offers={PRICING_OVERVIEW_OFFERS}
+      <PricingRouteCards
+        id="routes"
+        title={PRIJZEN_PAGE.routesTitle}
+        cards={PRICING_ROUTE_CARDS}
+      />
+      <PricingComparisonTable
+        id="vergelijking"
+        title={PRIJZEN_PAGE.comparisonTitle}
+        description={PRIJZEN_PAGE.comparisonIntro}
+        footnote={PRIJZEN_PAGE.comparisonFootnote}
+        rows={PRICING_COMPARISON_ROWS}
       />
       <PricingExplainerSections />
-      <FinalCtaSection
-        title="Klaar om te starten?"
-        description="Registreer je als creator of merchant, of bekijk de detailpagina voor jouw rol."
-        href="/partners"
-        ctaText="Bekijk alle routes"
-        secondaryHref="/register/creator"
-        secondaryText="Registreer als creator"
+      <PricingClosingLinks
+        title={PRIJZEN_PAGE.closingTitle}
+        description={PRIJZEN_PAGE.closingDescription}
+        links={PRIJZEN_PAGE.closingLinks}
       />
     </>
   );
