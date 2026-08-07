@@ -111,6 +111,7 @@ Main tables:
 - `survey_segments`
 - `workshop_booking_requests`
 - `product_inquiries`
+- `survey_responses`
 
 ---
 
@@ -1045,6 +1046,36 @@ Allowed `status`:
 - `contacted`
 - `accepted`
 - `declined`
+
+---
+
+# 27b. Survey Responses
+
+Public multi-role enquête submissions (e.g. `/enquete`). One row per completed survey; flexible answers in `answers jsonb`. Public may only insert (RLS); reads via service-role client.
+
+## Table: `survey_responses`
+
+Fields:
+
+- `id` (uuid, pk)
+- `survey_key` (text) — e.g. `aanbod-verbeteren-2026`
+- `activity_types` (text[]) — one or more of: `content`, `handmade`, `workshop`, `webshop`, `hobbybeurs`, `makers_market`
+- `activity_status` (text) — shared Q2
+- `outcomes` (text[]) — shared Q3 (max 2)
+- `answers` (jsonb) — per-role answers keyed by activity type + `closing`
+- `contact_ok` (boolean)
+- `contact_name` (text, nullable)
+- `contact_email` (text, nullable; required when `contact_ok`)
+- `user_id` (uuid, nullable, fk → auth.users)
+- `status` (text)
+- `created_at`
+- `updated_at`
+
+Allowed `status`:
+
+- `new`
+- `reviewed`
+- `archived`
 
 ---
 
