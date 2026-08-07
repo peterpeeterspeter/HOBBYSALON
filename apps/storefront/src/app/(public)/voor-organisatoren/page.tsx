@@ -1,23 +1,27 @@
+import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
+import { Container } from "@/components/ui/container";
+import { Section } from "@/components/layout/section";
 import {
   MarketingHero,
   PainPointsSection,
   SolutionSection,
-  PlanCardsSection,
+  SingleOfferSection,
   HowItWorksSection,
   WhyHobbysalonSection,
   FaqSection,
   FinalCtaSection,
 } from "@/components/marketing";
 import {
-  ORGANIZER_PLAN_FAQ,
-  ORGANIZER_PLANS,
-} from "@/lib/marketing/commercial-offers";
+  HOBBYBEURZEN_OFFER,
+  MAKERS_MARKET_OFFER,
+  ORGANIZER_FAQ,
+} from "@/lib/pricing/public-pricing";
 
 export const metadata = buildPageMetadata({
-  title: "Creatief event promoten via Hobbysalon",
+  title: "Creatief event promoten via Hobbysalon | Hobbybeurzen en makers markets",
   description:
-    "Promoot je hobbybeurs, workshopdag, makers market of creatief event in de Hobbysalon-agenda.",
+    "Promoot je hobbybeurs of makers market in de Hobbysalon-agenda. Pilotformules: vanaf €50 per maand of vanaf €69 per event.",
   path: "/voor-organisatoren",
 });
 
@@ -31,31 +35,15 @@ const PAIN_POINTS = [
 const SOLUTION_ITEMS = [
   "Eventpagina op Hobbysalon",
   "Plaatsing in de creatieve agenda",
-  "Aanvraagflow via Hobbysalon",
-  "Zichtbaarheid bij mensen die al hobby-events zoeken",
+  "Deelnemende standhouders en makers tonen",
+  "Zichtbaarheid bij mensen die hobby-events zoeken",
 ];
 
 const WHY_ITEMS = [
   "Bezoekers die actief zoeken naar creatieve events",
   "Nicheplatform, geen algemene eventkalender",
   "Vertrouwd merk in hobby en handwerk",
-  "Gerichte community, geen willekeurig advertentieverkeer",
-];
-
-const FAQ_ITEMS = [
-  {
-    question: "Verkopen jullie tickets?",
-    answer: ORGANIZER_PLAN_FAQ.tickets,
-  },
-  {
-    question: "Kunnen standhouders zich aanmelden?",
-    answer: ORGANIZER_PLAN_FAQ.standhouders,
-  },
-  {
-    question: "Voor welke events is dit geschikt?",
-    answer:
-      "Makers markets, hobbybeurzen, workshopdagen, open ateliers en creatieve pop-ups.",
-  },
+  "Aparte formules voor hobbybeurzen en makers markets",
 ];
 
 export default function VoorOrganisatorenPage() {
@@ -63,33 +51,55 @@ export default function VoorOrganisatorenPage() {
     <>
       <MarketingHero
         headline="Promoot je creatieve event via Hobbysalon"
-        subheadline="Maak je hobbybeurs, workshopdag, open atelier of handmade market zichtbaar in dé agenda waar mensen creatieve events zoeken."
+        subheadline="Hobbybeurzen en makers markets hebben elk een eigen formule. Pilotprijzen — registreren en aanbod bekijken, nog geen checkout op deze pagina."
         primaryCta={{ label: "Plaats je event", href: "/register/creator" }}
-        secondaryCta={{ label: "Bekijk eventpakketten", href: "#pakketten" }}
+        secondaryCta={{ label: "Alle prijzen", href: "/prijzen" }}
       />
+      <Section spacing="sm">
+        <Container>
+          <nav
+            aria-label="Eventtypes"
+            className="flex flex-wrap gap-4 border-b border-[var(--border)] pb-4 text-base font-semibold"
+          >
+            <Link href="#hobbybeurzen" className="min-h-12 text-[var(--accent)] hover:underline">
+              Hobbybeurzen
+            </Link>
+            <Link href="#makers-markets" className="min-h-12 text-[var(--accent)] hover:underline">
+              Makers markets
+            </Link>
+          </nav>
+        </Container>
+      </Section>
       <PainPointsSection items={PAIN_POINTS} />
       <SolutionSection items={SOLUTION_ITEMS} />
-      <PlanCardsSection
-        title="Eventpakketten"
-        description="Kies het pakket dat past bij je event. Prijzen per event, excl. btw."
-        plans={ORGANIZER_PLANS}
+      <SingleOfferSection
+        id="hobbybeurzen"
+        title="Hobbybeurzen"
+        description="Grotere periodieke events met programma, standhouders en workshops."
+        offer={HOBBYBEURZEN_OFFER}
+      />
+      <SingleOfferSection
+        id="makers-markets"
+        title="Makers markets"
+        description="Compactere events met deelnemende makers en demonstraties."
+        offer={MAKERS_MARKET_OFFER}
       />
       <HowItWorksSection
         steps={[
-          "Plaats je event",
-          "Kies je zichtbaarheidspakket",
+          "Registreer je als organisator",
+          "Maak je eventpagina",
           "Ontvang aanvragen via Hobbysalon",
         ]}
       />
       <WhyHobbysalonSection items={WHY_ITEMS} />
-      <FaqSection items={FAQ_ITEMS} />
+      <FaqSection items={ORGANIZER_FAQ} />
       <FinalCtaSection
         title="Plaats je event op Hobbysalon"
-        description="Registreer je, maak je eventpagina en bereik bezoekers in de creatieve community."
+        description="Registreer je en maak je event zichtbaar in de creatieve community."
         href="/register/creator"
         ctaText="Plaats je event"
-        secondaryHref="#pakketten"
-        secondaryText="Bekijk eventpakketten"
+        secondaryHref="/prijzen"
+        secondaryText="Bekijk alle formules"
       />
     </>
   );

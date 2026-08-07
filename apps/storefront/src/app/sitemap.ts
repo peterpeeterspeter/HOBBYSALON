@@ -17,6 +17,14 @@ const STATIC_PATHS = [
   "/scrapbooking",
   "/pottery",
   "/diy",
+  "/prijzen",
+  "/partners",
+  "/voor-contentmakers",
+  "/voor-makers",
+  "/voor-workshopgevers",
+  "/voor-organisatoren",
+  "/voor-winkels",
+  "/voor-hobbyisten",
 ] as const;
 
 type SitemapArticle = {

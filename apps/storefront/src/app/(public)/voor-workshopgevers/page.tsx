@@ -3,99 +3,76 @@ import {
   MarketingHero,
   PainPointsSection,
   SolutionSection,
-  PlanCardsSection,
   HowItWorksSection,
   WhyHobbysalonSection,
   FaqSection,
   FinalCtaSection,
+  SingleOfferSection,
 } from "@/components/marketing";
-import {
-  WORKSHOP_COMMISSION_NOTE,
-  WORKSHOP_PLAN_FAQ,
-  WORKSHOP_PLANS,
-} from "@/lib/marketing/commercial-offers";
+import { WORKSHOP_FAQ, WORKSHOP_OFFER, WORKSHOP_COMMISSION_NOTE } from "@/lib/pricing/public-pricing";
 
 export const metadata = buildPageMetadata({
-  title: "Workshops aanbieden via Hobbysalon | Geen commissie per deelnemer",
+  title: "Workshops aanbieden via Hobbysalon | €9,99 voor 3 maanden",
   description:
-    "Plaats je creatieve workshops op Hobbysalon met een vaste jaarprijs. Bereik mensen die actief zoeken zonder commissie per deelnemer.",
+    "Plaats je workshop drie maanden op Hobbysalon voor €9,99. Geen abonnement en geen commissie per deelnemer.",
   path: "/voor-workshopgevers",
 });
 
 const PAIN_POINTS = [
-  "Je workshops vullen via Facebook kost veel tijd.",
+  "Je workshops vullen via social media kost veel tijd.",
   "Je bereikt vaak alleen je bestaande volgers.",
   "Losse posts verdwijnen snel.",
   "Administratie en aanvragen komen versnipperd binnen.",
 ];
 
 const SOLUTION_ITEMS = [
-  "Docentprofiel op Hobbysalon",
-  "Workshopvermeldingen op het platform",
-  "Boekingsaanvragen via Hobbysalon",
-  "Plaatsing op categoriepagina's",
+  "Workshopvermelding op Hobbysalon",
+  "Drie maanden zichtbaar per workshop",
   "Geen commissie per deelnemer",
+  "Jij regelt contact, inschrijving en betaling",
+  "Materialenlijst en docentprofiel",
 ];
 
 const WHY_ITEMS = [
   "Bereik mensen die actief zoeken naar creatieve workshops",
   "Nicheplatform, geen algemene advertentiekalender",
   "Vertrouwd merk in hobby, craft en handwerk",
-  "Gerichte community en vindbaarheid",
-];
-
-const FAQ_ITEMS = [
-  {
-    question: "Nemen jullie commissie op mijn workshops?",
-    answer:
-      "Nee. Je betaalt een vaste jaarprijs en behoudt je workshopomzet.",
-  },
-  {
-    question: "Moet ik een boekingssysteem van Hobbysalon gebruiken?",
-    answer: WORKSHOP_PLAN_FAQ.bookingSystem,
-  },
-  {
-    question: "Kan ik een externe boekingslink tonen?",
-    answer: WORKSHOP_PLAN_FAQ.externalBooking,
-  },
-  {
-    question: "Controleren jullie aanbieders?",
-    answer: "Ja, we houden Hobbysalon gericht op echte creatieve workshops.",
-  },
+  "Eenvoudige prijs — geen jaarabonnement",
 ];
 
 export default function VoorWorkshopgeversPage() {
   return (
     <>
       <MarketingHero
-        headline="Plaats je creatieve workshops op Hobbysalon"
-        subheadline="Bereik mensen die actief zoeken naar creatieve workshops. Jij behoudt je omzet; Hobbysalon zorgt voor zichtbaarheid en aanvragen via het platform."
+        headline="Plaats je workshop drie maanden voor €9,99"
+        subheadline={`Bereik mensen die actief zoeken naar creatieve workshops. ${WORKSHOP_COMMISSION_NOTE} Jij behoudt je omzet en regelt inschrijving zelf.`}
         primaryCta={{ label: "Plaats je workshop", href: "/register/creator" }}
-        secondaryCta={{ label: "Bekijk pakketten", href: "#pakketten" }}
+        secondaryCta={{ label: "Alle prijzen", href: "/prijzen" }}
       />
       <PainPointsSection items={PAIN_POINTS} />
       <SolutionSection items={SOLUTION_ITEMS} />
-      <PlanCardsSection
-        title="Kies je pakket"
-        description={WORKSHOP_COMMISSION_NOTE}
-        plans={WORKSHOP_PLANS}
+      <SingleOfferSection
+        id="formule"
+        title="Workshopformule"
+        description="Eén eenvoudige vermelding — geen Essential, Tracked of Premium."
+        offer={WORKSHOP_OFFER}
       />
       <HowItWorksSection
         steps={[
           "Maak je docentprofiel aan",
-          "Voeg je workshops toe",
-          "Ontvang aanvragen via Hobbysalon",
+          "Voeg je workshop toe",
+          "Ontvang aanvragen en regel inschrijving zelf",
         ]}
       />
       <WhyHobbysalonSection items={WHY_ITEMS} />
-      <FaqSection items={FAQ_ITEMS} />
+      <FaqSection items={WORKSHOP_FAQ} />
       <FinalCtaSection
         title="Start met je eerste workshop"
-        description="Registreer je, kies je pakket en bereik mensen die actief zoeken naar creatieve workshops."
+        description="Registreer je en plaats je workshop op Hobbysalon."
         href="/register/creator"
         ctaText="Plaats je workshop"
-        secondaryHref="#pakketten"
-        secondaryText="Bekijk pakketten"
+        secondaryHref="/prijzen"
+        secondaryText="Bekijk alle formules"
       />
     </>
   );

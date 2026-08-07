@@ -4,21 +4,23 @@ import {
   PainPointsSection,
   SolutionSection,
   CommercialModelBlock,
-  PlanCardsSection,
   HowItWorksSection,
   WhyHobbysalonSection,
   FaqSection,
   FinalCtaSection,
+  SingleOfferSection,
 } from "@/components/marketing";
 import {
+  SUPPLIER_FAQ,
+  SUPPLIER_OFFER,
+  SUPPLIER_PREMIUM_NOTE,
   SUPPLIER_COMMISSION_NOTE,
-  SUPPLIER_PLANS,
-} from "@/lib/marketing/commercial-offers";
+} from "@/lib/pricing/public-pricing";
 
 export const metadata = buildPageMetadata({
-  title: "Hobbymaterialen verkopen via Hobbysalon",
+  title: "Hobbymaterialen verkopen via Hobbysalon | €0 + 10% commissie",
   description:
-    "Verkoop garen, papier, stoffen en andere hobbymaterialen via de Hobbysalon checkout.",
+    "Verkoop garen, papier, stoffen en andere hobbymaterialen via Hobbysalon checkout. €0 per maand, 10% commissie per verkoop.",
   path: "/voor-winkels",
 });
 
@@ -30,77 +32,59 @@ const PAIN_POINTS = [
 ];
 
 const SOLUTION_ITEMS = [
-  "Winkelprofiel op Hobbysalon",
-  "Productcatalogus op het platform",
+  "Merchantprofiel en productcatalogus",
   "Verkoop via Hobbysalon checkout",
-  "Plaatsing binnen categorieën",
-  "10% commissie op materialen",
+  "Voorraad, varianten, bestellingen en verzending",
+  "Zichtbaarheid naast tutorials en workshops",
+  "10% commissie — geen vaste maandelijkse basiskost",
 ];
 
 const WHY_ITEMS = [
   "Mensen die materialen zoeken in de context van workshops en inspiratie",
-  "Nicheplatform, geen algemene webshop",
-  "Verkoop via Hobbysalon checkout",
+  "Meer catalogus- en ordermogelijkheden dan P2P-makers",
+  "Professionele winkelidentiteit",
   "Community en SEO gericht op craft en handwerk",
-];
-
-const FAQ_ITEMS = [
-  {
-    question: "Gaat de klant naar mijn webshop?",
-    answer: "Niet standaard. De verkoop verloopt via Hobbysalon checkout.",
-  },
-  {
-    question: "Wat is de commissie?",
-    answer: "10% op materialen/supply-producten.",
-  },
-  {
-    question: "Hoe werken verzendkosten?",
-    answer: "Verzendkosten worden apart verwerkt in de checkout.",
-  },
-  {
-    question: "Wat kost Premium?",
-    answer:
-      "Winkel Premium kost €490 excl. btw per jaar, naast de 10% commissie op verkopen. Basis heeft geen abonnementskost.",
-  },
 ];
 
 export default function VoorWinkelsPage() {
   return (
     <>
       <MarketingHero
-        headline="Verkoop je hobbymaterialen via Hobbysalon"
-        subheadline="Bied garen, papier, stoffen, kralen en andere creatieve materialen aan op de plek waar mensen inspiratie, workshops en producten zoeken."
+        headline="Verkoop hobbymaterialen als merchant"
+        subheadline="€0 per maand en 10% commissie op verkopen via Hobbysalon. Meer mogelijkheden dan P2P-handmade: catalogus, checkout, voorraad en verzending."
         primaryCta={{ label: "Start als winkel", href: "/register/merchant" }}
-        secondaryCta={{ label: "Bekijk verkoopmodel", href: "#verkoopmodel" }}
+        secondaryCta={{ label: "Alle prijzen", href: "/prijzen" }}
       />
       <PainPointsSection items={PAIN_POINTS} />
       <SolutionSection items={SOLUTION_ITEMS} />
-      <CommercialModelBlock
+      <SingleOfferSection
         id="verkoopmodel"
-        title="Verkoop via Hobbysalon checkout"
-        text={`Materialen worden verkocht via Hobbysalon. ${SUPPLIER_COMMISSION_NOTE} Extra zichtbaarheid is mogelijk via Winkel Premium.`}
+        title="Basismodel"
+        description="Professionele materialenverkoop — niet voor handmade P2P."
+        offer={SUPPLIER_OFFER}
+        secondaryOffer={SUPPLIER_PREMIUM_NOTE}
       />
-      <PlanCardsSection
-        title="Verkooppakketten"
-        description={`Basis: alleen commissie bij verkoop. Premium: extra zichtbaarheid via jaarabonnement. ${SUPPLIER_COMMISSION_NOTE}`}
-        plans={SUPPLIER_PLANS}
+      <CommercialModelBlock
+        id="p2p-verschil"
+        title="Waarom meer dan P2P?"
+        text={`Merchants krijgen onbeperkter assortiment, varianten, checkout, orderbeheer en verzending. P2P-makers tonen maximaal 10 handmade-advertenties zonder commissie. ${SUPPLIER_COMMISSION_NOTE}`}
       />
       <HowItWorksSection
         steps={[
-          "Registreer je winkel",
+          "Registreer je als merchant",
           "Voeg je producten of catalogus toe",
           "Verkoop via Hobbysalon checkout",
         ]}
       />
       <WhyHobbysalonSection items={WHY_ITEMS} />
-      <FaqSection items={FAQ_ITEMS} />
+      <FaqSection items={SUPPLIER_FAQ} />
       <FinalCtaSection
         title="Start als winkel op Hobbysalon"
         description="Registreer je als merchant en verkoop hobbymaterialen via Hobbysalon."
         href="/register/merchant"
         ctaText="Start als winkel"
-        secondaryHref="#verkoopmodel"
-        secondaryText="Bekijk verkoopmodel"
+        secondaryHref="/voor-makers"
+        secondaryText="Handmade P2P?"
       />
     </>
   );

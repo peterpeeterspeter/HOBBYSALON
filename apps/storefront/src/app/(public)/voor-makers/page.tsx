@@ -8,12 +8,14 @@ import {
   WhyHobbysalonSection,
   FaqSection,
   FinalCtaSection,
+  SingleOfferSection,
 } from "@/components/marketing";
+import { MAKERS_FAQ, P2P_MAKER_OFFER, P2P_COMMISSION_NOTE } from "@/lib/pricing/public-pricing";
 
 export const metadata = buildPageMetadata({
-  title: "Handmade creaties tonen via Hobbysalon",
+  title: "Handmade en destash tonen via Hobbysalon | P2P-makers",
   description:
-    "Toon je creaties op Hobbysalon en ontvang geïnteresseerde kopers via het platform. Gemaakt voor makers in België en Nederland.",
+    "Gratis makersprofiel, maximaal 10 actieve advertenties, geen commissie op P2P-verkoop. Credits voor publicatie en boosts.",
   path: "/voor-makers",
 });
 
@@ -25,69 +27,52 @@ const PAIN_POINTS = [
 ];
 
 const SOLUTION_ITEMS = [
-  "Makerprofiel op Hobbysalon",
-  "Plaatsingen van je handmade creaties",
+  "Gratis makersprofiel",
+  "Maximaal 10 actieve handmade- of destash-advertenties",
   "Geïnteresseerde kopers sturen een aanvraag via Hobbysalon",
-  "Jij regelt de verkoop verder rechtstreeks met de koper",
+  "Geen commissie — jij regelt verkoop en betaling",
+  "Credits voor publicatie, verlenging en extra zichtbaarheid",
 ];
 
 const WHY_ITEMS = [
   "Bezoekers die actief zoeken naar handmade en creatieve producten",
   "Nicheplatform, geen algemene verkoopsite",
   "Je werk staat in de context van workshops, materialen en inspiratie",
-  "Community van makers en mensen die graag iets moois maken",
-];
-
-const FAQ_ITEMS = [
-  {
-    question: "Hoe werkt een aanvraag?",
-    answer:
-      "Een bezoeker die interesse heeft, stuurt een bericht via Hobbysalon. Jij ziet de aanvraag en neemt zelf contact op om de verkoop, betaling en verzending verder te regelen.",
-  },
-  {
-    question: "Verkoop ik via de Hobbysalon-checkout?",
-    answer:
-      "Nieuwe handmade plaatsingen zijn gericht op aanvragen: jij toont je creaties en ontvangt geïnteresseerde kopers via Hobbysalon. Hoe je daarna betaalt en verzendt, regel je met de koper.",
-  },
-  {
-    question: "Wat kost een plaatsing?",
-    answer: "Starten en plaatsen is momenteel gratis.",
-  },
-  {
-    question: "Kan ik ook workshops of een winkel hebben?",
-    answer:
-      "Ja. Veel makers combineren rollen. Kies in je account wat bij je past, of bekijk de pagina’s voor workshopgevers en winkels.",
-  },
+  "Laagdrempeliger dan een professionele merchant-webshop",
 ];
 
 export default function VoorMakersPage() {
   return (
     <>
       <MarketingHero
-        headline="Toon je creaties en ontvang geïnteresseerde kopers"
-        subheadline="Plaats je handmade werk op Hobbysalon. Bezoekers die iets moois zoeken, sturen je een aanvraag. Jij regelt de verkoop verder rechtstreeks met hen."
+        headline="Toon je handmade creaties — zonder commissie"
+        subheadline="Voor P2P-handmade en destash: maximaal 10 actieve advertenties, aanvragen via Hobbysalon, geen verkoopcommissie. Professionele materialen? Bekijk hobbymaterialenwinkels."
         primaryCta={{ label: "Start als maker", href: "/register/creator" }}
+        secondaryCta={{ label: "Alle prijzen", href: "/prijzen" }}
       />
       <PainPointsSection items={PAIN_POINTS} />
       <SolutionSection items={SOLUTION_ITEMS} />
+      <SingleOfferSection id="formule" offer={P2P_MAKER_OFFER} />
       <CommercialModelBlock
-        title="Zichtbaarheid via aanvragen"
-        text="Toon je creaties en ontvang geïnteresseerde kopers via Hobbysalon. Zo sta je tussen workshops, materialen en events, op een plek waar mensen al zin hebben om iets moois te maken of te kopen."
+        title="P2P, geen merchant"
+        text={`${P2P_COMMISSION_NOTE} Deze route is voor handmade en destash — niet voor professionele materialenverkoop. Verkoop je hobbymaterialen als winkel? Bekijk /voor-winkels voor checkout, voorraad en 10% commissie.`}
       />
       <HowItWorksSection
         steps={[
           "Maak je makerprofiel",
-          "Plaats je creaties",
+          "Publiceer je creaties met credits",
           "Beantwoord aanvragen en regel de verkoop met de koper",
         ]}
       />
       <WhyHobbysalonSection items={WHY_ITEMS} />
-      <FaqSection items={FAQ_ITEMS} />
+      <FaqSection items={MAKERS_FAQ} />
       <FinalCtaSection
-        title="Start als maker op Hobbysalon"
+        title="Start als P2P-maker"
         description="Registreer je, maak je profiel en toon je creaties aan mensen die gericht zoeken."
         href="/register/creator"
         ctaText="Start als maker"
+        secondaryHref="/voor-winkels"
+        secondaryText="Professionele materialen?"
       />
     </>
   );

@@ -33,3 +33,11 @@ export type { AudienceCardGridProps, AudienceCard } from "./audience-card-grid";
 
 export { TrustBullets } from "./trust-bullets";
 export type { TrustBulletsProps } from "./trust-bullets";
+
+export { PublicPricingCards } from "./public-pricing-cards";
+export type { PublicPricingCardsProps } from "./public-pricing-cards";
+
+export { SingleOfferSection } from "./single-offer-section";
+export type { SingleOfferSectionProps } from "./single-offer-section";
+
+export { PricingExplainerSections } from "./pricing-explainer-sections";
