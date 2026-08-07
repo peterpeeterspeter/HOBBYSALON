@@ -12,13 +12,10 @@ import { MarkdownContent } from "@/components/content/markdown-content";
 import { DifficultyBadge } from "@/components/content/DifficultyBadge";
 import { PrintArticleButton } from "@/components/content/PrintArticleButton";
 import { CommunityGallery } from "@/components/content/CommunityGallery";
-import { CommunityProjectSubmission } from "@/components/content/CommunityProjectSubmission";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { getAuthUser } from "@/lib/auth/session";
 import { isPrintableArticleType } from "@/lib/content/printable-article";
 import { isFavorite } from "@/lib/platform/queries/favorites";
-import { listProjectsByUserId } from "@/lib/platform/queries/projects";
-import { listOwnerCommunitySubmissionsForArticle } from "@/lib/platform/queries/community-showcase";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import {
   buildBreadcrumbSchema,
@@ -83,12 +80,6 @@ export default async function ArticlePage({ params }: Props) {
   const articleIsFavorite = user
     ? await isFavorite(user.id, "article", article.id)
     : false;
-  const [userProjects, ownerCommunitySubmissions] = user
-    ? await Promise.all([
-        listProjectsByUserId(user.id),
-        listOwnerCommunitySubmissionsForArticle(article.id, user.id),
-      ])
-    : [[], []];
 
   const typeLabel = ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type;
   const publishDate = article.published_at ?? article.created_at;
@@ -247,12 +238,6 @@ export default async function ArticlePage({ params }: Props) {
             </Link>
           </div>
         </section>
-
-        <CommunityProjectSubmission
-          articleId={article.id}
-          projects={userProjects}
-          submissions={ownerCommunitySubmissions}
-        />
 
         {/* Body */}
         {article.body_markdown ? (
