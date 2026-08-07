@@ -1,6 +1,5 @@
 import {
   ACTIVITY_TYPES,
-  CLOSING_QUESTIONS,
   ROLE_SECTIONS,
   SHARED_QUESTIONS,
   type ActivityType,
