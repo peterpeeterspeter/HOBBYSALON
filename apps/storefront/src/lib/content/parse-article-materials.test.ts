@@ -100,6 +100,37 @@ test("returns empty when section is missing", () => {
   assert.deepEqual(parseArticleMaterials(null), []);
 });
 
+test("parses Benodigdheden as materials section", () => {
+  const items = parseArticleMaterials(`
+## Benodigdheden
+
+* Restjes garen in meerdere kleuren
+* Haaknaald 2,5 mm
+* Vulling
+
+## Het lijf haken
+
+* Toer 1: 6 v
+`);
+  assert.equal(items.length, 3);
+  assert.equal(items[0].title, "Restjes garen in meerdere kleuren");
+  assert.equal(items[1].title, "Haaknaald 2,5 mm");
+  assert.ok(!items.some((item) => item.title.includes("Toer")));
+});
+
+test("parses Dit heb je nodig alias", () => {
+  const items = parseArticleMaterials(`
+### Dit heb je nodig
+
+- garen
+- naald
+`);
+  assert.deepEqual(
+    items.map((i) => i.title),
+    ["garen", "naald"]
+  );
+});
+
 test("matches product titles with containment and token overlap", () => {
   assert.equal(
     materialsTitlesMatch(

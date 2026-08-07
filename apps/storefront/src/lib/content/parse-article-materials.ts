@@ -1,24 +1,19 @@
 /**
- * Heading-driven Materialenlijst extraction from article body_markdown.
- * Stops at the next heading of the same or higher level — no emoji/UPPERCASE conventions.
+ * Heading-driven materials extraction from article body_markdown.
+ * Recognizes Materialenlijst, Benodigdheden, and related Dutch/English aliases.
  */
+
+import {
+  findArticleHeadings,
+  isMaterialsSectionHeading,
+} from "./article-section-headings";
 
 export type ParsedArticleMaterial = {
   key: string;
   title: string;
 };
 
-type HeadingHit = {
-  level: number;
-  start: number;
-  end: number;
-  text: string;
-};
-
-const ATX_HEADING_RE = /^(#{1,6})\s+(.+?)\s*$/;
-/** Bare section line: optional emoji/symbols then Materialenlijst (or any short title). */
-const BARE_SECTION_RE =
-  /^(?:[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]*)([^\n#*]{1,80})$/u;
+const LIST_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(.+)$/;
 
 function stripMarkdownInline(raw: string): string {
   return raw
@@ -52,81 +47,30 @@ export function slugifyMaterialTitle(title: string): string {
   return slug || "materiaal";
 }
 
-function isMaterialenlijstHeading(text: string): boolean {
-  const cleaned = text
-    .replace(/^[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]+/u, "")
-    .trim();
-  return /materialenlijst/i.test(cleaned);
-}
+function extractMaterialsSection(bodyMarkdown: string): string | null {
+  const headings = findArticleHeadings(bodyMarkdown);
+  const materialHeading = headings.find((h) =>
+    isMaterialsSectionHeading(h.text)
+  );
+  if (!materialHeading) return null;
 
-function findHeadings(markdown: string): HeadingHit[] {
-  const lines = markdown.split(/\n/);
-  const headings: HeadingHit[] = [];
-  let offset = 0;
-
-  for (const line of lines) {
-    const lineStart = offset;
-    const lineEnd = offset + line.length;
-    const trimmed = line.trim();
-
-    const atx = trimmed.match(ATX_HEADING_RE);
-    if (atx) {
-      headings.push({
-        level: atx[1].length,
-        start: lineStart,
-        end: lineEnd,
-        text: atx[2].trim(),
-      });
-    } else if (trimmed.length > 0 && !trimmed.startsWith("*") && !trimmed.startsWith("-") && !trimmed.startsWith("+")) {
-      const bare = trimmed.match(BARE_SECTION_RE);
-      if (bare && isMaterialenlijstHeading(bare[1])) {
-        headings.push({
-          level: 2,
-          start: lineStart,
-          end: lineEnd,
-          text: bare[1].trim(),
-        });
-      } else if (
-        bare &&
-        // Other bare Hobbysalon section lines (emoji + short title) — treat as H2 for stop rules
-        // only when the line is short and has little lowercase prose.
-        trimmed.length <= 60 &&
-        !trimmed.includes(".") &&
-        /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D]/u.test(trimmed)
-      ) {
-        headings.push({
-          level: 2,
-          start: lineStart,
-          end: lineEnd,
-          text: bare[1].trim(),
-        });
-      }
-    }
-
-    offset = lineEnd + 1;
-  }
-
-  return headings;
-}
-
-const LIST_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(.+)$/;
-
-/**
- * Parse checklist material titles from a Materialenlijst section.
- */
-export function parseArticleMaterials(bodyMarkdown: string | null | undefined): ParsedArticleMaterial[] {
-  if (!bodyMarkdown?.trim()) return [];
-
-  const headings = findHeadings(bodyMarkdown);
-  const materialHeading = headings.find((h) => isMaterialenlijstHeading(h.text));
-  if (!materialHeading) return [];
-
-  const nextSameOrHigher = headings.find(
+  const nextBoundary = headings.find(
     (h) => h.start > materialHeading.start && h.level <= materialHeading.level
   );
-  const sectionStart = materialHeading.end;
-  const sectionEnd = nextSameOrHigher ? nextSameOrHigher.start : bodyMarkdown.length;
-  const section = bodyMarkdown.slice(sectionStart, sectionEnd);
+  const end = nextBoundary ? nextBoundary.start : bodyMarkdown.length;
+  return bodyMarkdown.slice(materialHeading.end, end);
+}
+
+/**
+ * Parse checklist material titles from a materials / benodigdheden section.
+ */
+export function parseArticleMaterials(
+  bodyMarkdown: string | null | undefined
+): ParsedArticleMaterial[] {
+  if (!bodyMarkdown?.trim()) return [];
+
+  const section = extractMaterialsSection(bodyMarkdown);
+  if (!section?.trim()) return [];
 
   const seen = new Set<string>();
   const items: ParsedArticleMaterial[] = [];
@@ -151,7 +95,10 @@ export function parseArticleMaterials(bodyMarkdown: string | null | undefined): 
 /**
  * Whether a catalog product title is a strong enough match for a checklist material line.
  */
-export function materialsTitlesMatch(checklistTitle: string, productTitle: string): boolean {
+export function materialsTitlesMatch(
+  checklistTitle: string,
+  productTitle: string
+): boolean {
   const a = normalizeMaterialTitle(checklistTitle);
   const b = normalizeMaterialTitle(productTitle);
   if (!a || !b) return false;
@@ -170,7 +117,6 @@ export function materialsTitlesMatch(checklistTitle: string, productTitle: strin
     if (tokensB.has(t)) overlap += 1;
   }
   const minSize = Math.min(tokensA.size, tokensB.size);
-  // Require majority of the smaller token set to overlap
   return overlap >= Math.max(1, Math.ceil(minSize * 0.6)) && overlap >= 2;
 }
 

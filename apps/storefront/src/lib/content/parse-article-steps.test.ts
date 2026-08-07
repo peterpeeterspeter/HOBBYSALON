@@ -98,3 +98,44 @@ test("returns empty when section missing", () => {
     []
   );
 });
+
+test("parses Toer lines after Benodigdheden without STAP VOOR STAP", () => {
+  const steps = parseArticleSteps(`
+### Benodigdheden
+
+* Haaknaald 2,5 mm
+* Vulling
+
+### Het lijf haken
+
+Je begint bij de staart.
+
+* Toer 1: 6 v in een magische ring.
+* Toer 2: 2 v in elke v (12 steken).
+
+### Afwerking
+
+Werk de draden netjes weg.
+
+### Bron
+
+Externe link.
+`);
+  assert.ok(steps.length >= 2);
+  assert.match(steps[0].title, /Het lijf haken/);
+  assert.match(steps[0].title, /Toer 1/);
+  assert.match(steps[1].title, /Toer 2/);
+  assert.ok(steps.some((s) => /Afwerking/i.test(s.title)));
+  assert.ok(!steps.some((s) => /Bron/i.test(s.title)));
+});
+
+test("parses Instructies heading with list fallback", () => {
+  const steps = parseArticleSteps(`
+## Instructies
+
+* Eerst dit
+* Dan dat
+`);
+  assert.equal(steps.length, 2);
+  assert.equal(steps[0].title, "Eerst dit");
+});
