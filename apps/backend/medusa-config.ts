@@ -10,30 +10,52 @@ const shouldEnableAlgolia =
   Boolean(process.env.ALGOLIA_APP_ID) &&
   Boolean(process.env.ALGOLIA_API_KEY)
 
-const modules: InputConfigModules = [
-    ...(process.env.S3_ACCESS_KEY_ID
-      ? [
+const publicBackendUrl = (
+  process.env.BACKEND_URL ||
+  process.env.MEDUSA_BACKEND_URL ||
+  "http://localhost:9000"
+).replace(/\/$/, "")
+
+const fileModule = process.env.S3_ACCESS_KEY_ID
+  ? {
+      resolve: "@medusajs/medusa/file",
+      options: {
+        providers: [
           {
-            resolve: "@medusajs/medusa/file",
+            resolve: "@medusajs/medusa/file-s3",
+            id: "s3",
             options: {
-              providers: [
-                {
-                  resolve: '@medusajs/medusa/file-s3',
-                  id: 's3',
-                  options: {
-                    file_url: process.env.S3_FILE_URL,
-                    access_key_id: process.env.S3_ACCESS_KEY_ID,
-                    secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
-                    region: process.env.S3_REGION,
-                    bucket: process.env.S3_BUCKET,
-                    endpoint: process.env.S3_ENDPOINT
-                  }
-                }
-              ]
-            }
-          }
-        ]
-      : []),
+              file_url: process.env.S3_FILE_URL,
+              access_key_id: process.env.S3_ACCESS_KEY_ID,
+              secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
+              region: process.env.S3_REGION,
+              bucket: process.env.S3_BUCKET,
+              endpoint: process.env.S3_ENDPOINT,
+            },
+          },
+        ],
+      },
+    }
+  : {
+      resolve: "@medusajs/medusa/file",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/file-local",
+            id: "local",
+            options: {
+              upload_dir: "static",
+              // Without this, Medusa stores http://localhost:9000/static/...
+              // which breaks production image URLs after deploy.
+              backend_url: `${publicBackendUrl}/static`,
+            },
+          },
+        ],
+      },
+    }
+
+const modules: InputConfigModules = [
+    fileModule,
     {
       resolve: '@medusajs/medusa/payment',
       options: {
