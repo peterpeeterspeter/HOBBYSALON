@@ -75,6 +75,9 @@ export default async function ProductPage({ params }: Props) {
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
+    ...(product.product_type === "supply"
+      ? [{ label: "Materialen", href: "/materials" } as const]
+      : []),
     ...(domain ? [{ label: domain.name, href: `/${domain.slug}` } as const] : []),
     { label: product.title },
   ];

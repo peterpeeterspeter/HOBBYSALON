@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { PriceDisplay } from "@/components/domain/price-display";
+import { publicAssetUrl } from "@/lib/media/public-asset-url";
 import type { MaterialsCatalogItem } from "@/lib/platform/queries/products";
 
 type MaterialsProductCardProps = {
@@ -14,6 +15,7 @@ export function MaterialsProductCard({
   className,
 }: MaterialsProductCardProps) {
   const price = product.displayPrice;
+  const imageUrl = publicAssetUrl(product.featured_image_url);
   const property =
     product.short_description?.trim() ||
     (product.condition_type ? `Conditie: ${product.condition_type}` : null);
@@ -27,9 +29,9 @@ export function MaterialsProductCard({
       )}
     >
       <div className="aspect-square overflow-hidden bg-[var(--border)]">
-        {product.featured_image_url ? (
+        {imageUrl ? (
           <img
-            src={product.featured_image_url}
+            src={imageUrl}
             alt=""
             className="h-full w-full object-cover"
             loading="lazy"

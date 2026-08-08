@@ -36,6 +36,8 @@ import {
   getMedusaProduct,
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
+import { medusaAmountToCents } from "@/lib/commerce/money";
+import { publicAssetUrl } from "@/lib/media/public-asset-url";
 
 export const metadata: Metadata = {
   title: "Hobbymaterialen | Hobbysalon",
@@ -86,11 +88,17 @@ async function enrichPagePrices(
       const medusa =
         medusaById ?? (await getMedusaProductByHandle(product.slug));
       const amount = medusa?.calculated_price?.calculated_amount;
-      if (!amount || amount <= 0) return product;
+      if (!amount || amount <= 0) {
+        return {
+          ...product,
+          featured_image_url: publicAssetUrl(product.featured_image_url),
+        };
+      }
       return {
         ...product,
+        featured_image_url: publicAssetUrl(product.featured_image_url),
         displayPrice: {
-          amount,
+          amount: medusaAmountToCents(amount),
           currency_code: medusa?.calculated_price?.currency_code ?? "eur",
         },
       };

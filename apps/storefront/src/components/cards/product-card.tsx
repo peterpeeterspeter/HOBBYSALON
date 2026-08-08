@@ -4,6 +4,7 @@ import { CardShell } from "@/components/ui/card-shell";
 import { AspectImage } from "@/components/ui/aspect-image";
 import { Badge } from "@/components/ui/badge";
 import { PriceDisplay } from "@/components/domain/price-display";
+import { publicAssetUrl } from "@/lib/media/public-asset-url";
 import type { Product } from "@/types/platform";
 
 type ProductCardProps = {
@@ -33,13 +34,14 @@ function getSellerTypeLabel(types?: string[]) {
 
 function ProductCard({ product, className }: ProductCardProps) {
   const sellerTypeLabel = getSellerTypeLabel(product.creator_types);
+  const imageUrl = publicAssetUrl(product.featured_image_url);
 
   return (
     <Link href={`/product/${product.slug}`} className={cn("block", className)}>
       <CardShell variant="interactive" padding="md">
         <AspectImage
           ratio="square"
-          src={product.featured_image_url}
+          src={imageUrl}
           alt={product.title}
           fallbackImage="placeholderProduct"
           className="-mx-4 -mt-4 mb-3"

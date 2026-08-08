@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listProductsByDomain } from "@/lib/platform/queries/products";
 import { getMedusaProduct } from "@/lib/commerce/medusa/products";
+import { medusaAmountToCents } from "@/lib/commerce/money";
+import { publicAssetUrl } from "@/lib/media/public-asset-url";
 import { ProductCard } from "@/components/cards";
 import { DomainSubListingShell } from "@/components/domain/DomainSubListingShell";
 import { GridLayout } from "@/components/layout/grid-layout";
@@ -23,11 +25,17 @@ async function enrichProductsWithPrices(
       const medusa = await getMedusaProduct(product.medusa_product_id);
       const price = medusa?.calculated_price
         ? {
-            amount: medusa.calculated_price.calculated_amount,
+            amount: medusaAmountToCents(
+              medusa.calculated_price.calculated_amount
+            ),
             currency_code: medusa.calculated_price.currency_code,
           }
         : null;
-      return { ...product, price };
+      return {
+        ...product,
+        featured_image_url: publicAssetUrl(product.featured_image_url),
+        price,
+      };
     })
   );
 }
