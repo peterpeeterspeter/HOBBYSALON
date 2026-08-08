@@ -418,18 +418,40 @@ export async function registerMerchantAction(
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
   const password = formData.get("password")?.toString() ?? "";
   const displayName = formData.get("display_name")?.toString().trim() ?? "";
-  const contactName = formData.get("contact_name")?.toString() ?? null;
-  const phone = formData.get("phone")?.toString() ?? null;
-  const city = formData.get("city")?.toString() ?? null;
+  const contactName = formData.get("contact_name")?.toString().trim() ?? "";
+  const phone = formData.get("phone")?.toString().trim() ?? "";
+  const city = formData.get("city")?.toString().trim() ?? "";
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
-  const interestTypes = parseInterestTypes(formData);
+  // Merchants are supply-focused; interesse checkboxes removed from the form.
+  const interestTypes: RegistrationInterestType[] = ["supply"];
   const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!displayName) {
     return {
       success: false,
       message: "Handelsnaam is verplicht.",
+    };
+  }
+
+  if (!contactName) {
+    return {
+      success: false,
+      message: "Contactpersoon is verplicht.",
+    };
+  }
+
+  if (!phone) {
+    return {
+      success: false,
+      message: "Telefoon is verplicht.",
+    };
+  }
+
+  if (!city) {
+    return {
+      success: false,
+      message: "Stad is verplicht.",
     };
   }
 
@@ -538,17 +560,39 @@ export async function onboardMerchantForLoggedInUserAction(
 
   const email = user.email?.trim().toLowerCase() ?? "";
   const displayName = formData.get("display_name")?.toString().trim() ?? "";
-  const contactName = formData.get("contact_name")?.toString() ?? null;
-  const phone = formData.get("phone")?.toString() ?? null;
-  const city = formData.get("city")?.toString() ?? null;
+  const contactName = formData.get("contact_name")?.toString().trim() ?? "";
+  const phone = formData.get("phone")?.toString().trim() ?? "";
+  const city = formData.get("city")?.toString().trim() ?? "";
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
-  const interestTypes = parseInterestTypes(formData);
+  // Merchants are supply-focused; interesse checkboxes removed from the form.
+  const interestTypes: RegistrationInterestType[] = ["supply"];
 
   if (!displayName) {
     return {
       success: false,
       message: "Handelsnaam is verplicht.",
+    };
+  }
+
+  if (!contactName) {
+    return {
+      success: false,
+      message: "Contactpersoon is verplicht.",
+    };
+  }
+
+  if (!phone) {
+    return {
+      success: false,
+      message: "Telefoon is verplicht.",
+    };
+  }
+
+  if (!city) {
+    return {
+      success: false,
+      message: "Stad is verplicht.",
     };
   }
 

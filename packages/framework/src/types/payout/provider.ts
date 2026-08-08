@@ -63,6 +63,13 @@ export interface IPayoutProvider {
     context: Record<string, unknown>
   ): Promise<InitializeOnboardingResponse>
   getAccount(accountId: string): Promise<Stripe.Account>
+  /**
+   * Whether the connected account can receive marketplace transfers.
+   * Prefer Accounts v2 recipient capability when available.
+   */
+  isRecipientTransfersActive(
+    account: Stripe.Account | Record<string, unknown>
+  ): boolean
   getWebhookActionAndData(
     payload: PayoutWebhookActionPayload
   ): Promise<PayoutWebhookActionAndDataResponse>

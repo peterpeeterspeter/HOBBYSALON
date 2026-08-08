@@ -84,20 +84,28 @@ class PayoutModuleService extends MedusaService({
       payout_account.reference_id
     );
 
-    const status =
-      stripe_account.details_submitted &&
-      stripe_account.payouts_enabled &&
-      stripe_account.charges_enabled &&
-      stripe_account.tos_acceptance &&
-      stripe_account.tos_acceptance?.date !== null;
+    const providerWithCapability = this.provider_ as unknown as {
+      isRecipientTransfersActive?: (account: unknown) => boolean;
+    };
+    const isActive =
+      typeof providerWithCapability.isRecipientTransfersActive === "function"
+        ? providerWithCapability.isRecipientTransfersActive(stripe_account)
+        : Boolean(
+            stripe_account.details_submitted &&
+              stripe_account.payouts_enabled &&
+              stripe_account.charges_enabled &&
+              stripe_account.tos_acceptance?.date
+          );
+
+    const status = isActive
+      ? PayoutAccountStatus.ACTIVE
+      : PayoutAccountStatus.PENDING;
 
     await this.updatePayoutAccounts(
       {
         id: account_id,
         data: stripe_account as unknown as Record<string, unknown>,
-        status: status
-          ? PayoutAccountStatus.ACTIVE
-          : PayoutAccountStatus.PENDING,
+        status,
       },
       sharedContext
     );

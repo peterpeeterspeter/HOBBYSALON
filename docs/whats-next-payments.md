@@ -4,15 +4,18 @@ Status and next steps for the three remaining payment items.
 
 ---
 
-## 1. Stripe Test Keys / Webhooks
+## 1. Stripe Keys / Webhooks
 
-### Status: ✅ Mostly done
+### Status: ✅ Production live + local test
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Test keys | ✅ Done | `STRIPE_SECRET_API_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` use test keys |
-| Payment webhook | ✅ Done | `STRIPE_WEBHOOK_SECRET` set; Stripe CLI forwards to `/hooks/payment/stripe-connect` |
-| Connect webhook | ⏳ Optional for MVP | Only needed when testing seller Stripe Connect onboarding |
+| Live platform | ✅ Done | Hobbysalon `acct_1T9liXKYtYRhUUb3` — charges/payouts enabled, BE/EUR, card + Bancontact on |
+| Live API keys | ✅ Done | VPS `STRIPE_SECRET_API_KEY` + Vercel `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` / listing secret key are live |
+| Live payment webhook | ✅ Done | `https://api.hobbysalon.be/hooks/payment/stripe-connect` |
+| Live Connect webhook | ✅ Done | `https://api.hobbysalon.be/hooks/payouts` (`account.updated`, Connect endpoint) |
+| Live listing webhook | ✅ Done | `https://www.hobbysalon.be/api/webhooks/stripe-listing` |
+| Local/dev keys | ✅ Test | Keep `apps/backend/.env` + storefront `.env.local` on test keys; use Stripe CLI for local webhooks |
 
 ### "Unhandled payment Element loaderror" / "PaymentIntent is in a terminal state"
 
@@ -34,12 +37,14 @@ Dit is Stripe’s generieke foutmelding. Mogelijke oorzaken:
 - **Stripe-keys**: Zorg dat `STRIPE_SECRET_API_KEY` (backend) en `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (storefront) van hetzelfde Stripe-account komen
 - **Medusa backend**: Moet draaien op `MEDUSA_BACKEND_URL`; de Store API maakt de PaymentIntent aan
 
-### Connect webhook (optional)
+### Local Connect webhook (dev only)
 
-When testing seller payouts (Stripe Connect onboarding):
+When testing seller payouts against sandbox/test keys:
 
 1. Run: `stripe listen --forward-to localhost:9000/hooks/payouts --events account.updated`
 2. Add to `.env`: `STRIPE_CONNECTED_ACCOUNTS_WEBHOOK_SECRET=whsec_xxx` (from CLI output)
+
+Sellers complete Express onboarding in the verkopersportaal (`/stripe-connect`). Production marks payout accounts ACTIVE after Stripe sends `account.updated` to the live Connect webhook.
 
 ---
 
@@ -112,6 +117,6 @@ Place a test order with your own email. If Resend is configured correctly, you s
 
 | Item | Effort | Action |
 |------|--------|--------|
-| Stripe Connect webhook | Low | Add when testing seller payouts |
+| Stripe + Connect (live) | Done | Live keys, payment + Connect + listing webhooks on production |
 | Order confirmation email | Low | Fix `RESEND_FROM_EMAIL` (verified domain in Resend) |
 | Admin refund UI | Medium | Add admin API + UI in Mercur admin panel |

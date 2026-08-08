@@ -6,7 +6,6 @@ import type { AuthActionState } from "@/app/actions/auth";
 import {
   REGISTRATION_COUNTRY_OPTIONS,
   REGISTRATION_DEFAULT_COUNTRY,
-  REGISTRATION_INTEREST_OPTIONS,
 } from "@/lib/auth/registration-options";
 
 type MerchantUpgradeFormProps = {
@@ -73,9 +72,10 @@ export function MerchantUpgradeForm({
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-          Contactpersoon (optioneel)
+          Contactpersoon
         </span>
         <input
+          required
           type="text"
           name="contact_name"
           maxLength={120}
@@ -87,12 +87,14 @@ export function MerchantUpgradeForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-            Telefoon (optioneel)
+            Telefoon
           </span>
           <input
-            type="text"
+            required
+            type="tel"
             name="phone"
             maxLength={32}
+            autoComplete="tel"
             className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="+32 ..."
           />
@@ -100,12 +102,14 @@ export function MerchantUpgradeForm({
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-            Stad (optioneel)
+            Stad
           </span>
           <input
+            required
             type="text"
             name="city"
             maxLength={80}
+            autoComplete="address-level2"
             className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="Antwerpen"
           />
@@ -144,28 +148,6 @@ export function MerchantUpgradeForm({
           </select>
         </label>
       </div>
-
-      <fieldset className="space-y-2 rounded-lg border border-[var(--border)] p-3">
-        <legend className="px-1 text-sm font-medium text-[var(--foreground)]">
-          Interesses
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {REGISTRATION_INTEREST_OPTIONS.map((interest) => (
-            <label
-              key={interest.value}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                name="interest_types"
-                value={interest.value}
-                defaultChecked={interest.value === "supply"}
-              />
-              <span>{interest.label}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
 
       {state.message && (
         <p className={state.success ? "text-sm text-green-700" : "text-sm text-red-700"}>
