@@ -14,7 +14,8 @@ import {
   ProductFilters,
   assignVariantImages,
   filterProductsBySeller,
-  mergeVariantImages
+  mergeVariantImages,
+  resolveVendorDefaultProductTypeId
 } from './utils'
 import {
   VendorCreateProductType,
@@ -164,7 +165,10 @@ export const POST = async (
   const { additional_data, variants_images, ...validatedBody } =
     req.validatedBody
 
-  const mergedImages = mergeVariantImages(validatedBody.images, variants_images)
+  const { type_id: _ignoredTypeId, ...productBody } = validatedBody
+  const supplyTypeId = await resolveVendorDefaultProductTypeId(query)
+
+  const mergedImages = mergeVariantImages(productBody.images, variants_images)
 
   const {
     result: [createdProduct]
@@ -173,9 +177,10 @@ export const POST = async (
     input: {
       products: [
         {
-          ...validatedBody,
+          ...productBody,
+          ...(supplyTypeId ? { type_id: supplyTypeId } : {}),
           images: mergedImages.length ? mergedImages : undefined,
-          status: validatedBody.status === 'draft' ? 'draft' : 'proposed'
+          status: productBody.status === 'draft' ? 'draft' : 'proposed'
         }
       ],
       additional_data: { ...additional_data, seller_id: seller.id }

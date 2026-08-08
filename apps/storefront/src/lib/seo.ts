@@ -13,6 +13,27 @@ export function getSiteUrl(): string {
 
 export function absoluteUrl(pathOrUrl: string): string {
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    // Rewrite accidental localhost Medusa asset URLs for OG / JSON-LD.
+    try {
+      const parsed = new URL(pathOrUrl);
+      const isLocal =
+        parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1" ||
+        parsed.hostname === "0.0.0.0";
+      if (isLocal) {
+        const backend =
+          process.env.MEDUSA_BACKEND_URL?.trim() ||
+          process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL?.trim() ||
+          "https://api.hobbysalon.be";
+        const publicBase = new URL(backend);
+        parsed.protocol = publicBase.protocol;
+        parsed.hostname = publicBase.hostname;
+        parsed.port = publicBase.port;
+        return parsed.toString();
+      }
+    } catch {
+      // fall through
+    }
     return pathOrUrl;
   }
 

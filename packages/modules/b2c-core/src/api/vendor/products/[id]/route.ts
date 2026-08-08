@@ -119,11 +119,13 @@ export const POST = async (
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
 
   const { additional_data, ...update } = req.validatedBody;
+  // Product type is platform-owned; merchants may only set category/tags/collection.
+  const { type_id: _ignoredTypeId, ...safeUpdate } = update;
 
   const { result } = await updateProductsWorkflow(req.scope).run({
     input: {
       // @ts-expect-error: updateProductsWorkflow does not support null values
-      update,
+      update: safeUpdate,
       selector: { id: req.params.id },
       additional_data,
     },

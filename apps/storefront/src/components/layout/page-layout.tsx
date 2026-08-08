@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/ui/container";
+import Link from "next/link";
 
 type BreadcrumbItem = {
   label: string;
@@ -33,20 +34,29 @@ function PageLayout({
   return (
     <Container size={size} className={cn("py-8", className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-          <ol className="flex flex-wrap gap-2">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-6 text-sm text-[var(--foreground)]/75"
+        >
+          <ol className="flex flex-wrap items-center gap-2">
             {breadcrumbs.map((crumb, i) => (
-              <li key={i} className="flex items-center gap-2">
-                {i > 0 && <span aria-hidden="true">/</span>}
+              <li key={`${crumb.label}-${i}`} className="flex items-center gap-2">
+                {i > 0 && (
+                  <span aria-hidden="true" className="text-[var(--muted)]">
+                    /
+                  </span>
+                )}
                 {crumb.href ? (
-                  <a
+                  <Link
                     href={crumb.href}
-                    className="hover:text-[var(--foreground)] transition-colors"
+                    className="font-medium underline-offset-2 hover:text-[var(--foreground)] hover:underline"
                   >
                     {crumb.label}
-                  </a>
+                  </Link>
                 ) : (
-                  <span className="text-[var(--foreground)]">{crumb.label}</span>
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {crumb.label}
+                  </span>
                 )}
               </li>
             ))}

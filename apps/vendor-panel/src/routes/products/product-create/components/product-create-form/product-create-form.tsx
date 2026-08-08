@@ -169,7 +169,6 @@ export const ProductCreateForm = ({
         length: parseInt(payload.length || "") || undefined,
         height: parseInt(payload.height || "") || undefined,
         width: parseInt(payload.width || "") || undefined,
-        type_id: payload.type_id || undefined,
         handle: normalizedHandle || undefined,
         tags:
           payload.tags?.map((tag) => ({

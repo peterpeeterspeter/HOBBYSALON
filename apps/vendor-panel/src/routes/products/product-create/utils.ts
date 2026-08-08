@@ -26,7 +26,7 @@ export const normalizeProductFormValues = (
     collection_id: values.collection_id || undefined,
     shipping_profile_id: values.shipping_profile_id || undefined,
     categories: values.categories.map((id) => ({ id })),
-    type_id: values.type_id || undefined,
+    // Product type is platform-owned (defaulted to supply on the vendor API).
     handle: values.handle || undefined,
     origin_country: values.origin_country || undefined,
     material: values.material || undefined,

@@ -9,6 +9,26 @@ import { VariantImagesType } from './validators'
 
 export const VARIANT_IMAGE_METADATA_KEY = 'variant_image_key'
 
+/** Platform product type used for all merchant/vendor catalog products. */
+export const VENDOR_DEFAULT_PRODUCT_TYPE_VALUE = 'supply'
+
+export async function resolveVendorDefaultProductTypeId(
+  query: {
+    graph: (input: {
+      entity: string
+      fields: string[]
+      filters: Record<string, unknown>
+    }) => Promise<{ data: Array<{ id: string }> }>
+  }
+): Promise<string | undefined> {
+  const { data } = await query.graph({
+    entity: 'product_type',
+    fields: ['id'],
+    filters: { value: VENDOR_DEFAULT_PRODUCT_TYPE_VALUE }
+  })
+  return data?.[0]?.id
+}
+
 type OrderDirection = 'ASC' | 'DESC' | 'asc' | 'desc'
 export type OrderObject = Record<
   string,
