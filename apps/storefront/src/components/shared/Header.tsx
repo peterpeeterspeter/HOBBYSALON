@@ -64,6 +64,7 @@ export async function Header() {
     aanbodNav = resolveAanbodNav({
       hasCreatorProfile: Boolean(creator),
       hasOfferIntent: caps.hasOfferIntent,
+      hasMerchantAccess: caps.canViewVendorPortalNav,
     });
   }
 

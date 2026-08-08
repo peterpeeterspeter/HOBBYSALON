@@ -150,6 +150,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const aanbodNav = resolveAanbodNav({
     hasCreatorProfile: Boolean(creator),
     hasOfferIntent: caps.hasOfferIntent,
+    hasMerchantAccess: caps.canViewVendorPortalNav,
   });
   const makerData = showMakerSection ? await loadCreatorMakerData(user, tab) : null;
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
@@ -291,6 +292,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         hasLocation={locationPreference.hasPreference && localEvents.length > 0}
         hasCreatorProfile={Boolean(creator)}
         hasOfferIntent={caps.hasOfferIntent}
+        hasMerchantAccess={caps.canViewVendorPortalNav}
         primaryOfferLabel={
           registrationContext.preference?.primaryOfferRole === "workshopgever"
             ? "Workshopgever"

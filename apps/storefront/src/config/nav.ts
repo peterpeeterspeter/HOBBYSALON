@@ -22,8 +22,13 @@ export const ACCOUNT_NAV = {
 export function resolveAanbodNav(input: {
   hasCreatorProfile: boolean;
   hasOfferIntent: boolean;
+  /**
+   * Approved merchant (or pending merchant with seller portal access).
+   * Merchants can use /dashboard without a creator profile.
+   */
+  hasMerchantAccess?: boolean;
 }): { href: string; label: string } {
-  if (input.hasCreatorProfile) {
+  if (input.hasCreatorProfile || input.hasMerchantAccess) {
     return ACCOUNT_NAV.aanbod;
   }
   if (input.hasOfferIntent) {

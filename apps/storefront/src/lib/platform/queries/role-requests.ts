@@ -11,6 +11,7 @@ import {
   formatMerchantProvisionError,
   provisionMerchantSeller,
 } from "@/lib/commerce/medusa/merchant-registration";
+import { ensureMerchantCreatorProfile } from "@/lib/platform/queries/merchant-creator";
 import { sendRoleRequestAdminEmail } from "@/lib/platform/notifications/role-request-email";
 
 export type PrivilegedRole = Extract<
@@ -234,6 +235,26 @@ async function provisionMerchantFromPayload(
       ok: false,
       message:
         "Merchant-winkel werd aangemaakt maar koppelen aan het account mislukt.",
+    };
+  }
+
+  const creatorResult = await ensureMerchantCreatorProfile({
+    userId,
+    sellerId: merchantResult.sellerId,
+    displayName,
+    businessName: payload.businessName?.trim() || displayName,
+    city: payload.city,
+    postalCode: payload.postalCode,
+    countryCode: payload.countryCode,
+    email,
+  });
+
+  if (!creatorResult.ok) {
+    return {
+      ok: false,
+      message:
+        creatorResult.errors[0] ??
+        "Merchant-winkel gekoppeld, maar creator-profiel aanmaken mislukt.",
     };
   }
 

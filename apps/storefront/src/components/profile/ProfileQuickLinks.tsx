@@ -6,6 +6,7 @@ type ProfileQuickLinksProps = {
   hasLocation: boolean;
   hasCreatorProfile: boolean;
   hasOfferIntent: boolean;
+  hasMerchantAccess?: boolean;
   primaryOfferLabel?: string | null;
 };
 
@@ -17,9 +18,14 @@ export function ProfileQuickLinks({
   hasLocation,
   hasCreatorProfile,
   hasOfferIntent,
+  hasMerchantAccess = false,
   primaryOfferLabel,
 }: ProfileQuickLinksProps) {
-  const aanbod = resolveAanbodNav({ hasCreatorProfile, hasOfferIntent });
+  const aanbod = resolveAanbodNav({
+    hasCreatorProfile,
+    hasOfferIntent,
+    hasMerchantAccess,
+  });
 
   return (
     <nav aria-label="Snel naar" className="mt-6 space-y-4">
