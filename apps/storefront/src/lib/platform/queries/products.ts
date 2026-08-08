@@ -363,7 +363,7 @@ export type ListMaterialsCatalogFilters = {
   category_parent_id?: string;
   domain_id?: string;
   creator_id?: string;
-  /** Restrict to full catalog or P2P handmade+destash only. */
+  /** Restrict to full catalog, merchant supply, or P2P handmade+destash only. */
   catalog_scope?: MaterialsCatalogScope;
   offer?: "webshop" | "maker" | "destash" | "kit";
   condition?: string;

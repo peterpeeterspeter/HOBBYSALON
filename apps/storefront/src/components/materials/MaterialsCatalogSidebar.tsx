@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import {
-  MATERIALS_CONDITION_OPTIONS,
-  MATERIALS_PRICE_BAND_OPTIONS,
-} from "@/lib/materials/materials-catalog-helpers";
+import { MATERIALS_PRICE_BAND_OPTIONS } from "@/lib/materials/materials-catalog-helpers";
 
 type MaterialsCatalogSidebarProps = {
   categoryOptions: { value: string; label: string }[];
@@ -16,30 +13,15 @@ type MaterialsCatalogSidebarProps = {
     sub?: string;
     domain?: string;
     seller?: string;
-    offer?: string;
-    condition?: string;
     price?: string;
-    buy?: string;
     featured?: string;
     sort?: string;
   };
 };
 
-const OFFER_OPTIONS = [
-  { value: "webshop", label: "Webshop" },
-  { value: "maker", label: "Maker" },
-  { value: "destash", label: "Tweedehands" },
-  { value: "kit", label: "Workshoppakket" },
-];
-
-const BUY_OPTIONS = [
-  { value: "online", label: "Direct te kopen" },
-  { value: "contact", label: "Via maker vragen" },
-];
-
 /**
- * Buy-oriented sidebar: category, hobby, seller, offer type, price, condition,
- * buy mode, featured. Price uses platform listing prices (not Medusa enrich).
+ * Merchant materials sidebar: category, hobby, seller, price, featured.
+ * Offer/condition/buy filters live on the maker marketplace, not here.
  */
 export function MaterialsCatalogSidebar({
   categoryOptions,
@@ -102,20 +84,6 @@ export function MaterialsCatalogSidebar({
 
         <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-4">
           <h3 className="mb-3 font-[family-name:var(--font-heading)] text-[15px] font-bold">
-            Soort aanbod
-          </h3>
-          <Select
-            id="offer"
-            name="offer"
-            placeholder="Alle soorten"
-            options={OFFER_OPTIONS}
-            defaultValue={params.offer ?? ""}
-            aria-label="Soort aanbod"
-          />
-        </div>
-
-        <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-4">
-          <h3 className="mb-3 font-[family-name:var(--font-heading)] text-[15px] font-bold">
             Prijs
           </h3>
           <Select
@@ -133,37 +101,6 @@ export function MaterialsCatalogSidebar({
             Op basis van de vermelde listingprijs. Webshopprijzen zonder listingprijs
             vallen buiten deze filter.
           </p>
-        </div>
-
-        <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-4">
-          <h3 className="mb-3 font-[family-name:var(--font-heading)] text-[15px] font-bold">
-            Conditie
-          </h3>
-          <Select
-            id="condition"
-            name="condition"
-            placeholder="Alle condities"
-            options={MATERIALS_CONDITION_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            defaultValue={params.condition ?? ""}
-            aria-label="Conditie"
-          />
-        </div>
-
-        <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-4">
-          <h3 className="mb-3 font-[family-name:var(--font-heading)] text-[15px] font-bold">
-            Bestellen
-          </h3>
-          <Select
-            id="buy"
-            name="buy"
-            placeholder="Alle manieren"
-            options={BUY_OPTIONS}
-            defaultValue={params.buy ?? ""}
-            aria-label="Bestellen"
-          />
         </div>
 
         <div className="rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-4">

@@ -110,13 +110,21 @@ test("resolveMaterialsPriceBand maps known bands", () => {
   assert.equal(resolveMaterialsPriceBand("nope"), null);
 });
 
-test("resolveCatalogProductTypes scopes maker P2P", () => {
+test("resolveCatalogProductTypes scopes maker P2P and merchant", () => {
   assert.deepEqual(resolveCatalogProductTypes("maker_p2p", null), [
     "handmade",
     "destash",
   ]);
   assert.deepEqual(resolveCatalogProductTypes("maker_p2p", "destash"), [
     "destash",
+  ]);
+  assert.deepEqual(resolveCatalogProductTypes("merchant", null), [
+    "supply",
+    "supplies",
+  ]);
+  assert.deepEqual(resolveCatalogProductTypes("merchant", "maker"), [
+    "supply",
+    "supplies",
   ]);
   assert.deepEqual(resolveCatalogProductTypes("all", "webshop"), [
     "supply",

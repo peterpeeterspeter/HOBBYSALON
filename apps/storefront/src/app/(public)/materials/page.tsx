@@ -15,10 +15,8 @@ import { MaterialsCatalogToolbar } from "@/components/materials/MaterialsCatalog
 import { MaterialsProductCard } from "@/components/materials/MaterialsProductCard";
 import { MaterialsAfterResults } from "@/components/materials/MaterialsAfterResults";
 import {
-  MATERIALS_CONDITION_OPTIONS,
   MATERIALS_PRICE_BAND_OPTIONS,
   MATERIALS_SHORTCUTS,
-  parseMaterialsBuyMode,
   resolveCategoryChipIds,
   resolveMaterialsPriceBand,
   sanitizeAgendaSearchQuery,
@@ -51,10 +49,7 @@ type SearchParams = Promise<{
   sub?: string;
   domain?: string;
   seller?: string;
-  offer?: string;
-  condition?: string;
   price?: string;
-  buy?: string;
   featured?: string;
   sort?: string;
   page?: string;
@@ -64,17 +59,8 @@ const PAGE_SIZE = 24;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const OFFER_LABELS: Record<string, string> = {
-  webshop: "Webshop",
-  maker: "Maker",
-  destash: "Tweedehands",
-  kit: "Workshoppakket",
-};
-
-const BUY_LABELS: Record<string, string> = {
-  online: "Direct te kopen",
-  contact: "Via maker vragen",
-};
+/** Public materials page is merchant webshop stock only. */
+const MATERIALS_PAGE_SCOPE = "merchant" as const;
 
 type MaterialsSort = "recommended" | "newest" | "price_asc" | "price_desc";
 
@@ -139,22 +125,8 @@ export default async function MaterialsMarketplacePage({
 }) {
   const params = await searchParams;
   const q = sanitizeAgendaSearchQuery(params.q) ?? undefined;
-  const offer =
-    params.offer === "webshop" ||
-    params.offer === "maker" ||
-    params.offer === "destash" ||
-    params.offer === "kit"
-      ? params.offer
-      : undefined;
   const sort = parseSort(params.sort);
-  const conditionRaw = params.condition?.trim();
-  const condition = MATERIALS_CONDITION_OPTIONS.some(
-    (option) => option.value === conditionRaw
-  )
-    ? conditionRaw
-    : undefined;
   const priceBand = resolveMaterialsPriceBand(params.price);
-  const buy = parseMaterialsBuyMode(params.buy);
   const featured = params.featured === "1" || params.featured === "true";
 
   const categoryParam = params.category?.trim();
@@ -175,8 +147,8 @@ export default async function MaterialsMarketplacePage({
 
   const [allCategories, sellerOptions, domainOptions] = await Promise.all([
     listSupplyCategoryOptions(),
-    listMaterialsSellerOptions(),
-    listMaterialsDomainOptions(),
+    listMaterialsSellerOptions({ catalog_scope: MATERIALS_PAGE_SCOPE }),
+    listMaterialsDomainOptions({ catalog_scope: MATERIALS_PAGE_SCOPE }),
   ]);
   const childCats = categoryId
     ? allCategories.filter((c) => c.parent_id === categoryId)
@@ -197,11 +169,9 @@ export default async function MaterialsMarketplacePage({
       ...categoryFilter,
       domain_id: domainId,
       creator_id: sellerId,
-      offer,
-      condition,
+      catalog_scope: MATERIALS_PAGE_SCOPE,
       price_min_cents: priceBand?.minCents,
       price_max_cents: priceBand?.maxCents,
-      buy,
       featured: featured || undefined,
       sort,
       limit: PAGE_SIZE,
@@ -236,10 +206,7 @@ export default async function MaterialsMarketplacePage({
     q,
     domain: domainId,
     seller: sellerId,
-    offer,
-    condition,
     price: priceBand?.key,
-    buy,
     featured: featured ? "1" : undefined,
     sort: sort === "recommended" ? undefined : sort,
   };
@@ -272,10 +239,7 @@ export default async function MaterialsMarketplacePage({
     sub: subId,
     domain: domainId,
     seller: sellerId,
-    offer,
-    condition,
     price: priceBand?.key,
-    buy,
     featured: featured ? "1" : undefined,
     sort: sort === "recommended" ? undefined : sort,
   };
@@ -342,15 +306,6 @@ export default async function MaterialsMarketplacePage({
       }),
     });
   }
-  if (offer) {
-    chips.push({
-      label: OFFER_LABELS[offer] ?? offer,
-      removeHref: buildMaterialsHref(current, {
-        offer: undefined,
-        page: undefined,
-      }),
-    });
-  }
   if (priceBand) {
     chips.push({
       label:
@@ -358,26 +313,6 @@ export default async function MaterialsMarketplacePage({
           ?.label ?? "Prijs",
       removeHref: buildMaterialsHref(current, {
         price: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  if (condition) {
-    chips.push({
-      label:
-        MATERIALS_CONDITION_OPTIONS.find((c) => c.value === condition)?.label ??
-        condition,
-      removeHref: buildMaterialsHref(current, {
-        condition: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  if (buy) {
-    chips.push({
-      label: BUY_LABELS[buy] ?? buy,
-      removeHref: buildMaterialsHref(current, {
-        buy: undefined,
         page: undefined,
       }),
     });
@@ -415,10 +350,7 @@ export default async function MaterialsMarketplacePage({
           sub: subId,
           domain: domainId,
           seller: sellerId,
-          offer,
-          condition,
           price: priceBand?.key,
-          buy,
           featured: featured ? "1" : undefined,
           sort: sort === "recommended" ? undefined : sort,
         }}
@@ -449,10 +381,7 @@ export default async function MaterialsMarketplacePage({
               sub: subId,
               domain: domainId,
               seller: sellerId,
-              offer,
-              condition,
               price: priceBand?.key,
-              buy,
               featured: featured ? "1" : undefined,
               sort: sort === "recommended" ? undefined : sort,
             }}

@@ -90,18 +90,27 @@ export const MATERIALS_CATALOG_PRODUCT_TYPES = [
   "workshop_kit",
 ] as const;
 
+/** Merchant webshop materials only (public /materials page). */
+export const MERCHANT_MATERIALS_PRODUCT_TYPES = [
+  "supply",
+  "supplies",
+] as const;
+
 /** P2P maker marketplace: handmade creaties + destash/restanten only. */
 export const MAKER_MARKETPLACE_PRODUCT_TYPES = [
   "handmade",
   "destash",
 ] as const;
 
-export type MaterialsCatalogScope = "all" | "maker_p2p";
+export type MaterialsCatalogScope = "all" | "maker_p2p" | "merchant";
 
 export function resolveCatalogProductTypes(
   scope: MaterialsCatalogScope | undefined,
   offer: "webshop" | "maker" | "destash" | "kit" | null | undefined
 ): readonly string[] {
+  if (scope === "merchant") {
+    return [...MERCHANT_MATERIALS_PRODUCT_TYPES];
+  }
   if (scope === "maker_p2p") {
     if (offer === "maker") return ["handmade"];
     if (offer === "destash") return ["destash"];
