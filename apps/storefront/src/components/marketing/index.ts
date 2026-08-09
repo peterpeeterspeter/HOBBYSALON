@@ -60,3 +60,17 @@ export { RevealOnView } from "./reveal-on-view";
 export type { RevealOnViewProps } from "./reveal-on-view";
 
 export { AboutHobbysalonSection } from "./about-hobbysalon-section";
+
+export { PartnersLanding } from "./partners-landing";
+
+export { ContentMakerLanding } from "./content-maker-landing";
+
+export { MakerLanding } from "./maker-landing";
+
+export { OrganizerLanding } from "./organizer-landing";
+
+export { SupplierLanding } from "./supplier-landing";
+
+export { HobbyistLanding } from "./hobbyist-landing";
+
+export { AboutLanding } from "./about-landing";

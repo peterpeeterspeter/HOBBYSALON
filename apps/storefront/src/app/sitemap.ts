@@ -25,6 +25,7 @@ const STATIC_PATHS = [
   "/voor-organisatoren",
   "/voor-winkels",
   "/voor-hobbyisten",
+  "/over-ons",
 ] as const;
 
 type SitemapArticle = {

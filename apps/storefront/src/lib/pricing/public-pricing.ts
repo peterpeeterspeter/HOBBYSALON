@@ -430,76 +430,124 @@ export const PRICING_OVERVIEW_OFFERS: PublicPricingOffer[] = [
 /* Detail pages — verbatim brief                                              */
 /* -------------------------------------------------------------------------- */
 
-export const CONTENT_PAGE: DetailPageCopy = {
+export const CONTENT_PAGE = {
   metaTitle: "Contentmakers | Gratis publiceren",
   metaDescription:
-    "Publiceer tutorials, patronen en praktische gidsen onder je eigen makersprofiel — gratis. Materialen koppelen aan producten. Affiliate en digitale patronen: binnenkort.",
-  headline: "Deel je kennis. Verdien mee aan wat je maakt.",
-  subheadline:
-    "Publiceer tutorials, patronen en praktische gidsen onder je eigen makersprofiel — gratis, vanaf vandaag. Hobbysalon zorgt dat je content vindbaar is bij een community van ruim 40.000 hobbyisten.",
+    "Deel tutorials, patronen en praktische gidsen onder je eigen makersprofiel. Gratis publiceren voor een community van ruim 40.000 hobbyisten. Materialen koppelen aan producten.",
+  headline: "Deel je kennis. Bereik lezers die er echt iets mee doen.",
+  /** Short hero line (viewport budget) */
+  heroSubheadline:
+    "Gratis tutorials en patronen voor hobbyisten die gericht zoeken naar wat jij uitlegt.",
   primaryCta: { label: "Word contentmaker", href: "/register/creator" },
   secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
-  sections: [
-    {
-      title: "Zo werkt de materiaalkoppeling",
-      paragraphs: [
-        "Hobbysalon herkent de materialen die je in je tutorial gebruikt en koppelt ze aan passende producten uit de catalogus. Je lezer ziet direct waar het garen, papier of gereedschap te koop is en hoeft niet zelf te zoeken. Jij hoeft alleen je project te beschrijven.",
-      ],
-    },
-    {
-      title: "Binnenkort: verkopen en verdienen",
-      paragraphs: [
-        "De verkoop van digitale patronen en het affiliateprogramma voor contentmakers zijn in ontwikkeling. Bij een aankoop via jouw persoonlijke link ontvang je dan een vergoeding. Voorwaarden en inkomstenverdeling maken we bekend zodra de functie live gaat. Publiceer je nu al, dan staat je content klaar op het moment dat het zover is.",
-      ],
-    },
-  ],
-};
+  intro:
+    "Publiceer tutorials, patronen en praktische gidsen onder je eigen makersprofiel, gratis, vanaf vandaag. Je schrijft voor een community van ruim 40.000 hobbyisten die gericht op zoek zijn naar wat jij uitlegt.",
+  publish: {
+    title: "Wat je publiceert",
+    body: "Stap-voor-stap tutorials met foto's, haakpatronen en naaipatronen, projectbeschrijvingen, materiaalreviews en technieksuggesties. Alles verschijnt onder je eigen naam en profiel, met een overzicht van je werk waar lezers je kunnen volgen.",
+  },
+  materials: {
+    title: "Zo werkt de materiaalkoppeling",
+    body: "Hobbysalon herkent de materialen die je in je tutorial gebruikt en koppelt ze aan passende producten uit de catalogus. Je lezer ziet direct waar het garen, papier of gereedschap te koop is en hoeft niet zelf op zoek. Jij beschrijft alleen je project.",
+    note: "Dat scheelt je lezer het vervelendste deel van een tutorial volgen: uitzoeken wat je precies nodig hebt en waar je het vindt.",
+  },
+  why: {
+    title: "Waarom hier publiceren",
+    items: [
+      {
+        title: "Je content staat niet op zichzelf",
+        body: "Een tutorial over amigurumi verwijst naar het garen, naar de winkel die het verkoopt en naar de workshop waar iemand de techniek onder begeleiding leert. Je lezer kan meteen verder, en jij bereikt mensen die via die andere ingangen binnenkomen.",
+      },
+      {
+        title: "Een publiek dat leest om te maken",
+        body: "De bezoekers van Hobbysalon zijn zelf hobbyist. Ze scrollen niet langs je patroon. Ze printen het uit.",
+      },
+      {
+        title: "Geen algoritme dat je bereik bepaalt",
+        body: "Wat je publiceert blijft vindbaar, ook over een jaar. Anders dan een post die na twee dagen verdwenen is.",
+      },
+    ],
+  },
+  comingSoon: {
+    title: "Binnenkort: verkopen en verdienen",
+    body: "De verkoop van digitale patronen en het affiliateprogramma voor contentmakers zijn in ontwikkeling. Bij een aankoop via jouw persoonlijke link ontvang je dan een vergoeding. Voorwaarden en inkomstenverdeling maken we bekend zodra de functie live gaat.",
+    note: "Publiceer je nu al, dan staat je content klaar op het moment dat het zover is.",
+  },
+  pricing: {
+    title: "Wat het kost",
+    body: "Niets. Publiceren, je profiel en de materiaalkoppeling zijn gratis en blijven dat.",
+  },
+} as const;
 
-export const MAKERS_PAGE: DetailPageCopy = {
+export const MAKERS_PAGE = {
   metaTitle: "Handmade en destash verkopen | Makers",
   metaDescription:
-    "Maak gratis een makersprofiel en plaats je eerste drie advertenties zonder te betalen. Tot 10 extra met credits. Geen commissie op je verkoop.",
+    "Maak gratis een makersprofiel en plaats je eerste drie advertenties zonder te betalen. Tot 10 extra met credits. Geen commissie op je verkoop. Geen btw-nummer nodig bij aanmaken.",
   headline: "Verkoop je handmade werk. Zonder commissie.",
-  subheadline:
-    "Maak gratis een makersprofiel aan en plaats je eerste drie advertenties zonder te betalen: handgemaakte creaties, of materialen uit je eigen voorraad die je niet meer gebruikt. Geïnteresseerden nemen rechtstreeks contact met je op — Hobbysalon zit niet tussen jou en je koper.",
-  primaryCta: { label: "Maak je makersprofiel", href: "/register/creator" },
+  /** Short hero line (viewport budget) */
+  heroSubheadline:
+    "Gratis profiel, drie gratis advertenties, geen commissie. Kopers nemen rechtstreeks contact met jou op.",
+  primaryCta: {
+    label: "Maak je makersprofiel",
+    href: "/register/creator?focus=maker",
+  },
   secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
-  sections: [
-    {
-      title: "Zo werkt het",
-      paragraphs: [
-        "Je plaatst een advertentie met foto's, beschrijving en vraagprijs. Een geïnteresseerde stuurt je een bericht via je profiel. Prijs, betaling en verzending spreek je onderling af. Wat je verkoopt, houd je volledig zelf.",
-      ],
-    },
-    {
-      title: "Twee soorten advertenties",
-      bullets: [
-        "Handmade — je eigen creaties: gehaakt, genaaid, gedraaid, geschilderd. Alles wat je met de hand maakt.",
-        "Destash — garen, stof, kralen, gereedschap of materiaal uit je voorraad dat een nieuwe bestemming verdient.",
-      ],
-    },
-    {
-      title: "Begin met drie gratis advertenties",
-      paragraphs: [
-        "Je profiel en je eerste drie advertenties kosten niets. Genoeg om te testen of Hobbysalon werkt voor jouw werk, zonder vooraf iets uit te geven.",
-      ],
-    },
-    {
-      title: "Uitbreiden met credits",
-      paragraphs: [
-        "Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits. Je betaalt per plaatsing, niet per maand — geen abonnement, geen vaste kost. Ook het verlengen van een aflopende advertentie gaat met credits. Verleng je niet, dan verdwijnt de advertentie vanzelf uit de overzichten en komt de plek weer vrij.",
-        "Met extra credits kun je een advertentie tijdelijk boosten: hij verschijnt dan hoger in de overzichten en in de uitgelichte plaatsingen op relevante pagina's. Nuttig voor seizoensgebonden werk of een grote destash die snel weg moet.",
-        "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
-      ],
-    },
-    {
-      title: "Waarom hier en niet op een algemene marktplaats",
-      paragraphs: [
-        "De bezoekers van Hobbysalon zijn zelf hobbyist. Ze weten wat merinowol kost, herkennen goed afgewerkt werk en zoeken gericht naar materialen voor hun eigen project. Je hoeft minder uit te leggen en je verkoopt aan mensen die de waarde van handwerk kennen.",
-      ],
-    },
-  ],
-};
+  intro:
+    "Maak gratis een makersprofiel aan en plaats je eerste drie advertenties zonder te betalen: voor je eigen creaties, of voor materiaal uit je voorraad dat je niet meer gebruikt. Je hoeft geen btw-nummer op te geven om een profiel aan te maken, en Hobbysalon neemt geen commissie op je verkoop. Geïnteresseerden nemen rechtstreeks contact met je op; wij staan niet tussen jou en je koper.",
+  howItWorks: {
+    title: "Zo werkt het",
+    body: "Je plaatst een advertentie met foto's, beschrijving en vraagprijs. Wie interesse heeft, stuurt je een bericht via je profiel. Prijs, betaling en verzending spreek je onderling af, zoals je dat ook op een makers market zou doen. Wat je verkoopt, houd je volledig zelf.",
+  },
+  adTypes: {
+    title: "Twee soorten advertenties",
+    items: [
+      {
+        title: "Handmade",
+        body: "Je eigen creaties. Gehaakt, genaaid, gedraaid, geschilderd, gesoldeerd: alles wat je met de hand maakt.",
+      },
+      {
+        title: "Destash",
+        body: "De wol die toch de verkeerde kleur bleek, de kast vol stofrestjes, kralen of gereedschap dat je niet meer gebruikt. Voor jou overschot, voor iemand anders precies wat die zocht.",
+      },
+    ],
+    note: "Deze markt is er voor particuliere hobbyisten, niet voor professionele verkopers. Je hoeft geen btw-nummer op te geven om een profiel aan te maken: je begint met een profiel en een foto. Dat houdt het aanbod persoonlijk, en het is meteen de reden dat kopers hier graag rondkijken.",
+  },
+  freeStart: {
+    title: "Begin met drie gratis advertenties",
+    body: "Je profiel en je eerste drie advertenties kosten niets. Genoeg om uit te proberen of jouw werk hier zijn publiek vindt, zonder dat je vooraf iets uitgeeft.",
+  },
+  credits: {
+    title: "Uitbreiden met credits",
+    body: "Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits. Je betaalt per plaatsing, niet per maand: geen abonnement, geen vaste kost, en niets als je even niets te verkopen hebt. Ook het verlengen van een aflopende advertentie gaat met credits. Verleng je niet, dan verdwijnt de advertentie vanzelf en komt de plek weer vrij.",
+    boost:
+      "Met extra credits kun je een advertentie boosten. Die verschijnt dan hoger in de overzichten en bij de uitgelichte plaatsingen op relevante pagina's. Handig voor seizoenswerk of een grote destash die snel weg moet.",
+    note: "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
+  },
+  why: {
+    title: "Waarom hier en niet op een algemene marktplaats",
+    items: [
+      {
+        title: "Een publiek dat handwerk kent",
+        body: "De bezoekers van Hobbysalon zijn zelf hobbyist. Ze weten wat merinowol kost, zien aan een foto of een naad netjes is afgewerkt, en zoeken gericht naar materiaal voor het project dat ze in gedachten hebben. Je hoeft niet uit te leggen waarom handwerk tijd kost. Dat weten ze.",
+      },
+      {
+        title: "Je advertentie staat niet alleen",
+        body: "Wie een tutorial over amigurumi leest of een haakworkshop bekijkt, kan bij jouw garen of jouw werk uitkomen.",
+      },
+    ],
+  },
+  summary: {
+    title: "Kort samengevat",
+    items: [
+      "Gratis profiel",
+      "Geen btw-nummer nodig bij aanmaken",
+      "Eerste 3 advertenties gratis",
+      "Tot 10 extra met credits",
+      "Geen commissie op je verkoop",
+      "Je regelt de verkoop rechtstreeks met je koper",
+    ],
+  },
+} as const;
 
 export const WORKSHOP_PAGE = {
   metaTitle: "Workshops aanbieden | €9,99 voor 3 maanden",
@@ -555,108 +603,136 @@ export const WORKSHOP_PAGE = {
   },
 } as const;
 
-export const ORGANIZER_PAGE: DetailPageCopy = {
+export const ORGANIZER_PAGE = {
   metaTitle: "Hobbybeurzen en makers markets | Organisatoren",
   metaDescription:
     "Zet je hobbybeurs of makers market gratis in de evenementenkalender. Eventpagina vanaf €50 per maand (hobbybeurs) of €69 per event (makers market).",
   headline: "Begin gratis in de kalender",
-  subheadline:
-    "Elke hobbybeurs en elke makers market kan gratis worden opgenomen in de evenementenkalender van Hobbysalon. Bezoekers die naar creatieve evenementen zoeken, vinden je daar terug — zonder dat je iets betaalt.",
+  /** Short hero line (viewport budget) */
+  heroSubheadline:
+    "Elke hobbybeurs en makers market gratis in de kalender. Bezoekers vinden je zonder dat je iets betaalt.",
   primaryCta: {
     label: "Zet je evenement in de kalender",
-    href: "/register/creator",
+    href: "/register/creator?focus=organizer",
   },
   secondaryCta: {
     label: "Bespreek een eventpagina",
-    href: "/register/creator",
+    href: "/register/creator?focus=organizer",
   },
-  sections: [
-    {
-      title: "Wat een gratis kalendervermelding toont",
-      bullets: [
-        "Naam van je evenement",
-        "datum en openingsuren",
-        "locatie",
-        "eventtype (hobbybeurs of makers market)",
-        "een link naar je eigen website of Facebookpagina",
-      ],
-      paragraphs: [
-        "Dat is genoeg om gevonden te worden. Meer heb je niet nodig om te starten.",
-      ],
-    },
-    {
-      title: "Wil je meer laten zien? Kies een eventpagina",
-      listIntro: "Een eventpagina is je eigen plek op Hobbysalon, met ruimte voor het volledige verhaal:",
-      bullets: [
-        "Programma en tijdschema",
-        "Deelnemende standhouders en makers",
-        "Workshops en activiteiten tijdens het evenement",
-        "Foto's en sfeerbeelden van vorige edities",
-        "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
-        "Updates voor bezoekers in de aanloop naar de dag zelf",
-      ],
-    },
-    {
-      title: "Tarieven tijdens de pilot",
-      paragraphs: [
-        "Hobbybeurs: eventpagina vanaf €50 per maand · Makers market: eventpagina vanaf €69 per event.",
-        "Extra promotie — nieuwsbrief, uitgelichte plaatsing of een bredere zichtbaarheidscampagne — bespreken we tijdens de pilot op maat.",
-      ],
-    },
-    {
-      title: "Twijfel je?",
-      paragraphs: [
-        "Zet je evenement eerst gratis in de kalender. Loopt het goed, dan kun je later nog altijd upgraden naar een volledige eventpagina.",
-      ],
-    },
-  ],
-};
+  intro:
+    "Elke hobbybeurs en elke makers market kan gratis in de evenementenkalender van Hobbysalon. Bezoekers die zoeken naar iets creatiefs om te doen, vinden je daar terug, zonder dat je iets betaalt.",
+  freeListing: {
+    title: "Wat een gratis vermelding toont",
+    items: [
+      "Naam van je evenement",
+      "Datum en openingsuren",
+      "Locatie",
+      "Type (hobbybeurs of makers market)",
+      "Een link naar je eigen website of Facebookpagina",
+    ],
+    note: "Genoeg om gevonden te worden. Meer heb je niet nodig om te starten.",
+  },
+  eventPage: {
+    title: "Wil je meer laten zien? Kies een eventpagina",
+    intro:
+      "Een eventpagina is je eigen plek op Hobbysalon, met ruimte voor het volledige verhaal:",
+    items: [
+      "Programma en tijdschema",
+      "Deelnemende standhouders en makers",
+      "Workshops en activiteiten tijdens het evenement",
+      "Foto's en sfeerbeelden van vorige edities",
+      "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
+      "Updates voor bezoekers in de aanloop naar de dag zelf",
+    ],
+  },
+  exhibitors: {
+    title: "Je exposanten kunnen zich aansluiten",
+    body: "Workshopgevers en materialenwinkels die op Hobbysalon staan, kunnen aangeven dat ze bij jouw evenement aanwezig zijn. Zo groeit je eventpagina mee naarmate de standenlijst zich vult, en zien bezoekers vooraf wie ze zullen tegenkomen, vaak net de reden waarom iemand besluit te komen.",
+  },
+  audience: {
+    title: "Een publiek dat hiervoor komt",
+    body: "Hobbysalon organiseerde jarenlang zelf hobbybeurzen in de Nekkerhal, Antwerp Expo en Xpo Kortrijk. De bezoekers van toen zijn de community van nu: mensen die een dag creatief rondstruinen als vanzelfsprekend zien, en die de kalender afgaan op zoek naar de volgende.",
+  },
+  pricing: {
+    title: "Tarieven tijdens de pilot",
+    items: [
+      {
+        label: "Hobbybeurs",
+        value: "Eventpagina vanaf €50 per maand",
+      },
+      {
+        label: "Makers market",
+        value: "Eventpagina vanaf €69 per event",
+      },
+    ],
+    note: "Extra promotie (nieuwsbrief, uitgelichte plaatsing of een bredere zichtbaarheidscampagne) bespreken we tijdens de pilot op maat.",
+  },
+  doubt: {
+    title: "Twijfel je?",
+    body: "Zet je evenement eerst gratis in de kalender. Loopt het goed, dan kun je later nog altijd upgraden naar een volledige eventpagina.",
+  },
+} as const;
 
-export const SUPPLIER_PAGE: DetailPageCopy = {
+export const SUPPLIER_PAGE = {
   metaTitle: "Hobbymaterialen verkopen | €0 + 10% commissie",
   metaDescription:
     "Verkoop professionele hobbymaterialen via Hobbysalon. €0 per maand, 10% commissie bij verkoop. Geen instapkosten, geen listinglimiet, geen jaarcontract.",
   headline: "Verkoop je hobbymaterialen aan een publiek dat weet wat het zoekt",
-  subheadline:
-    "Hobbysalon brengt professionele hobbymaterialenwinkels samen met een community van ruim 40.000 creatieve hobbyisten. Je betaalt geen vast maandbedrag: in de basisformule reken je alleen af wanneer er daadwerkelijk verkocht wordt.",
+  /** Short hero line (viewport budget) */
+  heroSubheadline:
+    "Geen vast maandbedrag. Je rekent alleen af wanneer er echt verkocht wordt.",
   primaryCta: { label: "Meld je winkel aan", href: "/register/merchant" },
   secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
-  sections: [
-    {
-      title: "€0 per maand · 10% commissie op verkopen via Hobbysalon",
-      paragraphs: [
-        "Geen instapkosten, geen listinglimiet, geen jaarcontract. Verkoop je niets, dan betaal je niets.",
-      ],
-    },
-    {
-      title: "Wat je krijgt",
-      bullets: [
-        "Volledige productcatalogus met varianten (kleur, maat, gewicht), voorraadbeheer en eigen verzendinstellingen.",
-        "Checkout en orderbeheer binnen Hobbysalon — je klant rondt af zonder de site te verlaten, jij verwerkt de bestelling vanuit je eigen dashboard.",
-        "Winkelprofiel met je verhaal, assortiment en — als je een fysieke winkel hebt — je locatie en openingsuren.",
-        "Koppeling met content: gebruikt een contentmaker jouw product in een tutorial, dan verschijnt het bij de materialenlijst van dat artikel. Zo bereik je kopers op het moment dat ze het materiaal echt nodig hebben.",
-      ],
-    },
-    {
-      title: "Zowel online als fysiek",
-      paragraphs: [
-        "Heb je een winkel in de straat en geen webshop? Dan is Hobbysalon je online verkoopkanaal. Heb je er al een? Dan is dit een extra vindplaats voor je assortiment, gericht op de doelgroep die je toch al bedient.",
-      ],
-    },
-    {
-      title: "Binnenkort",
-      paragraphs: [
-        "Premium zichtbaarheid (uitgelichte plaatsing in categorieën en nieuwsbrief) en verkoopanalyses zijn in ontwikkeling. Tarieven en beschikbaarheid volgen. De basisformule blijft ongewijzigd beschikbaar.",
-      ],
-    },
-    {
-      title: "Onboarding",
-      paragraphs: [
-        "Je hoeft je catalogus niet met de hand in te voeren. Bij aanmelding kijken we samen naar de snelste route om je assortiment binnen te halen.",
-      ],
-    },
-  ],
-};
+  intro:
+    "Hobbysalon brengt professionele hobbymaterialenwinkels samen met een community van ruim 40.000 creatieve hobbyisten. Geen vast maandbedrag: in de basisformule reken je alleen af wanneer er daadwerkelijk verkocht wordt.",
+  pricingHighlight: {
+    title: "€0 per maand",
+    subtitle: "10% commissie op verkopen via Hobbysalon",
+    body: "Geen instapkosten, geen listinglimiet, geen jaarcontract. Verkoop je niets, dan betaal je niets.",
+  },
+  features: {
+    title: "Wat je krijgt",
+    items: [
+      {
+        title: "Productcatalogus",
+        body: "Een volledige productcatalogus met varianten voor kleur, maat en gewicht, voorraadbeheer en je eigen verzendinstellingen.",
+      },
+      {
+        title: "Checkout en orders",
+        body: "Checkout en orderbeheer binnen Hobbysalon. Je klant rondt de bestelling af zonder de site te verlaten; jij verwerkt en volgt op vanuit je eigen dashboard.",
+      },
+      {
+        title: "Winkelprofiel",
+        body: "Een winkelprofiel met je verhaal en assortiment. Heb je een fysieke winkel, dan komen je locatie en openingsuren erbij.",
+      },
+      {
+        title: "Koppeling met content",
+        body: "Gebruikt een contentmaker jouw garen in een haaktutorial, dan verschijnt je product bij de materialenlijst van dat artikel. Je bereikt de koper op het moment dat die weet wat ze nodig heeft en wil beginnen.",
+      },
+    ],
+  },
+  connected: {
+    title: "Verkopen waar het project ontstaat",
+    body: "Dat laatste is het verschil met een gewone marktplaats. Op Hobbysalon staan de tutorials, de patronen, de workshops en de evenementen naast je producten, en ze verwijzen naar elkaar. Iemand leest hoe je een deken haakt, ziet welke wol daarvoor nodig is, en komt bij jou terecht: niet na een zoekopdracht op prijs, maar met een project in gedachten.",
+    note: "Het is dezelfde beweging als in je winkel, waar iemand met een idee binnenkomt en met het juiste garen buitengaat.",
+  },
+  channels: {
+    title: "Zowel online als fysiek",
+    body: "Heb je een winkel in de straat en geen webshop? Dan is Hobbysalon je online verkoopkanaal, zonder dat je zelf iets hoeft te bouwen of te onderhouden. Heb je er al een? Dan is dit een extra vindplaats voor je assortiment, gericht op precies de doelgroep die je toch al bedient.",
+  },
+  onboarding: {
+    title: "Onboarding",
+    body: "Je hoeft je catalogus niet met de hand in te voeren. Bij aanmelding kijken we samen naar de snelste route om je assortiment binnen te halen.",
+  },
+  comingSoon: {
+    title: "Binnenkort",
+    body: "Premium zichtbaarheid (uitgelichte plaatsing in categorieën en in de nieuwsbrief) en verkoopanalyses zijn in ontwikkeling. Tarieven en beschikbaarheid volgen. De basisformule blijft ongewijzigd beschikbaar.",
+  },
+  closing: {
+    title: "Klaar om te starten?",
+    body: "€0 per maand, 10% commissie op wat er via Hobbysalon verkocht wordt. Geen contract, geen opzegtermijn.",
+  },
+} as const;
 
 /* -------------------------------------------------------------------------- */
 /* Legacy explainers / FAQs kept for imports                                  */
@@ -768,21 +844,27 @@ export const PARTNERS_FAQ: PricingFaqItem[] = [
   {
     question: "Voor wie is Hobbysalon?",
     answer:
-      "Contentmakers, makers, workshopgevers, hobbymaterialenwinkels en eventorganisatoren — plus hobbyisten die iets moois willen maken.",
+      "Voor iedereen die iets creatiefs aanbiedt: contentmakers, hobbyisten die zelfgemaakt werk of overschot verkopen, workshopgevers, organisatoren van beurzen en makers markets, en professionele hobbymaterialenwinkels. Aan de andere kant staat een community van creatieve hobbyisten in België en Nederland.",
   },
   {
-    question: "Waar vind ik alle prijzen?",
-    answer: "Op /prijzen staat een overzicht per doelgroep.",
-  },
-  {
-    question: "Kan ik meerdere rollen hebben?",
+    question: "Kan ik meerdere rollen combineren?",
     answer:
-      "Ja, vanuit hetzelfde profiel. Je kunt bijvoorbeeld contentmaker én workshopgever zijn.",
+      "Ja, vanuit hetzelfde profiel. Een workshopgever die ook tutorials schrijft en materialen verkoopt, hoeft geen drie accounts aan te maken. De formule geldt per soort activiteit.",
   },
   {
     question: "Werkt Hobbysalon met commissie?",
     answer:
-      "Alleen op merchant-verkoop van materialen (10%). Makers hebben geen commissie. Workshops: vaste vermelding, geen commissie per deelnemer.",
+      "Alleen bij hobbymaterialenwinkels: 10% op wat er via het platform verkocht wordt. Makers betalen geen commissie op hun verkoop, workshopgevers geen commissie per deelnemer.",
+  },
+  {
+    question: "Wat kan ik gratis doen?",
+    answer:
+      "Content publiceren, je eerste drie makersadvertenties plaatsen en je evenement in de kalender zetten. Een profiel aanmaken kost niets.",
+  },
+  {
+    question: "Waar vind ik alle prijzen bij elkaar?",
+    answer:
+      "Op de prijzenpagina staan de vijf routes naast elkaar in één vergelijking.",
   },
 ];
 
