@@ -3,6 +3,7 @@ import {
   MarketingHero,
   MarketingNarrativeSections,
   FinalCtaSection,
+  AboutHobbysalonSection,
 } from "@/components/marketing";
 import { CONTENT_PAGE } from "@/lib/pricing/public-pricing";
 
@@ -30,6 +31,7 @@ export default function VoorContentmakersPage() {
         secondaryHref="/prijzen"
         secondaryText="Alle prijzen"
       />
+      <AboutHobbysalonSection />
     </>
   );
 }

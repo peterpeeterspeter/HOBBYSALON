@@ -3,6 +3,7 @@ import {
   MarketingHero,
   MarketingNarrativeSections,
   FinalCtaSection,
+  AboutHobbysalonSection,
 } from "@/components/marketing";
 import { ORGANIZER_PAGE } from "@/lib/pricing/public-pricing";
 
@@ -30,6 +31,7 @@ export default function VoorOrganisatorenPage() {
         secondaryHref={ORGANIZER_PAGE.secondaryCta?.href}
         secondaryText={ORGANIZER_PAGE.secondaryCta?.label}
       />
+      <AboutHobbysalonSection />
     </>
   );
 }

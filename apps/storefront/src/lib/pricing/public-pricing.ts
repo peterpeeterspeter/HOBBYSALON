@@ -501,38 +501,59 @@ export const MAKERS_PAGE: DetailPageCopy = {
   ],
 };
 
-export const WORKSHOP_PAGE: DetailPageCopy = {
+export const WORKSHOP_PAGE = {
   metaTitle: "Workshops aanbieden | €9,99 voor 3 maanden",
   metaDescription:
-    "Presenteer je workshop aan hobbyisten die actief op zoek zijn naar nieuwe technieken. €9,99 per vermelding, drie maanden zichtbaar. Geen commissie per deelnemer.",
+    "Zet je workshop op de kaart bij hobbyisten die gericht zoeken. €9,99 per vermelding, drie maanden zichtbaar. Geen commissie per deelnemer.",
   headline: "Zet je workshop op de kaart",
-  subheadline:
-    "Presenteer je workshop aan hobbyisten die actief op zoek zijn naar nieuwe technieken. Deelnemers schrijven zich rechtstreeks bij jou in — Hobbysalon rekent geen commissie per deelnemer.",
-  primaryCta: { label: "Plaats je workshop", href: "/register/creator" },
+  /** Short hero line (viewport budget) */
+  heroSubheadline:
+    "Hobbyisten zoeken hier gericht naar workshops. Inschrijvingen lopen rechtstreeks bij jou, zonder commissie.",
+  primaryCta: {
+    label: "Plaats je workshop",
+    href: "/register/creator?focus=workshopgever",
+  },
   secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
-  sections: [
-    {
-      title: "In één vermelding",
-      bullets: [
-        "Foto's, beschrijving en praktische informatie",
-        "datum, locatie, prijs en doelgroep",
-        "tot drie sessiedata",
-        "benodigde materialen gekoppeld aan de catalogus",
-        "je eigen contactgegevens of externe inschrijflink",
-      ],
-    },
-    {
-      title: "Controleer je data vóór publicatie",
-      paragraphs: [
-        "De sessiedata worden vastgelegd op het moment dat je publiceert en kunnen daarna niet meer worden aangepast. Neem de datums en tijden dus rustig door voor je op publiceren klikt.",
-      ],
-    },
-    {
-      title: "€9,99 per workshopvermelding.",
-      paragraphs: ["Drie maanden zichtbaar, daarna opnieuw te activeren."],
-    },
+  intro: [
+    "Er zijn hobbyisten die al maanden willen leren haken, quilten of zilver smeden, en die nog niet weten dat jij hun workshop geeft. Op Hobbysalon vinden ze je, tussen een publiek dat hier komt om creatief bezig te zijn en nergens anders voor.",
+    "Deelnemers schrijven zich rechtstreeks bij jou in. Geen commissie per deelnemer, geen tussenpersoon: wat je vraagt, houd je.",
   ],
-};
+  listing: {
+    title: "Wat er in je vermelding staat",
+    items: [
+      "Foto's, beschrijving en praktische informatie",
+      "Datum, locatie, prijs en voor wie de workshop bedoeld is",
+      "Tot drie sessiedata binnen dezelfde vermelding",
+      "De benodigde materialen, gekoppeld aan de catalogus. Deelnemers zien meteen wat ze nodig hebben en waar het te koop is",
+      "Je eigen contactgegevens of een link naar je eigen inschrijfsysteem",
+    ],
+  },
+  reasons: {
+    title: "Waarom hier",
+    items: [
+      {
+        title: "Een publiek dat je niet hoeft te overtuigen",
+        body: "De bezoekers van Hobbysalon zijn hobbyist. Ze zoeken gericht naar workshops in hun techniek en hun regio, en weten wat een goede workshop waard is.",
+      },
+      {
+        title: "Je workshop staat niet alleen",
+        body: "Materialen, tutorials en evenementen zijn op Hobbysalon met elkaar verbonden. Wie een artikel over amigurumi leest, kan van daaruit bij jouw haakworkshop uitkomen.",
+      },
+      {
+        title: "Geen abonnement, geen commissie",
+        body: "Je betaalt per vermelding. Geef je één workshop per jaar, dan betaal je één keer.",
+      },
+    ],
+  },
+  publishNote: {
+    title: "Controleer je data vóór je publiceert",
+    body: "De sessiedata worden vastgelegd op het moment van publiceren en kunnen daarna niet meer worden aangepast. Neem datums, tijden en locatie dus rustig door voor je op publiceren klikt. Bij een fout moet de vermelding opnieuw worden aangemaakt.",
+  },
+  pricing: {
+    title: "€9,99 per workshopvermelding",
+    body: "Drie maanden zichtbaar, met maximaal drie sessiedata in dezelfde vermelding. Loopt de periode af, dan kun je de workshop opnieuw activeren.",
+  },
+} as const;
 
 export const ORGANIZER_PAGE: DetailPageCopy = {
   metaTitle: "Hobbybeurzen en makers markets | Organisatoren",
