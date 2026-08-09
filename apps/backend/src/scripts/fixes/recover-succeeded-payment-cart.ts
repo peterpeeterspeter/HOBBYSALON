@@ -9,6 +9,7 @@
  */
 import type { ExecArgs } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
+import { splitAndCompleteCartWorkflow } from "@mercurjs/b2c-core/workflows"
 import Stripe from "stripe"
 
 export default async function recoverSucceededPaymentCart({
@@ -58,11 +59,6 @@ export default async function recoverSucceededPaymentCart({
 
   await payment.authorizePaymentSession(sessionId, {})
   console.log(`Authorized payment session ${sessionId}`)
-
-  // Dynamic import — path differs between local monorepo and container image.
-  const { splitAndCompleteCartWorkflow } = await import(
-    "@mercurjs/b2c-core/workflows/cart/workflows"
-  )
 
   const { result } = await splitAndCompleteCartWorkflow(container).run({
     input: { id: cartId },
