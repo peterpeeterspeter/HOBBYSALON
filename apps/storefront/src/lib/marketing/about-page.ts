@@ -72,7 +72,7 @@ export const ABOUT_PAGE = {
   },
   team: {
     title: "Even voorstellen",
-    body: "Hobbysalon wordt geleid door Peter Peeters vanuit Herentals. De beurzen organiseren we niet meer. Het platform heeft onze volledige aandacht.",
+    body: "Hobbysalon wordt geleid door Nathalie Smolders en Peter Peeters, getest door hun dochter Charlie en goedgekeurd door hun honden Amigo & Pepe. De beurzen organiseren we niet meer. Het platform heeft onze volledige aandacht.",
     invite: "Vragen, ideeën of gewoon iets kwijt? We horen het graag.",
     contactCta: { label: "Neem contact op", href: "mailto:info@hobbysalon.be" },
   },
