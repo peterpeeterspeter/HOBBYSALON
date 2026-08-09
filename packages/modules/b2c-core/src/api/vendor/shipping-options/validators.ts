@@ -30,15 +30,18 @@ export const VendorGetShippingFindParams = createFindParams({
  */
 const CreateShippingOptionPriceWithCurrency = z
   .object({
+    id: z.string().optional(),
     currency_code: z.string(),
     amount: z.number(),
-    rules: z.array(
-      z.object({
-        attribute: z.literal('item_total'),
-        operator: z.nativeEnum(PricingRuleOperator),
-        value: z.number()
-      })
-    )
+    rules: z
+      .array(
+        z.object({
+          attribute: z.literal('item_total'),
+          operator: z.nativeEnum(PricingRuleOperator),
+          value: z.number()
+        })
+      )
+      .optional()
   })
   .strict()
 
@@ -58,17 +61,31 @@ const CreateShippingOptionPriceWithCurrency = z
  */
 export const CreateShippingOptionPriceWithRegion = z
   .object({
+    id: z.string().optional(),
     region_id: z.string(),
+    // Optional: Medusa admin sometimes also sends the region's currency.
+    currency_code: z.string().optional(),
     amount: z.number(),
-    rules: z.array(
-      z.object({
-        attribute: z.literal('item_total'),
-        operator: z.nativeEnum(PricingRuleOperator),
-        value: z.number()
-      })
-    )
+    rules: z
+      .array(
+        z.object({
+          attribute: z.literal('item_total'),
+          operator: z.nativeEnum(PricingRuleOperator),
+          value: z.number()
+        })
+      )
+      .optional()
   })
   .strict()
+
+/**
+ * Prefer region prices first so `{ region_id, amount }` is not rejected by the
+ * currency schema with "currency_code is required".
+ */
+const CreateShippingOptionPrice = z.union([
+  CreateShippingOptionPriceWithRegion,
+  CreateShippingOptionPriceWithCurrency
+])
 
 /**
  * @schema CreateShippingOptionTypeObject
@@ -165,9 +182,7 @@ export const VendorCreateShippingOption = z
     shipping_profile_id: z.string(),
     data: z.record(z.unknown()).optional(),
     provider_id: z.string(),
-    prices: CreateShippingOptionPriceWithCurrency.or(
-      CreateShippingOptionPriceWithRegion
-    ).array(),
+    prices: CreateShippingOptionPrice.array(),
     type: CreateShippingOptionTypeObject,
     rules: VendorCreateShippingOptionRule.array().optional()
   })
@@ -209,11 +224,7 @@ export const VendorUpdateShippingOption = z
     name: z.string().optional(),
     shipping_profile_id: z.string().optional(),
     provider_id: z.string().optional(),
-    prices: CreateShippingOptionPriceWithCurrency.or(
-      CreateShippingOptionPriceWithRegion
-    )
-      .array()
-      .optional(),
+    prices: CreateShippingOptionPrice.array().optional(),
     type: CreateShippingOptionTypeObject.optional(),
     rules: VendorCreateShippingOptionRule.array().optional()
   })

@@ -190,12 +190,15 @@ export class PayoutProvider implements IPayoutProvider {
       }
 
       const payoutAccountId = context.payout_account_id as string | undefined;
+      // Never reuse a fixed idempotency key for Account Links — Stripe returns the
+      // original (often expired) URL for 24h, which sends sellers back to refresh_url
+      // in an infinite loop.
       const accountLink = await this.createAccountOnboardingLink({
         accountId,
         refreshUrl: context.refresh_url as string,
         returnUrl: context.return_url as string,
         idempotencyKey: payoutAccountId
-          ? `${payoutAccountId}_onboarding`
+          ? `${payoutAccountId}_onboarding_${Date.now()}`
           : undefined,
       });
 

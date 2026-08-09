@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkoutSelectShipping } from "@/app/actions/checkout";
+import { medusaAmountToCents } from "@/lib/commerce/money";
 import type { ShippingOption } from "@/lib/commerce/medusa/cart";
 
-function formatPrice(amount: number, currencyCode: string): string {
+function formatPrice(amountMajor: number, currencyCode: string): string {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: currencyCode.toUpperCase(),
     minimumFractionDigits: 2,
-  }).format((amount ?? 0) / 100);
+  }).format(medusaAmountToCents(amountMajor) / 100);
 }
 
 export function CheckoutShippingStep({

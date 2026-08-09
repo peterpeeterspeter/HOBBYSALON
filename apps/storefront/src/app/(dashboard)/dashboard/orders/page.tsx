@@ -5,6 +5,7 @@ import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capabil
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { listCreatorOrders } from "@/lib/commerce/medusa/creator-orders";
+import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
 import {
   cancelCreatorOrderAction,
   completeCreatorOrderAction,
@@ -13,6 +14,7 @@ import { CardShell } from "@/components/ui/card-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { PriceDisplay } from "@/components/domain/price-display";
+import { medusaAmountToCents } from "@/lib/commerce/money";
 
 type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -37,13 +39,24 @@ export default async function DashboardOrdersPage({ searchParams }: Props) {
   });
   requireDashboardCapability(caps.canManageOrders);
 
-  const creatorSeller = context.sellerLinks.find(
-    (link) => link.sellerType === "creator"
-  );
+  // Merchants (materials shops) and creators both sell via Medusa sellers.
+  const sellerLink =
+    context.sellerLinks.find((link) => link.sellerType === "creator") ??
+    context.sellerLinks.find((link) => link.sellerType === "merchant");
 
-  const orderResponse = creatorSeller
+  let sellerId = sellerLink?.sellerId ?? null;
+  if (!sellerId && creator) {
+    const ensured = await ensureCreatorSellerLinked(
+      user.id,
+      user.email ?? "",
+      creator
+    );
+    sellerId = ensured.sellerId;
+  }
+
+  const orderResponse = sellerId
     ? await listCreatorOrders({
-        sellerId: creatorSeller.sellerId,
+        sellerId,
         limit: 50,
         offset: 0,
       })
@@ -68,10 +81,10 @@ export default async function DashboardOrdersPage({ searchParams }: Props) {
         </p>
       )}
 
-      {!creatorSeller ? (
+      {!sellerId ? (
         <EmptyState
-          title="Geen creator seller-link"
-          description="Registreer eerst je creator seller-profiel om bestellingen te beheren."
+          title="Geen winkel gekoppeld"
+          description="Koppel eerst je verkopersprofiel via het Verkopersportaal of maak een creator-shop aan om bestellingen te zien."
         />
       ) : orders.length === 0 ? (
         <EmptyState
@@ -96,7 +109,7 @@ export default async function DashboardOrdersPage({ searchParams }: Props) {
                 </div>
                 <div className="text-right">
                   <PriceDisplay
-                    amount={order.total ?? 0}
+                    amount={medusaAmountToCents(order.total ?? 0)}
                     currencyCode={order.currency_code ?? "EUR"}
                     size="md"
                   />

@@ -30,17 +30,17 @@ export const NotConnected = () => {
         },
       })
 
-      const hostname = window.location.href
+      const origin = window.location.origin
       const { payout_account } = await createOnboarding({
         context: {
-          refresh_url: hostname,
-          return_url: hostname,
+          refresh_url: `${origin}/stripe-connect`,
+          return_url: `${origin}/stripe-connect?onboarding=return`,
         },
       })
 
       const url = payout_account.onboarding?.data?.url
       if (url) {
-        window.location.replace(url)
+        window.location.assign(url)
         return
       }
 

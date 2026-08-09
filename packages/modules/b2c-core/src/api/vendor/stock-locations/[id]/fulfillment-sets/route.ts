@@ -60,18 +60,44 @@ export const POST = async (
     req.scope
   );
 
-  await createLocationFulfillmentSetAndAssociateWithSellerWorkflow(
-    req.scope
-  ).run({
-    input: {
-      location_id: req.params.id,
-      fulfillment_set_data: {
-        name: req.validatedBody.name,
-        type: req.validatedBody.type,
-      },
-      seller_id: seller.id,
-    },
+  // Fulfillment set names are globally unique across all sellers. Two merchants
+  // can share the same location display name, so suffix with seller identity.
+  const requestedName = req.validatedBody.name?.trim();
+  const uniqueName =
+    requestedName &&
+    !requestedName.includes(seller.id) &&
+    !requestedName.includes(req.params.id)
+      ? `${requestedName} (${seller.name || seller.id})`
+      : requestedName ||
+        `${seller.name || "Seller"} ${req.validatedBody.type} (${req.params.id})`;
+
+  // Idempotent: if this location already has a set of this type, do not create.
+  const {
+    data: [existingLocation],
+  } = await query.graph({
+    entity: "stock_location",
+    fields: ["id", "fulfillment_sets.id", "fulfillment_sets.type"],
+    filters: { id: req.params.id },
   });
+
+  const alreadyHasType = (existingLocation?.fulfillment_sets ?? []).some(
+    (set: { type?: string }) => set?.type === req.validatedBody.type
+  );
+
+  if (!alreadyHasType) {
+    await createLocationFulfillmentSetAndAssociateWithSellerWorkflow(
+      req.scope
+    ).run({
+      input: {
+        location_id: req.params.id,
+        fulfillment_set_data: {
+          name: uniqueName,
+          type: req.validatedBody.type,
+        },
+        seller_id: seller.id,
+      },
+    });
+  }
 
   const eventBus = req.scope.resolve(Modules.EVENT_BUS);
   await eventBus.emit({

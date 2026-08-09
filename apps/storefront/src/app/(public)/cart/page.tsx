@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { CART_COOKIE_NAME, getCart } from "@/lib/commerce/medusa/cart";
+import { medusaAmountToCents } from "@/lib/commerce/money";
 import { RemoveFromCartButton } from "@/components/cart/RemoveFromCartButton";
 import { CartItemQuantityControl } from "@/components/cart/CartItemQuantityControl";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -48,12 +49,15 @@ export default async function CartPage() {
 
   const currencyCode = (cart as { currency_code?: string }).currency_code ?? "eur";
   const items = (cart.items ?? []) as CartItem[];
-  const subtotal =
-    items.reduce((sum: number, item: CartItem) => {
-      const unitPrice = item.unit_price ?? 0;
-      const qty = item.quantity ?? 1;
-      return sum + unitPrice * qty;
-    }, 0);
+  const cartSubtotal = (cart as { subtotal?: number }).subtotal;
+  const subtotalCents = medusaAmountToCents(
+    cartSubtotal ??
+      items.reduce((sum: number, item: CartItem) => {
+        const unitPrice = item.unit_price ?? 0;
+        const qty = item.quantity ?? 1;
+        return sum + unitPrice * qty;
+      }, 0)
+  );
 
   return (
     <PageLayout title="Winkelwagen" size="narrow">
@@ -76,7 +80,9 @@ export default async function CartPage() {
             variant?.product?.title ?? variant?.title ?? i?.title ?? "Product";
           const unitPrice = i.unit_price ?? 0;
           const qty = i.quantity ?? 1;
-          const itemTotal = i.total ?? unitPrice * qty;
+          const itemTotalCents = medusaAmountToCents(
+            i.total ?? unitPrice * qty
+          );
 
           return (
             <CardShell key={i.id} variant="default" padding="md">
@@ -98,7 +104,7 @@ export default async function CartPage() {
                     quantity={qty}
                     disabled={!!bundleId}
                   />
-                  <PriceDisplay amount={itemTotal} currencyCode={currencyCode} size="md" />
+                  <PriceDisplay amount={itemTotalCents} currencyCode={currencyCode} size="md" />
                   <RemoveFromCartButton itemId={i.id as string} />
                 </div>
               </div>
@@ -111,7 +117,7 @@ export default async function CartPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xl font-bold text-[var(--foreground)]">
             Subtotaal:{" "}
-            <PriceDisplay amount={subtotal} currencyCode={currencyCode} size="lg" />
+            <PriceDisplay amount={subtotalCents} currencyCode={currencyCode} size="lg" />
           </p>
           <p className="text-sm text-[var(--muted)]">
             Verzendkosten worden berekend bij het afrekenen.

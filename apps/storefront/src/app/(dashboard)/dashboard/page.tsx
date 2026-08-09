@@ -12,8 +12,19 @@ import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { DashboardAccountSection } from "@/components/dashboard/DashboardAccountSection";
 
+async function getMakerListingCount(creatorId: string): Promise<number> {
+  const supabase = createPlatformClient();
+  const { count } = await supabase
+    .from("products")
+    .select("id", { head: true, count: "exact" })
+    .eq("creator_id", creatorId)
+    .in("product_type", ["handmade", "destash"]);
+
+  return count ?? 0;
+}
+
 async function getCount(
-  table: "products" | "workshops" | "events",
+  table: "workshops" | "events",
   field: "creator_id" | "organizer_creator_id",
   creatorId: string
 ): Promise<number> {
@@ -53,7 +64,7 @@ export default async function DashboardHomePage({ searchParams }: Props) {
     creator
       ? await Promise.all([
           caps.canManageProducts
-            ? getCount("products", "creator_id", creator.id)
+            ? getMakerListingCount(creator.id)
             : Promise.resolve(0),
           caps.canManageWorkshops
             ? getCount("workshops", "creator_id", creator.id)
@@ -109,7 +120,7 @@ export default async function DashboardHomePage({ searchParams }: Props) {
     caps.canManageProducts
       ? {
           key: "products",
-          label: "Jouw Shop",
+          label: "Maker shop",
           count: productCount,
           href: "/dashboard/products",
         }

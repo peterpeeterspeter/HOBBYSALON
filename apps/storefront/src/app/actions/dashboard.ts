@@ -375,18 +375,20 @@ async function getRequiredCreator() {
   const { user, creator } = await getRequiredCreatorProfile();
 
   const supabase = createPlatformClient();
-  const { data: sellerLink, error: sellerLinkError } = await supabase
+  const { data: sellerLinks, error: sellerLinkError } = await supabase
     .from("user_seller_links")
-    .select("seller_id")
-    .eq("user_id", user.id)
-    .eq("seller_type", "creator")
-    .maybeSingle();
+    .select("seller_id, seller_type")
+    .eq("user_id", user.id);
 
   if (sellerLinkError) {
     throw new Error("Kon creator-seller koppeling niet ophalen.");
   }
 
-  if (!sellerLink?.seller_id) {
+  const preferredLink =
+    sellerLinks?.find((link) => link.seller_type === "creator") ??
+    sellerLinks?.find((link) => link.seller_type === "merchant");
+
+  if (!preferredLink?.seller_id) {
     const ensured = await ensureCreatorSellerLinked(
       user.id,
       user.email ?? "",
@@ -403,7 +405,7 @@ async function getRequiredCreator() {
     return { user, creator, sellerId: ensured.sellerId };
   }
 
-  return { user, creator, sellerId: sellerLink.seller_id as string };
+  return { user, creator, sellerId: preferredLink.seller_id as string };
 }
 
 async function ensureUniqueSlug(

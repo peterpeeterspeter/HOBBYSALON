@@ -121,42 +121,31 @@ export function EditShippingOptionsPricingForm({
   const data = useMemo(() => [[...(currencies || [])]], [currencies])
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    // const currencyPrices = Object.entries(data.currency_prices)
-    //   .map(([code, value]) => {
-    //     if (
-    //       !value ||
-    //       !currencies.some((c) => c.toLowerCase() === code.toLowerCase())
-    //     ) {
-    //       return undefined
-    //     }
+    const currencyPrices = Object.entries(data.currency_prices)
+      .map(([code, value]) => {
+        if (
+          !value ||
+          !currencies.some((c) => c.toLowerCase() === code.toLowerCase())
+        ) {
+          return undefined
+        }
 
-    //     const priceRecord: PriceRecord = {
-    //       currency_code: code,
-    //       amount: castNumber(value),
-    //     }
+        const priceRecord: PriceRecord = {
+          currency_code: code,
+          amount: castNumber(value),
+        }
 
-    //     const existingPrice = shippingOption.prices.find(
-    //       (p) => p.currency_code === code && !p.price_rules!.length
-    //     )
+        const existingPrice = shippingOption.prices.find(
+          (p) => p.currency_code === code && !p.price_rules!.length
+        )
 
-    //     if (existingPrice) {
-    //       priceRecord.id = existingPrice.id
-    //     }
+        if (existingPrice) {
+          priceRecord.id = existingPrice.id
+        }
 
-    //     return priceRecord
-    //   })
-    //   .filter((p): p is PriceRecord => !!p)
-
-    // const conditionalCurrencyPrices = Object.entries(
-    //   data.conditional_currency_prices
-    // ).flatMap(([currency_code, value]) =>
-    //   value?.map((rule) => ({
-    //     id: rule.id,
-    //     currency_code,
-    //     amount: castNumber(rule.amount),
-    //     rules: buildShippingOptionPriceRules(rule),
-    //   }))
-    // )
+        return priceRecord
+      })
+      .filter((p): p is PriceRecord => !!p)
 
     /**
      * TODO: If we try to update an existing region price the API throws an error.
@@ -164,34 +153,27 @@ export function EditShippingOptionsPricingForm({
      */
     const regionPrices = Object.entries(data.region_prices)
       .map(([region_id, value]) => {
+        if (!value || !regions?.some((region) => region.id === region_id)) {
+          return undefined
+        }
+
+        const region = regions.find((r) => r.id === region_id)
         const priceRecord: PriceRecord = {
           region_id,
-          amount: castNumber(value || 0),
-          // currency_code: regions?.find((r) => r.id === region_id)
-          //   ?.currency_code,
+          amount: castNumber(value),
+          currency_code: region?.currency_code,
         }
 
         return priceRecord
       })
       .filter((p): p is PriceRecord => !!p)
 
-    // const conditionalRegionPrices = Object.entries(
-    //   data.conditional_region_prices
-    // ).flatMap(([region_id, value]) =>
-    //   value?.map((rule) => ({
-    //     id: rule.id,
-    //     region_id,
-    //     amount: castNumber(rule.amount),
-    //     rules: buildShippingOptionPriceRules(rule),
-    //   }))
-    // )
+    const allPrices = [...currencyPrices, ...regionPrices]
 
-    const allPrices = [
-      // ...currencyPrices,
-      // ...conditionalCurrencyPrices,
-      ...regionPrices,
-      // ...conditionalRegionPrices,
-    ]
+    if (!allPrices.length) {
+      toast.error(t("general.error"))
+      return
+    }
 
     await mutateAsync(
       { prices: allPrices },

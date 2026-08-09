@@ -2,8 +2,6 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import Stripe from "stripe"
 
-const TERMINAL_PI_STATUSES = ["succeeded", "canceled"] as const
-
 /**
  * GET /store/carts/:id/payment-client-secret
  *
@@ -11,7 +9,14 @@ const TERMINAL_PI_STATUSES = ["succeeded", "canceled"] as const
  */
 export async function GET(
   req: MedusaRequest<{ id: string }>,
-  res: MedusaResponse<{ client_secret?: string } | { message: string }>
+  res: MedusaResponse<
+    | {
+        client_secret?: string
+        payment_succeeded?: boolean
+        payment_intent_id?: string
+      }
+    | { message: string }
+  >
 ) {
   const cartId = req.params.id
   if (!cartId) {
@@ -118,15 +123,23 @@ export async function GET(
       clientSecret = (newData?.client_secret ?? newData?.clientSecret) as string | undefined
     }
 
-    // Check if PaymentIntent is terminal; if refresh requested, delete and create new session
+    // Check if PaymentIntent is terminal; if succeeded, tell the client to
+    // complete the cart instead of creating a new (unpayable) session.
     if (paymentIntentId && stripeKey) {
       try {
         const stripe = new Stripe(stripeKey)
         const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
         if (!clientSecret) clientSecret = pi.client_secret ?? undefined
 
-        const isTerminal = TERMINAL_PI_STATUSES.includes(pi.status as (typeof TERMINAL_PI_STATUSES)[number])
-        if (isTerminal) {
+        if (pi.status === "succeeded") {
+          return res.json({
+            client_secret: clientSecret,
+            payment_succeeded: true,
+            payment_intent_id: pi.id,
+          })
+        }
+
+        if (pi.status === "canceled") {
           await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
         }
       } catch (e) {

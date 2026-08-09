@@ -212,7 +212,7 @@ export function buildRoleAwareDashboardNav(
   if (caps.canManageProducts) {
     items.push({
       href: "/dashboard/products",
-      label: "Jouw Shop",
+      label: "Maker shop",
       badge:
         options?.newProductInquiryCount && options.newProductInquiryCount > 0
           ? options.newProductInquiryCount

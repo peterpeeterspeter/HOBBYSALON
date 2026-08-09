@@ -12,7 +12,7 @@ Status and next steps for the three remaining payment items.
 |------|--------|-------|
 | Live platform | ✅ Done | Hobbysalon `acct_1T9liXKYtYRhUUb3` — charges/payouts enabled, BE/EUR, card + Bancontact on |
 | Live API keys | ✅ Done | VPS `STRIPE_SECRET_API_KEY` + Vercel `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` / listing secret key are live |
-| Live payment webhook | ✅ Done | `https://api.hobbysalon.be/hooks/payment/stripe-connect` |
+| Live payment webhook | ✅ Done | `https://api.hobbysalon.be/hooks/payment/card_stripe-connect` (`pp_card_stripe-connect`) |
 | Live Connect webhook | ✅ Done | `https://api.hobbysalon.be/hooks/payouts` (`account.updated`, Connect endpoint) |
 | Live listing webhook | ✅ Done | `https://www.hobbysalon.be/api/webhooks/stripe-listing` |
 | Local/dev keys | ✅ Test | Keep `apps/backend/.env` + storefront `.env.local` on test keys; use Stripe CLI for local webhooks |

@@ -10,7 +10,7 @@ Your backend exposes two webhook endpoints:
 
 | Endpoint | Purpose | Env variable for signing secret |
 |----------|---------|---------------------------------|
-| `POST /hooks/payment/stripe-connect` | Payment events (succeeded, failed, etc.) | `STRIPE_PAYMENT_WEBHOOK_SECRET` or `STRIPE_WEBHOOK_SECRET` |
+| `POST /hooks/payment/card_stripe-connect` | Payment events (succeeded, failed, etc.) | `STRIPE_PAYMENT_WEBHOOK_SECRET` or `STRIPE_WEBHOOK_SECRET` |
 | `POST /hooks/payouts` | Stripe Connect account events (`account.updated` and Accounts v2 recipient capability updates) | `STRIPE_CONNECTED_ACCOUNTS_WEBHOOK_SECRET` |
 
 Base URL (local): `http://localhost:9000`
@@ -39,7 +39,7 @@ stripe login
 ### 3. Forward payment webhooks to your backend
 
 ```bash
-stripe listen --forward-to localhost:9000/hooks/payment/stripe-connect
+stripe listen --forward-to localhost:9000/hooks/payment/card_stripe-connect
 ```
 
 The CLI will output a webhook signing secret like `whsec_...`. Add it to `apps/backend/.env`:
@@ -77,7 +77,7 @@ Live account: `acct_1T9liXKYtYRhUUb3` (Hobbysalon, BE/EUR). Platform charges and
 
 | Endpoint | Mode | Events | Env |
 |----------|------|--------|-----|
-| `https://api.hobbysalon.be/hooks/payment/stripe-connect` | Live (platform) | `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.amount_capturable_updated`, `payment_intent.canceled` | `STRIPE_PAYMENT_WEBHOOK_SECRET` / `STRIPE_WEBHOOK_SECRET` |
+| `https://api.hobbysalon.be/hooks/payment/card_stripe-connect` | Live (platform) | `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.amount_capturable_updated`, `payment_intent.canceled` | `STRIPE_PAYMENT_WEBHOOK_SECRET` / `STRIPE_WEBHOOK_SECRET` |
 | `https://api.hobbysalon.be/hooks/payouts` | Live (**Connect** endpoint) | `account.updated` | `STRIPE_CONNECTED_ACCOUNTS_WEBHOOK_SECRET` |
 | `https://www.hobbysalon.be/api/webhooks/stripe-listing` | Live (platform) | `checkout.session.completed` | `STRIPE_LISTING_WEBHOOK_SECRET` (Vercel storefront) |
 
@@ -86,7 +86,8 @@ Production VPS and Vercel use **live** API keys (`sk_live` / `pk_live`). Local `
 ### Re-creating endpoints (if needed)
 
 1. Go to [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks) (live mode)
-2. Add payment endpoint → `https://api.hobbysalon.be/hooks/payment/stripe-connect` with the payment_intent events above
+2. Add payment endpoint → `https://api.hobbysalon.be/hooks/payment/card_stripe-connect` with the payment_intent events above
+   (Medusa resolves the path segment as provider id `pp_<path>`; the registered provider is `pp_card_stripe-connect`, not `pp_stripe-connect`)
 3. Add Connect endpoint → `https://api.hobbysalon.be/hooks/payouts` with **Listen to events on Connected accounts** and `account.updated`
 4. Put each signing secret (`whsec_...`) in the matching production env var and recreate/redeploy the backend
 
@@ -94,7 +95,7 @@ Production VPS and Vercel use **live** API keys (`sk_live` / `pk_live`). Local `
 
 ## Events handled
 
-### Payment webhook (`/hooks/payment/stripe-connect`)
+### Payment webhook (`/hooks/payment/card_stripe-connect`)
 
 - `payment_intent.succeeded` – payment captured
 - `payment_intent.payment_failed` – payment failed

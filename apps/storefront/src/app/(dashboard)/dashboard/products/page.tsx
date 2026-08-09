@@ -219,12 +219,36 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
     domain_id: category.domain_id,
   }));
 
+  const makerListings = products.filter(
+    (product) =>
+      product.product_type === "handmade" || product.product_type === "destash"
+  );
+  const webshopProducts = products.filter(
+    (product) =>
+      Boolean(product.medusa_product_id) ||
+      product.product_type === "supply" ||
+      product.product_type === "workshop_kit"
+  );
+  const vendorPanelUrl =
+    process.env.NEXT_PUBLIC_VENDOR_PANEL_URL?.replace(/\/$/, "") ||
+    "https://verkoper.hobbysalon.be";
+
   return (
     <section className="space-y-6">
       <h1 className="text-3xl font-bold text-[var(--foreground)]">Beheer je creaties</h1>
       <p className="max-w-2xl text-[var(--muted)]">
         Plaats je handmade creaties als vermelding. Bezoekers contacteren jou
         rechtstreeks. Hobbysalon verwerkt geen betalingen voor makers.
+      </p>
+      <p className="max-w-2xl text-sm text-[var(--muted)]">
+        Webshopproducten (voorraad, prijs, verzending, checkout) beheer je in het{" "}
+        <a
+          href={vendorPanelUrl}
+          className="font-medium text-[var(--accent)] underline underline-offset-2"
+        >
+          Verkopersportaal
+        </a>
+        .
       </p>
 
       {success && (
@@ -396,25 +420,68 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
           </CardShell>
           )}
 
+          {webshopProducts.length > 0 ? (
+            <CardShell variant="default" padding="md">
+              <h2 className="text-lg font-semibold text-[var(--foreground)]">
+                Webshopproducten ({webshopProducts.length})
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Deze producten komen uit Medusa (checkout + voorraad). Bewerken
+                doe je in het Verkopersportaal, niet hier.
+              </p>
+              <ul className="mt-4 space-y-2">
+                {webshopProducts.map((product) => (
+                  <li
+                    key={product.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium text-[var(--foreground)]">
+                      {product.title}
+                      <span className="ml-2 font-normal text-[var(--muted)]">
+                        · Webshop
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-2">
+                      <a
+                        href={`/product/${product.slug}`}
+                        className="text-[var(--accent)] underline underline-offset-2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Bekijken
+                      </a>
+                      <a
+                        href={`${vendorPanelUrl}/products`}
+                        className="font-medium text-[var(--accent)] underline underline-offset-2"
+                      >
+                        Beheer in verkoper
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardShell>
+          ) : null}
+
           <div className="space-y-4">
             <div>
               <h2 className="text-2xl font-semibold text-[var(--foreground)]">
                 Jouw plaatsingen
               </h2>
               <p className="mt-1 text-base text-[var(--muted)]">
-                {products.length === 0
+                {makerListings.length === 0
                   ? "Nog geen creaties. Voeg er een toe met het formulier hieronder."
-                  : `${products.length} ${products.length === 1 ? "plaatsing" : "plaatsingen"} in je shop.`}
+                  : `${makerListings.length} ${makerListings.length === 1 ? "plaatsing" : "plaatsingen"} in je shop.`}
               </p>
             </div>
-            {products.length === 0 ? (
+            {makerListings.length === 0 ? (
               <EmptyState
                 title="Nog geen plaatsingen"
                 description="Voeg je eerste creatie toe met het formulier hieronder."
               />
             ) : (
               <ul className="space-y-4">
-                {products.map((product) => (
+                {makerListings.map((product) => (
                   <li key={product.id}>
                     <DashboardProductListItem
                       product={product}
