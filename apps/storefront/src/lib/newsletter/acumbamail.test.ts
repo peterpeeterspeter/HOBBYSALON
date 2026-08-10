@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript test runner requires the extension.
-import {
-  buildAcumbamailSubscriberPayload,
-  isAcumbamailSyncConfigured,
-} from "./acumbamail.ts";
+import { buildAcumbamailSubscriberPayload, isAcumbamailSyncConfigured } from "./acumbamail.ts";
 
 test("builds an Acumbamail subscriber payload after confirmed consent", () => {
   assert.deepEqual(
