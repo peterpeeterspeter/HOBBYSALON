@@ -4,7 +4,7 @@ import {
   MedusaError
 } from '@medusajs/framework/utils'
 
-import sellerPayoutAccount from '../../../links/seller-payout-account'
+import { resolveSellerPayoutAccountRelation } from '../../../shared/utils/resolve-seller-payout-account'
 
 /**
  * @oas [get] /vendor/payouts
@@ -96,13 +96,20 @@ export const GET = async (
 ) => {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
-  const {
-    data: [sellerPayoutAccountRelation]
-  } = await query.graph({
-    entity: sellerPayoutAccount.entryPoint,
-    fields: ['payout_account_id'],
-    filters: req.filterableFields
-  })
+  const sellerId = req.filterableFields.seller_id
+
+  if (typeof sellerId !== 'string') {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      'seller_id is required'
+    )
+  }
+
+  const sellerPayoutAccountRelation = await resolveSellerPayoutAccountRelation(
+    query,
+    sellerId,
+    ['payout_account_id']
+  )
 
   if (!sellerPayoutAccountRelation) {
     throw new MedusaError(

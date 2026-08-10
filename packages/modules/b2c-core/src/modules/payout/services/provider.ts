@@ -93,6 +93,8 @@ export class PayoutProvider implements IPayoutProvider {
         `Processing payout for transaction with ID ${transaction_id}`
       );
 
+      const idempotencyKey = `${transaction_id}:${account_reference_id}`;
+
       const transfer = await this.client_.transfers.create(
         {
           currency,
@@ -103,19 +105,80 @@ export class PayoutProvider implements IPayoutProvider {
             transaction_id,
           },
         },
-        { idempotencyKey: transaction_id }
+        { idempotencyKey }
       );
 
       return {
         data: transfer as unknown as Record<string, unknown>,
       };
     } catch (error) {
-      this.logger_.error("Error occured while creating payout", error);
+      const message =
+        (error as Error)?.message ?? "Error occured while creating payout";
 
-      const message = error?.message ?? "Error occured while creating payout";
+      const recovered = await this.recoverExistingTransfer({
+        transaction_id,
+        account_reference_id,
+        errorMessage: message,
+      });
+
+      if (recovered) {
+        this.logger_.info(
+          `Recovered existing Stripe transfer for ${transaction_id} → ${account_reference_id}`
+        );
+        return {
+          data: recovered as unknown as Record<string, unknown>,
+        };
+      }
+
+      this.logger_.error("Error occured while creating payout", error);
 
       throw new MedusaError(MedusaError.Types.UNEXPECTED_STATE, message);
     }
+  }
+
+  /**
+   * Stripe idempotency keys bind to the first request params. After Connect
+   * re-onboarding the destination can change while the order id stays the same.
+   */
+  private async recoverExistingTransfer(input: {
+    transaction_id: string;
+    account_reference_id: string;
+    errorMessage: string;
+  }): Promise<Stripe.Transfer | null> {
+    const isIdempotencyConflict =
+      input.errorMessage.includes("idempotent") ||
+      input.errorMessage.includes("Idempotency");
+
+    if (!isIdempotencyConflict) {
+      return null;
+    }
+
+    let startingAfter: string | undefined;
+
+    for (let page = 0; page < 5; page++) {
+      const list = await this.client_.transfers.list({
+        destination: input.account_reference_id,
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+
+      const match = list.data.find(
+        (transfer) =>
+          transfer.metadata?.transaction_id === input.transaction_id
+      );
+
+      if (match) {
+        return match;
+      }
+
+      if (!list.has_more || list.data.length === 0) {
+        break;
+      }
+
+      startingAfter = list.data[list.data.length - 1]?.id;
+    }
+
+    return null;
   }
 
   /**
