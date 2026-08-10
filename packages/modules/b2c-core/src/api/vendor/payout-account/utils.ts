@@ -1,14 +1,7 @@
 import { MedusaContainer } from '@medusajs/framework'
 import { ContainerRegistrationKeys, MedusaError } from '@medusajs/framework/utils'
 
-import { PayoutAccountStatus } from '@mercurjs/framework'
-
-import { PAYOUT_MODULE } from '../../../modules/payout'
-import { SELLER_MODULE } from '../../../modules/seller'
-import {
-  listSellerPayoutAccountRelations,
-  resolveSellerPayoutAccountRelation,
-} from '../../../shared/utils/resolve-seller-payout-account'
+import { resolveSellerPayoutAccountRelation } from '../../../shared/utils/resolve-seller-payout-account'
 
 export const refetchPayoutAccount = async (
   container: MedusaContainer,
