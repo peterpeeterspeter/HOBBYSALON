@@ -426,6 +426,8 @@ Mid term:
 
 Current asset
 	•	44k mailing list
+	•	Acumbamail as downstream ESP (webhook sync after consent)
+	•	Resend for transactional / confirmation / lead-magnet delivery
 
 Responsibilities
 
@@ -440,8 +442,11 @@ The platform should support:
 Data model
 
 This is represented via:
-	•	subscribers
+	•	subscribers (incl. `acumbamail_synced_at`)
 	•	survey_segments
+	•	newsletter_lead_magnets / newsletter_opt_in_events
+
+See `docs/acumbamail-newsletter.md` for env and field mapping.
 
 ⸻
 

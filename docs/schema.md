@@ -943,6 +943,7 @@ Fields:
 - `interested_in_handmade` (boolean)
 - `interested_in_supplies` (boolean)
 - `preferred_city` (text, nullable)
+- `acumbamail_synced_at` (timestamptz, nullable) — set after successful Acumbamail ESP sync
 - `created_at`
 - `updated_at`
 

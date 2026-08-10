@@ -31,6 +31,7 @@ Overview of documentation files in this repository.
 |------|-------------|
 | [troubleshoot-add-product.md](./troubleshoot-add-product.md) | Add-to-cart and product linking debugging |
 | [SQL.md](./SQL.md) | Platform schema DDL, migrations |
+| [acumbamail-newsletter.md](./acumbamail-newsletter.md) | Acumbamail ESP sync, webhook env, field mapping |
 
 ---
 
