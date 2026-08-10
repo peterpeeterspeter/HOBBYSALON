@@ -1,24 +1,28 @@
+import { FeaturedListingHero } from "@/components/shared/FeaturedListingHero";
 import {
-  ListingHeroBand,
   ListingSearchShell,
 } from "@/components/shared/ListingHeroBand";
 import { ListingSearchEverywhereHint } from "@/components/shared/ListingSearchEverywhereHint";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
+import type { FeaturedListingItem } from "@/lib/listing/featured-hero";
 
 type WorkshopsHeroProps = {
+  featured?: FeaturedListingItem | null;
   hiddenFields?: Record<string, string | undefined>;
   defaultQuery?: string;
 };
 
 export function WorkshopsHero({
+  featured = null,
   hiddenFields = {},
   defaultQuery,
 }: WorkshopsHeroProps) {
   return (
-    <ListingHeroBand
+    <FeaturedListingHero
       title="Vind een workshop die bij je past"
       lead="Filter workshops dichtbij of online."
-      imageSrc={LANDING_IMAGES.workshop}
+      fallbackImageSrc={LANDING_IMAGES.workshop}
+      featured={featured}
       footer={<ListingSearchEverywhereHint query={defaultQuery} />}
     >
       <form method="GET" action="/workshops" role="search">
@@ -32,6 +36,6 @@ export function WorkshopsHero({
           defaultValue={defaultQuery}
         />
       </form>
-    </ListingHeroBand>
+    </FeaturedListingHero>
   );
 }

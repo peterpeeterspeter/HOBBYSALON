@@ -22,6 +22,7 @@ import {
 import { getLocationPreference } from "@/lib/location/preference";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listAgendaEvents } from "@/lib/platform/queries/events";
+import { pickEventListingHero } from "@/lib/platform/queries/listing-featured-hero";
 import { createPlatformClient } from "@/lib/platform/client";
 
 export const metadata: Metadata = {
@@ -115,7 +116,8 @@ export default async function AgendaPage({
 
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [domains, agendaResult, cities, countries] = await Promise.all([
+  const [domains, agendaResult, cities, countries, featuredHero] =
+    await Promise.all([
     listActiveDomains(),
     listAgendaEvents({
       domain_id: params.domain,
@@ -135,6 +137,7 @@ export default async function AgendaPage({
     }),
     getUniqueEventValues("city"),
     getUniqueEventValues("country_code"),
+    pickEventListingHero(),
   ]);
 
   const { events: pagedEvents, totalCount } = agendaResult;
@@ -232,6 +235,7 @@ export default async function AgendaPage({
   return (
     <>
       <AgendaHero
+        featured={featuredHero}
         defaultQuery={params.q}
         hiddenFields={{
           near: near ?? undefined,

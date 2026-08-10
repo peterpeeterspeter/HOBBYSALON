@@ -27,6 +27,7 @@ import { getLocationPreference } from "@/lib/location/preference";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listWorkshopCategories } from "@/lib/platform/queries/workshop-categories";
 import { listDiscoveryWorkshops } from "@/lib/platform/queries/workshops";
+import { pickWorkshopListingHero } from "@/lib/platform/queries/listing-featured-hero";
 import { createPlatformClient } from "@/lib/platform/client";
 import {
   WORKSHOP_EXTENDED_TAXONOMY_FILTERS_ENABLED,
@@ -172,7 +173,8 @@ export default async function WorkshopsPage({
 
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [domains, discovery, cities, countries, categories] = await Promise.all([
+  const [domains, discovery, cities, countries, categories, featuredHero] =
+    await Promise.all([
     listActiveDomains(),
     listDiscoveryWorkshops({
       q,
@@ -200,6 +202,7 @@ export default async function WorkshopsPage({
     params.domain
       ? listWorkshopCategories({ domainId: params.domain, activeOnly: true })
       : Promise.resolve([]),
+    pickWorkshopListingHero(),
   ]);
 
   const { workshops: pagedWorkshops, totalCount, domainIds } = discovery;
@@ -366,6 +369,7 @@ export default async function WorkshopsPage({
   return (
     <>
       <WorkshopsHero
+        featured={featuredHero}
         defaultQuery={params.q}
         hiddenFields={{
           place: place ?? undefined,

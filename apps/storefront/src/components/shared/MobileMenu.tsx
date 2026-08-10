@@ -10,7 +10,6 @@ type NavItem = { href: string; label: string };
 
 type MobileMenuProps = {
   mainLinks: NavItem[];
-  domainLinks: NavItem[];
   inspiratieLinks: NavItem[];
   user: boolean;
   aanbodNav?: { href: string; label: string } | null;
@@ -20,7 +19,6 @@ type MobileMenuProps = {
 
 export function MobileMenu({
   mainLinks,
-  domainLinks,
   inspiratieLinks,
   user,
   aanbodNav = null,
@@ -123,26 +121,6 @@ export function MobileMenu({
                 </Link>
               ))}
             </div>
-
-            {domainLinks.length > 0 ? (
-              <>
-                <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                  Per Hobby
-                </p>
-                <div className="mt-1 space-y-0.5">
-                  {domainLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={mobileLinkClass}
-                      onClick={closeMenu}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </>
-            ) : null}
 
             {inspiratieLinks.length > 0 ? (
               <>

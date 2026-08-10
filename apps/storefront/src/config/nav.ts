@@ -1,6 +1,5 @@
 /**
  * Shared navigation config for Header and Footer.
- * Domains are injected at runtime from the platform DB.
  *
  * Single source for account-zone links — do not duplicate these labels elsewhere.
  */

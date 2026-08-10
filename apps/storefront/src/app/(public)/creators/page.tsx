@@ -30,6 +30,7 @@ import {
   listSupplyCategoryOptions,
   type MaterialsCatalogItem,
 } from "@/lib/platform/queries/products";
+import { pickMakerProductListingHero } from "@/lib/platform/queries/listing-featured-hero";
 
 export const metadata: Metadata = {
   title: "Makersmarkt | Hobbysalon",
@@ -136,7 +137,7 @@ export default async function CreatorsPage({
           ? { category_id: categoryId }
           : {};
 
-  const [catalogResult, makersDirectory] = await Promise.all([
+  const [catalogResult, makersDirectory, featuredHero] = await Promise.all([
     listMaterialsCatalog({
       q,
       ...categoryFilter,
@@ -158,6 +159,7 @@ export default async function CreatorsPage({
       limit: MAKERS_BELOW,
       offset: 0,
     }),
+    pickMakerProductListingHero(),
   ]);
 
   const { products, totalCount, categoryIdsWithSupply } = catalogResult;
@@ -326,6 +328,7 @@ export default async function CreatorsPage({
   return (
     <>
       <CreatorsHero
+        featured={featuredHero}
         defaultQuery={q}
         hiddenFields={{
           category: categoryId,

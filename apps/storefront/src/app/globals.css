@@ -119,8 +119,39 @@ h1, h2, h3, h4, h5, h6 {
   animation: home-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Listing featured heroes */
+@keyframes listing-hero-kenburns {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes listing-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.listing-hero-media {
+  animation: listing-hero-kenburns 18s ease-out forwards;
+}
+
+.listing-hero-featured {
+  animation: listing-hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .home-reveal {
+  .home-reveal,
+  .listing-hero-media,
+  .listing-hero-featured {
     animation: none;
   }
 }

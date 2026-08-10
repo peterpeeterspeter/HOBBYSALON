@@ -5,7 +5,6 @@ import { NavLink } from "@/components/shared/NavLink";
 import { MobileMenu } from "@/components/shared/MobileMenu";
 import { ProfileDropdown } from "@/components/shared/ProfileDropdown";
 import { buttonVariants } from "@/components/ui/button";
-import { listDomainNavLinks } from "@/lib/platform/queries/domains";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveHeaderDisplayName } from "@/lib/auth/header-display-name";
 import { logoutAction } from "@/app/actions/auth";
@@ -14,18 +13,6 @@ import type { User } from "@supabase/supabase-js";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
-
-async function loadDomainLinksSafely() {
-  try {
-    return await listDomainNavLinks(24);
-  } catch {
-    return [
-      { id: "f-crochet", slug: "crochet", name: "Haken" },
-      { id: "f-knitting", slug: "knitting", name: "Breien" },
-      { id: "f-pottery", slug: "pottery", name: "Keramiek" },
-    ];
-  }
-}
 
 function displayNameFromUser(user: User): string | null {
   const meta = user.user_metadata ?? {};
@@ -42,13 +29,9 @@ function displayNameFromUser(user: User): string | null {
 }
 
 export async function Header() {
-  const [user, domainLinks] = await Promise.all([
-    getAuthUser(),
-    loadDomainLinksSafely(),
-  ]);
+  const user = await getAuthUser();
   const hasSession = Boolean(user);
   const displayName = user ? displayNameFromUser(user) : null;
-  const mobileDomainLinks = domainLinks.slice(0, 12);
 
   let aanbodNav: { href: string; label: string } | null = null;
   if (user) {
@@ -168,10 +151,6 @@ export async function Header() {
           )}
           <MobileMenu
             mainLinks={[...STATIC_LINKS.main]}
-            domainLinks={mobileDomainLinks.map((d) => ({
-              href: `/${d.slug}`,
-              label: d.name,
-            }))}
             inspiratieLinks={[...STATIC_LINKS.inspiratie]}
             user={hasSession}
             aanbodNav={aanbodNav}

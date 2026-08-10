@@ -1,25 +1,27 @@
 import Link from "next/link";
-import {
-  ListingHeroBand,
-  ListingSearchShell,
-} from "@/components/shared/ListingHeroBand";
+import { FeaturedListingHero } from "@/components/shared/FeaturedListingHero";
+import { ListingSearchShell } from "@/components/shared/ListingHeroBand";
 import { ListingSearchEverywhereHint } from "@/components/shared/ListingSearchEverywhereHint";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
+import type { FeaturedListingItem } from "@/lib/listing/featured-hero";
 
 type CreatorsHeroProps = {
+  featured?: FeaturedListingItem | null;
   hiddenFields?: Record<string, string | undefined>;
   defaultQuery?: string;
 };
 
 export function CreatorsHero({
+  featured = null,
   hiddenFields = {},
   defaultQuery,
 }: CreatorsHeroProps) {
   return (
-    <ListingHeroBand
+    <FeaturedListingHero
       title="Koop rechtstreeks van makers"
       lead="Filter handgemaakte creaties en restanten van makers."
-      imageSrc={LANDING_IMAGES.community}
+      fallbackImageSrc={LANDING_IMAGES.community}
+      featured={featured}
       footer={
         <div className="space-y-2">
           <ListingSearchEverywhereHint query={defaultQuery} />
@@ -46,6 +48,6 @@ export function CreatorsHero({
           defaultValue={defaultQuery}
         />
       </form>
-    </ListingHeroBand>
+    </FeaturedListingHero>
   );
 }

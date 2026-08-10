@@ -1,21 +1,26 @@
-import {
-  ListingHeroBand,
-  ListingSearchShell,
-} from "@/components/shared/ListingHeroBand";
+import { FeaturedListingHero } from "@/components/shared/FeaturedListingHero";
+import { ListingSearchShell } from "@/components/shared/ListingHeroBand";
 import { ListingSearchEverywhereHint } from "@/components/shared/ListingSearchEverywhereHint";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
+import type { FeaturedListingItem } from "@/lib/listing/featured-hero";
 
 type AgendaHeroProps = {
+  featured?: FeaturedListingItem | null;
   hiddenFields?: Record<string, string | undefined>;
   defaultQuery?: string;
 };
 
-export function AgendaHero({ hiddenFields = {}, defaultQuery }: AgendaHeroProps) {
+export function AgendaHero({
+  featured = null,
+  hiddenFields = {},
+  defaultQuery,
+}: AgendaHeroProps) {
   return (
-    <ListingHeroBand
+    <FeaturedListingHero
       title="Ga eropuit voor je hobby"
       lead="Filter handmade markten, beurzen en open ateliers."
-      imageSrc={LANDING_IMAGES.community}
+      fallbackImageSrc={LANDING_IMAGES.community}
+      featured={featured}
       footer={<ListingSearchEverywhereHint query={defaultQuery} />}
     >
       <form method="GET" action="/agenda" role="search">
@@ -29,6 +34,6 @@ export function AgendaHero({ hiddenFields = {}, defaultQuery }: AgendaHeroProps)
           defaultValue={defaultQuery}
         />
       </form>
-    </ListingHeroBand>
+    </FeaturedListingHero>
   );
 }
