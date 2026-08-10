@@ -6,6 +6,7 @@ import { HomeHero } from "@/components/home/HomeHero";
 import { HomeHobbyChips } from "@/components/home/HomeHobbyChips";
 import { HomeJourneySection } from "@/components/home/HomeJourneySection";
 import { HomeMakers } from "@/components/home/HomeMakers";
+import { HomeProductRail } from "@/components/home/HomeProductRail";
 import { HomeProvidersCta } from "@/components/home/HomeProvidersCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/container";
@@ -33,6 +34,8 @@ export default async function HomePage() {
     upcomingWorkshops: [],
     homeMakeItems: [],
     makers: [],
+    materials: [],
+    makersmarkt: [],
   }));
 
   let resumableProject: Awaited<
@@ -120,6 +123,22 @@ export default async function HomePage() {
         <HomeDiscoverBlock
           workshops={data.upcomingWorkshops}
           makeItems={data.homeMakeItems}
+        />
+
+        <HomeProductRail
+          title="Materialen voor je project"
+          lead="Wol, papier, klei en meer van hobbywinkels in België en Nederland."
+          href="/materials"
+          ctaLabel="Alle materialen"
+          products={data.materials}
+        />
+
+        <HomeProductRail
+          title="Rechtstreeks van makers"
+          lead="Handgemaakte creaties en restanten. Kies iets unieks of vraag de maker."
+          href="/creators"
+          ctaLabel="Naar de makersmarkt"
+          products={data.makersmarkt}
         />
 
         <HomeMakers makers={data.makers} />

@@ -26,6 +26,23 @@ export function pickDayStable<T>(items: T[], seed = utcDaySeed()): T | null {
   return items[index] ?? null;
 }
 
+/** Day-stable rotated sample of up to `limit` items without duplicates. */
+export function pickDayStableSample<T>(
+  items: T[],
+  limit: number,
+  seed = utcDaySeed()
+): T[] {
+  if (items.length === 0 || limit <= 0) return [];
+  if (items.length <= limit) return [...items];
+
+  const start = ((seed % items.length) + items.length) % items.length;
+  const selected: T[] = [];
+  for (let i = 0; i < items.length && selected.length < limit; i++) {
+    selected.push(items[(start + i) % items.length]!);
+  }
+  return selected;
+}
+
 export function formatHeroPrice(
   cents: number | null | undefined,
   currencyCode = "EUR"

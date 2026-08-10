@@ -3,11 +3,6 @@ import {
   eventIsUpcomingOrOngoing,
   resolveAgendaDatePreset,
 } from "@/lib/agenda/agenda-helpers";
-import {
-  formatCreatorOfferSentence,
-  formatCreatorSpecialtyLine,
-  resolveCreatorCardPhoto,
-} from "@/lib/creators/creators-directory-helpers";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
 import {
@@ -18,9 +13,14 @@ import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listAgendaEvents } from "@/lib/platform/queries/events";
 import { listFeaturedProjects } from "@/lib/platform/queries/projects";
 import {
+  listMaterialsCatalog,
+  type MaterialsCatalogItem,
+} from "@/lib/platform/queries/products";
+import {
   listDiscoveryWorkshops,
   type WorkshopDiscoveryItem,
 } from "@/lib/platform/queries/workshops";
+import { pickDayStableSample } from "@/lib/listing/featured-hero";
 import { logServerPerf } from "@/lib/perf/server-timing";
 import {
   resolveHomeJourney,
@@ -37,7 +37,20 @@ const DOMAIN_CHIP_CAP = 8;
 const EVENT_TEASER_LIMIT = 3;
 const WORKSHOP_TEASER_LIMIT = 3;
 const MAKE_TEASER_LIMIT = 3;
-const MAKER_TEASER_LIMIT = 3;
+const MAKER_TEASER_LIMIT = 6;
+const PRODUCT_TEASER_LIMIT = 8;
+
+/** Seed/demo creators without real photos that dominated the homepage rail. */
+const SEED_CREATOR_SLUGS = new Set([
+  "anna-creates",
+  "craft-corner",
+  "papier-atelier",
+  "marie-haakt",
+  "brei-atelier-ingrid",
+  "kleiwerek",
+  "atelier-rood",
+  "luna-studio",
+]);
 
 export type HomeMakeItem =
   | { kind: "article"; item: Article }
@@ -63,6 +76,8 @@ export type HomePageData = {
   upcomingWorkshops: WorkshopDiscoveryItem[];
   homeMakeItems: HomeMakeItem[];
   makers: CreatorDirectoryItem[];
+  materials: MaterialsCatalogItem[];
+  makersmarkt: MaterialsCatalogItem[];
 };
 
 const EMPTY_HOME_PAGE_DATA: HomePageData = {
@@ -72,6 +87,8 @@ const EMPTY_HOME_PAGE_DATA: HomePageData = {
   upcomingWorkshops: [],
   homeMakeItems: [],
   makers: [],
+  materials: [],
+  makersmarkt: [],
 };
 
 async function settledValue<T>(
@@ -298,6 +315,32 @@ async function loadMakeItems(): Promise<HomeMakeItem[]> {
   return merged;
 }
 
+async function loadCatalogRail(
+  catalogScope: "merchant" | "maker_p2p"
+): Promise<MaterialsCatalogItem[]> {
+  const { products } = await listMaterialsCatalog({
+    catalog_scope: catalogScope,
+    sort: "recommended",
+    limit: 36,
+    offset: 0,
+  });
+
+  const withImage = products.filter(
+    (product) =>
+      Boolean(product.featured_image_url?.trim()) &&
+      !isLikelyTestHomeContent(product.title, product.slug)
+  );
+
+  return pickDayStableSample(withImage, PRODUCT_TEASER_LIMIT);
+}
+
+function isEligibleHomeMaker(creator: CreatorDirectoryItem): boolean {
+  if (SEED_CREATOR_SLUGS.has(creator.slug)) return false;
+  if (isLikelyTestHomeContent(creator.display_name, creator.slug)) return false;
+  if (!creator.photoUrl?.trim()) return false;
+  return true;
+}
+
 async function loadMakersBlock(
   featuredEvents: HomeEventTeaser[]
 ): Promise<CreatorDirectoryItem[]> {
@@ -307,92 +350,66 @@ async function loadMakersBlock(
 
   const directory = await listCreatorsDirectory({
     sort: "recommended",
-    limit: 24,
+    limit: 48,
   });
 
   const byId = new Map(directory.creators.map((c) => [c.id, c]));
-  const selected: CreatorDirectoryItem[] = [];
+  const eligible = directory.creators.filter(isEligibleHomeMaker);
 
+  const fromAgenda: CreatorDirectoryItem[] = [];
   for (const id of rosterIds) {
-    const fromDir = byId.get(id);
-    if (fromDir) {
-      selected.push(fromDir);
-    } else {
-      // Roster maker may not be in first directory page — build a lean card
-      const rosterMaker = featuredEvents
-        .flatMap((e) => e.makers)
-        .find((m) => m.id === id);
-      if (!rosterMaker) continue;
-      const lean: CreatorDirectoryItem = {
-        id: rosterMaker.id,
-        slug: rosterMaker.slug,
-        display_name: rosterMaker.display_name,
-        business_name: rosterMaker.business_name,
-        bio: null,
-        avatar_url: rosterMaker.avatar_url,
-        banner_url: null,
-        website_url: null,
-        instagram_url: null,
-        facebook_url: null,
-        city: null,
-        country_code: null,
-        creator_types: [],
-        is_verified: false,
-        is_featured: false,
-        created_at: "",
-        updated_at: "",
-        domainNames: [],
-        domainIds: [],
-        offerSentence: formatCreatorOfferSentence([]),
-        specialtyLine: formatCreatorSpecialtyLine({ domainNames: [] }),
-        photoUrl: resolveCreatorCardPhoto({
-          banner_url: null,
-          avatar_url: rosterMaker.avatar_url,
-        }),
-        studioName: rosterMaker.studioName,
-      };
-      selected.push(lean);
-    }
-    if (selected.length >= MAKER_TEASER_LIMIT) break;
+    const creator = byId.get(id);
+    if (!creator || !isEligibleHomeMaker(creator)) continue;
+    fromAgenda.push(creator);
+    if (fromAgenda.length >= MAKER_TEASER_LIMIT) break;
   }
 
-  if (selected.length < MAKER_TEASER_LIMIT) {
-    for (const creator of directory.creators) {
-      if (selected.some((s) => s.id === creator.id)) continue;
-      if (!creator.photoUrl && !creator.specialtyLine) continue;
-      selected.push(creator);
-      if (selected.length >= MAKER_TEASER_LIMIT) break;
-    }
+  if (fromAgenda.length >= MAKER_TEASER_LIMIT) {
+    return fromAgenda;
   }
 
-  return selected.filter(
-    (c) => Boolean(c.photoUrl) || Boolean(c.specialtyLine)
+  const remaining = eligible.filter(
+    (creator) => !fromAgenda.some((picked) => picked.id === creator.id)
   );
+  const rotated = pickDayStableSample(
+    remaining,
+    MAKER_TEASER_LIMIT - fromAgenda.length
+  );
+
+  return [...fromAgenda, ...rotated];
 }
 
 async function loadHomePageData(): Promise<HomePageData> {
   const totalStartMs = Date.now();
 
-  const [featuredEvents, upcomingWorkshops, homeMakeItems, journey] =
-    await Promise.all([
-      settledValue(loadFeaturedEventsBlock(), [], "agenda"),
-      settledValue(
-        listDiscoveryWorkshops({
-          sort: "soon",
-          limit: WORKSHOP_TEASER_LIMIT,
-        }).then((r) =>
-          r.workshops.filter(
-            (w) =>
-              Boolean(w.nextSession?.startsAt) &&
-              !isLikelyTestHomeContent(w.title, w.slug)
-          )
-        ),
-        [],
-        "workshops"
+  const [
+    featuredEvents,
+    upcomingWorkshops,
+    homeMakeItems,
+    journey,
+    materials,
+    makersmarkt,
+  ] = await Promise.all([
+    settledValue(loadFeaturedEventsBlock(), [], "agenda"),
+    settledValue(
+      listDiscoveryWorkshops({
+        sort: "soon",
+        limit: WORKSHOP_TEASER_LIMIT,
+      }).then((r) =>
+        r.workshops.filter(
+          (w) =>
+            Boolean(w.nextSession?.startsAt) &&
+            !isLikelyTestHomeContent(w.title, w.slug)
+        )
       ),
-      settledValue(loadMakeItems(), [], "make-items"),
-      settledValue(resolveHomeJourney(), null, "journey"),
-    ]);
+      [],
+      "workshops"
+    ),
+    settledValue(loadMakeItems(), [], "make-items"),
+    settledValue(resolveHomeJourney(), null, "journey"),
+    settledValue(loadCatalogRail("merchant"), [], "materials"),
+    settledValue(loadCatalogRail("maker_p2p"), [], "makersmarkt"),
+  ]);
 
   const [domainsWithLiveContent, makers] = await Promise.all([
     settledValue(
@@ -409,6 +426,8 @@ async function loadHomePageData(): Promise<HomePageData> {
     workshops: upcomingWorkshops.length,
     make: homeMakeItems.length,
     makers: makers.length,
+    materials: materials.length,
+    makersmarkt: makersmarkt.length,
     domains: domainsWithLiveContent.length,
     journey: journey ? 1 : 0,
   });
@@ -420,6 +439,8 @@ async function loadHomePageData(): Promise<HomePageData> {
     upcomingWorkshops,
     homeMakeItems,
     makers,
+    materials,
+    makersmarkt,
   };
 }
 
@@ -435,6 +456,8 @@ function normalizeHomePageData(
     upcomingWorkshops: data?.upcomingWorkshops ?? [],
     homeMakeItems: data?.homeMakeItems ?? [],
     makers: data?.makers ?? [],
+    materials: data?.materials ?? [],
+    makersmarkt: data?.makersmarkt ?? [],
   };
 }
 
@@ -470,7 +493,7 @@ const getHomePageDataCached = unstable_cache(
       return EMPTY_HOME_PAGE_DATA;
     }
   },
-  ["home-page-data-v4"],
+  ["home-page-data-v5"],
   {
     revalidate: 60 * 5,
     tags: ["home-page"],
