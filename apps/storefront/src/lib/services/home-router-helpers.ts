@@ -7,7 +7,9 @@ import type { Event } from "@/types/platform";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Near-term first; mild featured boost so far fairs don't displace this weekend. */
+/** Near-term first; mild featured boost so far fairs don't displace this weekend.
+ *  If nothing falls in the near windows, fall back to all upcoming events so the
+ *  homepage still surfaces the agenda when inventory is sparse or far out. */
 export function selectHomeAgendaEvents(
   events: Event[],
   limit = 3
@@ -27,6 +29,10 @@ export function selectHomeAgendaEvents(
       return start <= horizon || start <= now;
     });
     if (pool.length >= limit) break;
+  }
+
+  if (pool.length === 0) {
+    pool = upcoming;
   }
 
   return [...pool]

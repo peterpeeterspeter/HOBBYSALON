@@ -68,6 +68,17 @@ test("selectHomeAgendaEvents keeps ongoing multi-day events", () => {
   assert.equal(selected[0]?.id, "ongoing");
 });
 
+test("selectHomeAgendaEvents falls back to far upcoming when near pool is empty", () => {
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const far = eventFixture({
+    id: "far-only",
+    starts_at: new Date(now + 400 * day).toISOString(),
+  });
+  const selected = selectHomeAgendaEvents([far], 1);
+  assert.equal(selected[0]?.id, "far-only");
+});
+
 test("isLikelyTestHomeContent filters demo and test seed titles", () => {
   assert.equal(
     isLikelyTestHomeContent(

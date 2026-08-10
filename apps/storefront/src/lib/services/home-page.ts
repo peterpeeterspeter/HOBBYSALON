@@ -34,7 +34,7 @@ import type { Article, Domain, Event, Project } from "@/types/platform";
 
 const HOME_PAGE_FETCH_TIMEOUT_MS = 45_000;
 const DOMAIN_CHIP_CAP = 8;
-const EVENT_TEASER_LIMIT = 3;
+const EVENT_TEASER_LIMIT = 6;
 const WORKSHOP_TEASER_LIMIT = 3;
 const MAKE_TEASER_LIMIT = 3;
 const MAKER_TEASER_LIMIT = 6;
@@ -168,7 +168,10 @@ async function loadConfirmedEventMakers(
 
 async function loadFeaturedEventsBlock(): Promise<HomeEventTeaser[]> {
   const { events } = await listAgendaEvents({ upcoming_only: true });
-  const selected = selectHomeAgendaEvents(events, EVENT_TEASER_LIMIT);
+  const cleaned = events.filter(
+    (event) => !isLikelyTestHomeContent(event.title, event.slug)
+  );
+  const selected = selectHomeAgendaEvents(cleaned, EVENT_TEASER_LIMIT);
   const makersByEvent = await loadConfirmedEventMakers(
     selected.map((e) => e.id)
   );
@@ -493,7 +496,7 @@ const getHomePageDataCached = unstable_cache(
       return EMPTY_HOME_PAGE_DATA;
     }
   },
-  ["home-page-data-v5"],
+  ["home-page-data-v6"],
   {
     revalidate: 60 * 5,
     tags: ["home-page"],

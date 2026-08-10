@@ -1,16 +1,13 @@
 import { DateDisplay } from "@/components/domain/date-display";
+import { AGENDA_EVENT_TYPE_OPTIONS } from "@/components/events/AgendaFilterBar";
+import { publicAssetUrl } from "@/lib/media/public-asset-url";
 import type { HomeEventTeaser } from "@/lib/services/home-page";
 import { HomeReveal } from "./HomeReveal";
 import { TrackedLink } from "./TrackedLink";
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  market: "Makersmarkt",
-  fair: "Beurs",
-  open_studio: "Open atelier",
-  exhibition: "Tentoonstelling",
-  workshop_day: "Workshopdag",
-  other: "Event",
-};
+const EVENT_TYPE_LABELS = Object.fromEntries(
+  AGENDA_EVENT_TYPE_OPTIONS.map((option) => [option.value, option.label])
+);
 
 type HomeAgendaTeaserProps = {
   events: HomeEventTeaser[];
@@ -21,11 +18,11 @@ export function HomeAgendaTeaser({ events }: HomeAgendaTeaserProps) {
 
   return (
     <HomeReveal>
-      <section className="py-2">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <section>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-[-0.03em] text-[var(--foreground)] sm:text-3xl">
-              Samen iets creatiefs beleven
+              Creatieve events in de buurt
             </h2>
             <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[var(--muted)]">
               Markten, beurzen en open ateliers. Plan een creatief uitje.
@@ -37,11 +34,11 @@ export function HomeAgendaTeaser({ events }: HomeAgendaTeaserProps) {
             eventPayload={{ route: "agenda" }}
             className="inline-flex min-h-11 items-center font-bold text-[var(--accent)] underline underline-offset-4"
           >
-            Bekijk agenda
+            Alle events
           </TrackedLink>
         </div>
 
-        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+        <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 snap-x snap-mandatory scroll-smooth sm:-mx-6 sm:gap-5 sm:px-6 [scrollbar-width:thin]">
           {events.map((event) => {
             const place =
               event.city?.trim() ||
@@ -49,48 +46,53 @@ export function HomeAgendaTeaser({ events }: HomeAgendaTeaserProps) {
               "Locatie volgt";
             const typeLabel =
               EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
+            const imageUrl = publicAssetUrl(event.featured_image_url);
             const makerNames = event.makers
-              .slice(0, 3)
-              .map((m) => m.studioName)
+              .slice(0, 2)
+              .map((maker) => maker.studioName)
               .join(", ");
 
             return (
-              <li key={event.id}>
-                <TrackedLink
-                  href={`/agenda/${event.slug}`}
-                  event="home_event_clicked"
-                  eventPayload={{
-                    event_id: event.id,
-                    event_slug: event.slug,
-                  }}
-                  className="group grid gap-3 py-5 transition-colors hover:bg-[var(--section-highlight)]/80 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-2"
-                >
-                  <div className="font-[family-name:var(--font-heading)] text-lg font-bold leading-tight text-[var(--accent)] sm:text-xl">
-                    <DateDisplay date={event.starts_at} format="short" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--muted)]">
-                      {place}
-                      {" · "}
-                      {typeLabel}
-                    </p>
-                    <h3 className="mt-1 font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
-                      {event.title}
-                    </h3>
-                    {makerNames ? (
-                      <p className="mt-1 text-sm text-[var(--muted)] line-clamp-1">
-                        Met o.a. {makerNames}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span className="shrink-0 text-[15px] font-bold text-[var(--accent)]">
-                    Bekijk event
-                  </span>
-                </TrackedLink>
-              </li>
+              <TrackedLink
+                key={event.id}
+                href={`/agenda/${event.slug}`}
+                event="home_event_clicked"
+                eventPayload={{
+                  event_id: event.id,
+                  event_slug: event.slug,
+                }}
+                className="group w-64 shrink-0 snap-start sm:w-72"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-[var(--section-alt)]">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                      loading="lazy"
+                    />
+                  ) : null}
+                </div>
+                <p className="mt-3 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--accent)]">
+                  <DateDisplay date={event.starts_at} format="short" />
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--muted)]">
+                  {place}
+                  {" · "}
+                  {typeLabel}
+                </p>
+                <h3 className="mt-1 font-[family-name:var(--font-heading)] text-xl font-bold leading-snug text-[var(--foreground)] line-clamp-2 group-hover:text-[var(--accent-hover)]">
+                  {event.title}
+                </h3>
+                {makerNames ? (
+                  <p className="mt-1 text-sm text-[var(--muted)] line-clamp-1">
+                    Met o.a. {makerNames}
+                  </p>
+                ) : null}
+              </TrackedLink>
             );
           })}
-        </ul>
+        </div>
       </section>
     </HomeReveal>
   );
