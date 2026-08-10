@@ -43,11 +43,24 @@ export function selectHomeAgendaEvents(
 export function isLikelyTestHomeContent(title: string, slug: string): boolean {
   const hay = `${title} ${slug}`.toLowerCase();
   if (
-    ["testproduct", "edzzed", "prject", "test workshop", "testproject"].some(
-      (m) => hay.includes(m)
-    )
+    [
+      "testproduct",
+      "edzzed",
+      "prject",
+      "test workshop",
+      "testproject",
+      "demo ",
+      "demo-",
+      "-demo",
+      "placeholder",
+      "lorem ipsum",
+    ].some((m) => hay.includes(m))
   ) {
     return true;
   }
-  return /^test\b/.test(hay) || title.trim().length < 3;
+  return (
+    /^test\b/.test(hay) ||
+    /^demo\b/.test(hay) ||
+    title.trim().length < 3
+  );
 }

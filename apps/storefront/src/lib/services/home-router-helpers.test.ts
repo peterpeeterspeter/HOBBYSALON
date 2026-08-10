@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectHomeAgendaEvents } from "./home-router-helpers";
+import {
+  isLikelyTestHomeContent,
+  selectHomeAgendaEvents,
+} from "./home-router-helpers";
 import type { Event } from "@/types/platform";
 
 function eventFixture(
@@ -63,4 +66,25 @@ test("selectHomeAgendaEvents keeps ongoing multi-day events", () => {
   });
   const selected = selectHomeAgendaEvents([ongoing], 1);
   assert.equal(selected[0]?.id, "ongoing");
+});
+
+test("isLikelyTestHomeContent filters demo and test seed titles", () => {
+  assert.equal(
+    isLikelyTestHomeContent(
+      "Demo afgewerkte creatie",
+      "demo-afgewerkte-creatie"
+    ),
+    true
+  );
+  assert.equal(
+    isLikelyTestHomeContent("Testproject haken", "testproject-haken"),
+    true
+  );
+  assert.equal(
+    isLikelyTestHomeContent(
+      "Handgehaakte sjaal in naturel",
+      "handgehaakte-sjaal"
+    ),
+    false
+  );
 });

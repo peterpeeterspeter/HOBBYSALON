@@ -93,14 +93,28 @@ export async function getProjectByIdForOwner(
   return data as Project;
 }
 
-const TEST_PROJECT_MARKERS = ["testproduct", "edzzed", "prject"];
+const TEST_PROJECT_MARKERS = [
+  "testproduct",
+  "edzzed",
+  "prject",
+  "testproject",
+  "demo ",
+  "demo-",
+  "-demo",
+  "placeholder",
+  "lorem ipsum",
+];
 
 function isLikelyTestProject(project: Project): boolean {
   const haystack = `${project.title} ${project.slug}`.toLowerCase();
   if (TEST_PROJECT_MARKERS.some((marker) => haystack.includes(marker))) {
     return true;
   }
-  if (/^test\b/.test(haystack) || haystack.startsWith("test ")) {
+  if (
+    /^test\b/.test(haystack) ||
+    /^demo\b/.test(haystack) ||
+    haystack.startsWith("test ")
+  ) {
     return true;
   }
   return project.title.trim().length < 3;
