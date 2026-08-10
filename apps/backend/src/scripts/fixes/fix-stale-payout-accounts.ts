@@ -5,10 +5,38 @@ import { PAYOUT_MODULE } from "@mercurjs/b2c-core/modules/payout";
 import { SELLER_MODULE } from "@mercurjs/b2c-core/modules/seller";
 import { PayoutAccountStatus } from "@mercurjs/framework";
 
-import {
-  listSellerPayoutAccountRelations,
-  pickPreferredSellerPayoutAccount,
-} from "../../../../packages/modules/b2c-core/src/shared/utils/resolve-seller-payout-account";
+type PayoutLinkRow = {
+  payout_account_id: string;
+  payout_account?: {
+    id: string;
+    status: string;
+    updated_at?: string | Date;
+  };
+};
+
+const STATUS_RANK: Record<string, number> = {
+  [PayoutAccountStatus.ACTIVE]: 0,
+  [PayoutAccountStatus.PENDING]: 1,
+  [PayoutAccountStatus.DISABLED]: 2,
+};
+
+function pickPreferred(rows: PayoutLinkRow[]): PayoutLinkRow | null {
+  if (!rows.length) return null;
+  return [...rows].sort((a, b) => {
+    const statusA = a.payout_account?.status ?? PayoutAccountStatus.DISABLED;
+    const statusB = b.payout_account?.status ?? PayoutAccountStatus.DISABLED;
+    const rankDiff =
+      (STATUS_RANK[statusA] ?? 9) - (STATUS_RANK[statusB] ?? 9);
+    if (rankDiff !== 0) return rankDiff;
+    const updatedA = a.payout_account?.updated_at
+      ? new Date(a.payout_account.updated_at).getTime()
+      : 0;
+    const updatedB = b.payout_account?.updated_at
+      ? new Date(b.payout_account.updated_at).getTime()
+      : 0;
+    return updatedB - updatedA;
+  })[0];
+}
 
 /**
  * Remove duplicate seller ↔ payout_account links when a newer active Connect
@@ -36,18 +64,22 @@ export default async function fixStalePayoutAccounts({ container }: ExecArgs) {
 
   for (const row of sellerRows) {
     const sellerId = row.seller_id as string;
-    const relations = await listSellerPayoutAccountRelations(query, sellerId, [
-      "payout_account_id",
-      "payout_account.id",
-      "payout_account.status",
-      "payout_account.reference_id",
-      "payout_account.updated_at",
-    ]);
+    const { data: relations } = await query.graph({
+      entity: "seller_seller_payout_payout_account",
+      fields: [
+        "payout_account_id",
+        "payout_account.id",
+        "payout_account.status",
+        "payout_account.reference_id",
+        "payout_account.updated_at",
+      ],
+      filters: { seller_id: sellerId },
+    });
 
-    const preferred = pickPreferredSellerPayoutAccount(relations);
+    const preferred = pickPreferred((relations ?? []) as PayoutLinkRow[]);
     if (!preferred) continue;
 
-    const stale = relations.filter(
+    const stale = ((relations ?? []) as PayoutLinkRow[]).filter(
       (relation) => relation.payout_account_id !== preferred.payout_account_id
     );
 
