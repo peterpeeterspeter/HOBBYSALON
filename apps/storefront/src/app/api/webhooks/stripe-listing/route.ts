@@ -80,6 +80,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await grantCreditPack(supabase, creatorId, metadata, session.id);
     } else if (kind === "plan") {
       await activatePlan(supabase, creatorId, metadata, session.id);
+    } else if (kind === "workshop_listing") {
+      await activateWorkshopListing(supabase, creatorId, metadata);
     } else {
       throw new Error(`Unknown checkout kind: ${kind}`);
     }
@@ -219,5 +221,45 @@ async function activatePlan(
 
   if (error) {
     throw new Error(`Plan subscription insert failed: ${error.message}`);
+  }
+}
+
+async function activateWorkshopListing(
+  supabase: ReturnType<typeof createPlatformClient>,
+  creatorId: string,
+  metadata: Record<string, string>
+): Promise<void> {
+  const workshopId = metadata.workshop_id;
+  if (!workshopId) {
+    throw new Error(
+      `Missing workshop_id in session metadata: ${JSON.stringify(metadata)}`
+    );
+  }
+
+  const { paidWorkshopListingExpiresAt } = await import(
+    "@/lib/pricing/workshop-launch-offer"
+  );
+  const expiresAt = paidWorkshopListingExpiresAt(new Date()).toISOString();
+
+  const { data: updated, error } = await supabase
+    .from("workshops")
+    .update({
+      listing_fee_status: "paid",
+      listing_expires_at: expiresAt,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", workshopId)
+    .eq("creator_id", creatorId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Workshop listing activation failed: ${error.message}`);
+  }
+  if (!updated) {
+    throw new Error(
+      `Workshop listing not found for creator ${creatorId} / workshop ${workshopId}`
+    );
   }
 }

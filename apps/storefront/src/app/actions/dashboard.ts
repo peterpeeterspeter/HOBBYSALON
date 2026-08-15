@@ -27,6 +27,7 @@ import {
   enforceWorkshopBookingFields,
   purchaseSpotlightBoostAction,
 } from "@/lib/platform/commercial-enforcement";
+import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing-fee";
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
@@ -2057,8 +2058,16 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
     }
 
-    const isActive = !!formData.get("is_active");
-    await assertCanPublishListing(canPublish, isActive, "/dashboard/workshops");
+    const wantsActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, wantsActive, "/dashboard/workshops");
+    const fee = await resolveWorkshopListingFeeOnSave({
+      creatorId: creator.id,
+      wantsActive,
+    });
+    if (wantsActive && !fee.canActivate) {
+      fail("/dashboard/workshops", fee.error ?? "Publiceren niet mogelijk zonder betaling.");
+    }
+    const isActive = wantsActive && fee.canActivate;
     const capacity = parseOptionalInt(formData, "capacity");
     const enforced = await enforceWorkshopBookingFields(
       creator.id,
@@ -2066,7 +2075,8 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       {
         booking_mode: "request",
         booking_url: null,
-        is_active: isActive,
+        // Listing-cap is handled by workshop launch fee, not yearly plan gating.
+        is_active: false,
       }
     );
     if (enforced.error) {
@@ -2109,6 +2119,8 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
         price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         is_active: isActive,
+        listing_fee_status: fee.listing_fee_status,
+        listing_expires_at: fee.listing_expires_at,
       })
       .select("id, slug")
       .single();
@@ -2208,32 +2220,45 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", "Ongeldig niveau.");
     }
 
-    const isActive = !!formData.get("is_active");
-    await assertCanPublishListing(canPublish, isActive, "/dashboard/workshops");
-    const enforced = await enforceWorkshopBookingFields(
-      creator.id,
-      creator.creator_types ?? [],
-      {
-        booking_mode: "request",
-        booking_url: null,
-        is_active: isActive,
-        excludeWorkshopId: workshopId,
-      }
-    );
-    if (enforced.error) {
-      fail("/dashboard/workshops", enforced.error);
-    }
+    const wantsActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, wantsActive, "/dashboard/workshops");
 
     const supabase = createPlatformClient();
     const { data: existingWorkshop, error: existingError } = await supabase
       .from("workshops")
-      .select("slug, featured_image_url")
+      .select("slug, featured_image_url, listing_fee_status, listing_expires_at")
       .eq("id", workshopId)
       .eq("creator_id", creator.id)
       .maybeSingle();
 
     if (existingError || !existingWorkshop) {
       fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const fee = await resolveWorkshopListingFeeOnSave({
+      creatorId: creator.id,
+      wantsActive,
+      excludeWorkshopId: workshopId,
+      existingStatus: existingWorkshop.listing_fee_status,
+      existingExpiresAt: existingWorkshop.listing_expires_at,
+    });
+    if (wantsActive && !fee.canActivate) {
+      fail("/dashboard/workshops", fee.error ?? "Publiceren niet mogelijk zonder betaling.");
+    }
+    const isActive = wantsActive && fee.canActivate;
+
+    const enforced = await enforceWorkshopBookingFields(
+      creator.id,
+      creator.creator_types ?? [],
+      {
+        booking_mode: "request",
+        booking_url: null,
+        is_active: false,
+        excludeWorkshopId: workshopId,
+      }
+    );
+    if (enforced.error) {
+      fail("/dashboard/workshops", enforced.error);
     }
 
     const featuredImageUrl = await resolveProductImageUrl(formData, {
@@ -2278,6 +2303,8 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
         price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         is_active: isActive,
+        listing_fee_status: fee.listing_fee_status,
+        listing_expires_at: fee.listing_expires_at,
       })
       .eq("id", workshopId)
       .eq("creator_id", creator.id);

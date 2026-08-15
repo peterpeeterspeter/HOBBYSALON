@@ -49,14 +49,14 @@ export const PARTNERS_PAGE = {
     {
       id: "workshop",
       role: "Workshopgever",
-      priceLabel: "€9,99 per workshop, 3 maanden zichtbaar",
+      priceLabel: "3 gratis tot 1 oktober, daarna €9,99 / 2 maanden",
       description:
         "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
       features: [
-        "Tot drie sessiedata in één vermelding",
+        "Tot 1 oktober: max. 3 workshops gratis (blijven gratis)",
+        "Extra vermeldingen: €9,99 voor 2 maanden",
         "Geen commissie per deelnemer",
-        "Drie maanden zichtbaar, daarna opnieuw te activeren",
-        "Extra promotie: binnenkort",
+        "Tot drie sessiedata in één vermelding",
       ],
       href: "/voor-workshopgevers",
       ctaLabel: "Bekijk de mogelijkheden",

@@ -176,3 +176,125 @@ export async function createPlanCheckoutAction(formData: FormData): Promise<void
 
   redirect(session.url);
 }
+
+/**
+ * One-time €9,99 checkout for a single workshop listing (2 months visibility).
+ * Activates the workshop via the listing webhook after payment.
+ */
+export async function createWorkshopListingCheckoutAction(
+  formData: FormData
+): Promise<void> {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect("/login?next=/dashboard/workshops");
+  }
+
+  const creator = await getCreatorByUserId(user.id);
+  if (!creator) {
+    redirect(
+      "/dashboard/workshops?error=" +
+        encodeURIComponent("Maak eerst je creator-profiel aan.")
+    );
+  }
+
+  const workshopId = formData.get("workshop_id")?.toString()?.trim();
+  if (!workshopId) {
+    redirect(
+      "/dashboard/workshops?error=" + encodeURIComponent("Ongeldige workshop.")
+    );
+  }
+
+  const supabase = createPlatformClient();
+  const { data: workshopRow } = await supabase
+    .from("workshops")
+    .select("id, title, listing_fee_status, listing_expires_at")
+    .eq("id", workshopId)
+    .eq("creator_id", creator.id)
+    .maybeSingle();
+
+  if (!workshopRow) {
+    redirect(
+      "/dashboard/workshops?error=" +
+        encodeURIComponent("Workshop niet gevonden.")
+    );
+  }
+
+  const workshop = workshopRow;
+
+  if (workshop.listing_fee_status === "launch_free") {
+    redirect(
+      "/dashboard/workshops?error=" +
+        encodeURIComponent("Deze workshop valt onder het gratis lanceraanbod.")
+    );
+  }
+
+  if (
+    workshop.listing_fee_status === "paid" &&
+    workshop.listing_expires_at &&
+    new Date(workshop.listing_expires_at).getTime() > Date.now()
+  ) {
+    redirect(
+      "/dashboard/workshops?error=" +
+        encodeURIComponent("Deze vermelding is al betaald en nog zichtbaar.")
+    );
+  }
+
+  const {
+    WORKSHOP_LISTING_FEE_CENTS,
+    WORKSHOP_LISTING_FEE_CURRENCY,
+    WORKSHOP_PAID_VISIBILITY_MONTHS,
+  } = await import("@/lib/pricing/workshop-launch-offer");
+
+  const stripe = getStripeClient();
+  let sessionUrl: string | null = null;
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: WORKSHOP_LISTING_FEE_CURRENCY.toLowerCase(),
+            unit_amount: WORKSHOP_LISTING_FEE_CENTS,
+            product_data: {
+              name: `Workshopvermelding — ${workshop.title}`,
+              description: `${WORKSHOP_PAID_VISIBILITY_MONTHS} maanden zichtbaar op Hobbysalon`,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        kind: "workshop_listing",
+        workshop_id: workshop.id,
+        creator_id: creator.id,
+      },
+      success_url: absoluteUrl(
+        "/dashboard/workshops?checkout=pending&type=workshop_listing"
+      ),
+      cancel_url: absoluteUrl("/dashboard/workshops?checkout=cancelled"),
+    });
+    sessionUrl = session.url;
+  } catch (err) {
+    console.error(
+      "Stripe checkout session creation failed (workshop listing):",
+      err
+    );
+    redirect(
+      "/dashboard/workshops?error=" +
+        encodeURIComponent(
+          "Kon geen betaalsessie starten. Probeer het later opnieuw."
+        )
+    );
+  }
+
+  if (!sessionUrl) {
+    redirect(
+      "/dashboard/workshops?error=" +
+        encodeURIComponent(
+          "Kon geen betaalsessie starten. Probeer het later opnieuw."
+        )
+    );
+  }
+
+  redirect(sessionUrl);
+}

@@ -15,6 +15,13 @@ import {
   deleteWorkshopGalleryImageAction,
 } from "@/app/actions/dashboard";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
+import { getWorkshopLaunchDashboardStats } from "@/lib/platform/workshop-listing-fee";
+import { createWorkshopListingCheckoutAction } from "@/app/actions/listing-checkout";
+import {
+  WORKSHOP_FREE_LISTING_CAP,
+  WORKSHOP_LAUNCH_COPY,
+  isWorkshopListingPubliclyVisible,
+} from "@/lib/pricing/workshop-launch-offer";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
@@ -53,7 +60,12 @@ type WorkshopSessionRow = {
 };
 
 type Props = {
-  searchParams: Promise<{ success?: string; error?: string }>;
+  searchParams: Promise<{
+    success?: string;
+    error?: string;
+    checkout?: string;
+    type?: string;
+  }>;
 };
 
 function formatEuroFromCents(cents: number | null | undefined): string {
@@ -123,13 +135,15 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
   });
   requireDashboardCapability(caps.canDraftWorkshops);
 
-  const { success, error } = await searchParams;
+  const { success, error, checkout } = await searchParams;
 
   let workshops: Workshop[] = [];
   let bookingRequests: BookingRequest[] = [];
   const galleryByWorkshop = new Map<string, GalleryImage[]>();
   const sessionsByWorkshop = new Map<string, WorkshopSessionRow[]>();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
+    null;
+  let launchStats: Awaited<ReturnType<typeof getWorkshopLaunchDashboardStats>> | null =
     null;
   let primaryDomainId = "";
 
@@ -139,6 +153,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
       creator.id,
       creator.creator_types ?? []
     );
+    launchStats = await getWorkshopLaunchDashboardStats(creator.id);
     const [workshopsResult, requestsResult, creatorDomainsResult] =
       await Promise.all([
         supabase
@@ -217,14 +232,58 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
       <p className="text-[var(--muted)]">
         Beheer workshops met data, en behandel boekingsaanvragen. Boeken gebeurt via
         aanvraag op Hobbysalon.
-        {commercialContext?.workshopLimit != null && (
+        {launchStats ? (
+          <>
+            {" "}
+            {WORKSHOP_LAUNCH_COPY.freeSlotsLabel(
+              launchStats.launchFreeUsed,
+              WORKSHOP_FREE_LISTING_CAP
+            )}
+            .
+          </>
+        ) : null}
+        {commercialContext?.workshopLimit != null && !launchStats?.launchWindowOpen ? (
           <>
             {" "}
             Actieve workshops: {commercialContext.activeWorkshopCount}/
             {commercialContext.workshopLimit}
           </>
-        )}
+        ) : null}
       </p>
+
+      {launchStats ? (
+        <CardShell
+          variant="featured"
+          padding="md"
+          className="border-[var(--accent)]/30 bg-[var(--section-highlight)]"
+        >
+          <p className="font-semibold text-[var(--foreground)]">
+            {WORKSHOP_LAUNCH_COPY.offerHeadline}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
+            {WORKSHOP_LAUNCH_COPY.offerBody}
+          </p>
+          {!launchStats.canGrantFree ? (
+            <p className="mt-2 text-sm font-medium text-[var(--foreground)]">
+              Extra vermeldingen: {WORKSHOP_LAUNCH_COPY.feeLabel}{" "}
+              {WORKSHOP_LAUNCH_COPY.feePeriodLabel}.
+            </p>
+          ) : null}
+        </CardShell>
+      ) : null}
+
+      {checkout === "pending" ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Betaling ontvangen. Je vermelding wordt zo actief — vernieuw de pagina over enkele
+          seconden als de status nog niet klopt.
+        </p>
+      ) : null}
+      {checkout === "cancelled" ? (
+        <p className="rounded-md border border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
+          Betaling geannuleerd. Je workshop blijft een concept tot je betaalt of een gratis
+          slot gebruikt.
+        </p>
+      ) : null}
 
       {!caps.canPublishWorkshops ? (
         <CardShell
@@ -432,6 +491,27 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                     !session.is_cancelled &&
                     new Date(session.starts_at).getTime() >= now
                 );
+                const feeStatus = workshop.listing_fee_status ?? "unpaid";
+                const feeVisible = isWorkshopListingPubliclyVisible({
+                  is_active: workshop.is_active,
+                  listing_fee_status: feeStatus,
+                  listing_expires_at: workshop.listing_expires_at,
+                });
+                const needsListingPayment =
+                  feeStatus !== "launch_free" &&
+                  !(
+                    feeStatus === "paid" &&
+                    workshop.listing_expires_at &&
+                    new Date(workshop.listing_expires_at).getTime() > now
+                  );
+                const feeLabel =
+                  feeStatus === "launch_free"
+                    ? "gratis lancering"
+                    : feeStatus === "paid" && feeVisible
+                      ? "betaald"
+                      : feeStatus === "paid"
+                        ? "verlopen"
+                        : "wacht op betaling";
                 return (
                   <details
                     key={workshop.id}
@@ -442,6 +522,7 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                       <span className="text-sm font-normal text-[var(--muted)]">
                         ({workshop.format_type})
                         {workshop.is_active ? " · actief" : " · concept"}
+                        {` · ${feeLabel}`}
                         {upcoming
                           ? ` · ${formatSessionDate(upcoming.starts_at)}`
                           : sessions.length === 0
@@ -633,6 +714,38 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         </button>
                       </div>
                     </form>
+
+                    {needsListingPayment ||
+                    (feeStatus === "paid" && workshop.listing_expires_at) ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-3">
+                        {needsListingPayment ? (
+                          <form action={createWorkshopListingCheckoutAction}>
+                            <input
+                              type="hidden"
+                              name="workshop_id"
+                              value={workshop.id}
+                            />
+                            <Button type="submit" variant="primary">
+                              Activeer voor {WORKSHOP_LAUNCH_COPY.feeLabel} (2
+                              maanden)
+                            </Button>
+                          </form>
+                        ) : null}
+                        {feeStatus === "paid" && workshop.listing_expires_at ? (
+                          <p className="text-sm text-[var(--muted)]">
+                            Zichtbaar tot{" "}
+                            {new Intl.DateTimeFormat("nl-BE", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            }).format(new Date(workshop.listing_expires_at))}
+                            {!feeVisible
+                              ? ` — ${WORKSHOP_LAUNCH_COPY.expiredMessage}`
+                              : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     <div className="mt-6 border-t border-[var(--border)] pt-4">
                       <h3 className="text-sm font-semibold">Data / kalender</h3>

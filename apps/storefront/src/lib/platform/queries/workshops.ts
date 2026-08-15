@@ -11,7 +11,16 @@ import {
   workshopPassesPlaceAndFormat,
   type WorkshopNextSession,
 } from "@/lib/workshops/workshop-discovery-helpers";
+import { isWorkshopListingPubliclyVisible } from "@/lib/pricing/workshop-launch-offer";
 
+function isWorkshopFeeVisible(workshop: Workshop, now = new Date()): boolean {
+  return isWorkshopListingPubliclyVisible({
+    is_active: workshop.is_active,
+    listing_fee_status: workshop.listing_fee_status,
+    listing_expires_at: workshop.listing_expires_at,
+    now,
+  });
+}
 function normalizeLocationValue(value: string | null | undefined): string | null {
   if (!value) return null;
   const normalized = value.trim().toLowerCase();
@@ -96,7 +105,8 @@ export async function getWorkshopBySlug(slug: string): Promise<Workshop | null> 
     .single();
 
   if (error || !data) return null;
-  return data as Workshop;
+  const workshop = data as Workshop;
+  return isWorkshopFeeVisible(workshop) ? workshop : null;
 }
 
 export async function getWorkshopById(id: string): Promise<Workshop | null> {
@@ -109,7 +119,8 @@ export async function getWorkshopById(id: string): Promise<Workshop | null> {
     .single();
 
   if (error || !data) return null;
-  return data as Workshop;
+  const workshop = data as Workshop;
+  return isWorkshopFeeVisible(workshop) ? workshop : null;
 }
 
 export async function listWorkshopsByDomain(
@@ -139,7 +150,9 @@ export async function listWorkshopsByDomain(
   const { data, error } = await query;
 
   if (error) return [];
-  const workshops = (data ?? []) as Workshop[];
+  const workshops = ((data ?? []) as Workshop[]).filter((workshop) =>
+    isWorkshopFeeVisible(workshop)
+  );
   const ranked = await sortWorkshopsWithBoosts(workshops);
   if (options?.city || options?.country_code) {
     return ranked;
@@ -267,7 +280,9 @@ export async function listAllWorkshops(filters?: {
   const { data, error } = await query.order("is_featured", { ascending: false });
 
   if (error) return [];
-  const workshops = (data ?? []) as Workshop[];
+  const workshops = ((data ?? []) as Workshop[]).filter((workshop) =>
+    isWorkshopFeeVisible(workshop)
+  );
   const ranked = await sortWorkshopsWithBoosts(workshops);
   if (filters?.city || filters?.country_code) {
     return ranked;
@@ -295,7 +310,8 @@ export async function listWorkshopsByIds(ids: string[]): Promise<Workshop[]> {
   const byId = new Map((data as Workshop[]).map((workshop) => [workshop.id, workshop]));
   return uniqueIds
     .map((id) => byId.get(id))
-    .filter((workshop): workshop is Workshop => !!workshop);
+    .filter((workshop): workshop is Workshop => !!workshop)
+    .filter((workshop) => isWorkshopFeeVisible(workshop));
 }
 
 export async function listUpcomingWorkshops(

@@ -226,6 +226,8 @@ export type Workshop = {
   offer_type: string | null;
   is_featured: boolean;
   is_active: boolean;
+  listing_fee_status?: "launch_free" | "paid" | "unpaid";
+  listing_expires_at?: string | null;
   seo_title: string | null;
   seo_description: string | null;
   created_at: string;

@@ -266,6 +266,8 @@ create table if not exists public.workshops (
   country_code text,
   is_featured boolean not null default false,
   is_active boolean not null default true,
+  listing_fee_status text not null default 'unpaid',
+  listing_expires_at timestamptz,
   seo_title text,
   seo_description text,
   created_at timestamptz not null default now(),
@@ -278,6 +280,9 @@ create table if not exists public.workshops (
   ),
   constraint workshops_booking_mode_check check (
     booking_mode in ('request','external_link','internal_booking')
+  ),
+  constraint workshops_listing_fee_status_check check (
+    listing_fee_status in ('launch_free','paid','unpaid')
   )
 );
 

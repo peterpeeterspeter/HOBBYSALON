@@ -329,7 +329,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       {
         id: "listing_likelihood",
         label:
-          "Een workshopvermelding op Hobbysalon kost €9,99 en blijft drie maanden zichtbaar. Hobbysalon rekent geen commissie per deelnemer. Hoe waarschijnlijk is het dat u dit zou gebruiken?",
+          "Een workshopvermelding op Hobbysalon: tot 1 oktober mag je er 3 gratis plaatsen (blijven gratis). Extra vermeldingen kosten €9,99 voor twee maanden zichtbaar. Hobbysalon rekent geen commissie per deelnemer. Hoe waarschijnlijk is het dat u dit zou gebruiken?",
         kind: "single",
         options: LIKELIHOOD_OPTIONS,
       },
@@ -352,7 +352,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       },
       {
         id: "renewal_result",
-        label: "Welk resultaat zou u nodig hebben om de vermelding na drie maanden te verlengen?",
+        label: "Welk resultaat zou u nodig hebben om de vermelding na twee maanden te verlengen?",
         kind: "single",
         options: [
           { value: "1_aanvraag", label: "Eén relevante aanvraag" },

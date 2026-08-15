@@ -205,11 +205,11 @@ function WorkshopHostLanding() {
       <section className="bg-[var(--foreground)]">
         <Container className="py-16 text-center md:py-24">
           <RevealOnView>
-            <p className="font-[family-name:var(--font-heading)] text-5xl font-bold tracking-[-0.04em] text-white md:text-6xl">
-              €9,99
+            <p className="font-[family-name:var(--font-heading)] text-4xl font-bold tracking-[-0.04em] text-white md:text-5xl">
+              3 gratis
             </p>
             <h2 className="mt-3 font-[family-name:var(--font-heading)] text-2xl font-bold text-white md:text-3xl">
-              per workshopvermelding
+              workshops tot 1 oktober
             </h2>
             <p className="mx-auto mt-5 max-w-[54ch] text-base leading-relaxed text-white/75 md:text-lg">
               {copy.pricing.body}

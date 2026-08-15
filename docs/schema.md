@@ -410,6 +410,8 @@ Fields:
 - `country_code` (text, nullable)
 - `is_featured` (boolean)
 - `is_active` (boolean)
+- `listing_fee_status` (text, default `unpaid`) — `launch_free` | `paid` | `unpaid`
+- `listing_expires_at` (timestamptz, nullable) — end of paid visibility; null for `launch_free`
 - `seo_title` (text)
 - `seo_description` (text)
 - `created_at`
