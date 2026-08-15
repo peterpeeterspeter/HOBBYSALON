@@ -10,10 +10,12 @@ import {
   cancelWorkshopSessionAction,
   createWorkshopAction,
   createWorkshopSessionAction,
+  deleteWorkshopAction,
   updateBookingRequestStatusAction,
   updateWorkshopAction,
   deleteWorkshopGalleryImageAction,
 } from "@/app/actions/dashboard";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
 import { getWorkshopLaunchDashboardStats } from "@/lib/platform/workshop-listing-fee";
 import { createWorkshopListingCheckoutAction } from "@/app/actions/listing-checkout";
@@ -478,6 +480,12 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
 
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Workshops ({workshops.length})</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Open een workshop, scroll naar beneden en kies{" "}
+              <span className="font-medium text-[var(--foreground)]">Verwijder concept</span>{" "}
+              om een concept weg te doen. Extra foto&apos;s verwijder je met de knop onder de
+              foto.
+            </p>
             {workshops.length === 0 ? (
               <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-6 text-sm text-[var(--muted)]">
                 Nog geen workshops.
@@ -652,19 +660,16 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                                   alt=""
                                   className="aspect-square w-full rounded-lg border border-[var(--border)] object-cover"
                                 />
-                                <form action={deleteWorkshopGalleryImageAction}>
-                                  <input
-                                    type="hidden"
-                                    name="gallery_image_id"
-                                    value={image.id}
-                                  />
-                                  <button
-                                    type="submit"
-                                    className="text-xs text-red-700 hover:underline"
-                                  >
-                                    Verwijder
-                                  </button>
-                                </form>
+                                <button
+                                  type="submit"
+                                  name="gallery_image_id"
+                                  value={image.id}
+                                  formAction={deleteWorkshopGalleryImageAction}
+                                  formNoValidate
+                                  className="text-xs text-red-700 hover:underline"
+                                >
+                                  Verwijder
+                                </button>
                               </li>
                             ))}
                           </ul>
@@ -705,13 +710,28 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         />
                         <span className="text-sm">Actief</span>
                       </label>
-                      <div className="sm:col-span-2">
+                      <div className="flex flex-wrap gap-2 sm:col-span-2">
                         <button
                           type="submit"
                           className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]"
                         >
                           Opslaan
                         </button>
+                        <ConfirmSubmitButton
+                          variant="danger"
+                          size="sm"
+                          formAction={deleteWorkshopAction}
+                          formNoValidate
+                          message={
+                            workshop.is_active
+                              ? "Deze workshop verdwijnt van de site. Doorgaan?"
+                              : "Dit concept definitief verwijderen?"
+                          }
+                        >
+                          {workshop.is_active
+                            ? "Workshop verwijderen"
+                            : "Verwijder concept"}
+                        </ConfirmSubmitButton>
                       </div>
                     </form>
 

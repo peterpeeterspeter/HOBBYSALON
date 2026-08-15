@@ -6,7 +6,8 @@ import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capabil
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
-import { createEventAction, updateEventAction, deleteEventGalleryImageAction } from "@/app/actions/dashboard";
+import { createEventAction, updateEventAction, deleteEventAction, deleteEventGalleryImageAction } from "@/app/actions/dashboard";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor-inquiry";
 import { sendExhibitorOutreachAction } from "@/app/actions/exhibitor-outreach";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
@@ -418,19 +419,16 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                                 alt=""
                                 className="aspect-square w-full rounded-lg border border-[var(--border)] object-cover"
                               />
-                              <form action={deleteEventGalleryImageAction}>
-                                <input
-                                  type="hidden"
-                                  name="gallery_image_id"
-                                  value={image.id}
-                                />
-                                <button
-                                  type="submit"
-                                  className="text-xs text-red-700 hover:underline"
-                                >
-                                  Verwijder
-                                </button>
-                              </form>
+                              <button
+                                type="submit"
+                                name="gallery_image_id"
+                                value={image.id}
+                                formAction={deleteEventGalleryImageAction}
+                                formNoValidate
+                                className="text-xs text-red-700 hover:underline"
+                              >
+                                Verwijder
+                              </button>
                             </li>
                           ))}
                         </ul>
@@ -456,10 +454,23 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       <input type="checkbox" name="is_active" defaultChecked={event.is_active} />
                       <span className="text-sm">Actief</span>
                     </label>
-                    <div className="sm:col-span-2">
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
                       <button type="submit" className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]">
                         Opslaan
                       </button>
+                      <ConfirmSubmitButton
+                        variant="danger"
+                        size="sm"
+                        formAction={deleteEventAction}
+                        formNoValidate
+                        message={
+                          event.is_active
+                            ? "Dit evenement verdwijnt van de site. Doorgaan?"
+                            : "Dit concept definitief verwijderen?"
+                        }
+                      >
+                        {event.is_active ? "Evenement verwijderen" : "Verwijder concept"}
+                      </ConfirmSubmitButton>
                     </div>
                   </form>
 

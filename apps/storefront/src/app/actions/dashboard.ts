@@ -277,6 +277,28 @@ function toSlug(input: string): string {
     .slice(0, 80);
 }
 
+async function deleteListingGraphRows(
+  entityType: "workshop" | "event",
+  entityId: string
+): Promise<void> {
+  const supabase = createPlatformClient();
+  await supabase
+    .from("entity_links")
+    .delete()
+    .eq("source_entity_type", entityType)
+    .eq("source_entity_id", entityId);
+  await supabase
+    .from("entity_links")
+    .delete()
+    .eq("target_entity_type", entityType)
+    .eq("target_entity_id", entityId);
+  await supabase
+    .from("favorites")
+    .delete()
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId);
+}
+
 async function getRequiredCreatorProfile(loginNext = "/dashboard") {
   const user = await getAuthUser();
   if (!user) {
@@ -2334,6 +2356,63 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
   }
 }
 
+export async function deleteWorkshopAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("workshop_host");
+    const workshopId = parseRequiredUuid(formData, "id");
+    const supabase = createPlatformClient();
+
+    const { data: workshop, error: workshopError } = await supabase
+      .from("workshops")
+      .select("id, slug, is_active")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (workshopError || !workshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const { count: confirmedBookings } = await supabase
+      .from("workshop_booking_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("workshop_id", workshopId)
+      .eq("status", "confirmed");
+
+    if ((confirmedBookings ?? 0) > 0) {
+      fail(
+        "/dashboard/workshops",
+        "Deze workshop heeft bevestigde aanvragen. Annuleer die eerst of neem contact op met Hobbysalon."
+      );
+    }
+
+    await deleteListingGraphRows("workshop", workshopId);
+
+    const { error } = await supabase
+      .from("workshops")
+      .delete()
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/workshops", "Workshop verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${workshop.slug}`);
+    ok(
+      "/dashboard/workshops",
+      workshop.is_active ? "Workshop verwijderd." : "Concept verwijderd."
+    );
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
 export async function createWorkshopSessionAction(
   formData: FormData
 ): Promise<void> {
@@ -2777,6 +2856,51 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     revalidatePath(`/agenda/${existingEvent.slug}`);
     revalidatePath(`/event/${existingEvent.slug}`);
     ok("/dashboard/events", "Event bijgewerkt.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/events",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteEventAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("organizer");
+    const eventId = parseRequiredUuid(formData, "id");
+    const supabase = createPlatformClient();
+
+    const { data: event, error: eventError } = await supabase
+      .from("events")
+      .select("id, slug, is_active")
+      .eq("id", eventId)
+      .eq("organizer_creator_id", creator.id)
+      .maybeSingle();
+
+    if (eventError || !event) {
+      fail("/dashboard/events", "Evenement niet gevonden.");
+    }
+
+    await deleteListingGraphRows("event", eventId);
+
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+      .eq("organizer_creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/events", "Evenement verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/events");
+    revalidatePath(`/agenda/${event.slug}`);
+    revalidatePath(`/event/${event.slug}`);
+    ok(
+      "/dashboard/events",
+      event.is_active ? "Evenement verwijderd." : "Concept verwijderd."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
