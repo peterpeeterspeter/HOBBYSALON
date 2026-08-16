@@ -2532,20 +2532,23 @@ export async function deleteWorkshopGalleryImageAction(
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
 
-    const { data: row } = await supabase
+    const { data: row, error: loadError } = await supabase
       .from("workshop_gallery_images")
-      .select("id, workshop_id, workshops!inner(creator_id, slug)")
+      .select("id, workshop_id")
       .eq("id", galleryImageId)
       .maybeSingle();
 
-    const workshop = row?.workshops as
-      | { creator_id?: string; slug?: string }
-      | { creator_id?: string; slug?: string }[]
-      | null
-      | undefined;
-    const workshopMeta = Array.isArray(workshop) ? workshop[0] : workshop;
+    if (loadError || !row) {
+      fail("/dashboard/workshops", "Foto niet gevonden.");
+    }
 
-    if (!row || workshopMeta?.creator_id !== creator.id) {
+    const { data: workshop } = await supabase
+      .from("workshops")
+      .select("id, creator_id, slug")
+      .eq("id", row.workshop_id)
+      .maybeSingle();
+
+    if (!workshop || workshop.creator_id !== creator.id) {
       fail("/dashboard/workshops", "Foto niet gevonden.");
     }
 
@@ -2559,8 +2562,8 @@ export async function deleteWorkshopGalleryImageAction(
     }
 
     revalidatePath("/dashboard/workshops");
-    if (workshopMeta?.slug) {
-      revalidatePath(`/workshop/${workshopMeta.slug}`);
+    if (workshop.slug) {
+      revalidatePath(`/workshop/${workshop.slug}`);
     }
     ok("/dashboard/workshops", "Foto verwijderd.");
   } catch (error) {
@@ -2918,20 +2921,23 @@ export async function deleteEventGalleryImageAction(
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
 
-    const { data: row } = await supabase
+    const { data: row, error: loadError } = await supabase
       .from("event_gallery_images")
-      .select("id, event_id, events!inner(organizer_creator_id, slug)")
+      .select("id, event_id")
       .eq("id", galleryImageId)
       .maybeSingle();
 
-    const event = row?.events as
-      | { organizer_creator_id?: string; slug?: string }
-      | { organizer_creator_id?: string; slug?: string }[]
-      | null
-      | undefined;
-    const eventMeta = Array.isArray(event) ? event[0] : event;
+    if (loadError || !row) {
+      fail("/dashboard/events", "Foto niet gevonden.");
+    }
 
-    if (!row || eventMeta?.organizer_creator_id !== creator.id) {
+    const { data: event } = await supabase
+      .from("events")
+      .select("id, organizer_creator_id, slug")
+      .eq("id", row.event_id)
+      .maybeSingle();
+
+    if (!event || event.organizer_creator_id !== creator.id) {
       fail("/dashboard/events", "Foto niet gevonden.");
     }
 
@@ -2945,9 +2951,9 @@ export async function deleteEventGalleryImageAction(
     }
 
     revalidatePath("/dashboard/events");
-    if (eventMeta?.slug) {
-      revalidatePath(`/agenda/${eventMeta.slug}`);
-      revalidatePath(`/event/${eventMeta.slug}`);
+    if (event.slug) {
+      revalidatePath(`/agenda/${event.slug}`);
+      revalidatePath(`/event/${event.slug}`);
     }
     ok("/dashboard/events", "Foto verwijderd.");
   } catch (error) {

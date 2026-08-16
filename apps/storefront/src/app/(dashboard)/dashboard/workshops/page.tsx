@@ -538,6 +538,37 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                             : " · geen komende datum"}
                       </span>
                     </summary>
+                    {gallery.length > 0 ? (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm font-medium">
+                          Extra foto&apos;s ({gallery.length})
+                        </p>
+                        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {gallery.map((image) => (
+                            <li key={image.id} className="space-y-1">
+                              <img
+                                src={image.image_url}
+                                alt=""
+                                className="aspect-square w-full rounded-lg border border-[var(--border)] object-cover"
+                              />
+                              <form action={deleteWorkshopGalleryImageAction}>
+                                <input
+                                  type="hidden"
+                                  name="gallery_image_id"
+                                  value={image.id}
+                                />
+                                <button
+                                  type="submit"
+                                  className="text-xs text-red-700 hover:underline"
+                                >
+                                  Verwijder
+                                </button>
+                              </form>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     <form
                       action={updateWorkshopAction}
                       encType="multipart/form-data"
@@ -650,32 +681,6 @@ export default async function DashboardWorkshopsPage({ searchParams }: Props) {
                         />
                       </div>
                       <div className="sm:col-span-2 space-y-3">
-                        <p className="text-sm font-medium">Extra foto&apos;s ({gallery.length})</p>
-                        {gallery.length > 0 ? (
-                          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                            {gallery.map((image) => (
-                              <li key={image.id} className="space-y-1">
-                                <img
-                                  src={image.image_url}
-                                  alt=""
-                                  className="aspect-square w-full rounded-lg border border-[var(--border)] object-cover"
-                                />
-                                <button
-                                  type="submit"
-                                  name="gallery_image_id"
-                                  value={image.id}
-                                  formAction={deleteWorkshopGalleryImageAction}
-                                  formNoValidate
-                                  className="text-xs text-red-700 hover:underline"
-                                >
-                                  Verwijder
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-[var(--muted)]">Nog geen extra foto&apos;s.</p>
-                        )}
                         <MultiImageUploadField
                           uploadPathPrefix={`creators/${creator.id}/workshops/gallery`}
                           label="Extra foto's toevoegen"
