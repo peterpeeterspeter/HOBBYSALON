@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics/track";
-import type { MaterialNeed } from "@/lib/tools/engine";
-import { formatNl } from "@/lib/tools/engine";
+import { formatNl, type MaterialNeed } from "@/lib/tools/engine";
 
 type SlimProduct = {
   id: string;
