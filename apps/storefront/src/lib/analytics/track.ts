@@ -62,6 +62,14 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["signup_source"],
     funnelStage: "engagement",
   },
+  tool_calculated: {
+    required: ["tool_slug", "formula_id"],
+    funnelStage: "engagement",
+  },
+  tool_materials_clicked: {
+    required: ["tool_slug", "formula_id", "query"],
+    funnelStage: "intent",
+  },
 };
 
 export const FUNNEL_EVENT_ORDER = [

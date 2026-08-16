@@ -15,25 +15,32 @@ type ToolCardProps = {
  */
 export function ToolCard({ tool, showCategory = false }: ToolCardProps) {
   return (
-    <Link href={`/tools/${tool.slug}`} className="block h-full">
-      <CardShell variant="interactive" padding="lg" className="flex h-full flex-col">
-        {showCategory && (
-          <span className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
+    <Link
+      href={`/tools/${tool.slug}`}
+      className="group block h-full rounded-[0.85rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-2"
+    >
+      <CardShell
+        variant="interactive"
+        padding="lg"
+        className="flex h-full flex-col"
+      >
+        {showCategory ? (
+          <span className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
             {tool.categoryLabel}
           </span>
-        )}
-        <h3 className="font-[family-name:var(--font-heading)] font-bold text-[var(--foreground)]">
+        ) : null}
+        <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold leading-snug text-[var(--foreground)]">
           {tool.title}
         </h3>
-        <p className="mt-1.5 line-clamp-2 flex-1 text-sm leading-relaxed text-[var(--muted)]">
+        <p className="mt-2 line-clamp-3 flex-1 text-base leading-relaxed text-[var(--muted)]">
           {tool.description}
         </p>
-        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent)]">
+        <span className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-base font-semibold text-[var(--accent)]">
           Openen
           <ArrowRight
-            size={15}
+            size={16}
             aria-hidden
-            className="transition-transform group-hover:translate-x-0.5"
+            className="transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none"
           />
         </span>
       </CardShell>

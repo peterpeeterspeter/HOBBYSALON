@@ -201,6 +201,30 @@ function WorkshopHostLanding() {
         </Container>
       </section>
 
+      {/* 5b. Break-even tool */}
+      <section className="border-b border-[var(--border)]">
+        <Container className="py-14 md:py-16">
+          <RevealOnView>
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--foreground)] md:text-3xl">
+                Weet je vanaf hoeveel deelnemers het klopt?
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-[var(--muted)] md:text-lg">
+                Met de gratis break-even calculator zie je meteen hoeveel
+                deelnemers je nodig hebt om je vaste kosten terug te verdienen.
+              </p>
+              <Link
+                href="/tools/workshop-break-even"
+                className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-base font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                Open de workshop break-even calculator
+                <ArrowRight size={18} aria-hidden />
+              </Link>
+            </div>
+          </RevealOnView>
+        </Container>
+      </section>
+
       {/* 6. Price + final CTA */}
       <section className="bg-[var(--foreground)]">
         <Container className="py-16 text-center md:py-24">

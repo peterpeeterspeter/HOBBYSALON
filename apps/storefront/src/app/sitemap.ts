@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getSiteUrl } from "@/lib/seo";
+import { getAllTools } from "@/lib/tools/registry";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
@@ -17,6 +18,7 @@ const STATIC_PATHS = [
   "/scrapbooking",
   "/pottery",
   "/diy",
+  "/tools",
   "/prijzen",
   "/partners",
   "/voor-contentmakers",
@@ -80,5 +82,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...articleEntries];
+  const toolEntries: MetadataRoute.Sitemap = getAllTools().map((tool) => ({
+    url: sitemapUrl(`/tools/${tool.slug}`),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  }));
+
+  return [...staticEntries, ...toolEntries, ...articleEntries];
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, UserX, WifiOff } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { ListingHeroBand } from "@/components/shared/ListingHeroBand";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { Container } from "@/components/ui/container";
@@ -10,15 +10,9 @@ import { getToolSummaries } from "@/lib/tools/registry";
 export const metadata = buildPageMetadata({
   title: "Tools | Hobbysalon",
   description:
-    "Gratis calculators en converters voor breien, haken en borduren: garencalculator, naaldmaat converter, stekenproef, C2C-deken, foto naar kruissteek en meer.",
+    "Gratis calculators voor hobbyisten: stof, quilt, kaarsenwas, resin, kralen, papier snijden, workshop break-even, plus breien, haken en borduren.",
   path: "/tools",
 });
-
-const PERKS = [
-  { icon: Sparkles, label: "Gratis te gebruiken" },
-  { icon: UserX, label: "Geen account nodig" },
-  { icon: WifiOff, label: "Werkt in je browser" },
-];
 
 export default function ToolsHubPage() {
   const tools = getToolSummaries();
@@ -27,8 +21,8 @@ export default function ToolsHubPage() {
     <>
       <ListingHeroBand
         size="compact"
-        title="Tools voor breien, haken & borduren"
-        lead="Calculators en converters die het rekenwerk uit handen nemen: van garenhoeveelheid en stekenproef tot kleurconversie en projectplanning."
+        title="Hobbysalon Tools"
+        lead="Bereken wat je nodig hebt voor je project — stof, garen, was, hars, kralen of je workshopprijs. Gratis, zonder account."
         imageSrc={LANDING_IMAGES.craftsGrid}
         breadcrumb={
           <nav aria-label="Breadcrumb" className="text-sm text-white/75">
@@ -44,26 +38,18 @@ export default function ToolsHubPage() {
           </nav>
         }
         footer={
-          <ul className="flex flex-wrap gap-x-5 gap-y-2">
-            <li className="text-sm font-semibold text-white/90">
-              {tools.length} gratis tools
-            </li>
-            {PERKS.map((perk) => (
-              <li
-                key={perk.label}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-white/85"
-              >
-                <perk.icon size={16} aria-hidden />
-                {perk.label}
-              </li>
-            ))}
-          </ul>
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-white/90">
+            <Sparkles size={16} aria-hidden />
+            {tools.length} gratis calculators · werkt in je browser
+          </p>
         }
       />
 
-      <Container className="py-8">
-        <ToolsBrowser tools={tools} />
-      </Container>
+      <section className="border-b border-[var(--border)] bg-[var(--background)]">
+        <Container className="py-10 sm:py-12">
+          <ToolsBrowser tools={tools} />
+        </Container>
+      </section>
     </>
   );
 }
