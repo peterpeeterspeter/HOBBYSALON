@@ -4,7 +4,7 @@
 export const HOBBYIST_PAGE = {
   metaTitle: "Voor iedereen die graag iets moois maakt | Hobbysalon",
   metaDescription:
-    "Vind creatieve workshops, hobbymaterialen, handgemaakt werk en hobbybeurzen in België en Nederland. Rustig ontdekken, gratis account als je iets wil bewaren.",
+    "Vind creatieve workshops, artikelen en patronen, plus meer dan 40 hobbytools. Bewaar wat je leuk vindt en maak automatisch een stappenplan. België en Nederland.",
   headline: "Voor iedereen die graag iets moois maakt",
   /** Short hero line (viewport budget) */
   heroSubheadline:
@@ -51,12 +51,33 @@ export const HOBBYIST_PAGE = {
         body: "Ruim 900 tutorials, patronen en projectgidsen, geschreven door mensen die het zelf maken.",
         href: "/artikelen",
       },
+    ],
+  },
+  fromInspiration: {
+    title: "Van inspiratie naar project",
+    body: "Bewaar artikelen en patronen die je wilt maken. Uit de bestaande instructies maakt Hobbysalon automatisch een stappenplan, klaar om af te vinken.",
+    moments: [
       {
-        title: "Tools",
-        body: "Kleine hulpmiddelen die het maken makkelijker maken.",
-        href: "/tools",
+        title: "Vinden en bewaren",
+        body: "Zet een tutorial of patroon bij je favorieten. Zo raak je het niet kwijt tussen Facebook en losse pdf's.",
+      },
+      {
+        title: "Automatisch stappenplan",
+        body: "De stappen, toeren of instructies uit het artikel worden een overzichtelijk plan voor jouw project.",
+      },
+      {
+        title: "Aan de slag",
+        body: "Open het plan wanneer het jou past. Materialen staan erbij, zodat je weet wat je nog nodig hebt.",
       },
     ],
+    cta: { label: "Naar artikelen en patronen", href: "/artikelen" },
+    secondaryCta: { label: "Mijn projecten", href: "/profile/projects" },
+  },
+  hobbyTools: {
+    title: "Hobbytools",
+    kicker: "Meer dan 40 tools",
+    body: "Gratis calculators voor stof, garen, quilt, kaarsenwas, hars, kralen en papier. Je vult in wat je wilt maken, en je ziet meteen hoeveel materiaal je nodig hebt. Werkt in je browser, zonder account.",
+    cta: { label: "Alle hobbytools", href: "/tools" },
   },
   connected: {
     title: "En het hangt allemaal samen",
@@ -76,10 +97,10 @@ export const HOBBYIST_PAGE = {
       },
       {
         title: "Bewaar wat je leuk vindt",
-        body: "Met een gratis account houd je je favorieten bij, verzamel je projecten, maak je materialenlijsten en stel je in welke regio je interessant vindt.",
+        body: "Met een gratis account houd je favorieten bij. Uit een bewaard patroon of artikel kun je meteen een project met stappenplan starten.",
       },
     ],
-    cta: { label: "Maak een gratis account", href: "/register" },
+    cta: { label: "Naar materialen", href: "/materials" },
   },
   why: {
     title: "Waarom Hobbysalon",
@@ -113,6 +134,16 @@ export const HOBBYIST_PAGE = {
       question: "Wat krijg ik met een gratis account?",
       answer:
         "Je favorieten op één plek, een overzicht van je projecten, je eigen materialenlijsten en de mogelijkheid om je regio in te stellen zodat je vooral ziet wat in de buurt gebeurt. Het account is en blijft gratis.",
+    },
+    {
+      question: "Hoe werkt een stappenplan vanuit een artikel?",
+      answer:
+        "Bewaar een artikel of patroon als favoriet. Hobbysalon leest de instructies uit en zet ze om in een stappenplan voor jouw project. Je kunt dat plan later verder aanvullen.",
+    },
+    {
+      question: "Wat zijn Hobbytools?",
+      answer:
+        "Gratis rekenhulpen voor makers: hoeveel stof, garen, was of kralen je nodig hebt, of hoe groot je quilt wordt. Er zijn er meer dan 40, en je hebt geen account nodig.",
     },
     {
       question: "Krijg ik automatisch de nieuwsbrief?",

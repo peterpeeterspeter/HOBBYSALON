@@ -1,6 +1,7 @@
 import { buildPageMetadata } from "@/lib/seo";
 import { HobbyistLanding } from "@/components/marketing/hobbyist-landing";
 import { HOBBYIST_PAGE } from "@/lib/marketing/hobbyist-page";
+import { getToolSummaries } from "@/lib/tools/registry";
 
 export const metadata = buildPageMetadata({
   title: HOBBYIST_PAGE.metaTitle,
@@ -9,5 +10,6 @@ export const metadata = buildPageMetadata({
 });
 
 export default function VoorHobbyistenPage() {
-  return <HobbyistLanding />;
+  const tools = getToolSummaries();
+  return <HobbyistLanding tools={tools} />;
 }

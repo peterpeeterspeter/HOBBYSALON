@@ -5,14 +5,49 @@ import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { HOBBYIST_PAGE } from "@/lib/marketing/hobbyist-page";
+import type { ToolSummary } from "@/lib/tools/registry";
 import { RevealOnView } from "./reveal-on-view";
 
 const copy = HOBBYIST_PAGE;
 
-function HobbyistLanding() {
+const FEATURED_TOOL_SLUGS = [
+  "garencalculator",
+  "stofcalculator",
+  "quiltcalculator",
+  "naaldmaat-converter",
+  "stekenproef-calculator",
+  "kaarsen-wascalculator",
+  "resin-calculator",
+  "kralenarmband-calculator",
+  "papier-snijcalculator",
+  "kostencalculator",
+] as const;
+
+const DISCOVER_VISUAL: Partial<
+  Record<(typeof copy.discover.items)[number]["href"], { src: string; alt: string }>
+> = {
+  "/workshops": {
+    src: LANDING_IMAGES.domainCrochet,
+    alt: "Workshop haken aan tafel",
+  },
+  "/artikelen": {
+    src: LANDING_IMAGES.placeholderArticle,
+    alt: "Handleiding en patroon om te bewaren",
+  },
+};
+
+type HobbyistLandingProps = {
+  tools: ToolSummary[];
+};
+
+function HobbyistLanding({ tools }: HobbyistLandingProps) {
+  const featuredTools = FEATURED_TOOL_SLUGS.map((slug) =>
+    tools.find((tool) => tool.slug === slug)
+  ).filter((tool): tool is ToolSummary => Boolean(tool));
+  const toolCount = tools.length;
+
   return (
     <div className="bg-[var(--background)] text-[var(--foreground)]">
-      {/* Hero */}
       <section className="relative isolate min-h-[100dvh] overflow-hidden bg-[var(--foreground)] md:min-h-0">
         <div className="absolute inset-0" aria-hidden>
           <Image
@@ -56,7 +91,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* Intro */}
       <section className="border-b border-[var(--border)]">
         <Container className="py-12 md:py-16">
           <RevealOnView>
@@ -67,7 +101,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* Pain recognition */}
       <section className="bg-[var(--section-alt)]">
         <Container className="py-16 md:py-24">
           <RevealOnView>
@@ -93,7 +126,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* Discover everything */}
       <section>
         <Container className="py-16 md:py-24">
           <RevealOnView>
@@ -102,51 +134,156 @@ function HobbyistLanding() {
             </h2>
           </RevealOnView>
 
-          <ul className="mt-10 border-t border-[var(--border-strong)]/45 md:mt-12">
-            {copy.discover.items.map((item, index) => (
-              <li
-                key={item.title}
-                className="border-b border-[var(--border-strong)]/45 py-8 md:py-9"
-              >
-                <RevealOnView>
-                  <div className="grid gap-3 md:grid-cols-12 md:items-start md:gap-8">
-                    <span
-                      className="font-[family-name:var(--font-heading)] text-2xl font-bold tabular-nums text-[var(--accent)] md:col-span-1 md:text-3xl"
-                      aria-hidden
+          <ul className="mt-10 grid grid-cols-1 gap-4 md:mt-12 md:grid-cols-12 md:gap-5">
+            {copy.discover.items.map((item, index) => {
+              const visual = DISCOVER_VISUAL[item.href];
+              const spanClass =
+                index === 0
+                  ? "md:col-span-7"
+                  : index === 1
+                    ? "md:col-span-5"
+                    : "md:col-span-4";
+              return (
+                <li key={item.href} className={spanClass}>
+                  <RevealOnView>
+                    <Link
+                      href={item.href}
+                      className="group flex h-full min-h-44 flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--border-strong)]/40 bg-[var(--card)] transition-colors hover:border-[var(--accent)]"
                     >
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div className="md:col-span-8">
-                      <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] md:text-2xl">
-                        <Link
-                          href={item.href}
-                          className="underline-offset-4 hover:text-[var(--accent)] hover:underline"
-                        >
+                      {visual ? (
+                        <div className="relative aspect-[16/9] w-full bg-[var(--section-alt)] md:aspect-[5/3]">
+                          <Image
+                            src={visual.src}
+                            alt={visual.alt}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            className="object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transform-none"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="flex flex-1 flex-col px-5 py-5 md:px-6 md:py-6">
+                        <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] md:text-2xl">
                           {item.title}
-                        </Link>
-                      </h3>
-                      <p className="mt-2 max-w-[55ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
-                        {item.body}
-                      </p>
-                    </div>
-                    <div className="md:col-span-3 md:flex md:justify-end md:pt-1">
-                      <Link
-                        href={item.href}
-                        className="inline-flex min-h-11 items-center gap-2 text-base font-semibold text-[var(--accent)] underline-offset-4 hover:underline md:text-lg"
-                      >
-                        Naar {item.title.toLowerCase()}
-                        <ArrowRight size={16} aria-hidden />
-                      </Link>
-                    </div>
-                  </div>
-                </RevealOnView>
-              </li>
-            ))}
+                        </h3>
+                        <p className="mt-2 max-w-[42ch] flex-1 text-base leading-relaxed text-[var(--muted)]">
+                          {item.body}
+                        </p>
+                        <span className="mt-4 inline-flex min-h-11 items-center gap-2 text-base font-semibold text-[var(--accent)]">
+                          Naar {item.title.toLowerCase()}
+                          <ArrowRight size={16} aria-hidden />
+                        </span>
+                      </div>
+                    </Link>
+                  </RevealOnView>
+                </li>
+              );
+            })}
           </ul>
         </Container>
       </section>
 
-      {/* Connected */}
+      <section className="bg-[var(--section-highlight)]">
+        <Container className="py-16 md:py-24">
+          <RevealOnView>
+            <h2 className="max-w-[16ch] font-[family-name:var(--font-heading)] text-3xl font-bold tracking-[-0.03em] text-[var(--foreground)] md:text-4xl">
+              {copy.fromInspiration.title}
+            </h2>
+            <p className="mt-5 max-w-[58ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+              {copy.fromInspiration.body}
+            </p>
+          </RevealOnView>
+
+          <RevealOnView className="mt-10" delayMs={40}>
+            <div className="relative aspect-[21/9] min-h-48 overflow-hidden rounded-[var(--radius)] bg-[var(--section-alt)] md:min-h-64">
+              <Image
+                src={LANDING_IMAGES.placeholderProject}
+                alt="Van een bewaard patroon naar een eigen stappenplan"
+                fill
+                sizes="100vw"
+                className="object-cover"
+              />
+            </div>
+          </RevealOnView>
+
+          <ul className="mt-10 grid grid-cols-1 gap-10 md:mt-12 md:grid-cols-3 md:gap-8">
+            {copy.fromInspiration.moments.map((moment) => (
+              <li key={moment.title}>
+                <RevealOnView>
+                  <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] md:text-2xl">
+                    {moment.title}
+                  </h3>
+                  <p className="mt-3 max-w-[40ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+                    {moment.body}
+                  </p>
+                </RevealOnView>
+              </li>
+            ))}
+          </ul>
+
+          <RevealOnView className="mt-10 flex flex-wrap gap-3 md:mt-12">
+            <Button asChild size="lg" className="min-h-12">
+              <Link href={copy.fromInspiration.cta.href}>
+                {copy.fromInspiration.cta.label}
+                <ArrowRight size={18} aria-hidden />
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="lg" className="min-h-12">
+              <Link href={copy.fromInspiration.secondaryCta.href}>
+                {copy.fromInspiration.secondaryCta.label}
+              </Link>
+            </Button>
+          </RevealOnView>
+        </Container>
+      </section>
+
+      <section>
+        <Container className="py-16 md:py-24">
+          <RevealOnView>
+            <h2 className="font-[family-name:var(--font-heading)] text-3xl font-bold tracking-[-0.03em] text-[var(--foreground)] md:text-4xl">
+              {copy.hobbyTools.title}
+            </h2>
+            <p className="mt-3 pb-1 font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.1] text-[var(--accent)] md:text-6xl">
+              {copy.hobbyTools.kicker}
+            </p>
+            <p className="mt-5 max-w-[58ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+              {copy.hobbyTools.body}
+            </p>
+            {toolCount > 40 ? (
+              <p className="mt-3 text-base text-[var(--foreground)] md:text-lg">
+                Nu {toolCount} calculators klaar voor gebruik.
+              </p>
+            ) : null}
+          </RevealOnView>
+
+          {featuredTools.length > 0 ? (
+            <div className="mt-10 md:mt-12">
+              <p className="sr-only">Voorbeelden van hobbytools</p>
+              <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:flex-wrap md:overflow-visible">
+                {featuredTools.map((tool) => (
+                  <li key={tool.slug} className="shrink-0 snap-start">
+                    <Link
+                      href={`/tools/${tool.slug}`}
+                      className="inline-flex min-h-12 items-center rounded-[var(--radius)] border border-[var(--border-strong)]/45 bg-[var(--card)] px-4 py-2 text-base font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    >
+                      {tool.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <RevealOnView className="mt-10 md:mt-12">
+            <Button asChild size="lg" className="min-h-12">
+              <Link href={copy.hobbyTools.cta.href}>
+                {copy.hobbyTools.cta.label}
+                <ArrowRight size={18} aria-hidden />
+              </Link>
+            </Button>
+          </RevealOnView>
+        </Container>
+      </section>
+
       <section className="bg-[var(--section-highlight)]">
         <Container className="py-16 md:py-24">
           <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
@@ -176,7 +313,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* How it works */}
       <section>
         <Container className="py-16 md:py-24">
           <RevealOnView>
@@ -185,26 +321,16 @@ function HobbyistLanding() {
             </h2>
           </RevealOnView>
 
-          <ol className="mt-12 space-y-10 md:mt-14 md:space-y-12">
-            {copy.howItWorks.steps.map((step, index) => (
+          <ol className="mt-12 max-w-3xl space-y-10 md:mt-14">
+            {copy.howItWorks.steps.map((step) => (
               <li key={step.title}>
                 <RevealOnView>
-                  <div className="grid gap-3 md:grid-cols-12 md:gap-8">
-                    <span
-                      className="font-[family-name:var(--font-heading)] text-4xl font-bold tabular-nums text-[var(--accent)] md:col-span-2 md:text-5xl"
-                      aria-hidden
-                    >
-                      {index + 1}
-                    </span>
-                    <div className="md:col-span-9">
-                      <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] md:text-2xl">
-                        {step.title}
-                      </h3>
-                      <p className="mt-3 max-w-[55ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
-                        {step.body}
-                      </p>
-                    </div>
-                  </div>
+                  <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)] md:text-2xl">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 max-w-[55ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+                    {step.body}
+                  </p>
                 </RevealOnView>
               </li>
             ))}
@@ -221,7 +347,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* Why */}
       <section className="bg-[var(--section-alt)]">
         <Container className="py-16 md:py-24">
           <RevealOnView>
@@ -289,7 +414,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* FAQ */}
       <section className="bg-[var(--section-highlight)]">
         <Container size="narrow" className="py-16 md:py-20">
           <RevealOnView>
@@ -335,7 +459,6 @@ function HobbyistLanding() {
         </Container>
       </section>
 
-      {/* Closing CTA */}
       <section className="bg-[var(--foreground)]">
         <Container className="py-16 text-center md:py-20">
           <RevealOnView>
