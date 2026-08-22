@@ -9,6 +9,7 @@ import {
 } from "@/lib/platform/queries/projects";
 import type { EntityType } from "@/types/platform";
 import type { ProjectRequirementItem } from "./project-requirements";
+import { parseArticleMaterialRequirements } from "@/lib/content/article-materials";
 
 export type SavedProjectItem = ProjectRequirementItem & {
   detail: string | null;
@@ -96,7 +97,7 @@ export async function getSavedProjectSource(
 
   const { data: article } = await supabase
     .from("articles")
-    .select("id,title,excerpt,featured_image_url")
+    .select("id,title,excerpt,featured_image_url,body_markdown")
     .eq("id", entityId)
     .eq("is_published", true)
     .maybeSingle();
@@ -143,6 +144,7 @@ export async function getSavedProjectSource(
         detail: "Neem rustig de uitleg door voordat je begint.",
         kind: "step",
       },
+      ...parseArticleMaterialRequirements(article.body_markdown),
       ...products.map((product) => ({
         key: `material:product:${product.id}`,
         title: product.title,
