@@ -38,7 +38,7 @@ export async function moderateRoleRequestAction(formData: FormData): Promise<voi
         : { ok: false, message: "Ongeldige moderatiestatus." };
 
   revalidatePath("/dashboard/moderatie/roles");
-  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard");
 
   if (!result.ok) {

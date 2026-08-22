@@ -67,9 +67,10 @@ export function ImageUploadField({
   const [uploadedUrl, setUploadedUrl] = useState(
     urlDefaultValue?.trim() || currentUrl?.trim() || ""
   );
+  const [removed, setRemoved] = useState(false);
 
   const resolvedUrlFieldName = urlFieldName ?? `${name}_uploaded_url`;
-  const hasImage = Boolean(previewUrl || uploadedUrl || currentUrl);
+  const hasImage = !removed && Boolean(previewUrl || uploadedUrl || currentUrl);
   const needsFile = required && !hasImage && !urlFieldName;
 
   useEffect(() => {
@@ -96,6 +97,7 @@ export function ImageUploadField({
     }
 
     const nextPreview = URL.createObjectURL(file);
+    setRemoved(false);
     setPreviewUrl((previous) => {
       if (previous?.startsWith("blob:")) {
         URL.revokeObjectURL(previous);
@@ -141,7 +143,24 @@ export function ImageUploadField({
     }
   }
 
-  const displayUrl = previewUrl ?? (uploadedUrl || currentUrl || null);
+  const displayUrl = removed
+    ? null
+    : previewUrl ?? (uploadedUrl || currentUrl || null);
+
+  function clearImage() {
+    setRemoved(true);
+    setUploadedUrl("");
+    setLocalError(null);
+    setPreviewUrl((previous) => {
+      if (previous?.startsWith("blob:")) {
+        URL.revokeObjectURL(previous);
+      }
+      return null;
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   return (
     <div>
@@ -149,11 +168,20 @@ export function ImageUploadField({
         {label}
       </label>
       {displayUrl ? (
-        <img
-          src={displayUrl}
-          alt=""
-          className={`mb-2 border border-[var(--border)] ${previewClassName}`}
-        />
+        <div className="mb-2 flex flex-wrap items-end gap-3">
+          <img
+            src={displayUrl}
+            alt=""
+            className={`border border-[var(--border)] ${previewClassName}`}
+          />
+          <button
+            type="button"
+            onClick={clearImage}
+            className="text-sm font-medium text-red-700 hover:underline"
+          >
+            Foto verwijderen
+          </button>
+        </div>
       ) : null}
       <input
         ref={fileInputRef}
@@ -166,7 +194,8 @@ export function ImageUploadField({
         onChange={handleFileChange}
         className="block w-full text-sm text-[var(--foreground)] file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent)] file:px-3 file:py-2 file:text-sm file:font-medium file:text-[var(--accent-foreground)] hover:file:bg-[var(--accent-hover)] disabled:opacity-60"
       />
-      <input type="hidden" name={resolvedUrlFieldName} value={uploadedUrl} />
+      <input type="hidden" name={resolvedUrlFieldName} value={removed ? "" : uploadedUrl} />
+      <input type="hidden" name={`${name}_remove`} value={removed ? "1" : ""} />
       {urlFieldName ? (
         <div className="mt-3">
           <label
@@ -181,6 +210,7 @@ export function ImageUploadField({
             defaultValue={urlDefaultValue ?? ""}
             placeholder={urlPlaceholder}
             onChange={(event) => {
+              setRemoved(false);
               setUploadedUrl(event.target.value.trim());
               setLocalError(null);
             }}

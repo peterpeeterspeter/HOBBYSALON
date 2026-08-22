@@ -12,9 +12,7 @@ export async function Footer() {
 
   return (
     <footer className="mt-auto bg-[var(--foreground)]">
-      {/* 4-column grid: brand col + 3 link cols */}
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-        {/* Brand column */}
         <div>
           <Link
             href="/"
@@ -23,19 +21,20 @@ export async function Footer() {
           >
             Hobbysalon
           </Link>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/50">
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/55">
             Dé creatieve marketplace voor workshops, handwerk, materialen en hobby-inspiratie in België en Nederland.
           </p>
           <div className="mt-6 max-w-sm">
-            <p className="mb-2 text-sm font-semibold text-white">Creatieve inspiratie in je inbox</p>
+            <p className="mb-2 text-sm font-semibold text-white">
+              Creatieve inspiratie in je inbox
+            </p>
             <NewsletterSignupForm variant="footer" />
           </div>
         </div>
 
-        {/* Link columns */}
         {columns.map((col) => (
           <nav key={col.title} aria-label={col.title}>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-white/85">
+            <h3 className="font-[family-name:var(--font-heading)] text-sm font-bold tracking-wide text-white">
               {col.title}
             </h3>
             <ul className="mt-3 space-y-2">
@@ -43,7 +42,7 @@ export async function Footer() {
                 <li key={`${col.title}-${link.href}-${link.label}`}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/55 transition-colors hover:text-white"
+                    className="text-sm text-white/60 transition-colors hover:text-white"
                   >
                     {link.label}
                   </Link>
@@ -54,7 +53,6 @@ export async function Footer() {
         ))}
       </div>
 
-      {/* Copyright bar */}
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <span className="text-xs text-white/40" suppressHydrationWarning>

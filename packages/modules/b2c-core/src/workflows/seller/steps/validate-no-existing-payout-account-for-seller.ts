@@ -2,26 +2,42 @@ import {
   ContainerRegistrationKeys,
   MedusaError
 } from '@medusajs/framework/utils'
-import { createStep } from '@medusajs/framework/workflows-sdk'
+import { StepResponse, createStep } from '@medusajs/framework/workflows-sdk'
 
-import sellerPayoutAccountLink from '../../../links/seller-payout-account'
+import { PayoutAccountStatus } from '@mercurjs/framework'
+
+import { listSellerPayoutAccountRelations } from '../../../shared/utils/resolve-seller-payout-account'
 
 export const validateNoExistingPayoutAccountForSellerStep = createStep(
   'validate-no-existing-payout-account-for-seller',
   async (sellerId: string, { container }) => {
     const query = container.resolve(ContainerRegistrationKeys.QUERY)
 
-    const { data: sellerPayoutAccountRelations } = await query.graph({
-      entity: sellerPayoutAccountLink.entryPoint,
-      fields: ['id'],
-      filters: { seller_id: sellerId }
-    })
+    const relations = await listSellerPayoutAccountRelations(query, sellerId, [
+      'id',
+      'payout_account_id',
+      'payout_account.status',
+    ])
 
-    if (sellerPayoutAccountRelations.length > 0) {
+    if (relations.length === 0) {
+      return new StepResponse(undefined)
+    }
+
+    const hasActive = relations.some(
+      (relation) =>
+        relation.payout_account?.status === PayoutAccountStatus.ACTIVE
+    )
+
+    if (hasActive) {
       throw new MedusaError(
         MedusaError.Types.DUPLICATE_ERROR,
-        'Payment account already exists for seller'
+        'An active payment account already exists for this seller'
       )
     }
+
+    throw new MedusaError(
+      MedusaError.Types.DUPLICATE_ERROR,
+      'A payment account already exists for this seller. Complete Stripe onboarding on the existing account instead of creating a new one.'
+    )
   }
 )

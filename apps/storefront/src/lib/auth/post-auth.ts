@@ -15,7 +15,7 @@ export function sanitizeNextPath(
   requestedPath: string | null | undefined,
   fallbackPath: string
 ): string {
-  const candidate = requestedPath?.trim();
+  const candidate = requestedPath?.trim().split("#", 1)[0]?.trim();
   if (!candidate) return fallbackPath;
 
   const isInternalPath =
@@ -37,7 +37,7 @@ export async function resolvePostAuthRedirectPath(options: {
     return safeRequested;
   }
 
-  const safeDefault = sanitizeNextPath(options.defaultPath, "/dashboard");
+  const safeDefault = sanitizeNextPath(options.defaultPath, "/profile");
 
   if (!options.userId) {
     return safeDefault;
@@ -49,11 +49,25 @@ export async function resolvePostAuthRedirectPath(options: {
     (link) => link.sellerType === "merchant"
   );
 
+  // Approved merchants land on the creator dashboard. Verkopersportaal is a
+  // deliberate handoff from /dashboard/verkoper, not an automatic login target.
   if (hasMerchantRole || hasMerchantLink) {
-    if (!hasMerchantLink) {
-      return `/register/merchant?next=${encodeURIComponent("/dashboard/verkoper")}`;
-    }
-    return "/dashboard/verkoper";
+    return "/dashboard";
+  }
+
+  const primaryOffer = context.preference?.primaryOfferRole;
+  const offerRoles = context.preference?.offerRoles ?? [];
+  const needsOfferOnboarding =
+    !context.preference?.onboardingCompleted &&
+    (primaryOffer || offerRoles.length > 0) &&
+    primaryOffer !== "merchant";
+
+  if (needsOfferOnboarding) {
+    return "/onboarding";
+  }
+
+  if (primaryOffer === "merchant" && !hasMerchantRole && !hasMerchantLink) {
+    return "/register/merchant";
   }
 
   const hasCreatorRole = context.roles.some((role) =>
@@ -64,7 +78,7 @@ export async function resolvePostAuthRedirectPath(options: {
   );
 
   if (hasCreatorRole || hasCreatorLink || context.hasCreatorProfile) {
-    return "/profile?tab=profiel#maker-pagina";
+    return "/profile";
   }
 
   return safeDefault;

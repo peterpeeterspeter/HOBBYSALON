@@ -24,38 +24,44 @@ export default async function LoginPage({ searchParams }: Props) {
   const nextPath = getSafeInternalPath(next, "");
 
   if (user) {
-    redirect(nextPath || "/");
+    redirect(nextPath || "/profile");
   }
 
   return (
-    <PageLayout
-      title="Aanmelden"
-      description="Meld je aan om je favorieten en creator-dashboard te beheren."
-      size="narrow"
-    >
-      {error && (
-        <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {error}
-        </p>
-      )}
+    <div className="bg-[var(--section-alt)]">
+      <PageLayout
+        title="Aanmelden"
+        description="Meld je aan om je favorieten en creator-dashboard te beheren."
+        size="narrow"
+      >
+        {error && (
+          <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {error}
+          </p>
+        )}
 
-      <CardShell variant="default" padding="lg">
-        <AuthForm mode="login" action={loginAction} nextPath={nextPath} />
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          <Link
-            href={
-              nextPath
-                ? `/wachtwoord-vergeten?next=${encodeURIComponent(nextPath)}`
-                : "/wachtwoord-vergeten"
-            }
-            className="font-semibold text-[var(--accent)] underline underline-offset-4 hover:no-underline"
-          >
-            Wachtwoord vergeten?
-          </Link>
-        </p>
-      </CardShell>
+        <CardShell
+          variant="default"
+          padding="lg"
+          className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
+        >
+          <AuthForm mode="login" action={loginAction} nextPath={nextPath} />
+          <p className="mt-4 text-sm text-[var(--muted)]">
+            <Link
+              href={
+                nextPath
+                  ? `/wachtwoord-vergeten?next=${encodeURIComponent(nextPath)}`
+                  : "/wachtwoord-vergeten"
+              }
+              className="font-semibold text-[var(--accent)] underline underline-offset-4 hover:no-underline"
+            >
+              Wachtwoord vergeten?
+            </Link>
+          </p>
+        </CardShell>
 
-      <AccountChoiceCards nextPath={nextPath} />
-    </PageLayout>
+        <AccountChoiceCards nextPath={nextPath} />
+      </PageLayout>
+    </div>
   );
 }

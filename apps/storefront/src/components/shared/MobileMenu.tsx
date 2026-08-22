@@ -10,18 +10,18 @@ type NavItem = { href: string; label: string };
 
 type MobileMenuProps = {
   mainLinks: NavItem[];
-  domainLinks: NavItem[];
   inspiratieLinks: NavItem[];
   user: boolean;
+  aanbodNav?: { href: string; label: string } | null;
   mobileLinkClass: string;
   iconBtnClass: string;
 };
 
 export function MobileMenu({
   mainLinks,
-  domainLinks,
   inspiratieLinks,
   user,
+  aanbodNav = null,
   mobileLinkClass,
   iconBtnClass,
 }: MobileMenuProps) {
@@ -63,7 +63,7 @@ export function MobileMenu({
   }
 
   return (
-    <div className="relative xl:hidden">
+    <div className="relative 2xl:hidden">
       <button
         ref={buttonRef}
         type="button"
@@ -90,6 +90,25 @@ export function MobileMenu({
             aria-label="Mobiele navigatie"
             className="fixed right-4 top-[3.75rem] z-[70] w-[min(18rem,calc(100vw-2rem))] max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-lg"
           >
+            <form
+              action="/zoeken"
+              method="GET"
+              role="search"
+              className="mb-2 px-2 pt-1"
+              onSubmit={closeMenu}
+            >
+              <label htmlFor="mobile-zoeken-q" className="sr-only">
+                Zoek overal op Hobbysalon
+              </label>
+              <input
+                id="mobile-zoeken-q"
+                type="search"
+                name="q"
+                placeholder="Zoek workshops, materialen…"
+                className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[15px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+              />
+            </form>
+
             <div className="space-y-0.5">
               {mainLinks.map((link) => (
                 <Link
@@ -102,26 +121,6 @@ export function MobileMenu({
                 </Link>
               ))}
             </div>
-
-            {domainLinks.length > 0 ? (
-              <>
-                <p className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                  Per Hobby
-                </p>
-                <div className="mt-1 space-y-0.5">
-                  {domainLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={mobileLinkClass}
-                      onClick={closeMenu}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </>
-            ) : null}
 
             {inspiratieLinks.length > 0 ? (
               <>
@@ -162,9 +161,11 @@ export function MobileMenu({
                   <Link href={ACCOUNT_NAV.profile.href} className={mobileLinkClass} onClick={closeMenu}>
                     {ACCOUNT_NAV.profile.label}
                   </Link>
-                  <Link href={ACCOUNT_NAV.pro.href} className={mobileLinkClass} onClick={closeMenu}>
-                    {ACCOUNT_NAV.pro.label}
-                  </Link>
+                  {aanbodNav ? (
+                    <Link href={aanbodNav.href} className={mobileLinkClass} onClick={closeMenu}>
+                      {aanbodNav.label}
+                    </Link>
+                  ) : null}
                   <form action={logoutAction}>
                     <button
                       type="submit"

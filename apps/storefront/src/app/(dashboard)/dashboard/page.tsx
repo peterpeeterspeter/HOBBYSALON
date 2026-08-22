@@ -6,12 +6,25 @@ import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
+import { countNewProductInquiries } from "@/lib/platform/queries/product-inquiries";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
+import { DashboardAccountSection } from "@/components/dashboard/DashboardAccountSection";
+
+async function getMakerListingCount(creatorId: string): Promise<number> {
+  const supabase = createPlatformClient();
+  const { count } = await supabase
+    .from("products")
+    .select("id", { head: true, count: "exact" })
+    .eq("creator_id", creatorId)
+    .in("product_type", ["handmade", "destash"]);
+
+  return count ?? 0;
+}
 
 async function getCount(
-  table: "products" | "workshops" | "events",
+  table: "workshops" | "events",
   field: "creator_id" | "organizer_creator_id",
   creatorId: string
 ): Promise<number> {
@@ -24,11 +37,17 @@ async function getCount(
   return count ?? 0;
 }
 
-export default async function DashboardHomePage() {
+type Props = {
+  searchParams: Promise<{ success?: string; error?: string }>;
+};
+
+export default async function DashboardHomePage({ searchParams }: Props) {
   const user = await getAuthUser();
   if (!user) {
     redirect("/login?next=/dashboard");
   }
+
+  const { success, error } = await searchParams;
 
   const [creator, registrationContext] = await Promise.all([
     getCreatorByUserId(user.id),
@@ -41,11 +60,11 @@ export default async function DashboardHomePage() {
     hasCreatorProfile: Boolean(creator),
   });
 
-  const [productCount, workshopCount, eventCount, domainCount, articleCount, projectCount] =
+  const [productCount, workshopCount, eventCount, domainCount, articleCount, projectCount, newInquiryCount] =
     creator
       ? await Promise.all([
           caps.canManageProducts
-            ? getCount("products", "creator_id", creator.id)
+            ? getMakerListingCount(creator.id)
             : Promise.resolve(0),
           caps.canManageWorkshops
             ? getCount("workshops", "creator_id", creator.id)
@@ -77,8 +96,11 @@ export default async function DashboardHomePage() {
               .eq("created_by_user_id", user.id);
             return count ?? 0;
           })(),
+          caps.canManageProducts
+            ? countNewProductInquiries(creator.id)
+            : Promise.resolve(0),
         ])
-      : [0, 0, 0, 0, 0, 0];
+      : [0, 0, 0, 0, 0, 0, 0];
 
   const progressSteps = caps.canViewCreatorPage
     ? getCreatorProgressSteps({
@@ -98,7 +120,7 @@ export default async function DashboardHomePage() {
     caps.canManageProducts
       ? {
           key: "products",
-          label: "Jouw Shop",
+          label: "Maker shop",
           count: productCount,
           href: "/dashboard/products",
         }
@@ -138,18 +160,53 @@ export default async function DashboardHomePage() {
         </p>
       </header>
 
+      {success ? (
+        <p className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {success}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </p>
+      ) : null}
+
+      {newInquiryCount > 0 ? (
+        <CardShell
+          variant="featured"
+          padding="lg"
+          className="border-amber-300 bg-amber-50"
+        >
+          <p className="text-lg font-semibold text-amber-950">
+            {newInquiryCount === 1
+              ? "1 nieuwe aanvraag op je plaatsingen"
+              : `${newInquiryCount} nieuwe aanvragen op je plaatsingen`}
+          </p>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-amber-900/80">
+            Iemand wil contact over een van je creaties. Open de inbox, stuur een
+            antwoord via e-mail en markeer de aanvraag als behandeld.
+          </p>
+          <div className="mt-5">
+            <Button asChild>
+              <Link href="/dashboard/products#aanvragen">Open aanvragen</Link>
+            </Button>
+          </div>
+        </CardShell>
+      ) : null}
+
       {caps.isHobbyistOnly ? (
         <CardShell variant="featured" padding="lg" className="border-[var(--accent)]/30">
           <p className="text-lg font-semibold text-[var(--foreground)]">
             Jouw hobby-account
           </p>
           <p className="mt-2 max-w-xl leading-relaxed text-[var(--muted)]">
-            Pas interesses en locatie aan voor betere aanbevelingen. Wil je later verkopen,
-            workshops geven of events organiseren? Dat regel je onder Account.
+            Pas interesses en locatie aan voor betere aanbevelingen. Wil je zelf
+            iets aanbieden — als maker, workshopgever, organisator of winkel?
+            Start hieronder.
           </p>
           <div className="mt-5">
             <Button asChild>
-              <Link href="/dashboard/account">Open Account</Link>
+              <Link href="#account">Aanbieder worden</Link>
             </Button>
           </div>
         </CardShell>
@@ -167,7 +224,23 @@ export default async function DashboardHomePage() {
               <Link href="/profile?tab=profiel#maker-pagina">Makerprofiel instellen</Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/dashboard/account">Rollen & voorkeuren</Link>
+              <Link href="#account">Rollen & voorkeuren</Link>
+            </Button>
+          </div>
+        </CardShell>
+      ) : caps.canViewVendorPortalNav && !caps.canAccessVendorPortal ? (
+        <CardShell variant="featured" padding="lg" className="border-[var(--accent)]/30">
+          <p className="text-lg font-semibold text-[var(--foreground)]">Verkopersportaal</p>
+          <p className="mt-2 max-w-xl leading-relaxed text-[var(--muted)]">
+            {registrationContext.pendingRoleRequests.some(
+              (request) => request.role === "merchant" && request.status === "pending"
+            )
+              ? "Je merchant-aanvraag wordt beoordeeld. Zodra die is goedgekeurd, beheer je hier voorraad, verzending en uitbetalingen op verkoper.hobbysalon.be."
+              : "Open het verkopersportaal om je winkel te koppelen en door te gaan naar verkoper.hobbysalon.be."}
+          </p>
+          <div className="mt-5">
+            <Button asChild>
+              <Link href="/dashboard/verkoper">Naar verkopersportaal</Link>
             </Button>
           </div>
         </CardShell>
@@ -246,18 +319,7 @@ export default async function DashboardHomePage() {
               </Link>
             </li>
           ) : null}
-          <li>
-            <Link
-              href="/dashboard/account"
-              className="block rounded-lg border border-[var(--border)] px-4 py-3 text-sm hover:border-[var(--accent)]"
-            >
-              <span className="font-medium text-[var(--foreground)]">Account</span>
-              <span className="mt-1 block text-[var(--muted)]">
-                Rollen en voorkeuren
-              </span>
-            </Link>
-          </li>
-          {caps.canAccessVendorPortal ? (
+          {caps.canViewVendorPortalNav ? (
             <li>
               <Link
                 href="/dashboard/verkoper"
@@ -265,7 +327,9 @@ export default async function DashboardHomePage() {
               >
                 <span className="font-medium text-[var(--foreground)]">Verkopersportaal</span>
                 <span className="mt-1 block text-[var(--muted)]">
-                  Voorraad, verzending en uitbetalingen
+                  {caps.canAccessVendorPortal
+                    ? "Voorraad, verzending en uitbetalingen"
+                    : "Status en toegang tot je winkel"}
                 </span>
               </Link>
             </li>
@@ -285,6 +349,12 @@ export default async function DashboardHomePage() {
           ) : null}
         </ul>
       </CardShell>
+
+      <DashboardAccountSection
+        userEmail={user.email}
+        registrationContext={registrationContext}
+        creator={creator}
+      />
     </section>
   );
 }

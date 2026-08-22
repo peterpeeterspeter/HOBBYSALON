@@ -164,7 +164,6 @@ export async function exchangePlatformSellerAuth(
   const links = await supabase.get<UserSellerLinkRow>("user_seller_links", {
     select: "seller_id,seller_type",
     user_id: `eq.${escapePostgrestValue(supabaseUser.id)}`,
-    limit: "1",
   });
 
   if (!links.length) {
@@ -174,7 +173,9 @@ export async function exchangePlatformSellerAuth(
     );
   }
 
-  const link = links[0];
+  // Prefer merchant link for vendor-panel handoff; fall back to creator.
+  const link =
+    links.find((row) => row.seller_type === "merchant") ?? links[0];
   const knex = container.resolve(ContainerRegistrationKeys.PG_CONNECTION);
 
   const seller = (await knex("seller")

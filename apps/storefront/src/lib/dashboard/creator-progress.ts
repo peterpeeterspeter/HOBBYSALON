@@ -1,4 +1,6 @@
 import type { Creator } from "@/types/platform";
+import type { RegistrationOfferRole } from "@/lib/auth/registration-options";
+import { getFirstListingPath, getPublishPath } from "@/lib/onboarding/offer-onboarding";
 
 export type CreatorProgressStep = {
   id: string;
@@ -15,42 +17,122 @@ export type CreatorProgressInput = {
   eventCount: number;
   articleCount: number;
   projectCount: number;
+  publishedWorkshopCount?: number;
+  publishedEventCount?: number;
+  publishedProductCount?: number;
+  primaryOfferRole?: RegistrationOfferRole | null;
+  canPublish?: boolean;
 };
 
 export function getCreatorProgressSteps(
   input: CreatorProgressInput
 ): CreatorProgressStep[] {
-  const { creator, domainCount, productCount, workshopCount, eventCount, articleCount, projectCount } =
-    input;
+  const {
+    creator,
+    domainCount,
+    productCount,
+    workshopCount,
+    eventCount,
+    publishedWorkshopCount = 0,
+    publishedEventCount = 0,
+    publishedProductCount = 0,
+    primaryOfferRole,
+    canPublish = false,
+  } = input;
 
-  const hasName = Boolean(creator?.display_name?.trim());
-  const hasDomains = domainCount > 0;
-  const hasSlug = Boolean(creator?.slug?.trim());
-  const hasContent =
-    productCount > 0 ||
-    workshopCount > 0 ||
-    eventCount > 0 ||
-    articleCount > 0 ||
-    projectCount > 0;
+  const hasName = Boolean(
+    creator?.business_name?.trim() || creator?.display_name?.trim()
+  );
+  const hasBasics =
+    hasName &&
+    Boolean(creator?.city?.trim()) &&
+    Boolean(creator?.bio?.trim()) &&
+    domainCount > 0;
 
+  const role = primaryOfferRole ?? "maker";
+
+  if (role === "workshopgever") {
+    const hasDraft = workshopCount > 0;
+    const hasPublished = publishedWorkshopCount > 0;
+    return [
+      {
+        id: "basics",
+        label: "Basisgegevens",
+        done: hasBasics,
+        href: "/onboarding",
+      },
+      {
+        id: "first-draft",
+        label: "Eerste workshop als concept",
+        done: hasDraft,
+        href: getFirstListingPath("workshopgever"),
+      },
+      {
+        id: "publish",
+        label: canPublish || hasPublished ? "Workshop publiceren" : "Publiceren na goedkeuring",
+        done: hasPublished,
+        href: getPublishPath("workshopgever"),
+      },
+    ];
+  }
+
+  if (role === "organizer") {
+    const hasDraft = eventCount > 0;
+    const hasPublished = publishedEventCount > 0;
+    return [
+      {
+        id: "basics",
+        label: "Basisgegevens",
+        done: hasBasics,
+        href: "/onboarding",
+      },
+      {
+        id: "first-draft",
+        label: "Eerste evenement als concept",
+        done: hasDraft,
+        href: getFirstListingPath("organizer"),
+      },
+      {
+        id: "publish",
+        label: canPublish || hasPublished ? "Evenement publiceren" : "Publiceren na goedkeuring",
+        done: hasPublished,
+        href: getPublishPath("organizer"),
+      },
+    ];
+  }
+
+  const hasDraft = productCount > 0;
+  const hasPublished = publishedProductCount > 0;
   return [
     {
-      id: "profile",
-      label: "Profiel ingevuld (naam + hobby)",
-      done: hasName && hasDomains,
-      href: "/profile?tab=profiel#maker-pagina",
+      id: "basics",
+      label: "Basisgegevens",
+      done: hasBasics,
+      href: "/onboarding",
     },
     {
-      id: "public-page",
-      label: "Publieke pagina klaar",
-      done: hasSlug,
-      href: creator?.slug ? `/creator/${creator.slug}` : "/profile?tab=profiel#maker-pagina",
+      id: "first-draft",
+      label: "Eerste creatie als concept",
+      done: hasDraft,
+      href: getFirstListingPath("maker"),
     },
     {
-      id: "content",
-      label: "Eerste content toegevoegd",
-      done: hasContent,
-      href: "/dashboard/products",
+      id: "publish",
+      label: "Creatie publiceren",
+      done: hasPublished,
+      href: getPublishPath("maker"),
     },
   ];
+}
+
+export function getCreatorProgressPercent(steps: CreatorProgressStep[]): number {
+  if (steps.length === 0) return 0;
+  const done = steps.filter((step) => step.done).length;
+  return Math.round((done / steps.length) * 100);
+}
+
+export function getNextProgressStep(
+  steps: CreatorProgressStep[]
+): CreatorProgressStep | null {
+  return steps.find((step) => !step.done) ?? null;
 }

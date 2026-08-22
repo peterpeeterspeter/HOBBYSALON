@@ -1,7 +1,7 @@
 import { MedusaContainer } from '@medusajs/framework'
-import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
+import { ContainerRegistrationKeys, MedusaError } from '@medusajs/framework/utils'
 
-import sellerPayoutAccountLink from '../../../links/seller-payout-account'
+import { resolveSellerPayoutAccountRelation } from '../../../shared/utils/resolve-seller-payout-account'
 
 export const refetchPayoutAccount = async (
   container: MedusaContainer,
@@ -9,17 +9,29 @@ export const refetchPayoutAccount = async (
   filters: Record<string, unknown>
 ) => {
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const sellerId = filters.seller_id
 
-  const {
-    data: [sellerPayoutAccount]
-  } = await query.graph(
-    {
-      entity: sellerPayoutAccountLink.entryPoint,
-      fields,
-      filters
-    },
-    { throwIfKeyNotFound: true }
+  if (typeof sellerId !== 'string' || !sellerId.trim()) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      'seller_id is required to resolve payout account'
+    )
+  }
+
+  const relation = await resolveSellerPayoutAccountRelation(
+    query,
+    sellerId,
+    ['payout_account_id', ...fields]
   )
 
-  return sellerPayoutAccount
+  if (!relation?.payout_account) {
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      'Payout account is not connected to the seller'
+    )
+  }
+
+  return {
+    payout_account: relation.payout_account,
+  }
 }

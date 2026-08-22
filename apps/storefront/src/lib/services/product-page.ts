@@ -14,6 +14,8 @@ import {
   getMedusaProduct,
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
+import { medusaAmountToCents } from "@/lib/commerce/money";
+import { publicAssetUrl, publicAssetUrls } from "@/lib/media/public-asset-url";
 import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
 
 export type ProductPageData = {
@@ -22,6 +24,7 @@ export type ProductPageData = {
   domain: Domain | null;
   price: { amount: number; currency_code: string } | null;
   variants: Array<{ id: string; title: string }>;
+  galleryImages: string[];
   relatedWorkshops: Workshop[];
   relatedSupplies: Product[];
   relatedArticles: Article[];
@@ -43,6 +46,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       domain: null,
       price: null,
       variants: [],
+      galleryImages: [],
       relatedWorkshops: [] as Workshop[],
       relatedSupplies: [],
       relatedArticles: [],
@@ -50,7 +54,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     };
   }
 
-  const [creator, domain, entityLinks] = await Promise.all([
+  const [creator, domain, entityLinks, galleryResult] = await Promise.all([
     product.creator_id ? getCreatorById(product.creator_id) : Promise.resolve(null),
     product.domain_id
       ? (async () => {
@@ -64,7 +68,17 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
         })()
       : Promise.resolve(null),
     getRelatedEntities("product", product.id),
+    createPlatformClient()
+      .from("product_gallery_images")
+      .select("image_url")
+      .eq("product_id", product.id)
+      .order("sort_order", { ascending: true }),
   ]);
+  const galleryImages = publicAssetUrls(
+    ((galleryResult.data ?? []) as Array<{ image_url: string }>).map(
+      (row) => row.image_url
+    )
+  );
   // Maker listings (handmade/destash) are platform-only: price is an
   // indicative asking price from products.price_cents, not a Medusa
   // checkout price. A maker listing created before this cutover may still
@@ -86,7 +100,9 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
 
     price = medusa?.calculated_price
       ? {
-          amount: medusa.calculated_price.calculated_amount,
+          amount: medusaAmountToCents(
+            medusa.calculated_price.calculated_amount
+          ),
           currency_code: medusa.calculated_price.currency_code,
         }
       : null;
@@ -139,6 +155,11 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     creatorSuppliesPromise,
   ]);
 
+  const normalizedProduct: Product = {
+    ...product,
+    featured_image_url: publicAssetUrl(product.featured_image_url),
+  };
+
   const relatedSupplyMap = new Map<string, Product>();
   const allSupplyCandidates = [
     ...linkedProducts.filter((p) => p.product_type === "supply"),
@@ -146,19 +167,23 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     ...creatorProducts.filter((p) => p.product_type === "supply"),
   ];
   for (const candidate of allSupplyCandidates) {
-    if (candidate.id === product.id) continue;
+    if (candidate.id === normalizedProduct.id) continue;
     if (!relatedSupplyMap.has(candidate.id)) {
-      relatedSupplyMap.set(candidate.id, candidate);
+      relatedSupplyMap.set(candidate.id, {
+        ...candidate,
+        featured_image_url: publicAssetUrl(candidate.featured_image_url),
+      });
     }
   }
   const relatedSupplies = Array.from(relatedSupplyMap.values()).slice(0, 8);
 
   return {
-    product,
+    product: normalizedProduct,
     creator: creator ?? null,
     domain: domain ?? null,
     price,
     variants,
+    galleryImages,
     relatedWorkshops,
     relatedSupplies,
     relatedArticles,

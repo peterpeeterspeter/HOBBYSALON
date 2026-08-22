@@ -1,6 +1,7 @@
 "use server";
 
 import { createPlatformClient } from "@/lib/platform/client";
+import { syncConfirmedAcumbamailSubscriber } from "@/lib/newsletter/acumbamail";
 import {
   buildConfirmationUrl,
   createConfirmationToken,
@@ -104,10 +105,17 @@ export async function subscribeNewsletterAction(
   if (leadMagnetCode) return subscribeToLeadMagnet(email, leadMagnetCode, sourcePath);
 
   const supabase = createPlatformClient();
+  const confirmedAt = new Date().toISOString();
   const { data: subscriber, error: upsertError } = await supabase
     .from("subscribers")
     .upsert(
-      { email, first_name: firstName, preferred_city: preferredCity, source: "site_form", status: "active" },
+      {
+        email,
+        first_name: firstName,
+        preferred_city: preferredCity,
+        source: "site_form",
+        status: "active",
+      },
       { onConflict: "email" }
     )
     .select("id")
@@ -124,6 +132,21 @@ export async function subscribeNewsletterAction(
       interest_type: interestType,
       score: 1,
     });
+  }
+
+  const sync = await syncConfirmedAcumbamailSubscriber({
+    email,
+    firstName,
+    preferredCity,
+    sourcePath,
+    confirmedAt,
+  });
+
+  if (sync.ok) {
+    await supabase
+      .from("subscribers")
+      .update({ acumbamail_synced_at: confirmedAt, updated_at: confirmedAt })
+      .eq("id", subscriber.id);
   }
 
   return { success: true, message: "Ingeschreven! Je ontvangt binnenkort inspiratie in je inbox." };

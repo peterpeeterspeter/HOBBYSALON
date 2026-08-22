@@ -113,6 +113,7 @@ export type LinkTargetOption = { id: string; label: string };
 
 export type CreatorProfileTabProps = {
   creator: {
+    id?: string;
     display_name: string;
     slug: string;
     business_name: string | null;
@@ -123,11 +124,15 @@ export type CreatorProfileTabProps = {
     avatar_url: string | null;
     banner_url: string | null;
     bio: string | null;
+    email?: string | null;
     creator_types: string[];
     country_code: string | null;
+    open_to_markets?: boolean;
+    specialty_tags?: string[];
   } | null;
   onboarding: Record<string, unknown> | null;
   accountDisplayName: string;
+  accountEmail: string;
   registrationCity: string | null;
   registrationCountryCode: string | null;
   domains: Domain[];

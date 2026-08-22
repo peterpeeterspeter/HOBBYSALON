@@ -9,7 +9,7 @@ import {
   listProjectProductLinks,
   listProjectsByCreator,
 } from "@/lib/platform/queries/projects";
-import { listEventsByCreator, listEventsByIds } from "@/lib/platform/queries/events";
+import { listCreatorEventParticipations, listEventsByIds } from "@/lib/platform/queries/events";
 import {
   listArticlesByAuthor,
   listArticlesByIds,
@@ -34,13 +34,17 @@ export type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
 };
 
+export type CreatorEventWithRole = Event & {
+  participationRole: string | null;
+};
+
 export type CreatorPageData = {
   creator: Creator | null;
   products: ProductWithPrice[];
   domains: Domain[];
   projects: CreatorProjectTeaser[];
   relatedWorkshops: Workshop[];
-  relatedEvents: Event[];
+  relatedEvents: CreatorEventWithRole[];
   relatedArticles: Article[];
   relatedCreators: Creator[];
   entitlements: CommercialEntitlements | null;
@@ -79,7 +83,7 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     creatorDomains,
     ownProjects,
     ownWorkshops,
-    ownEvents,
+    ownEventParticipations,
     ownArticles,
   ] =
     await Promise.all([
@@ -88,7 +92,7 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
       getCreatorDomains(creator.id),
       listProjectsByCreator(creator.id),
       listWorkshopsByCreator(creator.id),
-      listEventsByCreator(creator.id),
+      listCreatorEventParticipations(creator.id),
       listArticlesByAuthor(creator.id),
     ]);
 
@@ -144,13 +148,25 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
         .slice(0, 4)
     : [];
 
+  const ownEventsWithRole: CreatorEventWithRole[] = ownEventParticipations.map(
+    (row) => ({
+      ...row.event,
+      participationRole: row.role,
+    })
+  );
+  const linkedEventsWithRole: CreatorEventWithRole[] = linkedEvents.map((event) => ({
+    ...event,
+    participationRole: null,
+  }));
+  const relatedEvents = mergeCreatorEvents(ownEventsWithRole, linkedEventsWithRole);
+
   return {
     creator,
     products: productsWithPrices,
     domains: creatorDomains,
     projects,
     relatedWorkshops: mergeById<Workshop>(ownWorkshops, linkedWorkshops),
-    relatedEvents: mergeById<Event>(ownEvents, linkedEvents),
+    relatedEvents,
     relatedArticles: mergeById<Article>(ownArticles, linkedArticles),
     relatedCreators,
     entitlements,
@@ -184,6 +200,34 @@ function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] 
     }
   }
   return Array.from(byId.values());
+}
+
+function mergeCreatorEvents(
+  primary: CreatorEventWithRole[],
+  secondary: CreatorEventWithRole[]
+): CreatorEventWithRole[] {
+  const byId = new Map<string, CreatorEventWithRole>();
+  for (const row of primary) byId.set(row.id, row);
+  for (const row of secondary) {
+    const existing = byId.get(row.id);
+    if (!existing) {
+      byId.set(row.id, row);
+      continue;
+    }
+    if (!existing.participationRole && row.participationRole) {
+      byId.set(row.id, {
+        ...existing,
+        participationRole: row.participationRole,
+      });
+    }
+  }
+  const now = Date.now();
+  return Array.from(byId.values()).sort((a, b) => {
+    const aUpcoming = new Date(a.starts_at).getTime() >= now ? 0 : 1;
+    const bUpcoming = new Date(b.starts_at).getTime() >= now ? 0 : 1;
+    if (aUpcoming !== bUpcoming) return aUpcoming - bUpcoming;
+    return a.starts_at.localeCompare(b.starts_at);
+  });
 }
 
 async function buildCreatorProjects(projects: Project[]): Promise<CreatorProjectTeaser[]> {

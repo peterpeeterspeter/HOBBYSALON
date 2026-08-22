@@ -110,6 +110,11 @@ export function CreateShippingOptionsForm({
       (fo) => fo.id === data.fulfillment_option_id
     )!
 
+    if (![...currencyPrices, ...regionPrices].length && !isCalculatedPriceType) {
+      toast.error(t("general.error"))
+      return
+    }
+
     await mutateAsync(
       {
         name: data.name,

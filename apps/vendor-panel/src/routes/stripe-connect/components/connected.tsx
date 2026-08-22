@@ -1,5 +1,6 @@
 import { ExclamationCircle } from "@medusajs/icons"
-import { Button, Heading, Text } from "@medusajs/ui"
+import { Button, Heading, Text, toast } from "@medusajs/ui"
+import { useState } from "react"
 import { useCreateStripeOnboarding } from "../../../hooks/api"
 
 export const Connected = ({
@@ -8,24 +9,38 @@ export const Connected = ({
   status: "connected" | "pending" | "not connected"
 }) => {
   const { mutateAsync, isPending } = useCreateStripeOnboarding()
-
-  const hostname = window.location.href
+  const [error, setError] = useState<string | null>(null)
 
   const handleOnboarding = async () => {
+    setError(null)
     try {
+      const origin = window.location.origin
       const { payout_account } = await mutateAsync({
         context: {
-          refresh_url: hostname,
-          return_url: hostname,
+          // Stable paths (no query hash) so Stripe refresh/return land cleanly.
+          refresh_url: `${origin}/stripe-connect`,
+          return_url: `${origin}/stripe-connect?onboarding=return`,
         },
       })
       const url = payout_account.onboarding?.data?.url
       if (url) {
-        window.location.replace(url)
+        window.location.assign(url)
+        return
       }
-    } catch {
-      // toast.error('Connection error!');
-      window.location.reload()
+      setError("Stripe onboarding-link ontbreekt. Probeer opnieuw.")
+      toast.error("Stripe onboarding-link ontbreekt. Probeer opnieuw.")
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" &&
+              err &&
+              "message" in err &&
+              typeof (err as { message: unknown }).message === "string"
+            ? (err as { message: string }).message
+            : "Stripe onboarding mislukt. Probeer opnieuw."
+      setError(message)
+      toast.error(message)
     }
   }
 
@@ -41,7 +56,7 @@ export const Connected = ({
       <Button
         isLoading={isPending}
         className="mt-4"
-        onClick={() => handleOnboarding()}
+        onClick={() => void handleOnboarding()}
       >
         Open Stripe payouts
       </Button>
@@ -53,12 +68,18 @@ export const Connected = ({
         Not onboarded
       </Heading>
       <Text className="text-ui-fg-subtle max-w-sm" size="small">
-        Finish the short payout setup (identity + bank account for BE/NL).
+        Rond de Stripe Express-setup af (identiteit + bankrekening voor BE/NL).
+        Elke klik opent een nieuwe Stripe-link (vorige links verlopen na ~5 min).
       </Text>
+      {error ? (
+        <Text className="text-ui-fg-error mt-3 max-w-md" size="small">
+          {error}
+        </Text>
+      ) : null}
       <Button
         isLoading={isPending}
         className="mt-4"
-        onClick={() => handleOnboarding()}
+        onClick={() => void handleOnboarding()}
       >
         Stripe Onboarding
       </Button>

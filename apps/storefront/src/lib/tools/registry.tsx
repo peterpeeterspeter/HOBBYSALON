@@ -45,6 +45,18 @@ import { FoundationChain } from "@/components/tools/FoundationChain";
 import { DraadlengteCalculator } from "@/components/tools/DraadlengteCalculator";
 import { BorduurkaderAdvies } from "@/components/tools/BorduurkaderAdvies";
 
+import { FormulaCalculator } from "@/components/tools/FormulaCalculator";
+import {
+  stofcalculatorDefinition,
+  quiltcalculatorDefinition,
+  kaarsenWascalculatorDefinition,
+  resinCalculatorDefinition,
+  kralenarmbandCalculatorDefinition,
+  papierSnijcalculatorDefinition,
+  workshopBreakEvenDefinition,
+  type CalcFaq,
+} from "@/lib/tools/engine";
+
 export type ToolCategory =
   | "garen-draad"
   | "maat-stekenproef"
@@ -54,7 +66,13 @@ export type ToolCategory =
   | "planning"
   | "breien"
   | "haken"
-  | "borduren";
+  | "borduren"
+  | "naaien"
+  | "kaarsen"
+  | "hars"
+  | "sieraden"
+  | "papier"
+  | "zakelijk";
 
 export type ToolEntry = {
   slug: string;
@@ -63,6 +81,9 @@ export type ToolEntry = {
   category: ToolCategory;
   categoryLabel: string;
   component: () => ReactNode;
+  faqs?: CalcFaq[];
+  relatedHubHref?: string;
+  relatedHubLabel?: string;
 };
 
 /**
@@ -444,6 +465,128 @@ const TOOLS: ToolEntry[] = [
     category: "borduren",
     categoryLabel: "Borduren & naaldwerk",
     component: () => <BorduurkaderAdvies />,
+  },
+  {
+    slug: "stofcalculator",
+    title: "Stofcalculator",
+    description:
+      "Bereken hoeveel meter stof je nodig hebt: stroken, naadtoeslag, snijverlies en patroonherhaling.",
+    category: "naaien",
+    categoryLabel: "Naaien & quilten",
+    faqs: stofcalculatorDefinition.faqs,
+    relatedHubHref: "/sewing",
+    relatedHubLabel: "Naaien op Hobbysalon",
+    component: () => (
+      <FormulaCalculator
+        toolSlug="stofcalculator"
+        title="Bereken benodigde stof"
+        definition={stofcalculatorDefinition}
+      />
+    ),
+  },
+  {
+    slug: "quiltcalculator",
+    title: "Quiltcalculator",
+    description:
+      "Bereken aantal blokken, blokstof, backing en binding voor je quilt.",
+    category: "naaien",
+    categoryLabel: "Naaien & quilten",
+    faqs: quiltcalculatorDefinition.faqs,
+    relatedHubHref: "/sewing",
+    relatedHubLabel: "Naaien op Hobbysalon",
+    component: () => (
+      <FormulaCalculator
+        toolSlug="quiltcalculator"
+        title="Bereken je quilt"
+        definition={quiltcalculatorDefinition}
+      />
+    ),
+  },
+  {
+    slug: "kaarsen-wascalculator",
+    title: "Kaarsen wascalculator",
+    description:
+      "Bereken wasgewicht en geurolie op basis van volume, vulfactor en dichtheid.",
+    category: "kaarsen",
+    categoryLabel: "Kaarsen maken",
+    faqs: kaarsenWascalculatorDefinition.faqs,
+    component: () => (
+      <FormulaCalculator
+        toolSlug="kaarsen-wascalculator"
+        title="Bereken was en geurolie"
+        definition={kaarsenWascalculatorDefinition}
+      />
+    ),
+  },
+  {
+    slug: "resin-calculator",
+    title: "Resin calculator",
+    description:
+      "Bereken hoeveel epoxyhars en harder je nodig hebt voor je mal, op volume of gewicht.",
+    category: "hars",
+    categoryLabel: "Resin & hars",
+    faqs: resinCalculatorDefinition.faqs,
+    component: () => (
+      <FormulaCalculator
+        toolSlug="resin-calculator"
+        title="Bereken hars A/B"
+        definition={resinCalculatorDefinition}
+      />
+    ),
+  },
+  {
+    slug: "kralenarmband-calculator",
+    title: "Kralenarmband calculator",
+    description:
+      "Bereken hoeveel kralen je nodig hebt voor een armband, inclusief sluiting en tussenstukken.",
+    category: "sieraden",
+    categoryLabel: "Sieraden & kralen",
+    faqs: kralenarmbandCalculatorDefinition.faqs,
+    relatedHubHref: "/jewelry",
+    relatedHubLabel: "Sieraden op Hobbysalon",
+    component: () => (
+      <FormulaCalculator
+        toolSlug="kralenarmband-calculator"
+        title="Bereken aantal kralen"
+        definition={kralenarmbandCalculatorDefinition}
+      />
+    ),
+  },
+  {
+    slug: "papier-snijcalculator",
+    title: "Papier snijcalculator",
+    description:
+      "Hoeveel rechthoeken passen op een vel? Vergelijkt beide oriëntaties voor kaarten en scrapbooking.",
+    category: "papier",
+    categoryLabel: "Papier & kaarten",
+    faqs: papierSnijcalculatorDefinition.faqs,
+    relatedHubHref: "/card-making",
+    relatedHubLabel: "Kaarten maken op Hobbysalon",
+    component: () => (
+      <FormulaCalculator
+        toolSlug="papier-snijcalculator"
+        title="Snijplan voor papier"
+        definition={papierSnijcalculatorDefinition}
+      />
+    ),
+  },
+  {
+    slug: "workshop-break-even",
+    title: "Workshop break-even calculator",
+    description:
+      "Bereken vanaf hoeveel deelnemers je workshop winstgevend is: vaste kosten, prijs en kosten per persoon.",
+    category: "zakelijk",
+    categoryLabel: "Zakelijk voor makers",
+    faqs: workshopBreakEvenDefinition.faqs,
+    relatedHubHref: "/voor-workshopgevers",
+    relatedHubLabel: "Workshops aanbieden",
+    component: () => (
+      <FormulaCalculator
+        toolSlug="workshop-break-even"
+        title="Break-even voor je workshop"
+        definition={workshopBreakEvenDefinition}
+      />
+    ),
   },
 ];
 

@@ -6,7 +6,8 @@ import {
   createPlatformClient,
 } from "@/lib/platform/client";
 import { getAuthUser } from "@/lib/auth/session";
-import { getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { getCreatorById, getCreatorByUserId } from "@/lib/platform/queries/creators";
+import { isModerator } from "@/lib/platform/queries/community-showcase";
 import {
   cancelCreatorOrder,
   completeCreatorOrder,
@@ -16,19 +17,34 @@ import {
   updateCreatorMarketplaceProduct,
 } from "@/lib/commerce/medusa/creator-products";
 import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
-import { resolveUploadedOrExistingUrl, requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
+import { requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
+  enforceEventPublishCredits,
   enforceEventTicketingFields,
   enforceHandmadePublishCredits,
   enforceWorkshopBookingFields,
   purchaseSpotlightBoostAction,
 } from "@/lib/platform/commercial-enforcement";
+import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing-fee";
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
-import { syncPrivilegedRolesFromCreatorTypes } from "@/lib/platform/queries/role-requests";
+import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
+import {
+  ROLE_REQUEST_PENDING_MESSAGE,
+  syncPrivilegedRolesFromCreatorTypes,
+} from "@/lib/platform/queries/role-requests";
+import { getUserAccountRoles, getUserRegistrationContext, updateUserOfferIntent } from "@/lib/platform/queries/user-registration";
+import { getWorkshopCategoryById } from "@/lib/platform/queries/workshop-categories";
+import {
+  isWorkshopAgeGroup,
+  isWorkshopAudienceType,
+  isWorkshopLanguage,
+  isWorkshopOfferType,
+  parseWorkshopCodeList,
+} from "@/lib/platform/workshop-taxonomy";
 
 const CREATOR_MAKER_PATH = creatorMakerProfileUrl({ tab: "profiel" });
 
@@ -50,7 +66,6 @@ const PRODUCT_CONDITION_TYPES = new Set([
 
 const WORKSHOP_FORMATS = new Set(["physical", "online", "hybrid"]);
 const WORKSHOP_DIFFICULTY = new Set(["beginner", "intermediate", "advanced"]);
-const WORKSHOP_BOOKING_MODES = new Set(["request", "external_link"]);
 const EVENT_TYPES = new Set([
   "handmade_market",
   "hobby_fair",
@@ -101,6 +116,16 @@ function parseRequiredString(formData: FormData, field: string): string {
   return raw;
 }
 
+/** `datetime-local` → ISO UTC for Postgres timestamptz. */
+function parseRequiredDateTimeLocal(formData: FormData, field: string): string {
+  const raw = parseRequiredString(formData, field);
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Ongeldige datum of tijd.");
+  }
+  return date.toISOString();
+}
+
 function parseOptionalInt(formData: FormData, field: string): number | null {
   const raw = formData.get(field)?.toString().trim();
   if (!raw) return null;
@@ -125,6 +150,83 @@ function parseOptionalUuid(formData: FormData, field: string): string | null {
     throw new Error(`${field} is ongeldig.`);
   }
   return raw;
+}
+
+async function parseWorkshopTaxonomyFields(
+  formData: FormData,
+  domainId: string | null
+): Promise<{
+  category_id: string | null;
+  offer_type: string | null;
+  audience_types: string[];
+  age_groups: string[];
+  languages: string[];
+}> {
+  const categoryId = parseOptionalUuid(formData, "category_id");
+  const offerRaw = parseOptionalString(formData, "offer_type");
+  if (offerRaw && !isWorkshopOfferType(offerRaw)) {
+    throw new Error("Ongeldige aanbodvorm.");
+  }
+
+  const audience_types = parseWorkshopCodeList(
+    formData.getAll("audience_types").map((value) => value.toString()),
+    isWorkshopAudienceType
+  );
+  const age_groups = parseWorkshopCodeList(
+    formData.getAll("age_groups").map((value) => value.toString()),
+    isWorkshopAgeGroup
+  );
+  const languages = parseWorkshopCodeList(
+    formData.getAll("languages").map((value) => value.toString()),
+    isWorkshopLanguage
+  );
+
+  if (languages.length === 0) {
+    throw new Error("Kies minstens één taal.");
+  }
+
+  if (categoryId) {
+    if (!domainId) {
+      throw new Error("Kies eerst een domein voor de subcategorie.");
+    }
+    const category = await getWorkshopCategoryById(categoryId);
+    if (!category || !category.is_active) {
+      throw new Error("Ongeldige subcategorie.");
+    }
+    if (category.domain_id !== domainId) {
+      throw new Error("Subcategorie hoort niet bij het gekozen domein.");
+    }
+  }
+
+  return {
+    category_id: categoryId,
+    offer_type: offerRaw,
+    audience_types,
+    age_groups,
+    languages,
+  };
+}
+
+async function assertProductCategoryMatchesDomain(
+  categoryId: string | null,
+  domainId: string | null
+): Promise<void> {
+  if (!categoryId) return;
+  if (!domainId) {
+    throw new Error("Kies eerst een domein voor de categorie.");
+  }
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("product_categories")
+    .select("id, domain_id")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (error || !data) {
+    throw new Error("Ongeldige categorie.");
+  }
+  if (data.domain_id !== domainId) {
+    throw new Error("Categorie hoort niet bij het gekozen domein.");
+  }
 }
 
 function parseOptionalCurrencyCode(formData: FormData, field: string): string | null {
@@ -175,10 +277,36 @@ function toSlug(input: string): string {
     .slice(0, 80);
 }
 
-async function getRequiredCreatorProfile() {
+async function deleteListingGraphRows(
+  entityType: "workshop" | "event",
+  entityId: string
+): Promise<void> {
+  const supabase = createPlatformClient();
+  await supabase
+    .from("entity_links")
+    .delete()
+    .eq("source_entity_type", entityType)
+    .eq("source_entity_id", entityId);
+  await supabase
+    .from("entity_links")
+    .delete()
+    .eq("target_entity_type", entityType)
+    .eq("target_entity_id", entityId);
+  await supabase
+    .from("favorites")
+    .delete()
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId);
+}
+
+async function getRequiredCreatorProfile(loginNext = "/dashboard") {
   const user = await getAuthUser();
   if (!user) {
-    throw new Error("Je bent niet ingelogd.");
+    redirect(
+      `/login?next=${encodeURIComponent(loginNext)}&error=${encodeURIComponent(
+        "Je sessie is verlopen. Meld je opnieuw aan — je formulier wordt hersteld als je terugkomt."
+      )}`
+    );
   }
 
   const creator = await getCreatorByUserId(user.id);
@@ -189,23 +317,101 @@ async function getRequiredCreatorProfile() {
   return { user, creator };
 }
 
+const MAX_GALLERY_IMAGES = 8;
+
+function parseGalleryImageUrls(formData: FormData, max = MAX_GALLERY_IMAGES): string[] {
+  return formData
+    .getAll("gallery_image_urls")
+    .map((value) => value.toString().trim())
+    .filter((url) => url.length > 0)
+    .slice(0, max);
+}
+
+async function countGalleryImages(
+  table: "product_gallery_images" | "workshop_gallery_images" | "event_gallery_images",
+  foreignKey: "product_id" | "workshop_id" | "event_id",
+  entityId: string
+): Promise<number> {
+  const supabase = createPlatformClient();
+  const { count } = await supabase
+    .from(table)
+    .select("id", { head: true, count: "exact" })
+    .eq(foreignKey, entityId);
+  return count ?? 0;
+}
+
+/**
+ * Creator profile + draft permission for workshops/events.
+ * Drafts: approved role OR matching creator_type OR pending role request.
+ * Publishing (is_active) still requires getRequiredPublishCreator.
+ */
+async function getRequiredDraftCreator(role: "workshop_host" | "organizer") {
+  const { user, creator } = await getRequiredCreatorProfile();
+  const [roles, context] = await Promise.all([
+    getUserAccountRoles(user.id),
+    getUserRegistrationContext(user.id),
+  ]);
+
+  if (roles.includes(role)) {
+    return { user, creator, canPublish: true as const };
+  }
+
+  const creatorTypes = (creator.creator_types ?? []).map((value) =>
+    value.toLowerCase()
+  );
+  const declaredType =
+    role === "workshop_host" ? "workshopgever" : "organizer";
+  const wantsRole = creatorTypes.includes(declaredType);
+  const pending = context.pendingRoleRequests.some(
+    (request) => request.role === role && request.status === "pending"
+  );
+  const rejected = context.pendingRoleRequests.some(
+    (request) => request.role === role && request.status === "rejected"
+  );
+
+  if (rejected && !pending) {
+    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
+  }
+
+  if (!wantsRole && !pending) {
+    throw new Error(ROLE_REQUEST_PENDING_MESSAGE);
+  }
+
+  return { user, creator, canPublish: false as const };
+}
+
+async function assertCanPublishListing(
+  canPublish: boolean,
+  isActive: boolean,
+  failPath: string
+): Promise<void> {
+  if (isActive && !canPublish) {
+    fail(
+      failPath,
+      "Publiceren kan pas nadat je aanbiedersrol is goedgekeurd. Sla op als concept."
+    );
+  }
+}
+
 /** Creator profile + optional Medusa seller (only needed for commerce-linked products). */
 async function getRequiredCreator() {
   const { user, creator } = await getRequiredCreatorProfile();
 
   const supabase = createPlatformClient();
-  const { data: sellerLink, error: sellerLinkError } = await supabase
+  const { data: sellerLinks, error: sellerLinkError } = await supabase
     .from("user_seller_links")
-    .select("seller_id")
-    .eq("user_id", user.id)
-    .eq("seller_type", "creator")
-    .maybeSingle();
+    .select("seller_id, seller_type")
+    .eq("user_id", user.id);
 
   if (sellerLinkError) {
     throw new Error("Kon creator-seller koppeling niet ophalen.");
   }
 
-  if (!sellerLink?.seller_id) {
+  const preferredLink =
+    sellerLinks?.find((link) => link.seller_type === "creator") ??
+    sellerLinks?.find((link) => link.seller_type === "merchant");
+
+  if (!preferredLink?.seller_id) {
     const ensured = await ensureCreatorSellerLinked(
       user.id,
       user.email ?? "",
@@ -222,7 +428,7 @@ async function getRequiredCreator() {
     return { user, creator, sellerId: ensured.sellerId };
   }
 
-  return { user, creator, sellerId: sellerLink.seller_id as string };
+  return { user, creator, sellerId: preferredLink.seller_id as string };
 }
 
 async function ensureUniqueSlug(
@@ -598,18 +804,18 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         ? submittedTypes
         : (existing?.creator_types ?? ["maker"])
     );
-    const avatarUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "avatar_file",
-      existing?.avatar_url,
-      `creators/${user.id}/avatar`
-    );
-    const bannerUrl = await resolveUploadedOrExistingUrl(
-      formData,
-      "banner_file",
-      existing?.banner_url,
-      `creators/${user.id}/banner`
-    );
+    const avatarUrl = await resolveProductImageUrl(formData, {
+      fileField: "avatar_file",
+      urlField: "avatar_file_uploaded_url",
+      existingUrl: existing?.avatar_url,
+      pathPrefix: `creators/${user.id}/avatar`,
+    });
+    const bannerUrl = await resolveProductImageUrl(formData, {
+      fileField: "banner_file",
+      urlField: "banner_file_uploaded_url",
+      existingUrl: existing?.banner_url,
+      pathPrefix: `creators/${user.id}/banner`,
+    });
 
     const socialUrls = await enforceCreatorSocialUrls(
       existing?.id ?? "",
@@ -621,11 +827,17 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       }
     );
 
+    const email = parseOptionalString(formData, "email") ?? existing?.email ?? user.email ?? null;
+    const specialtyTags = parseSpecialtyTagsInput(
+      parseOptionalString(formData, "specialty_tags")
+    );
+
     const payload = {
       user_id: user.id,
       slug,
       display_name: displayName,
       business_name: parseOptionalString(formData, "business_name"),
+      email,
       bio: parseOptionalString(formData, "bio"),
       avatar_url: avatarUrl,
       banner_url: bannerUrl,
@@ -635,6 +847,8 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
       city: parseOptionalString(formData, "city"),
       country_code: parseOptionalString(formData, "country_code") ?? "BE",
       creator_types: creatorTypes,
+      open_to_markets: !!formData.get("open_to_markets"),
+      specialty_tags: specialtyTags,
     };
 
     const supabase = createPlatformClient();
@@ -711,7 +925,6 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
-    revalidatePath("/dashboard/account");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
     ok(CREATOR_MAKER_PATH, "Creator-profiel opgeslagen.");
@@ -728,14 +941,14 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
   try {
     const user = await getAuthUser();
     if (!user) {
-      fail("/login?next=/dashboard/account", "Meld je eerst aan.");
+      fail("/login?next=/dashboard", "Meld je eerst aan.");
     }
 
     const creator = await getCreatorByUserId(user.id);
     if (!creator) {
       fail(
-        "/profile?tab=profiel",
-        "Maak eerst je maker-pagina aan voordat je rollen kiest."
+        "/dashboard#account",
+        "Start eerst als aanbieder voordat je rollen kiest."
       );
     }
 
@@ -753,7 +966,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
       .eq("user_id", user.id);
 
     if (error) {
-      fail("/dashboard/account", "Rollen opslaan mislukt.");
+      fail("/dashboard", "Rollen opslaan mislukt.");
     }
 
     const roleSyncError = await syncCreatorAccountRoles(
@@ -762,18 +975,40 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
       supabase
     );
     if (roleSyncError) {
-      fail("/dashboard/account", "Accountrollen konden niet worden bijgewerkt.");
+      fail("/dashboard", "Accountrollen konden niet worden bijgewerkt.");
+    }
+
+    const { creatorTypesToOfferRoles } = await import("@/lib/auth/role-upgrades");
+    const context = await getUserRegistrationContext(user.id);
+    const fromTypes = creatorTypesToOfferRoles(creatorTypes);
+    const existingOffer = context.preference?.offerRoles ?? [];
+    const merchantKept = existingOffer.includes("merchant") ? (["merchant"] as const) : [];
+    const mergedOfferRoles = Array.from(
+      new Set([...existingOffer.filter((r) => r !== "merchant"), ...fromTypes, ...merchantKept])
+    );
+    if (mergedOfferRoles.length > 0) {
+      await updateUserOfferIntent({
+        userId: user.id,
+        offerRoles: mergedOfferRoles,
+        primaryOfferRole:
+          context.preference?.primaryOfferRole &&
+          mergedOfferRoles.includes(context.preference.primaryOfferRole)
+            ? context.preference.primaryOfferRole
+            : mergedOfferRoles[0] ?? null,
+      });
     }
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
-    revalidatePath("/dashboard/account");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/account", "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring.");
+    ok(
+      "/dashboard",
+      "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/account",
+      "/dashboard",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -781,7 +1016,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
 
 export async function createCreatorEntityLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const targetType = parseRequiredString(formData, "target_entity_type");
     const targetId = parseRequiredUuid(formData, "target_entity_id");
     const relationType = parseRequiredString(formData, "relation_type").toLowerCase();
@@ -849,7 +1084,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function deleteCreatorEntityLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const supabase = createPlatformClient();
     const { error } = await supabase
@@ -877,7 +1112,7 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function createProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const altText = parseOptionalString(formData, "alt_text");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
@@ -925,7 +1160,7 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
 
 export async function deleteProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -966,7 +1201,7 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
 
 export async function createProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const productId = parseRequiredUuid(formData, "product_id");
     const linkType = parseOptionalString(formData, "link_type") ?? "material";
@@ -1025,7 +1260,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
 
 export async function deleteProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectProductLinkId = parseRequiredUuid(formData, "project_product_link_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1066,7 +1301,7 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
 
 export async function createProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const title = parseRequiredString(formData, "title");
     const notes = parseOptionalString(formData, "notes");
@@ -1105,7 +1340,7 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function deleteProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const soughtMaterialId = parseRequiredUuid(formData, "sought_material_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1144,7 +1379,7 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function createArticleAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const title = parseRequiredString(formData, "title");
     const articleType = parseRequiredString(formData, "article_type");
     const preferredSlug = parseOptionalString(formData, "slug") ?? title;
@@ -1198,7 +1433,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
 
 export async function updateArticleAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const articleId = parseRequiredUuid(formData, "id");
     const title = parseRequiredString(formData, "title");
     const articleType = parseRequiredString(formData, "article_type");
@@ -1259,7 +1494,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
 
 export async function approveArticleSuggestionAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const relationType = parseOptionalString(formData, "relation_type") ?? "related";
     const supabase = createPlatformClient();
@@ -1311,7 +1546,7 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
 
 export async function dismissArticleSuggestionAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
     const supabase = createPlatformClient();
 
@@ -1361,11 +1596,12 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
 export async function createProductAction(formData: FormData): Promise<void> {
   try {
     // Makers create platform listings only (contact/lead). No Medusa checkout.
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredCreatorProfile("/dashboard/products");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
-    const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
-    const currencyCode = parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
+    const priceCents = parseOptionalEuroToCents(formData, "price_euro");
+    const currencyCode =
+      parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
     const conditionType = parseOptionalString(formData, "condition_type");
     const estimatedDispatchDays = parseOptionalNonNegativeInt(
       formData,
@@ -1374,6 +1610,14 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
+    try {
+      await assertProductCategoryMatchesDomain(categoryId, domainId);
+    } catch (error) {
+      fail(
+        "/dashboard/products",
+        error instanceof Error ? error.message : "Ongeldige categorie."
+      );
+    }
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
@@ -1389,7 +1633,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", "Ongeldige conditie.");
     }
     if (priceCents === null) {
-      fail("/dashboard/products", "Richtprijs (in cent) is verplicht.");
+      fail("/dashboard/products", "Richtprijs is verplicht.");
     }
 
     const isActive = !!formData.get("is_active");
@@ -1404,40 +1648,59 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
     }
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("products", preferredSlug);
+    const slug = await ensureUniqueSlug("products", title);
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/products`,
     });
+    const galleryUrls = parseGalleryImageUrls(formData);
 
     const supabase = createPlatformClient();
-    const { error } = await supabase.from("products").insert({
-      creator_id: creator.id,
-      domain_id: domainId,
-      category_id: categoryId,
-      slug,
-      title,
-      short_description: parseOptionalString(formData, "short_description"),
-      description: parseOptionalString(formData, "description"),
-      featured_image_url: featuredImageUrl,
-      condition_type: conditionType,
-      personalization_available: personalizationAvailable,
-      estimated_dispatch_days: estimatedDispatchDays,
-      product_type: productType,
-      price_cents: priceCents,
-      currency_code: currencyCode,
-      status: isActive ? "active" : "draft",
-      is_active: isActive,
-      medusa_product_id: null,
-    });
+    const { data: createdProduct, error } = await supabase
+      .from("products")
+      .insert({
+        creator_id: creator.id,
+        domain_id: domainId,
+        category_id: categoryId,
+        slug,
+        title,
+        short_description: parseOptionalString(formData, "short_description"),
+        description: parseOptionalString(formData, "description"),
+        featured_image_url: featuredImageUrl,
+        condition_type: conditionType,
+        personalization_available: personalizationAvailable,
+        estimated_dispatch_days: estimatedDispatchDays,
+        product_type: productType,
+        price_cents: priceCents,
+        currency_code: currencyCode,
+        status: isActive ? "active" : "draft",
+        is_active: isActive,
+        medusa_product_id: null,
+      })
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !createdProduct) {
       fail(
         "/dashboard/products",
-        `Plaatsing aanmaken mislukt. ${error.message}`
+        `Plaatsing aanmaken mislukt. ${error?.message ?? ""}`.trim()
       );
+    }
+
+    if (galleryUrls.length > 0) {
+      const { error: galleryError } = await supabase
+        .from("product_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            product_id: createdProduct.id,
+            image_url,
+            sort_order: index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Product gallery insert failed:", galleryError);
+      }
     }
 
     revalidatePath("/dashboard/products");
@@ -1459,13 +1722,16 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
 export async function updateProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator } = await getRequiredCreatorProfile("/dashboard/products");
     const productId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const productType = parseRequiredString(formData, "product_type");
     const stockMode = parseOptionalString(formData, "stock_mode") ?? "made_to_order";
-    const priceCents = parseOptionalNonNegativeInt(formData, "price_cents");
-    const currencyCode = parseOptionalCurrencyCode(formData, "currency_code");
+    const priceCents =
+      parseOptionalEuroToCents(formData, "price_euro") ??
+      parseOptionalNonNegativeInt(formData, "price_cents");
+    const currencyCode =
+      parseOptionalCurrencyCode(formData, "currency_code") ?? "EUR";
     const conditionType = parseOptionalString(formData, "condition_type");
     const estimatedDispatchDays = parseOptionalNonNegativeInt(
       formData,
@@ -1474,6 +1740,23 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     const personalizationAvailable = !!formData.get("personalization_available");
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
+    const existingGalleryCount = await countGalleryImages(
+      "product_gallery_images",
+      "product_id",
+      productId
+    );
+    const galleryUrls = parseGalleryImageUrls(
+      formData,
+      Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
+    );
+    try {
+      await assertProductCategoryMatchesDomain(categoryId, domainId);
+    } catch (error) {
+      fail(
+        "/dashboard/products",
+        error instanceof Error ? error.message : "Ongeldige categorie."
+      );
+    }
 
     if (!PRODUCT_TYPES.has(productType)) {
       fail("/dashboard/products", "Ongeldig producttype.");
@@ -1507,7 +1790,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         creator.id,
         creator.creator_types ?? [],
         true,
-        false
+        false,
+        productType === "destash" ? "destash" : "handmade"
       );
       if (!creditCheck.ok) {
         fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
@@ -1535,7 +1819,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         medusaProductId,
         platformCreatorId: creator.id,
         title,
-        slug: parseOptionalString(formData, "slug"),
+        slug: undefined,
         shortDescription: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featuredImageUrl,
@@ -1572,8 +1856,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       );
     }
 
-    const preferredSlug = parseOptionalString(formData, "slug") ?? title;
-    const slug = await ensureUniqueSlug("products", preferredSlug, productId);
+    const slug = await ensureUniqueSlug("products", title, productId);
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
       urlField: "featured_image_file_uploaded_url",
@@ -1605,6 +1888,31 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     if (error) {
       fail("/dashboard/products", "Plaatsing bijwerken mislukt.");
+    }
+
+    if (galleryUrls.length > 0) {
+      const { data: existingGallery } = await supabase
+        .from("product_gallery_images")
+        .select("sort_order")
+        .eq("product_id", productId)
+        .order("sort_order", { ascending: false })
+        .limit(1);
+      const startOrder =
+        typeof existingGallery?.[0]?.sort_order === "number"
+          ? existingGallery[0].sort_order + 1
+          : 0;
+      const { error: galleryError } = await supabase
+        .from("product_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            product_id: productId,
+            image_url,
+            sort_order: startOrder + index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Product gallery insert failed:", galleryError);
+      }
     }
 
     revalidatePath("/dashboard/products");
@@ -1752,11 +2060,15 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
 
 export async function createWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator, canPublish } = await getRequiredDraftCreator("workshop_host");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
-    const bookingMode = parseRequiredString(formData, "booking_mode");
+    const domainId = parseOptionalUuid(formData, "domain_id");
+    const optionalProductId = parseOptionalUuid(formData, "product_id");
+    const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
+    const sessionStartsAt = parseRequiredDateTimeLocal(formData, "session_starts_at");
+    const sessionEndsAt = parseRequiredDateTimeLocal(formData, "session_ends_at");
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1764,18 +2076,29 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     if (!WORKSHOP_DIFFICULTY.has(difficultyLevel)) {
       fail("/dashboard/workshops", "Ongeldig niveau.");
     }
-    if (!WORKSHOP_BOOKING_MODES.has(bookingMode)) {
-      fail("/dashboard/workshops", "Ongeldige boekingsmethode.");
+    if (new Date(sessionEndsAt).getTime() <= new Date(sessionStartsAt).getTime()) {
+      fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
     }
 
-    const isActive = !!formData.get("is_active");
+    const wantsActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, wantsActive, "/dashboard/workshops");
+    const fee = await resolveWorkshopListingFeeOnSave({
+      creatorId: creator.id,
+      wantsActive,
+    });
+    if (wantsActive && !fee.canActivate) {
+      fail("/dashboard/workshops", fee.error ?? "Publiceren niet mogelijk zonder betaling.");
+    }
+    const isActive = wantsActive && fee.canActivate;
+    const capacity = parseOptionalInt(formData, "capacity");
     const enforced = await enforceWorkshopBookingFields(
       creator.id,
       creator.creator_types ?? [],
       {
-        booking_mode: bookingMode,
+        booking_mode: "request",
         booking_url: null,
-        is_active: isActive,
+        // Listing-cap is handled by workshop launch fee, not yearly plan gating.
+        is_active: false,
       }
     );
     if (enforced.error) {
@@ -1788,34 +2111,111 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/workshops`,
     });
+    const galleryUrls = parseGalleryImageUrls(formData);
+
     const supabase = createPlatformClient();
 
-    const { error } = await supabase.from("workshops").insert({
-      creator_id: creator.id,
-      slug,
-      title,
-      short_description: parseOptionalString(formData, "short_description"),
-      description: parseOptionalString(formData, "description"),
-      featured_image_url: featuredImageUrl,
-      format_type: formatType,
-      difficulty_level: difficultyLevel,
-      booking_mode: enforced.booking_mode,
-      booking_url: enforced.booking_url,
-      city: parseOptionalString(formData, "city"),
-      location_name: parseOptionalString(formData, "location_name"),
-      duration_minutes: parseOptionalInt(formData, "duration_minutes"),
-      capacity: parseOptionalInt(formData, "capacity"),
-      price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
-      currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
-      is_active: isActive,
-    });
+    const { data: createdWorkshop, error } = await supabase
+      .from("workshops")
+      .insert({
+        creator_id: creator.id,
+        domain_id: domainId,
+        category_id: taxonomy.category_id,
+        slug,
+        title,
+        short_description: parseOptionalString(formData, "short_description"),
+        description: parseOptionalString(formData, "description"),
+        featured_image_url: featuredImageUrl,
+        format_type: formatType,
+        difficulty_level: difficultyLevel,
+        offer_type: taxonomy.offer_type,
+        audience_types: taxonomy.audience_types,
+        age_groups: taxonomy.age_groups,
+        languages: taxonomy.languages,
+        booking_mode: "request",
+        booking_url: null,
+        city: parseOptionalString(formData, "city"),
+        location_name: parseOptionalString(formData, "location_name"),
+        duration_minutes: parseOptionalInt(formData, "duration_minutes"),
+        capacity,
+        price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
+        currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
+        is_active: isActive,
+        listing_fee_status: fee.listing_fee_status,
+        listing_expires_at: fee.listing_expires_at,
+      })
+      .select("id, slug")
+      .single();
 
-    if (error) {
+    if (error || !createdWorkshop) {
       fail("/dashboard/workshops", "Workshop aanmaken mislukt.");
     }
 
+    const { error: sessionError } = await supabase.from("workshop_sessions").insert({
+      workshop_id: createdWorkshop.id,
+      starts_at: sessionStartsAt,
+      ends_at: sessionEndsAt,
+      capacity,
+      remaining_spots: capacity,
+      is_cancelled: false,
+      booking_status: "open",
+    });
+
+    if (sessionError) {
+      console.error("Workshop session insert failed:", sessionError);
+      fail(
+        "/dashboard/workshops",
+        "Workshop aangemaakt, maar de datum kon niet worden opgeslagen. Voeg een datum toe via bewerken."
+      );
+    }
+
+    if (galleryUrls.length > 0) {
+      const { error: galleryError } = await supabase
+        .from("workshop_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            workshop_id: createdWorkshop.id,
+            image_url,
+            sort_order: index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Workshop gallery insert failed:", galleryError);
+      }
+    }
+
+    if (optionalProductId) {
+      const { data: productRow } = await supabase
+        .from("products")
+        .select("product_type, creator_id")
+        .eq("id", optionalProductId)
+        .maybeSingle();
+
+      const ownsProduct = productRow?.creator_id === creator.id;
+      const isMaterialProduct =
+        productRow &&
+        ["supply", "workshop_kit", "supplies"].includes(productRow.product_type);
+
+      if (ownsProduct || isMaterialProduct) {
+        await supabase.from("workshop_required_products").upsert(
+          {
+            workshop_id: createdWorkshop.id,
+            product_id: optionalProductId,
+            is_required: !!formData.get("is_required"),
+            sort_order: 0,
+          },
+          { onConflict: "workshop_id,product_id" }
+        );
+      }
+    }
+
     revalidatePath("/dashboard/workshops");
-    ok("/dashboard/workshops", "Workshop aangemaakt.");
+    revalidatePath(`/workshop/${createdWorkshop.slug}`);
+    const onboardingNext = formData.get("onboarding_next")?.toString();
+    if (onboardingNext?.startsWith("/") && !onboardingNext.startsWith("//")) {
+      ok(onboardingNext, "Workshop opgeslagen als concept.");
+    }
+    ok("/dashboard/workshops", isActive ? "Workshop aangemaakt." : "Workshop opgeslagen als concept.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1827,12 +2227,13 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
 
 export async function updateWorkshopAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator, canPublish } = await getRequiredDraftCreator("workshop_host");
     const workshopId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const formatType = parseRequiredString(formData, "format_type");
     const difficultyLevel = parseRequiredString(formData, "difficulty_level");
-    const bookingMode = parseRequiredString(formData, "booking_mode");
+    const domainId = parseOptionalUuid(formData, "domain_id");
+    const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
       fail("/dashboard/workshops", "Ongeldige workshopvorm.");
@@ -1840,35 +2241,46 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     if (!WORKSHOP_DIFFICULTY.has(difficultyLevel)) {
       fail("/dashboard/workshops", "Ongeldig niveau.");
     }
-    if (!WORKSHOP_BOOKING_MODES.has(bookingMode)) {
-      fail("/dashboard/workshops", "Ongeldige boekingsmethode.");
-    }
 
-    const isActive = !!formData.get("is_active");
-    const enforced = await enforceWorkshopBookingFields(
-      creator.id,
-      creator.creator_types ?? [],
-      {
-        booking_mode: bookingMode,
-        booking_url: null,
-        is_active: isActive,
-        excludeWorkshopId: workshopId,
-      }
-    );
-    if (enforced.error) {
-      fail("/dashboard/workshops", enforced.error);
-    }
+    const wantsActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, wantsActive, "/dashboard/workshops");
 
     const supabase = createPlatformClient();
     const { data: existingWorkshop, error: existingError } = await supabase
       .from("workshops")
-      .select("slug, featured_image_url")
+      .select("slug, featured_image_url, listing_fee_status, listing_expires_at")
       .eq("id", workshopId)
       .eq("creator_id", creator.id)
       .maybeSingle();
 
     if (existingError || !existingWorkshop) {
       fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const fee = await resolveWorkshopListingFeeOnSave({
+      creatorId: creator.id,
+      wantsActive,
+      excludeWorkshopId: workshopId,
+      existingStatus: existingWorkshop.listing_fee_status,
+      existingExpiresAt: existingWorkshop.listing_expires_at,
+    });
+    if (wantsActive && !fee.canActivate) {
+      fail("/dashboard/workshops", fee.error ?? "Publiceren niet mogelijk zonder betaling.");
+    }
+    const isActive = wantsActive && fee.canActivate;
+
+    const enforced = await enforceWorkshopBookingFields(
+      creator.id,
+      creator.creator_types ?? [],
+      {
+        booking_mode: "request",
+        booking_url: null,
+        is_active: false,
+        excludeWorkshopId: workshopId,
+      }
+    );
+    if (enforced.error) {
+      fail("/dashboard/workshops", enforced.error);
     }
 
     const featuredImageUrl = await resolveProductImageUrl(formData, {
@@ -1878,18 +2290,34 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       pathPrefix: `creators/${creator.id}/workshops`,
     });
 
+    const existingGalleryCount = await countGalleryImages(
+      "workshop_gallery_images",
+      "workshop_id",
+      workshopId
+    );
+    const galleryUrls = parseGalleryImageUrls(
+      formData,
+      Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
+    );
+
     const { error } = await supabase
       .from("workshops")
       .update({
         slug: existingWorkshop.slug,
         title,
+        domain_id: domainId,
+        category_id: taxonomy.category_id,
         short_description: parseOptionalString(formData, "short_description"),
         description: parseOptionalString(formData, "description"),
         featured_image_url: featuredImageUrl,
         format_type: formatType,
         difficulty_level: difficultyLevel,
-        booking_mode: enforced.booking_mode,
-        booking_url: enforced.booking_url,
+        offer_type: taxonomy.offer_type,
+        audience_types: taxonomy.audience_types,
+        age_groups: taxonomy.age_groups,
+        languages: taxonomy.languages,
+        booking_mode: "request",
+        booking_url: null,
         city: parseOptionalString(formData, "city"),
         location_name: parseOptionalString(formData, "location_name"),
         duration_minutes: parseOptionalInt(formData, "duration_minutes"),
@@ -1897,6 +2325,8 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
         price_cents: parseOptionalEuroToCents(formData, "price_euro") ?? 0,
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         is_active: isActive,
+        listing_fee_status: fee.listing_fee_status,
+        listing_expires_at: fee.listing_expires_at,
       })
       .eq("id", workshopId)
       .eq("creator_id", creator.id);
@@ -1904,7 +2334,18 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       fail("/dashboard/workshops", "Workshop bijwerken mislukt.");
     }
 
+    if (galleryUrls.length > 0) {
+      await supabase.from("workshop_gallery_images").insert(
+        galleryUrls.map((image_url, index) => ({
+          workshop_id: workshopId,
+          image_url,
+          sort_order: existingGalleryCount + index,
+        }))
+      );
+    }
+
     revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${existingWorkshop.slug}`);
     ok("/dashboard/workshops", "Workshop bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1915,9 +2356,277 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
   }
 }
 
-export async function createEventAction(formData: FormData): Promise<void> {
+export async function deleteWorkshopAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("workshop_host");
+    const workshopId = parseRequiredUuid(formData, "id");
+    const supabase = createPlatformClient();
+
+    const { data: workshop, error: workshopError } = await supabase
+      .from("workshops")
+      .select("id, slug, is_active")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (workshopError || !workshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const { count: confirmedBookings } = await supabase
+      .from("workshop_booking_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("workshop_id", workshopId)
+      .eq("status", "confirmed");
+
+    if ((confirmedBookings ?? 0) > 0) {
+      fail(
+        "/dashboard/workshops",
+        "Deze workshop heeft bevestigde aanvragen. Annuleer die eerst of neem contact op met Hobbysalon."
+      );
+    }
+
+    await deleteListingGraphRows("workshop", workshopId);
+
+    const { error } = await supabase
+      .from("workshops")
+      .delete()
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/workshops", "Workshop verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${workshop.slug}`);
+    ok(
+      "/dashboard/workshops",
+      workshop.is_active ? "Workshop verwijderd." : "Concept verwijderd."
+    );
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createWorkshopSessionAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("workshop_host");
+    const workshopId = parseRequiredUuid(formData, "workshop_id");
+    const sessionStartsAt = parseRequiredDateTimeLocal(
+      formData,
+      "session_starts_at"
+    );
+    const sessionEndsAt = parseRequiredDateTimeLocal(
+      formData,
+      "session_ends_at"
+    );
+
+    if (new Date(sessionEndsAt).getTime() <= new Date(sessionStartsAt).getTime()) {
+      fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
+    }
+
+    const supabase = createPlatformClient();
+    const { data: workshop, error: workshopError } = await supabase
+      .from("workshops")
+      .select("id, slug, capacity")
+      .eq("id", workshopId)
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+
+    if (workshopError || !workshop) {
+      fail("/dashboard/workshops", "Workshop niet gevonden.");
+    }
+
+    const capacity =
+      parseOptionalInt(formData, "capacity") ?? workshop.capacity ?? null;
+
+    const { error } = await supabase.from("workshop_sessions").insert({
+      workshop_id: workshop.id,
+      starts_at: sessionStartsAt,
+      ends_at: sessionEndsAt,
+      capacity,
+      remaining_spots: capacity,
+      is_cancelled: false,
+      booking_status: "open",
+    });
+
+    if (error) {
+      fail("/dashboard/workshops", "Datum toevoegen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    revalidatePath(`/workshop/${workshop.slug}`);
+    ok("/dashboard/workshops", "Datum toegevoegd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function cancelWorkshopSessionAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("workshop_host");
+    const sessionId = parseRequiredUuid(formData, "session_id");
+    const supabase = createPlatformClient();
+
+    const { data: row } = await supabase
+      .from("workshop_sessions")
+      .select("id, workshop_id, workshops!inner(creator_id, slug)")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    const workshop = row?.workshops as
+      | { creator_id?: string; slug?: string }
+      | { creator_id?: string; slug?: string }[]
+      | null
+      | undefined;
+    const workshopMeta = Array.isArray(workshop) ? workshop[0] : workshop;
+
+    if (!row || workshopMeta?.creator_id !== creator.id) {
+      fail("/dashboard/workshops", "Sessie niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("workshop_sessions")
+      .update({
+        is_cancelled: true,
+        booking_status: "closed",
+      })
+      .eq("id", sessionId);
+
+    if (error) {
+      fail("/dashboard/workshops", "Datum annuleren mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    if (workshopMeta?.slug) {
+      revalidatePath(`/workshop/${workshopMeta.slug}`);
+    }
+    ok("/dashboard/workshops", "Datum geannuleerd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteWorkshopGalleryImageAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("workshop_host");
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+
+    const { data: row, error: loadError } = await supabase
+      .from("workshop_gallery_images")
+      .select("id, workshop_id")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    if (loadError || !row) {
+      fail("/dashboard/workshops", "Foto niet gevonden.");
+    }
+
+    const { data: workshop } = await supabase
+      .from("workshops")
+      .select("id, creator_id, slug")
+      .eq("id", row.workshop_id)
+      .maybeSingle();
+
+    if (!workshop || workshop.creator_id !== creator.id) {
+      fail("/dashboard/workshops", "Foto niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("workshop_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+
+    if (error) {
+      fail("/dashboard/workshops", "Foto verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/workshops");
+    if (workshop.slug) {
+      revalidatePath(`/workshop/${workshop.slug}`);
+    }
+    ok("/dashboard/workshops", "Foto verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/workshops",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteProductGalleryImageAction(
+  formData: FormData
+): Promise<void> {
   try {
     const { creator } = await getRequiredCreatorProfile();
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+
+    const { data: row } = await supabase
+      .from("product_gallery_images")
+      .select("id, product_id, products!inner(creator_id, slug)")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    const product = row?.products as
+      | { creator_id?: string; slug?: string }
+      | { creator_id?: string; slug?: string }[]
+      | null
+      | undefined;
+    const productMeta = Array.isArray(product) ? product[0] : product;
+
+    if (!row || productMeta?.creator_id !== creator.id) {
+      fail("/dashboard/products", "Foto niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("product_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+
+    if (error) {
+      fail("/dashboard/products", "Foto verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/products");
+    if (productMeta?.slug) {
+      revalidatePath(`/product/${productMeta.slug}`);
+      revalidatePath(`/creator/${creator.slug}`);
+    }
+    ok("/dashboard/products", "Foto verwijderd.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/products",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function createEventAction(formData: FormData): Promise<void> {
+  try {
+    const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
     const startsAt = parseRequiredString(formData, "starts_at");
@@ -1929,6 +2638,18 @@ export async function createEventAction(formData: FormData): Promise<void> {
     }
     if (!EVENT_TICKETING_MODES.has(ticketingMode)) {
       fail("/dashboard/events", "Ongeldige ticketmodus.");
+    }
+
+    const isActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, isActive, "/dashboard/events");
+    const creditCheck = await enforceEventPublishCredits(
+      creator.id,
+      eventType,
+      isActive,
+      false
+    );
+    if (!creditCheck.ok) {
+      fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
     }
 
     const enforcedTicketing = await enforceEventTicketingFields(
@@ -1947,6 +2668,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       urlField: "featured_image_file_uploaded_url",
       pathPrefix: `creators/${creator.id}/events`,
     });
+    const galleryUrls = parseGalleryImageUrls(formData);
     const supabase = createPlatformClient();
 
     const { data: createdEvent, error } = await supabase
@@ -1970,9 +2692,9 @@ export async function createEventAction(formData: FormData): Promise<void> {
       ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
       currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
       featured_image_url: featuredImageUrl,
-      is_active: !!formData.get("is_active"),
+      is_active: isActive,
     })
-      .select("id")
+      .select("id, slug")
       .single();
 
     if (error || !createdEvent?.id) {
@@ -1981,8 +2703,34 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
     await attachDefaultEventPlan(createdEvent.id as string);
 
+    if (galleryUrls.length > 0) {
+      const { error: galleryError } = await supabase
+        .from("event_gallery_images")
+        .insert(
+          galleryUrls.map((image_url, index) => ({
+            event_id: createdEvent.id,
+            image_url,
+            sort_order: index,
+          }))
+        );
+      if (galleryError) {
+        console.error("Event gallery insert failed:", galleryError);
+      }
+    }
+
     revalidatePath("/dashboard/events");
-    ok("/dashboard/events", "Event aangemaakt.");
+    if (createdEvent.slug) {
+      revalidatePath(`/agenda/${createdEvent.slug}`);
+      revalidatePath(`/event/${createdEvent.slug}`);
+    }
+    const onboardingNext = formData.get("onboarding_next")?.toString();
+    if (onboardingNext?.startsWith("/") && !onboardingNext.startsWith("//")) {
+      ok(onboardingNext, "Evenement opgeslagen als concept.");
+    }
+    ok(
+      "/dashboard/events",
+      isActive ? "Event aangemaakt." : "Event opgeslagen als concept."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1994,7 +2742,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
 
 export async function updateEventAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const eventId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
@@ -2026,7 +2774,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     const supabase = createPlatformClient();
     const { data: existingEvent, error: existingError } = await supabase
       .from("events")
-      .select("slug, featured_image_url")
+      .select("slug, featured_image_url, is_active")
       .eq("id", eventId)
       .eq("organizer_creator_id", creator.id)
       .maybeSingle();
@@ -2035,12 +2783,38 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       fail("/dashboard/events", "Event niet gevonden.");
     }
 
+    // Charge on the draft -> active transition, mirroring
+    // updateProductAction. Without this, publishing via "create as draft,
+    // then edit to active" would bypass the event publish fee entirely.
+    const isActive = !!formData.get("is_active");
+    await assertCanPublishListing(canPublish, isActive, "/dashboard/events");
+    if (isActive && !existingEvent.is_active) {
+      const creditCheck = await enforceEventPublishCredits(
+        creator.id,
+        eventType,
+        true,
+        false
+      );
+      if (!creditCheck.ok) {
+        fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
+      }
+    }
+
     const featuredImageUrl = await resolveProductImageUrl(formData, {
       fileField: "featured_image_file",
       urlField: "featured_image_file_uploaded_url",
       existingUrl: existingEvent.featured_image_url,
       pathPrefix: `creators/${creator.id}/events`,
     });
+    const existingGalleryCount = await countGalleryImages(
+      "event_gallery_images",
+      "event_id",
+      eventId
+    );
+    const galleryUrls = parseGalleryImageUrls(
+      formData,
+      Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
+    );
 
     const { error } = await supabase
       .from("events")
@@ -2062,7 +2836,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
         ticket_price_cents: parseOptionalEuroToCents(formData, "ticket_price_euro"),
         currency_code: parseOptionalString(formData, "currency_code") ?? "EUR",
         featured_image_url: featuredImageUrl,
-        is_active: !!formData.get("is_active"),
+        is_active: isActive,
       })
       .eq("id", eventId)
       .eq("organizer_creator_id", creator.id);
@@ -2071,8 +2845,117 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       fail("/dashboard/events", "Event bijwerken mislukt.");
     }
 
+    if (galleryUrls.length > 0) {
+      await supabase.from("event_gallery_images").insert(
+        galleryUrls.map((image_url, index) => ({
+          event_id: eventId,
+          image_url,
+          sort_order: existingGalleryCount + index,
+        }))
+      );
+    }
+
     revalidatePath("/dashboard/events");
+    revalidatePath(`/agenda/${existingEvent.slug}`);
+    revalidatePath(`/event/${existingEvent.slug}`);
     ok("/dashboard/events", "Event bijgewerkt.");
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/events",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteEventAction(formData: FormData): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("organizer");
+    const eventId = parseRequiredUuid(formData, "id");
+    const supabase = createPlatformClient();
+
+    const { data: event, error: eventError } = await supabase
+      .from("events")
+      .select("id, slug, is_active")
+      .eq("id", eventId)
+      .eq("organizer_creator_id", creator.id)
+      .maybeSingle();
+
+    if (eventError || !event) {
+      fail("/dashboard/events", "Evenement niet gevonden.");
+    }
+
+    await deleteListingGraphRows("event", eventId);
+
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+      .eq("organizer_creator_id", creator.id);
+
+    if (error) {
+      fail("/dashboard/events", "Evenement verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/events");
+    revalidatePath(`/agenda/${event.slug}`);
+    revalidatePath(`/event/${event.slug}`);
+    ok(
+      "/dashboard/events",
+      event.is_active ? "Evenement verwijderd." : "Concept verwijderd."
+    );
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    fail(
+      "/dashboard/events",
+      error instanceof Error ? error.message : "Onbekende fout."
+    );
+  }
+}
+
+export async function deleteEventGalleryImageAction(
+  formData: FormData
+): Promise<void> {
+  try {
+    const { creator } = await getRequiredDraftCreator("organizer");
+    const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
+    const supabase = createPlatformClient();
+
+    const { data: row, error: loadError } = await supabase
+      .from("event_gallery_images")
+      .select("id, event_id")
+      .eq("id", galleryImageId)
+      .maybeSingle();
+
+    if (loadError || !row) {
+      fail("/dashboard/events", "Foto niet gevonden.");
+    }
+
+    const { data: event } = await supabase
+      .from("events")
+      .select("id, organizer_creator_id, slug")
+      .eq("id", row.event_id)
+      .maybeSingle();
+
+    if (!event || event.organizer_creator_id !== creator.id) {
+      fail("/dashboard/events", "Foto niet gevonden.");
+    }
+
+    const { error } = await supabase
+      .from("event_gallery_images")
+      .delete()
+      .eq("id", galleryImageId);
+
+    if (error) {
+      fail("/dashboard/events", "Foto verwijderen mislukt.");
+    }
+
+    revalidatePath("/dashboard/events");
+    if (event.slug) {
+      revalidatePath(`/agenda/${event.slug}`);
+      revalidatePath(`/event/${event.slug}`);
+    }
+    ok("/dashboard/events", "Foto verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -2086,7 +2969,7 @@ export async function updateBookingRequestStatusAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const requestId = parseRequiredString(formData, "id");
     const status = parseRequiredString(formData, "status");
 
@@ -2118,9 +3001,15 @@ export async function updateBookingRequestStatusAction(
 
 export async function linkWorkshopProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
-    const productId = parseRequiredUuid(formData, "product_id");
+    const productId = parseOptionalUuid(formData, "product_id");
+    if (!productId) {
+      fail(
+        "/dashboard/workshops",
+        "Kies een materiaal om te koppelen, of sla deze stap over."
+      );
+    }
     const isRequired = !!formData.get("is_required");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
 
@@ -2182,7 +3071,7 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
 
 export async function unlinkWorkshopProductAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const productId = parseRequiredUuid(formData, "product_id");
 
@@ -2224,7 +3113,7 @@ export async function purchaseSpotlightBoostFormAction(
   formData: FormData
 ): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const { creator } = await getRequiredCreatorProfile();
     const entityType = parseRequiredString(formData, "entity_type") as
       | "creator"
       | "product"
@@ -2258,10 +3147,33 @@ export async function purchaseSpotlightBoostFormAction(
   }
 }
 
+/**
+ * Moderator-only manual credit correction (refunds, goodwill, support
+ * cases). Real credit purchases go through Stripe Checkout
+ * (createCreditPackCheckoutAction) and are granted by the webhook - this
+ * action must never be reachable from a creator's own dashboard, and never
+ * uses reason "purchase" so the audit trail can't be confused with a real
+ * payment.
+ */
 export async function addListingCreditsAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreator();
+    const user = await getAuthUser();
+    if (!user) {
+      fail("/dashboard/products", "Meld je eerst aan.");
+    }
+    if (!(await isModerator(user.id))) {
+      fail("/dashboard/products", "Alleen moderators kunnen credits handmatig toekennen.");
+    }
+
+    const targetCreatorId = parseRequiredString(formData, "creator_id");
     const packCode = parseRequiredString(formData, "pack_code");
+    const note = parseOptionalString(formData, "note");
+
+    const targetCreator = await getCreatorById(targetCreatorId);
+    if (!targetCreator) {
+      fail("/dashboard/products", "Creator niet gevonden.");
+    }
+
     const supabase = createPlatformClient();
     const { data: pack } = await supabase
       .from("listing_credit_products")
@@ -2274,8 +3186,10 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
       fail("/dashboard/products", "Creditpakket niet gevonden.");
     }
 
-    const result = await addCredits(creator.id, pack.credits, "purchase", {
+    const result = await addCredits(targetCreatorId, pack.credits, "manual_adjustment", {
       pack_code: packCode,
+      granted_by_user_id: user.id,
+      note: note ?? undefined,
     });
 
     if (!result.ok) {
@@ -2283,7 +3197,10 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
     }
 
     revalidatePath("/dashboard/products");
-    ok("/dashboard/products", `${pack.credits} credits toegevoegd (${pack.name}).`);
+    ok(
+      "/dashboard/products",
+      `${pack.credits} credits handmatig toegekend aan ${targetCreator.display_name} (${pack.name}).`
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

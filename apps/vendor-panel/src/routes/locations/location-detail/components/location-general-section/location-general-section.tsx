@@ -460,11 +460,14 @@ function FulfillmentSet(props: FulfillmentSetProps) {
   )
 
   const handleCreate = async () => {
+    // Fulfillment set names are globally unique in Medusa. Two sellers can
+    // share the same location display name (e.g. "Peter Peeters"), so include
+    // the location id to avoid collisions when enabling shipping/pickup.
+    const kind =
+      type === FulfillmentSetType.Pickup ? "pick up" : type
     await createFulfillmentSet(
       {
-        name: `${locationName} ${
-          type === FulfillmentSetType.Pickup ? "pick up" : type
-        }`,
+        name: `${locationName} ${kind} (${locationId})`,
         type,
       },
       {

@@ -1,3 +1,12 @@
+import {
+  creatorMatchesSearch,
+  formatCreatorOfferSentence,
+  formatCreatorSpecialtyLine,
+  hasReliableCreatorPlaceCoverage,
+  resolveCreatorCardPhoto,
+  resolveCreatorIntentFilter,
+  sanitizeAgendaSearchQuery,
+} from "@/lib/creators/creators-directory-helpers";
 import { createPlatformClient } from "../client";
 import type { Creator } from "@/types/platform";
 
@@ -193,4 +202,197 @@ export async function enrichCreatorsWithStats(
     workshop_count: workshopCount.get(creator.id) ?? 0,
     primary_domain_name: primaryDomain.get(creator.id) ?? null,
   }));
+}
+
+export type CreatorDirectoryItem = Creator & {
+  domainNames: string[];
+  domainIds: string[];
+  offerSentence: string;
+  specialtyLine: string;
+  photoUrl: string | null;
+  studioName: string;
+};
+
+export type ListCreatorsDirectoryFilters = {
+  q?: string;
+  domainId?: string;
+  intent?: string;
+  /** Legacy URL param compatibility */
+  creatorType?: string;
+  place?: string;
+  sort?: "recommended" | "newest";
+  limit?: number;
+  offset?: number;
+};
+
+/**
+ * Makers directory: intent + domain + search, enriched cards, honest totalCount.
+ */
+export async function listCreatorsDirectory(
+  filters?: ListCreatorsDirectoryFilters
+): Promise<{
+  creators: CreatorDirectoryItem[];
+  totalCount: number;
+  domainIdsWithCreators: string[];
+  placeCoverage: { hasReliablePlaceFilter: boolean };
+  uniqueCities: string[];
+}> {
+  const supabase = createPlatformClient();
+  const searchTerm = sanitizeAgendaSearchQuery(filters?.q);
+  const intentFilter = resolveCreatorIntentFilter(
+    filters?.intent,
+    filters?.creatorType
+  );
+  const sort = filters?.sort === "newest" ? "newest" : "recommended";
+  const place = filters?.place?.trim().toLowerCase() || null;
+
+  let query = supabase.from("creators").select("*");
+
+  if (intentFilter?.kind === "type") {
+    query = query.contains("creator_types", [intentFilter.creatorType]);
+  }
+  if (intentFilter?.kind === "markets") {
+    query = query.eq("open_to_markets", true);
+  }
+
+  if (sort === "newest") {
+    query = query
+      .order("created_at", { ascending: false })
+      .order("is_featured", { ascending: false });
+  } else {
+    query = query
+      .order("is_featured", { ascending: false })
+      .order("display_name", { ascending: true });
+  }
+
+  const { data, error } = await query.limit(500);
+  if (error) {
+    return {
+      creators: [],
+      totalCount: 0,
+      domainIdsWithCreators: [],
+      placeCoverage: { hasReliablePlaceFilter: false },
+      uniqueCities: [],
+    };
+  }
+
+  let creators = (data ?? []) as Creator[];
+
+  const ids = creators.map((c) => c.id);
+  const domainNamesByCreator = new Map<string, string[]>();
+  const domainIdsByCreator = new Map<string, string[]>();
+
+  if (ids.length > 0) {
+    const { data: domainLinks } = await supabase
+      .from("creator_domains")
+      .select("creator_id, domain_id")
+      .in("creator_id", ids);
+
+    const domainIds = [
+      ...new Set(
+        (domainLinks ?? []).map((l: { domain_id: string }) => l.domain_id)
+      ),
+    ];
+    const nameById = new Map<string, string>();
+    if (domainIds.length > 0) {
+      const { data: domains } = await supabase
+        .from("domains")
+        .select("id, name")
+        .in("id", domainIds);
+      (domains ?? []).forEach((d: { id: string; name: string }) =>
+        nameById.set(d.id, d.name)
+      );
+    }
+
+    for (const link of domainLinks ?? []) {
+      const row = link as { creator_id: string; domain_id: string };
+      const names = domainNamesByCreator.get(row.creator_id) ?? [];
+      const name = nameById.get(row.domain_id);
+      if (name && !names.includes(name)) names.push(name);
+      domainNamesByCreator.set(row.creator_id, names);
+      const dIds = domainIdsByCreator.get(row.creator_id) ?? [];
+      if (!dIds.includes(row.domain_id)) dIds.push(row.domain_id);
+      domainIdsByCreator.set(row.creator_id, dIds);
+    }
+  }
+
+  if (searchTerm) {
+    creators = creators.filter((creator) =>
+      creatorMatchesSearch(
+        creator,
+        domainNamesByCreator.get(creator.id) ?? [],
+        searchTerm
+      )
+    );
+  }
+
+  const placeCoverage = {
+    hasReliablePlaceFilter: hasReliableCreatorPlaceCoverage(creators),
+  };
+
+  const uniqueCities = [
+    ...new Set(
+      creators
+        .map((c) => c.city?.trim())
+        .filter((c): c is string => Boolean(c))
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  const domainIdsWithCreators = [
+    ...new Set(
+      creators.flatMap((c) => domainIdsByCreator.get(c.id) ?? [])
+    ),
+  ];
+
+  if (place && placeCoverage.hasReliablePlaceFilter) {
+    creators = creators.filter((c) =>
+      (c.city ?? "").toLowerCase().includes(place)
+    );
+  }
+
+  if (filters?.domainId) {
+    creators = creators.filter((creator) =>
+      (domainIdsByCreator.get(creator.id) ?? []).includes(filters.domainId!)
+    );
+  }
+
+  const items: CreatorDirectoryItem[] = creators.map((creator) => {
+    const domainNames = domainNamesByCreator.get(creator.id) ?? [];
+    const domainIds = domainIdsByCreator.get(creator.id) ?? [];
+    return {
+      ...creator,
+      domainNames,
+      domainIds,
+      offerSentence: formatCreatorOfferSentence(
+        creator.creator_types,
+        creator.open_to_markets
+      ),
+      specialtyLine: formatCreatorSpecialtyLine({
+        domainNames,
+        specialtyTags: creator.specialty_tags,
+        city: creator.city,
+        bio: creator.bio,
+      }),
+      photoUrl: resolveCreatorCardPhoto(creator),
+      studioName: creator.business_name?.trim() || creator.display_name,
+    };
+  });
+
+  const totalCount = items.length;
+  const offset = Math.max(0, filters?.offset ?? 0);
+  const limit = filters?.limit;
+  const page =
+    typeof limit === "number" && limit > 0
+      ? items.slice(offset, offset + limit)
+      : offset > 0
+        ? items.slice(offset)
+        : items;
+
+  return {
+    creators: page,
+    totalCount,
+    domainIdsWithCreators,
+    placeCoverage,
+    uniqueCities,
+  };
 }

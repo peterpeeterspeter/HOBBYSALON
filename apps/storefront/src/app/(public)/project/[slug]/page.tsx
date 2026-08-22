@@ -7,7 +7,6 @@ import { AddBundleToCartButton } from "@/components/cart/AddBundleToCartButton";
 import { ProductCard, WorkshopCard, EventCard, ArticleCard, CreatorCard } from "@/components/cards";
 import { PageLayout } from "@/components/layout/page-layout";
 import { GridLayout } from "@/components/layout/grid-layout";
-import { CardShell } from "@/components/ui/card-shell";
 import { Badge } from "@/components/ui/badge";
 import { getProjectPageData } from "@/lib/services/project-page";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -119,21 +118,19 @@ export default async function ProjectPage({ params }: Props) {
         }}
       />
 
-      <CardShell variant="default" padding="lg" className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
-          Project
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm text-[var(--muted)]">
+      <div className="mb-8">
+        <p className="text-sm font-semibold text-[var(--accent)]">Project</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm text-[var(--muted)]">
           <Badge variant="difficulty" difficulty={project.difficulty_level as "beginner" | "intermediate" | "advanced"}>
             {DIFFICULTY_LABELS[project.difficulty_level] ?? project.difficulty_level}
           </Badge>
           {durationLabel && (
-            <span className="rounded-full border border-[var(--border)] px-3 py-1">
+            <span className="rounded-full bg-[var(--section-alt)] px-3 py-1.5 font-medium">
               Duur: {durationLabel}
             </span>
           )}
           {(budgetMinLabel || budgetMaxLabel) && (
-            <span className="rounded-full border border-[var(--border)] px-3 py-1">
+            <span className="rounded-full bg-[var(--section-alt)] px-3 py-1.5 font-medium">
               Budget: {budgetMinLabel ?? "?"} - {budgetMaxLabel ?? "?"}
             </span>
           )}
@@ -149,7 +146,7 @@ export default async function ProjectPage({ params }: Props) {
             ))}
           </div>
         )}
-      </CardShell>
+      </div>
 
       {(bundleItems.length > 0 || soughtMaterials.length > 0) && (
         <section className="mt-8 space-y-6">
@@ -176,15 +173,12 @@ export default async function ProjectPage({ params }: Props) {
               <p className="mb-3 text-sm text-[var(--muted)]">
                 Dit project gebruikt onderstaande materialen die niet (meer) in de webshop staan.
               </p>
-              <ul className="space-y-2">
+              <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {soughtMaterials.map((m) => (
-                  <li
-                    key={m.id}
-                    className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm"
-                  >
-                    <span className="font-medium text-[var(--foreground)]">{m.title}</span>
+                  <li key={m.id} className="py-3 text-sm">
+                    <span className="font-semibold text-[var(--foreground)]">{m.title}</span>
                     {m.notes && (
-                      <span className="ml-2 text-[var(--muted)]">– {m.notes}</span>
+                      <span className="ml-2 text-[var(--muted)]">({m.notes})</span>
                     )}
                   </li>
                 ))}
@@ -196,17 +190,21 @@ export default async function ProjectPage({ params }: Props) {
 
       {steps.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">Stappenplan</h2>
-          <ol className="space-y-3">
+          <h2 className="mb-4 font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+            Stappenplan
+          </h2>
+          <ol className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
             {steps.map((step) => (
-              <li key={step.id} id={`step-${step.step_order}`}>
-                <CardShell variant="default" padding="md">
-                <p className="text-sm font-semibold uppercase tracking-wide text-[var(--accent)]">
+              <li key={step.id} id={`step-${step.step_order}`} className="py-5">
+                <p className="text-sm font-semibold text-[var(--accent)]">
                   Stap {step.step_order}
                 </p>
-                <h3 className="mt-1 font-semibold text-[var(--foreground)]">{step.title}</h3>
-                <p className="mt-2 whitespace-pre-wrap text-[var(--foreground)]">{step.instruction}</p>
-                </CardShell>
+                <h3 className="mt-1 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)]">
+                  {step.title}
+                </h3>
+                <p className="mt-2 whitespace-pre-wrap text-[17px] leading-relaxed text-[var(--foreground)]">
+                  {step.instruction}
+                </p>
               </li>
             ))}
           </ol>
@@ -215,13 +213,13 @@ export default async function ProjectPage({ params }: Props) {
 
       {galleryImages.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--foreground)]">
+          <h2 className="mb-4 font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
             Afgewerkte creaties
           </h2>
-          <GridLayout cols={3}>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {galleryImages.map((image) => (
-              <CardShell key={image.id} variant="default" padding="sm">
-                <div className="aspect-square overflow-hidden rounded-md bg-[var(--border)]">
+              <figure key={image.id} className="min-w-0">
+                <div className="aspect-square overflow-hidden rounded-[1rem] bg-[var(--section-alt)]">
                   <img
                     src={image.image_url}
                     alt={image.alt_text ?? project.title}
@@ -229,11 +227,13 @@ export default async function ProjectPage({ params }: Props) {
                   />
                 </div>
                 {image.alt_text && (
-                  <p className="mt-2 text-sm text-[var(--muted)]">{image.alt_text}</p>
+                  <figcaption className="mt-2 text-sm text-[var(--muted)]">
+                    {image.alt_text}
+                  </figcaption>
                 )}
-              </CardShell>
+              </figure>
             ))}
-          </GridLayout>
+          </div>
         </section>
       )}
 

@@ -63,52 +63,19 @@ alter table public.products add constraint products_product_type_check check (
 
 Ook bijwerken: `PRODUCT_TYPES` in `apps/storefront/src/app/actions/dashboard.ts:36`.
 
-### 0.3 Vervaldatum op listings
+### 0.3 Vervaldatum op listings — niet uitgevoerd, nog open
 
-Een betaalde plaatsing van €15 die eeuwig blijft staan is geen product. Nodig voor "90 dagen geldig":
+Een betaalde plaatsing van €15 die eeuwig blijft staan is geen product. Idee was `listing_expires_at` op `products`/`workshops`, plus een opruimjob. Deze kolom is **nooit aangemaakt** (geverifieerd tegen de live database) — blijft open voor wanneer Fase 3 (betaalde per-listing plaatsingen) er is.
 
-```sql
-alter table public.products add column if not exists listing_expires_at timestamptz;
-alter table public.workshops add column if not exists listing_expires_at timestamptz;
-```
+### 0.4 Aanvraagtabel — gebouwd als `product_inquiries`, niet `listing_inquiries`
 
-Plus een opruimjob die verlopen listings op `is_active = false` zet.
+Hier is parallel werk ontstaan: dit plan schetste een generieke `listing_inquiries`-tabel (product/event/creator gedeeld), maar de daadwerkelijke implementatie — gebouwd buiten deze sessie om, tegelijk met Fase 1 hierboven — koos een product-specifieke `product_inquiries`-tabel. Die is live, getest en heeft al e-mailnotificatie + dashboard-inbox (zie Fase 2). De generieke `listing_inquiries`-tabel/action zijn nooit toegepast op de database en zijn verwijderd uit de codebase. Als events later ook een aanvraagformulier krijgen, hergebruik dan het `product_inquiries`-patroon (kopiëren naar `event_inquiries`) in plaats van alsnog een generieke tabel te forceren — twee kleine, expliciete tabellen zijn hier duidelijker dan één polymorfe.
 
-### 0.4 Generieke aanvraagtabel
+`workshop_booking_requests` blijft ongewijzigd bestaan — workshop-specifieke velden, werkt al, niet aangeraakt.
 
-Volgt het bestaande patroon van `workshop_booking_requests` (`docs/SQL.md:1002`), maar generiek zodat product-, event- en toekomstige listings dezelfde inbox delen:
+### 0.5 Credit-redenen uitbreiden — niet uitgevoerd, nog open
 
-```sql
-create table if not exists public.listing_inquiries (
-  id uuid primary key default gen_random_uuid(),
-  entity_type text not null,
-  entity_id uuid not null,
-  creator_id uuid not null references public.creators(id) on delete cascade,
-  full_name text not null,
-  email text not null,
-  phone text,
-  message text,
-  status text not null default 'new',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint listing_inquiries_entity_type_check check (
-    entity_type in ('product','event','creator')
-  ),
-  constraint listing_inquiries_status_check check (
-    status in ('new','read','replied','archived','spam')
-  )
-);
-
-create index if not exists idx_listing_inquiries_creator_id on public.listing_inquiries(creator_id);
-create index if not exists idx_listing_inquiries_entity on public.listing_inquiries(entity_type, entity_id);
-create index if not exists idx_listing_inquiries_status on public.listing_inquiries(status);
-```
-
-`workshop_booking_requests` blijft bestaan — die heeft workshop-specifieke velden en werkt al. Niet migreren.
-
-### 0.5 Credit-redenen uitbreiden
-
-De check-constraint op `listing_credit_transactions.reason` laat vandaag alleen `purchase`, `listing_create`, `listing_bump`, `spotlight`, `refund`, `manual_adjustment` toe. Nieuwe plaatsingstypes vallen erbuiten en zouden de transactie laten falen:
+De check-constraint op `listing_credit_transactions.reason` staat live nog altijd op alleen `purchase`, `listing_create`, `listing_bump`, `spotlight`, `refund`, `manual_adjustment` (geverifieerd via `pg_constraint`). Nodig zodra workshop-/event-plaatsingen credits gaan verbruiken:
 
 ```sql
 alter table public.listing_credit_transactions
@@ -138,80 +105,89 @@ alter table public.listing_credit_transactions
 4. `ProductBuyCard` toont voor maker-listings zonder cart een aanvraagformulier (`ProductInquiryForm`, nieuw) in plaats van `ProductPurchaseControls`. "Veilig betalen via Hobbysalon" en "Verzonden door" zijn vervangen door "Rechtstreeks contact met de maker" — niet meer misleidend nu er geen transactie is.
 5. Dashboard `/dashboard/products`: `destash` toegevoegd als type-optie, het overbodige "voorraadmodus"-veld (mapte alleen op Medusa `manage_inventory`, nu zonder bestemming) verwijderd uit beide formulieren, en het richtprijsveld bij bewerken toont eindelijk de echte waarde (kon voorheen niet, want er was geen kolom).
 
-**Nog niet gedaan (bewust, hoort bij latere fases):** notificatiemail bij een nieuwe aanvraag, en de dashboard-inbox om aanvragen te beheren (`updateBookingRequestStatusAction`-equivalent voor `listing_inquiries`) — zie Fase 2 hieronder. De aanvraag zelf werkt al end-to-end (formulier → insert → RLS-validatie), want zonder werkende insert had `ProductBuyCard` niets om naartoe te sturen.
+**Kanttekening:** dit is grotendeels parallel gebouwd — deze sessie deed Fase 0 (schema) en de kern van Fase 1 (`createProductAction`/`updateProductAction`/`product-page.ts`/`ProductBuyCard`-architectuur), en onafhankelijk daarvan is er tegelijk verder gewerkt op de `ux/hobbysalon-platform-redesign`-branch (`product_inquiries`, e-mail, RLS-fix, dashboard-inbox). Beide zijn via PR #27 en #29 in `main` gemerged, met een expliciete merge-conflictresolutie die de architectuur van deze sessie behield maar de aanvraag-implementatie van de andere branch koos. Zie Fase 2.
 
 ---
 
-## Fase 2 — Aanvraagstroom en inbox
+## Fase 2 — Aanvraagstroom en inbox ✅ live, geverifieerd tegen productie-Supabase
 
-**Al gedaan (vervroegd, nodig voor Fase 1):** `apps/storefront/src/app/actions/listing-inquiry.ts` (server action, patroon van `workshop-booking.ts`) en `apps/storefront/src/components/product/ProductInquiryForm.tsx` (patroon van `WorkshopBookingRequestForm`). RLS: anon mag `insert` met dezelfde strenge `with check` als `workshop_booking_requests`; alleen de eigenaar-creator mag `select`/`update`.
+**Gebouwd (buiten deze sessie, tegelijk met Fase 1):**
 
-**Nog open:**
+- `apps/storefront/scripts/migrate-handmade-listings.sql` — `product_inquiries`-tabel, RLS insert-only voor anon/authenticated (`7cc3401b1` scherpte dit aan: de open `FOR ALL`-policy is weg).
+- `apps/storefront/src/app/actions/product-inquiry.ts` — `submitProductInquiry` (insert) + `updateProductInquiryStatusAction` (dashboard, ownership via `creator_id`).
+- `apps/storefront/src/components/product/ProductInquiryForm.tsx` — formulier, toont `creatorName`.
+- `apps/storefront/src/lib/platform/notifications/product-inquiry-email.ts` — Resend-notificatie naar de maker bij een nieuwe aanvraag.
+- Inbox zit inline in `/dashboard/products` (geen aparte `/dashboard/aanvragen`-route).
 
-- Notificatiemail naar de maker bij een nieuwe aanvraag: **"je hebt een aanvraag, log in om te antwoorden"** — niet de volledige inhoud, niet het e-mailadres van de bezoeker.
-- Dashboardpagina `/dashboard/aanvragen` om `listing_inquiries` te bekijken en status bij te werken (mirror van `updateBookingRequestStatusAction`).
+**Geverifieerd (2026-07-25, rechtstreeks tegen Supabase-project `urjpkzbjjqgwztcsnzys`):**
 
-Dat eerste punt is geen controledwang maar het verlengingsargument: zonder in-platform antwoord heb je bij de jaarfactuur geen enkel bewijs van waarde. Mét: *"je kreeg 12 aanvragen deze maand."*
+- `product_inquiries` bevat de smoke-rij: AT Tester → product "AT contact listing" (`at-contact-listing-smoke`, `product_type=handmade`, `medusa_product_id=null`) → creator Peter Peeters. Koppeling klopt end-to-end.
+- RLS op `product_inquiries`: precies één policy, `product_inquiries_anon_insert` (INSERT, anon+authenticated). Geen open `FOR ALL` meer — de fix staat echt live.
+- **Gevonden gat, opgelost (2026-07-27):** alle 30 creator-rijen hadden `email = null` — `saveCreatorProfileAction` schreef de kolom nooit weg, dus er is nog nooit één aanvraagmail verstuurd, ook al was de send-code zelf correct. Fix in drie delen: (1) `CreatorProfileTab` heeft nu een verplicht e-mailveld (default = account-e-mailadres), `saveCreatorProfileAction` slaat het op; (2) `submitProductInquiry` valt terug op het gekoppelde `auth.users`-e-mailadres via `user_id` wanneer `creators.email` leeg is; (3) eenmalige backfill (`migrate-backfill-creator-email.sql`) tegen productie uitgevoerd — 7 van de 30 rijen (incl. Peter Peeters) hadden een gekoppelde `user_id` met e-mailadres en zijn bijgewerkt. De overige 23 hebben geen `user_id` of een auth-account zonder e-mailadres; die makers zetten het bij de eerstvolgende profielopslag zelf.
 
-**Geen chat.** Er bestaat vandaag geen enkele messaging-tabel; realtime chat betekent notificaties, moderatie, spam, blokkeren en misbruikmeldingen bouwen. Voor een publiek van 55–74 (PRD: 60%) is e-mailnotificatie + in-platform antwoord vertrouwder én een fractie van het werk. Threading kan later.
+**Geen chat.** Er bestaat geen messaging-tabel; realtime chat betekent notificaties, moderatie, spam, blokkeren en misbruikmeldingen bouwen. Voor een publiek van 55–74 (PRD: 60%) is e-mailnotificatie + in-platform antwoord vertrouwder én een fractie van het werk. Threading kan later.
 
----
-
-## Fase 3 — Betaalde checkout
-
-Dit is de fase waar geld echt binnenkomt, en de fase met het grootste risico.
-
-**`addListingCreditsAction` (`dashboard.ts:2239`) kent vandaag credits toe zonder enige betaling.** Het is een kale server action met een `pack_code` en geen Stripe-aanroep. Vandaag niet uitbuitbaar omdat gating uit staat (`COMMERCIAL_GATING_ENABLED` is standaard `false`) en er geen UI aan hangt — maar het moment dat gating aangaat en deze action bereikbaar is, kan iedereen zichzelf gratis credits geven.
-
-Volgorde, strikt:
-
-1. Stripe Checkout Session voor creditpakketten en jaarplannen (platform charge — **geen** Connect; Connect blijft merchant-only).
-2. Webhook `checkout.session.completed` → `apply_listing_credit_delta` voor packs, of `creator_plan_subscriptions` voor plannen.
-3. `addListingCreditsAction` afsluiten: alleen bereikbaar voor moderators als handmatige correctie, met reden `manual_adjustment`.
-4. Pas daarna `COMMERCIAL_GATING_ENABLED=true`.
-
-Omgekeerde volgorde betekent: publiceren geblokkeerd terwijl niemand kán betalen.
-
-De creditkant is klaar — `apply_listing_credit_delta` is atomair en afgedwongen op databaseniveau, dus dubbele webhooks of gelijktijdige publicaties kunnen het saldo niet corrumperen.
+**Opruiming deze sessie:** de generieke `listing_inquiries`-tabel/migratie/action (nooit toegepast op de database) zijn verwijderd. `docs/SQL.md`/`docs/schema.md` beschreven ook `listing_expires_at` en een dubbele `price_cents`/`currency_code`-declaratie in `products` — beide waren merge-artefacten die niet overeenkwamen met de live schema en zijn gecorrigeerd op basis van een rechtstreekse `information_schema`/`pg_constraint`-query.
 
 ---
 
-## Fase 4 — Events en exposantenwerving
+## Fase 3 — Betaalde checkout ✅ code klaar, wacht op echte Stripe-sleutels
+
+Dit is de fase waar geld echt binnenkomt. Beslissingen bevestigd met de gebruiker vooraf: **eigen Stripe-key op de storefront** (los van Medusa en van Connect — Connect blijft uitsluitend merchant-payouts), en **`price_data` dynamisch** vanuit `listing_credit_products`/`commercial_plans` (geen vooraf aangemaakte Stripe Price-objecten nodig).
+
+**Gebouwd:**
+
+1. `apps/storefront/src/lib/payments/stripe-client.ts` — Stripe-client + webhook-secret helpers, apart van Medusa/Connect.
+2. `apps/storefront/src/app/actions/listing-checkout.ts` — `createCreditPackCheckoutAction` en `createPlanCheckoutAction`. Beide: `mode: "payment"` (eenmalige afrekening, geen Stripe Subscription — past bij "vaste jaarprijs" zonder recurring-billingcomplexiteit). Organizer-plannen worden expliciet geweigerd (`segment === "organizer"` faalt met duidelijke boodschap) — die horen bij een event, niet bij de creator, en zijn Fase 4-werk.
+3. `apps/storefront/src/app/api/webhooks/stripe-listing/route.ts` — verifieert de signature, verwerkt alleen `checkout.session.completed` met `payment_status === "paid"`. **Idempotent**: schrijft eerst de Stripe session-id naar `stripe_checkout_events` (nieuwe tabel, `apps/storefront/scripts/migrate-listing-checkout.sql`); bij een unique-violation is het event al verwerkt en stopt de handler. Credits gaan via `apply_listing_credit_delta` (atomair, uit Fase 0). Plannen deactiveren eerst een bestaand actief abonnement in hetzelfde segment, dan insert in `creator_plan_subscriptions` met `external_payment_id = session.id`.
+4. `addListingCreditsAction` (`dashboard.ts`) is dichtgetimmerd: vereist nu `isModerator(user.id)`, een expliciete `creator_id` van een andere maker, en gebruikt reden `manual_adjustment` in plaats van `purchase` — zodat de audit trail een handmatige correctie nooit kan verwarren met een echte betaling. Nergens meer bereikbaar voor een creator over zijn eigen account.
+5. UI: `/dashboard/products` toont saldo + koopbare pakketten, gekoppeld aan `createCreditPackCheckoutAction`.
+
+**Nog te doen — dit kan alleen jij, ik heb geen toegang tot je Stripe-dashboard of live sleutels:**
+
+- `stripe` package toegevoegd aan `package.json` (`^17.4.0`) maar **niet geïnstalleerd** in deze sandbox (geen `node_modules`, geen netwerktoegang om te verifiëren) — draai `yarn install` en dan `yarn build` vóór deploy. De `apiVersion`-string in `stripe-client.ts` is een educated guess; als de build een literal-type-mismatch geeft op dat veld, kopieer de waarde die TypeScript voorstelt.
+- Env vars instellen op de storefront-deployment (Vercel): `STRIPE_SECRET_API_KEY`, `STRIPE_LISTING_WEBHOOK_SECRET`, `NEXT_PUBLIC_SITE_URL` (laatste bestaat vermoedelijk al, hergebruikt van `seo.ts`).
+- In Stripe: een webhook-endpoint aanmaken naar `<site>/api/webhooks/stripe-listing` voor het event `checkout.session.completed`, en het bijbehorende signing secret in `STRIPE_LISTING_WEBHOOK_SECRET` zetten.
+- Migratie draaien: `apps/storefront/scripts/migrate-listing-checkout.sql`.
+- **Test-mode end-to-end proberen** (creditpakket kopen → Stripe test-kaart → webhook komt binnen → credits verschijnen) — dit is code die ik nooit heb kunnen draaien, alleen gebouwd en type-gecontroleerd. Behandel de eerste live test als een echte test, niet als een formaliteit.
+- Pas daarna `COMMERCIAL_GATING_ENABLED=true`.
+
+De creditkant blijft atomair afgedwongen op databaseniveau (`apply_listing_credit_delta`), dus dubbele webhooks of gelijktijdige publicaties kunnen het saldo niet corrumperen — en nu ook: dubbele webhook-*events* kunnen niet dubbel crediteren, dankzij `stripe_checkout_events`.
+
+---
+
+## Fase 4 — Events en exposantenwerving ✅ uitgevoerd
+
+**Belangrijk vóór het lezen:** de gebruiker heeft bevestigd dat vandaag **alles gratis is** — `COMMERCIAL_GATING_ENABLED` staat op `false`, dus geen enkele credit-check hieronder blokkeert momenteel iets. Deze fase bouwt de backend-infrastructuur die klaarstaat voor wanneer gating later aangaat, exact zoals Fase 0–3.
 
 ### 4.1 Prijs per eventtype
 
-`events.event_type` heeft de differentiatie al in het schema: `handmade_market`, `hobby_fair`, `pop_up`, `open_atelier`, `workshop_day`. Geen schemawijziging nodig — alleen een tarieventabel die `event_type` op credits mapt. Een `hobby_fair` kost een veelvoud van een `handmade_market`.
+`events.event_type` had de differentiatie al in het schema (`handmade_market`, `hobby_fair`, `pop_up`, `open_atelier`, `workshop_day`) — geen schemawijziging nodig. `EVENT_CREDIT_COSTS` in `listing-credits.ts`: `pop_up`/`open_atelier` 15 credits, `workshop_day`/`handmade_market` 30 credits, `hobby_fair` 200 credits. Nieuw: `enforceEventPublishCredits` (`commercial-enforcement.ts`), gewired in `createEventAction` — identiek patroon aan `enforceHandmadePublishCredits` (no-op zolang gating uit staat).
 
-### 4.2 Exposantenwerving (het hoogste-marge product)
+### 4.2 Exposantenwerving
 
-Een organisator die 40 standen à €200 vult, draait €8.000. €99–249 betalen om 200 relevante makers te bereiken is triviaal.
+**Ontwerpkeuze tijdens de bouw:** `event_domains` wordt nergens vanuit het dashboard geschreven — organisatoren kunnen vandaag geen domein aan hun event koppelen. Domein-matching zou dus altijd leeg blijven. V1 target daarom **alle** opt-in makers (`creators.open_to_markets = true` én `'maker' in creator_types`), zonder domeinfilter. Domein-scoping is een zinvolle verfijning zodra event-domeinselectie in de UI bestaat, niet eerder.
 
-**Verkoop nooit contactgegevens.** Dat is niet toegestaan onder GDPR — makers hebben daar geen toestemming voor gegeven. Bouw het omgekeerd:
+**Verkoopt nooit contactgegevens** (GDPR): de organizer betaalt credits (`LISTING_CREDIT_COSTS.exhibitorOutreach = 200`, `apps/storefront/src/app/actions/exhibitor-outreach.ts`) om een e-mailoproep te sturen naar opt-in makers (Resend, `exhibitor-outreach-email.ts`). Reageert een maker, dan doet die dat via het **bestaande** `event_vendor_inquiries`-inbound-formulier op de publieke eventpagina (`/agenda/[slug]#standhouders`, nieuw anker) — de maker deelt zijn eigen gegevens zelf, precies zoals gepland. Geen nieuwe responstabel nodig: het bestaande organizer-inbox op `/dashboard/events` toont deze reacties al.
 
-```sql
-alter table public.creators add column if not exists open_to_markets boolean not null default false;
-```
-
-1. Opt-in op het makerprofiel: *"Ik sta open voor markten en beurzen"*.
-2. Organisator betaalt credits om een oproep te sturen naar matchende opt-in makers, **via het platform**.
-3. Makers die willen, antwoorden — en geven hun gegevens daarmee zelf vrij.
-
-Compliant, en operationeel beter: het gesprek blijft meetbaar op het platform. `event_vendor_inquiries` dekt de inkomende richting (standhouder → organisator) al; dit is de uitgaande richting en moet nieuw.
+Nieuw: `creators.open_to_markets` (opt-in-checkbox op het makerprofiel, `CreatorProfileTab.tsx`), `event_exhibitor_outreach` (auditlog van verstuurde oproepen — bewaart geen ontvangerslijst, alleen aantal + kosten).
 
 ---
 
-## Fase 5 — Migratie van bestaande data
+## Fase 5 — Migratie van bestaande data ✅ volledig uitgevoerd
 
-Bestaande handmade-producten met een `medusa_product_id` hebben mogelijk lopende orders of open winkelmandjes. **Niet in bulk deactiveren.**
+**Eerst de cijfers, geverifieerd tegen productie (2026-07-26):** van de 26 `handmade`-rijen hadden er **25 nog een `medusa_product_id`**. Onderzoek van titels/creators/timestamps (alle 25 aangemaakt binnen enkele seconden van elkaar op 11–12 maart, generieke naampatronen als "Craft Corner"/"Yarn Paradise") bevestigde: **dit is seed/demodata, geen echte makers met echte bestellingen**. De gebruiker bevestigde dit expliciet en koos voor directe migratie in plaats van de voorzichtige per-rij aanpak hieronder.
 
-1. Zet nieuwe Medusa-aanmaak stop (Fase 1) — vanaf dan groeit de oude set niet meer.
-2. Laat lopende Medusa-orders normaal uitlopen.
-3. Vul `price_cents` op bestaande rijen vanuit de Medusa-prijs (eenmalig backfill-script).
-4. Zet de resterende rijen om naar contact-listings zodra er geen open orders meer zijn.
-5. Maker-onboarding voor Stripe Connect uit het makerpad halen; Connect blijft merchant-only.
-6. `/dashboard/orders` alleen voor merchants en dubbelrollen.
+**Uitgevoerd (2026-07-26):** alle 25 rijen in één UPDATE omgezet naar platform-only — `medusa_product_id = null`, `price_cents = 2500` (€25 placeholder, exacte prijs was niet van belang bij testdata), `currency_code = 'EUR'`. Geverifieerd: `handmade` telt nu 26 rijen, **0 met Medusa-koppeling, 0 zonder prijs**. Het backfill-script (`backfill-handmade-price-cents.ts`) blijft in de repo staan voor een eventuele toekomstige situatie met wél-echte legacy Medusa-listings, maar was hier niet nodig.
 
-Dubbelrol werkt al: `creators.creator_types` is een array en `user_account_roles` bestaat. Een maker die doorgroeit tot merchant krijgt de rol erbij en doorloopt Connect-onboarding op dát moment. Dat is meteen het verhaal: *begin met plaatsen, upgrade naar verkopen wanneer je er klaar voor bent.*
+1. ✅ Nieuwe Medusa-aanmaak stop (Fase 1) — vanaf dan groeit de oude set niet meer.
+2. ✅ Lopende Medusa-orders — niet van toepassing gebleken, dit was testdata zonder echte orders.
+3. ✅ Prijzen ingevuld (placeholder, zie boven — geen echte Medusa-prijs nodig gezien de aard van de data).
+4. ✅ Rijen omgezet naar contact-listings — direct uitgevoerd na bevestiging dat het testdata betrof.
+5. ✅ **Onnodige Medusa-sellerprovisioning verwijderd uit het makerpad** — belangrijke precisering: de gevonden koppeling was niet letterlijk "Stripe Connect" maar Medusa-**sellerregistratie** (`/admin/platform/creators/register`, maakt een Mercur-seller + shipping profile aan). 16 dashboard-acties die niets met commerce te maken hebben (portfolio-afbeeldingen, artikels, project-materialen, workshop-productkoppelingen, boekingsstatus) riepen toch de zware `getRequiredCreator()` aan — die forceert deze Medusa-sellerprovisioning puur om een `creator`-object op te halen dat ze al via de lichte `getRequiredCreatorProfile()` konden krijgen (geverifieerd: geen van de 16 gebruikt `sellerId`). Alle 16 omgezet naar `getRequiredCreatorProfile()`. Een pure maker die nooit fysiek verkoopt, krijgt nu geen Medusa-sellerrecord meer opgedrongen bij het schrijven van een artikel.
+6. ✅ **`/dashboard/orders` scoping gefixt** — `canManageOrders` in `dashboard-access.ts` stond op `canManageProducts || ...`, wat betekende dat *elke* maker (ook zuivere platform-only-listinghouders zonder ooit een Medusa-order) de "Bestellingen"-pagina te zien kreeg, altijd leeg. Nu: `hasCreatorSellerLink || hasMerchantSellerLink` — alleen wie een echte Medusa-sellerkoppeling heeft (legacy makers of merchants) ziet deze pagina. Na de migratie hierboven heeft geen enkele maker nog zo'n koppeling, dus deze pagina is nu voor niemand zichtbaar totdat er een echte merchant bijkomt.
+
+Dubbelrol werkt al: `creators.creator_types` is een array en `user_account_roles` bestaat. Een maker die doorgroeit tot merchant krijgt de rol erbij op dát moment. Dat is meteen het verhaal: *begin met plaatsen, upgrade naar verkopen wanneer je er klaar voor bent.*
 
 ---
 

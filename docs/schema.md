@@ -110,7 +110,8 @@ Main tables:
 - `subscribers`
 - `survey_segments`
 - `workshop_booking_requests`
-- `listing_inquiries`
+- `product_inquiries`
+- `survey_responses`
 
 ---
 
@@ -188,6 +189,8 @@ Fields:
 - `is_featured` (boolean)
 - `accepts_bookings` (boolean)
 - `accepts_marketplace_orders` (boolean)
+- `open_to_markets` (boolean)
+- `specialty_tags` (text[], free-text hobby labels when fixed domains don't fit)
 - `created_at`
 - `updated_at`
 
@@ -279,7 +282,7 @@ Fields:
 - `condition_type` (text, nullable)
 - `personalization_available` (boolean)
 - `estimated_dispatch_days` (int, nullable)
-- `price_cents` (int, nullable) — indicative listing price for makers
+- `price_cents` (int, nullable) — indicative price for maker listings; null/ignored for Medusa-backed `supply` products
 - `currency_code` (text, nullable)
 - `stock_mode` (text, nullable) — `made_to_order` | `in_stock` | `contact`
 - `featured_image_url` (text)
@@ -287,9 +290,6 @@ Fields:
 - `is_active` (boolean)
 - `seo_title` (text)
 - `seo_description` (text)
-- `price_cents` (int, nullable) — indicative price for maker listings; null/ignored for Medusa-backed `supply` products
-- `currency_code` (text, default `EUR`)
-- `listing_expires_at` (timestamptz, nullable) — term for paid per-listing placements
 - `created_at`
 - `updated_at`
 
@@ -384,12 +384,17 @@ Fields:
 - `id` (uuid, pk)
 - `creator_id` (uuid, fk → creators)
 - `domain_id` (uuid, fk → domains)
+- `category_id` (uuid, nullable, fk → workshop_categories) — optional subcategory under the domain
 - `slug` (text, unique)
 - `title` (text)
 - `short_description` (text)
 - `description` (text)
 - `format_type` (text)
 - `difficulty_level` (text)
+- `offer_type` (text, nullable) — activity shape only: `open_workshop` | `private_group` | `ongoing_course`
+- `audience_types` (text[]) — e.g. `kids`, `parent_child`, `adults`, `team`, `bachelorette`
+- `age_groups` (text[]) — exclusive ranges: `kids_0_11`, `kids_12_15`, `teens_16_17`, `adults_18_plus`, `seniors_65_plus`
+- `languages` (text[]) — `nl` | `en` | `fr`; empty means unknown (do not invent defaults for legacy rows)
 - `price_cents` (int)
 - `currency_code` (text)
 - `duration_minutes` (int)
@@ -405,9 +410,10 @@ Fields:
 - `country_code` (text, nullable)
 - `is_featured` (boolean)
 - `is_active` (boolean)
+- `listing_fee_status` (text, default `unpaid`) — `launch_free` | `paid` | `unpaid`
+- `listing_expires_at` (timestamptz, nullable) — end of paid visibility; null for `launch_free`
 - `seo_title` (text)
 - `seo_description` (text)
-- `listing_expires_at` (timestamptz, nullable) — term for paid per-listing placements
 - `created_at`
 - `updated_at`
 
@@ -428,6 +434,19 @@ Allowed `booking_mode`:
 - `request`
 - `external_link`
 - `internal_booking`
+
+### Table: `workshop_categories`
+
+Domain-scoped subcategories (not a second domain tree). `domain_id` remains the primary hobby context.
+
+- `id` (uuid, pk)
+- `domain_id` (uuid, fk → domains)
+- `slug` (text)
+- `name` (text)
+- `sort_order` (int)
+- `is_active` (boolean)
+
+Unique `(domain_id, slug)`.
 
 ---
 
@@ -475,6 +494,21 @@ This enables flows such as:
 
 - “Book this crochet workshop”
 - “Add the starter kit in one click”
+
+Material linking is optional when creating a workshop.
+
+## Table: `workshop_gallery_images`
+
+Extra photos for a workshop page (beyond `workshops.featured_image_url`).
+
+Fields:
+
+- `id` (uuid, pk)
+- `workshop_id` (uuid, fk → workshops)
+- `image_url` (text)
+- `alt_text` (text, nullable)
+- `sort_order` (int)
+- `created_at`
 
 ---
 
@@ -534,6 +568,19 @@ Allowed `ticketing_mode`:
 - `external_link`
 - `internal_ticket`
 
+## Table: `event_gallery_images`
+
+Extra photos for an event page (beyond `events.featured_image_url`).
+
+Fields:
+
+- `id` (uuid, pk)
+- `event_id` (uuid, fk → events)
+- `image_url` (text)
+- `alt_text` (text, nullable)
+- `sort_order` (int)
+- `created_at`
+
 ---
 
 # 15. Event Domains
@@ -568,10 +615,22 @@ Fields:
 
 Allowed roles:
 
-- `vendor`
+- `vendor` — standhouder (set by authenticated maker/workshopgever RSVP)
 - `workshop_host`
 - `speaker`
 - `organizer`
+
+### Standhouder RSVP
+
+Logged-in makers and workshopgevers confirm presence on the public event page.
+That writes:
+
+1. `event_creators` with `role = vendor`
+2. `entity_links` creator → event with `relation_type = exhibits_at`
+
+The event page shows confirmed standholders and **all their active products**
+(`products.creator_id`, `is_active`, `status = active`). Creator profiles show
+participating events with a “Standhouder” badge when `role = vendor`.
 
 ---
 
@@ -768,6 +827,12 @@ Fields:
 - `radius_km` (int, default 25)
 - `preferred_domain_ids` (uuid[])
 - `interest_types` (text[])
+- `offer_roles` (text[], default `{}`) — self-declared aanbiedersrollen at registration
+- `primary_offer_role` (text, nullable) — routing / copy / analytics primary
+- `marketing_opt_in` (boolean, default false)
+- `marketing_opted_in_at` (timestamptz, nullable)
+- `marketing_opted_out_at` (timestamptz, nullable) — opt-out does not erase prior opt-in history
+- `marketing_consent_source` (text, nullable) — e.g. `register`
 - `onboarding_completed` (boolean)
 - `created_at`
 - `updated_at`
@@ -779,6 +844,13 @@ Allowed `interest_types`:
 - `handmade`
 - `event`
 - `article`
+
+Allowed `offer_roles` / `primary_offer_role`:
+
+- `workshopgever`
+- `maker`
+- `organizer`
+- `merchant`
 
 ## Table: `user_account_roles`
 
@@ -873,6 +945,7 @@ Fields:
 - `interested_in_handmade` (boolean)
 - `interested_in_supplies` (boolean)
 - `preferred_city` (text, nullable)
+- `acumbamail_synced_at` (timestamptz, nullable) — set after successful Acumbamail ESP sync
 - `created_at`
 - `updated_at`
 
@@ -952,21 +1025,19 @@ Allowed `status`:
 
 ---
 
-# 27. Listing Inquiries
+# 27. Product Inquiries
 
-Generic contact/inquiry inbox for listing-first entities (`product`, `event`). Replaces cart/checkout for maker listings: a visitor submits an inquiry, the creator gets notified and replies in-platform. Mirrors `workshop_booking_requests`; that table keeps its workshop-specific fields and is not folded into this one.
+Contact/inquiry inbox for maker listings (`handmade`/`destash`) that have no Medusa cart. Replaces checkout: a visitor submits an inquiry, the creator is notified by email and manages status from `/dashboard/products`. Public may only insert new inquiries (RLS); dashboard reads/updates go through the service-role client, same trust boundary as `listing_credit_wallets`/`listing_credit_transactions`.
 
-## Table: `listing_inquiries`
+## Table: `product_inquiries`
 
 Fields:
 
 - `id` (uuid, pk)
-- `entity_type` (text) — `product` | `event` | `creator`
-- `entity_id` (uuid) — id of the product/event/creator being inquired about
+- `product_id` (uuid, fk → products)
 - `creator_id` (uuid, fk → creators) — inbox owner
 - `full_name` (text)
 - `email` (text)
-- `phone` (text, nullable)
 - `message` (text, nullable)
 - `status` (text)
 - `created_at`
@@ -975,10 +1046,39 @@ Fields:
 Allowed `status`:
 
 - `new`
-- `read`
-- `replied`
+- `contacted`
+- `accepted`
+- `declined`
+
+---
+
+# 27b. Survey Responses
+
+Public multi-role enquête submissions (e.g. `/enquete`). One row per completed survey; flexible answers in `answers jsonb`. Public may only insert (RLS); reads via service-role client.
+
+## Table: `survey_responses`
+
+Fields:
+
+- `id` (uuid, pk)
+- `survey_key` (text) — e.g. `aanbod-verbeteren-2026`
+- `activity_types` (text[]) — one or more of: `content`, `handmade`, `workshop`, `webshop`, `hobbybeurs`, `makers_market`
+- `activity_status` (text) — shared Q2
+- `outcomes` (text[]) — shared Q3 (max 2)
+- `answers` (jsonb) — per-role answers keyed by activity type + `closing`
+- `contact_ok` (boolean)
+- `contact_name` (text, nullable)
+- `contact_email` (text, nullable; required when `contact_ok`)
+- `user_id` (uuid, nullable, fk → auth.users)
+- `status` (text)
+- `created_at`
+- `updated_at`
+
+Allowed `status`:
+
+- `new`
+- `reviewed`
 - `archived`
-- `spam`
 
 ---
 

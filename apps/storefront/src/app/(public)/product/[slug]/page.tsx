@@ -7,7 +7,6 @@ import { ProductBuyCard } from "@/components/product/ProductBuyCard";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageLayout } from "@/components/layout/page-layout";
 import { AspectImage } from "@/components/ui/aspect-image";
-import { Badge } from "@/components/ui/badge";
 import { getAuthUser } from "@/lib/auth/session";
 import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
@@ -36,19 +35,24 @@ export default async function ProductPage({ params }: Props) {
 
   if (!data.product) notFound();
 
-  const { product, creator, domain, price, variants } = data;
+  const { product, creator, domain, price, variants, galleryImages } = data;
   const user = await getAuthUser();
   const productIsFavorite = user
     ? await isFavorite(user.id, "product", product.id)
     : false;
+  const productImages = [
+    ...(product.featured_image_url ? [product.featured_image_url] : []),
+    ...galleryImages.filter((url) => url !== product.featured_image_url),
+  ];
   const productJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
     description: product.short_description ?? product.description ?? undefined,
-    image: product.featured_image_url
-      ? [absoluteUrl(product.featured_image_url)]
-      : undefined,
+    image:
+      productImages.length > 0
+        ? productImages.map((url) => absoluteUrl(url))
+        : undefined,
     sku: product.medusa_product_id ?? product.id,
     brand: creator
       ? {
@@ -71,6 +75,9 @@ export default async function ProductPage({ params }: Props) {
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
+    ...(product.product_type === "supply"
+      ? [{ label: "Materialen", href: "/materials" } as const]
+      : []),
     ...(domain ? [{ label: domain.name, href: `/${domain.slug}` } as const] : []),
     { label: product.title },
   ];
@@ -78,25 +85,41 @@ export default async function ProductPage({ params }: Props) {
   return (
     <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={productJsonLd} />
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_340px] lg:items-start">
         {/* Main content */}
         <div className="min-w-0">
           <AspectImage
             src={product.featured_image_url}
             alt={product.title}
             ratio="square"
-            className="max-w-xl overflow-hidden rounded-xl"
+            className="w-full max-w-2xl overflow-hidden rounded-[1.25rem] shadow-[var(--shadow-md)]"
+            fallbackImage="placeholderProduct"
           />
+          {galleryImages.length > 0 ? (
+            <ul className="mt-3 grid max-w-2xl grid-cols-3 gap-2 sm:grid-cols-4">
+              {galleryImages.map((url) => (
+                <li key={url}>
+                  <AspectImage
+                    src={url}
+                    alt=""
+                    ratio="square"
+                    className="overflow-hidden rounded-lg"
+                    fallbackImage="placeholderProduct"
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           <div className="mt-6">
-            <Badge variant="domain">
+            <p className="text-sm font-semibold text-[var(--accent)]">
               {product.product_type === "handmade"
                 ? "Handgemaakt"
                 : product.product_type === "destash"
                   ? "Restant materiaal"
                   : "Benodigdheden"}
-            </Badge>
-            <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
+            </p>
+            <h1 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold tracking-[-0.03em] text-[var(--foreground)] md:text-4xl">
               {product.title}
             </h1>
             {creator && (

@@ -43,13 +43,27 @@ export async function GET(request: NextRequest) {
   if (eventError) return confirmationResponse(request, "Bevestigen mislukt. Probeer later opnieuw.", 500);
   if (!event) return confirmationResponse(request, "Deze inschrijving is al bevestigd of bestaat niet.");
 
-  await syncConfirmedAcumbamailSubscriber({
+  const sync = await syncConfirmedAcumbamailSubscriber({
     email: payload.email,
     firstName: null,
     preferredCity: null,
     sourcePath: event.source_path,
     confirmedAt: event.confirmed_at ?? new Date().toISOString(),
   });
+
+  if (sync.ok) {
+    const syncedAt = event.confirmed_at ?? new Date().toISOString();
+    await supabase.from("subscribers").upsert(
+      {
+        email: payload.email,
+        source: "site_form",
+        status: "active",
+        acumbamail_synced_at: syncedAt,
+        updated_at: syncedAt,
+      },
+      { onConflict: "email" }
+    );
+  }
 
   const deliveryUrl = leadMagnet.file_url.replace("{{token}}", encodeURIComponent(token!));
   const sent = await sendNewsletterEmail({

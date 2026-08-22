@@ -9,6 +9,7 @@ import {
   listLearningPathStepsByPathIds,
 } from "@/lib/platform/queries/learning-paths";
 import { buildPageMetadata } from "@/lib/seo";
+import { Container } from "@/components/ui/container";
 
 type Props = { params: Promise<{ domain: string }> };
 
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!domain) return { title: "Niet gevonden" };
 
   return buildPageMetadata({
-    title: `Learning Paths ${domain.name} | Hobbysalon`,
+    title: `Leertrajecten ${domain.name} | Hobbysalon`,
     description:
       domain.short_description ??
       `Leertrajecten van beginner tot gevorderd in ${domain.name}.`,
@@ -51,7 +52,7 @@ export default async function DomainLearningPathsPage({ params }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <Container className="py-8 sm:py-10">
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
         <ol className="flex flex-wrap gap-2">
           <li>
@@ -66,23 +67,23 @@ export default async function DomainLearningPathsPage({ params }: Props) {
             </Link>
           </li>
           <li>/</li>
-          <li className="text-[var(--foreground)]">Learning paths</li>
+          <li className="text-[var(--foreground)]">Leertrajecten</li>
         </ol>
       </nav>
 
-      <header className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          Learning paths voor {domain.name}
+      <header className="mb-8">
+        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+          Leertrajecten voor {domain.name}
         </h1>
         <p className="mt-2 text-[var(--muted)]">
           Kies een traject van beginner tot gevorderd met concrete stappen.
         </p>
       </header>
 
-      <section className="mt-8">
+      <section>
         {learningPaths.length === 0 ? (
           <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 text-[var(--muted)]">
-            Nog geen learning paths voor dit domein.
+            Nog geen leertrajecten voor dit domein.
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -98,7 +99,7 @@ export default async function DomainLearningPathsPage({ params }: Props) {
                   key={path.id}
                   className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
+                  <p className="text-sm font-medium text-[var(--accent)]">
                     {path.difficulty_level}
                   </p>
                   <h2 className="mt-1 text-xl font-semibold text-[var(--foreground)]">
@@ -109,8 +110,8 @@ export default async function DomainLearningPathsPage({ params }: Props) {
                       {path.short_description}
                     </p>
                   )}
-                  <p className="mt-3 text-xs text-[var(--muted)]">
-                    {pathSteps.length} stap{pathSteps.length === 1 ? "" : "pen"} ·{" "}
+                  <p className="mt-3 text-sm text-[var(--muted)]">
+                    {pathSteps.length} stap{pathSteps.length === 1 ? "" : "pen"},{" "}
                     {completedCount}/{pathSteps.length} voltooid
                   </p>
                   <div className="mt-2 h-2 rounded-full bg-[var(--background)]">
@@ -121,9 +122,9 @@ export default async function DomainLearningPathsPage({ params }: Props) {
                   </div>
                   <Link
                     href={`/${domain.slug}/learning-paths/${path.slug}`}
-                    className="mt-4 inline-block text-sm font-medium text-[var(--accent)] hover:underline"
+                    className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-[var(--accent)] hover:underline"
                   >
-                    Open traject →
+                    Bekijk traject
                   </Link>
                 </article>
               );
@@ -131,6 +132,6 @@ export default async function DomainLearningPathsPage({ params }: Props) {
           </div>
         )}
       </section>
-    </div>
+    </Container>
   );
 }

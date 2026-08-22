@@ -57,7 +57,7 @@ export async function addToCart(
   variantId: string,
   quantity: number = 1,
   metadata?: CartLineMetadata
-): Promise<{ success: boolean; cart_id?: string }> {
+): Promise<{ success: boolean; cart_id?: string; message?: string }> {
   try {
     const fields =
       "id,currency_code,*items,*items.variant,*items.variant.product";
@@ -75,14 +75,43 @@ export async function addToCart(
     );
     return { success: true, cart_id: cartId };
   } catch (e) {
-    const err = e as { message?: string; response?: { status?: number } };
+    const err = e as {
+      message?: string;
+      response?: { status?: number; data?: { message?: string } };
+    };
+    const detail =
+      err?.response?.data?.message ??
+      err?.message ??
+      (typeof e === "string" ? e : null);
     console.error(
       "Add to cart failed:",
-      err?.message ?? err,
+      detail ?? err,
       err?.response?.status ? `(HTTP ${err.response.status})` : ""
     );
-    return { success: false };
+    return {
+      success: false,
+      message: mapAddToCartError(detail),
+    };
   }
+}
+
+function mapAddToCartError(detail: string | null | undefined): string {
+  const text = (detail ?? "").toLowerCase();
+  if (
+    text.includes("not associated with any stock location") ||
+    text.includes("inventory item") ||
+    text.includes("stock location")
+  ) {
+    return "Dit product heeft nog geen voorraad ingesteld. Probeer het later opnieuw.";
+  }
+  if (
+    text.includes("insufficient") ||
+    text.includes("not enough") ||
+    text.includes("out of stock")
+  ) {
+    return "Dit product is tijdelijk niet op voorraad.";
+  }
+  return "Toevoegen mislukt";
 }
 
 /** Add multiple line items with shared bundle metadata. */
@@ -317,7 +346,11 @@ export async function getPaymentProviders(regionId: string) {
 /** Fetch Stripe client_secret from backend (auto-refreshes if PaymentIntent is terminal). */
 export async function getPaymentClientSecret(
   cartId: string
-): Promise<{ client_secret?: string; error?: string }> {
+): Promise<{
+  client_secret?: string;
+  payment_succeeded?: boolean;
+  error?: string;
+}> {
   try {
     const baseUrl = getBackendUrl();
     const pk =
@@ -336,12 +369,16 @@ export async function getPaymentClientSecret(
     );
     const json = (await res.json()) as {
       client_secret?: string;
+      payment_succeeded?: boolean;
       message?: string;
     };
     if (!res.ok) {
       return { error: json.message ?? "Failed to get client secret" };
     }
-    return { client_secret: json.client_secret };
+    return {
+      client_secret: json.client_secret,
+      payment_succeeded: Boolean(json.payment_succeeded),
+    };
   } catch (e) {
     console.error("[getPaymentClientSecret]", e);
     return { error: "Network error" };

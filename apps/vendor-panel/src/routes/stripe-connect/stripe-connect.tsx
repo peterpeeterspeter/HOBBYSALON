@@ -3,14 +3,22 @@ import { NotConnected } from "./components/not-connected"
 import { useStripeAccount } from "../../hooks/api"
 import { Status } from "./components/status"
 import { Connected } from "./components/connected"
-import { VendorPayoutAccount } from "../../types/payout"
+import {
+  VendorPayoutAccount,
+  VendorPayoutAccountStatus,
+} from "../../types/payout"
 
 const getStatus = (payout_account: VendorPayoutAccount | undefined) => {
   if (!payout_account) return "not connected"
 
-  if (!payout_account?.onboarding) return "pending"
+  // Only treat as connected once Stripe marks the Express account active
+  // (details_submitted + charges/payouts enabled). Creating a payout account
+  // or Account Link alone must stay "pending".
+  if (payout_account.status === VendorPayoutAccountStatus.ACTIVE) {
+    return "connected"
+  }
 
-  return "connected"
+  return "pending"
 }
 
 export const StripeConnect = () => {
@@ -22,7 +30,7 @@ export const StripeConnect = () => {
         <div>
           <Heading>Stripe Connect</Heading>
           <Text className="text-ui-fg-subtle" size="small">
-            Connect payouts only (BE/NL) — lighter verification for marketplace sellers
+            Koppel Stripe Express voor uitbetalingen (BE/NL)
           </Text>
         </div>
         <div>

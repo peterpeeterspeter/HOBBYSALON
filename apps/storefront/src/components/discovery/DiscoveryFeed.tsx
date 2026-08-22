@@ -8,11 +8,19 @@ import {
   WorkshopCard,
 } from "@/components/cards";
 import { GridLayout } from "@/components/layout/grid-layout";
-import type { HomeDiscoveryFeedItem } from "@/lib/services/home-page";
+import type { DiscoveryFeedItem } from "@/lib/services/discovery-feed";
+import type { Article, Event, Product, Workshop } from "@/types/platform";
 import {
   filterDiscoveryFeed,
   type DiscoveryFeedFilter,
 } from "./discovery-feed-filters";
+
+type HomeDiscoveryFeedItem = DiscoveryFeedItem<
+  Article,
+  Product & { price?: { amount: number; currency_code: string } | null },
+  Workshop,
+  Event
+>;
 
 const FILTER_OPTIONS: { value: DiscoveryFeedFilter; label: string }[] = [
   { value: "all", label: "Alles" },

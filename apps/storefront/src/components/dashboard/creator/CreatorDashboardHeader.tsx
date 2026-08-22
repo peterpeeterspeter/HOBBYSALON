@@ -1,29 +1,49 @@
 import Link from "next/link";
-import { CheckCircle2, Circle } from "lucide-react";
-import type { CreatorProgressStep } from "@/lib/dashboard/creator-progress";
+import {
+  getCreatorProgressPercent,
+  getNextProgressStep,
+  type CreatorProgressStep,
+} from "@/lib/dashboard/creator-progress";
+import { Button } from "@/components/ui/button";
 
 type CreatorDashboardHeaderProps = {
   creatorSlug: string | null;
   progressSteps: CreatorProgressStep[];
+  /** Shorter intro for the personal profile hub */
+  compact?: boolean;
+  title?: string;
+  lead?: string;
 };
 
 export function CreatorDashboardHeader({
   creatorSlug,
   progressSteps,
+  compact = false,
+  title = "Jouw makerprofiel",
+  lead = "Toon wie je bent en wat je maakt.",
 }: CreatorDashboardHeaderProps) {
-  const completedCount = progressSteps.filter((step) => step.done).length;
+  const percent = getCreatorProgressPercent(progressSteps);
+  const nextStep = getNextProgressStep(progressSteps);
+  const allDone = !nextStep && progressSteps.length > 0;
 
   return (
     <header className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 id="maker-pagina-heading" className="text-3xl font-bold text-[var(--foreground)]">
-            Jouw makerprofiel
+          <h2
+            id="maker-pagina-heading"
+            className={
+              compact
+                ? "text-2xl font-semibold text-[var(--foreground)]"
+                : "text-3xl font-bold text-[var(--foreground)]"
+            }
+          >
+            {title}
           </h2>
-          <p className="mt-2 max-w-2xl text-[var(--muted)]">
-            Maak hier je publieke makerpagina aan op Hobbysalon. Vul je naam, foto en hobby&apos;s
-            in — zo vinden andere makers en bezoekers jou. Schrijf artikels en toon je portfolio
-            wanneer je klaar bent. Rollen en voorkeuren regel je in Hobbysalon Pro onder Account.
+          <p className="mt-2 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
+            {allDone
+              ? "Je publieke pagina staat klaar. Bewerk hier je gegevens wanneer je wilt."
+              : lead}
           </p>
         </div>
         {creatorSlug && (
@@ -31,46 +51,28 @@ export function CreatorDashboardHeader({
             href={`/creator/${creatorSlug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:border-[var(--accent)] transition-colors"
+            className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 text-base font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
           >
-            Bekijk je publieke pagina
+            Bekijk publieke pagina
           </Link>
         )}
       </div>
 
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
-        <p className="text-sm font-medium text-[var(--foreground)]">
-          Voortgang ({completedCount}/{progressSteps.length})
-        </p>
-        <ul className="mt-3 space-y-2">
-          {progressSteps.map((step) => (
-            <li key={step.id} className="flex items-start gap-2 text-sm">
-              {step.done ? (
-                <CheckCircle2
-                  size={18}
-                  className="mt-0.5 shrink-0 text-green-600"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Circle
-                  size={18}
-                  className="mt-0.5 shrink-0 text-[var(--muted)]"
-                  aria-hidden="true"
-                />
-              )}
-              {step.href && !step.done ? (
-                <Link href={step.href} className="text-[var(--foreground)] underline">
-                  {step.label}
-                </Link>
-              ) : (
-                <span className={step.done ? "text-[var(--muted)]" : "text-[var(--foreground)]"}>
-                  {step.label}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {!allDone && nextStep ? (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+          <p className="text-sm font-medium text-[var(--foreground)]">
+            Je profiel is voor {percent}% klaar
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Volgende stap: {nextStep.label}</p>
+          {nextStep.href ? (
+            <div className="mt-4">
+              <Button asChild>
+                <Link href={nextStep.href}>Ga verder</Link>
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </header>
   );
 }

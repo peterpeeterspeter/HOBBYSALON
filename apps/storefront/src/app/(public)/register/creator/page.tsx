@@ -10,6 +10,7 @@ import {
   getSafeInternalPath,
   type AccountRegistrationType,
 } from "@/lib/auth/account-paths";
+import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -43,10 +44,20 @@ function resolveFocus(
   if (focus === "organizer") {
     return {
       current: "organizer",
-      title: "Makersmarkt organisator worden",
+      title: "Organisator worden",
       description:
         "Registreer je om je markt, beurs of open atelier in de Hobbysalon-agenda te zetten.",
       defaultCreatorTypes: ["organizer"],
+    };
+  }
+
+  if (focus === "maker") {
+    return {
+      current: "maker",
+      title: "Maker worden",
+      description:
+        "Registreer je om je creaties te tonen en hobbyisten te laten ontdekken wat je maakt.",
+      defaultCreatorTypes: ["maker"],
     };
   }
 
@@ -62,39 +73,61 @@ function resolveFocus(
 export default async function RegisterCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, focus } = await searchParams;
-  const nextPath = getSafeInternalPath(next, "/profile?tab=profiel#maker-pagina");
+  // Hash-free: this path is also used in login?next= and auth confirm redirects.
+  const nextPath = getSafeInternalPath(next, "/profile?tab=profiel");
   const resolved = resolveFocus(focus);
 
   if (user) {
-    redirect(nextPath);
+    const context = await getUserRegistrationContext(user.id);
+    if (context.hasCreatorProfile) {
+      redirect(nextPath.startsWith("/profile") ? "/onboarding" : nextPath);
+    }
+    // Logged-in base account: finish via role onboarding (DB intent), not generic profile.
+    if (focus === "workshopgever" || focus === "maker" || focus === "organizer") {
+      const { updateUserOfferIntent } = await import(
+        "@/lib/platform/queries/user-registration"
+      );
+      await updateUserOfferIntent({
+        userId: user.id,
+        offerRoles: [focus],
+        primaryOfferRole: focus,
+      });
+    }
+    redirect("/onboarding");
   }
 
   return (
-    <PageLayout
-      title={resolved.title}
-      description={resolved.description}
-      size="narrow"
-    >
-      <CardShell variant="default" padding="lg">
-        <CreatorRegisterForm
-          action={registerCreatorAction}
-          nextPath={nextPath}
-          defaultCreatorTypes={resolved.defaultCreatorTypes}
-        />
-      </CardShell>
-
-      <p className="mt-4 text-sm text-[var(--muted)]">
-        Al een account?{" "}
-        <Link
-          href={`/login?next=${encodeURIComponent(nextPath)}`}
-          className="font-medium text-[var(--accent)] underline"
+    <div className="bg-[var(--section-alt)]">
+      <PageLayout
+        title={resolved.title}
+        description={resolved.description}
+        size="narrow"
+      >
+        <CardShell
+          variant="default"
+          padding="lg"
+          className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
-          Meld je aan
-        </Link>
-        .
-      </p>
+          <CreatorRegisterForm
+            action={registerCreatorAction}
+            nextPath={nextPath}
+            defaultCreatorTypes={resolved.defaultCreatorTypes}
+          />
+        </CardShell>
 
-      <AccountChoiceCards nextPath={nextPath} current={resolved.current} />
-    </PageLayout>
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Al een account?{" "}
+          <Link
+            href={`/login?next=${encodeURIComponent(nextPath)}`}
+            className="font-medium text-[var(--accent)] underline"
+          >
+            Meld je aan
+          </Link>
+          .
+        </p>
+
+        <AccountChoiceCards nextPath={nextPath} current={resolved.current} />
+      </PageLayout>
+    </div>
   );
 }

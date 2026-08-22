@@ -18,6 +18,26 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["recommendation_source", "item_count"],
     funnelStage: "discovery",
   },
+  home_search_submitted: {
+    required: ["query"],
+    funnelStage: "discovery",
+  },
+  home_route_clicked: {
+    required: ["route"],
+    funnelStage: "discovery",
+  },
+  home_event_clicked: {
+    required: ["event_id", "event_slug"],
+    funnelStage: "discovery",
+  },
+  home_journey_clicked: {
+    required: ["journey_kind", "href"],
+    funnelStage: "discovery",
+  },
+  home_provider_clicked: {
+    required: ["destination"],
+    funnelStage: "intent",
+  },
   bundle_add: {
     required: ["bundle_id", "bundle_label", "item_count"],
     funnelStage: "intent",
@@ -41,6 +61,14 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
   newsletter_signup: {
     required: ["signup_source"],
     funnelStage: "engagement",
+  },
+  tool_calculated: {
+    required: ["tool_slug", "formula_id"],
+    funnelStage: "engagement",
+  },
+  tool_materials_clicked: {
+    required: ["tool_slug", "formula_id", "query"],
+    funnelStage: "intent",
   },
 };
 

@@ -6,6 +6,7 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { sendProductInquiryCreatorEmail } from "@/lib/platform/notifications/product-inquiry-email";
+import { resolveCreatorNotifyEmail } from "@/lib/platform/queries/product-inquiries";
 
 export type ProductInquiryResult = {
   success: boolean;
@@ -63,14 +64,20 @@ export async function submitProductInquiry(
 
     const { data: creator } = await supabase
       .from("creators")
-      .select("display_name, email")
+      .select("display_name, email, user_id")
       .eq("id", creatorId)
       .maybeSingle();
 
-    if (creator?.email) {
+    const creatorEmail = await resolveCreatorNotifyEmail({
+      creatorId,
+      userId: creator?.user_id ?? null,
+      profileEmail: creator?.email ?? null,
+    });
+
+    if (creatorEmail) {
       void sendProductInquiryCreatorEmail({
-        creatorEmail: creator.email,
-        creatorName: creator.display_name ?? "maker",
+        creatorEmail,
+        creatorName: creator?.display_name ?? "maker",
         productTitle: product.title,
         productSlug: product.slug,
         inquirerName: fullName,
@@ -78,6 +85,11 @@ export async function submitProductInquiry(
         message,
       }).catch((err) => {
         console.error("Product inquiry email failed:", err);
+      });
+    } else {
+      console.warn("Product inquiry created but no creator email to notify", {
+        creatorId,
+        productId,
       });
     }
 

@@ -70,7 +70,10 @@ export async function addToCartAction(
     }
   }
   if (!result.success) {
-    return { success: false, message: "Toevoegen mislukt" };
+    return {
+      success: false,
+      message: result.message ?? "Toevoegen mislukt",
+    };
   }
 
   revalidatePath("/cart");

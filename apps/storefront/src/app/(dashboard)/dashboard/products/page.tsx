@@ -8,21 +8,28 @@ import { getUserRegistrationContext } from "@/lib/platform/queries/user-registra
 import { listDomainsBySort } from "@/lib/platform/queries/domains";
 import {
   listSupplyCategoryOptions,
-  type ProductCategoryOption,
 } from "@/lib/platform/queries/products";
 import {
   createProductAction,
   deleteProductAction,
+  deleteProductGalleryImageAction,
   unpublishProductAction,
   updateProductAction,
 } from "@/app/actions/dashboard";
 import { updateProductInquiryStatusAction } from "@/app/actions/product-inquiry";
+import { createCreditPackCheckoutAction } from "@/app/actions/listing-checkout";
+import { getCreditBalance } from "@/lib/platform/listing-credits";
+import { isCommercialGatingEnabled } from "@/lib/platform/commercial-entitlements";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DashboardProductListItem } from "@/components/dashboard/DashboardProductListItem";
+import { ProductDomainCategoryFields } from "@/components/dashboard/ProductDomainCategoryFields";
+import { CreateProductDraftForm } from "@/components/dashboard/CreateProductDraftForm";
 import type { Product } from "@/types/platform";
 
 type Props = {
@@ -38,6 +45,14 @@ type ProductInquiryRow = {
   status: string;
   created_at: string;
   products: { title: string; slug: string } | { title: string; slug: string }[] | null;
+};
+
+type CreditPackRow = {
+  pack_code: string;
+  name: string;
+  credits: number;
+  price_cents: number;
+  currency_code: string;
 };
 
 const PRODUCT_TYPE_OPTIONS = [
@@ -57,6 +72,28 @@ const INQUIRY_STATUS_OPTIONS = [
   { value: "declined", label: "Afgewezen" },
 ];
 
+function inquiryStatusLabel(status: string): string {
+  return (
+    INQUIRY_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+    status
+  );
+}
+
+function buildInquiryMailto(inquiry: ProductInquiryRow): string {
+  const title = inquiryProductTitle(inquiry);
+  const subject = encodeURIComponent(`Reactie op je aanvraag: ${title}`);
+  const body = encodeURIComponent(
+    [
+      `Hallo ${inquiry.full_name},`,
+      "",
+      `Bedankt voor je interesse in “${title}” op Hobbysalon.`,
+      "",
+      "Met vriendelijke groet,",
+    ].join("\n")
+  );
+  return `mailto:${inquiry.email}?subject=${subject}&body=${body}`;
+}
+
 function formatEuroFromCents(cents: number | null | undefined): string {
   if (typeof cents !== "number") return "";
   return new Intl.NumberFormat("nl-BE", {
@@ -64,6 +101,18 @@ function formatEuroFromCents(cents: number | null | undefined): string {
     currency: "EUR",
   }).format(cents / 100);
 }
+
+function centsToEuroInput(cents: number | null | undefined): string {
+  if (typeof cents !== "number") return "";
+  return (cents / 100).toFixed(2);
+}
+
+type ProductGalleryImage = {
+  id: string;
+  product_id: string;
+  image_url: string;
+  sort_order: number;
+};
 
 function inquiryProductTitle(inquiry: ProductInquiryRow): string {
   const products = inquiry.products;
@@ -98,12 +147,17 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
   let products: Product[] = [];
   let creatorDomainIds: string[] = [];
   let productInquiries: ProductInquiryRow[] = [];
+  let creditPacks: CreditPackRow[] = [];
+  let creditBalance = 0;
+  const galleryByProduct = new Map<string, ProductGalleryImage[]>();
   if (creator) {
     const supabase = createPlatformClient();
     const [
       { data: productData },
       { data: creatorDomainLinks },
       { data: inquiryData },
+      { data: creditPackData },
+      balance,
     ] = await Promise.all([
       supabase
         .from("products")
@@ -122,36 +176,79 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         .eq("creator_id", creator.id)
         .order("created_at", { ascending: false })
         .limit(50),
+      supabase
+        .from("listing_credit_products")
+        .select("pack_code, name, credits, price_cents, currency_code")
+        .eq("is_active", true)
+        .order("credits", { ascending: true }),
+      getCreditBalance(creator.id),
     ]);
     products = (productData ?? []) as Product[];
     creatorDomainIds = Array.from(
       new Set((creatorDomainLinks ?? []).map((row) => row.domain_id).filter(Boolean))
     );
     productInquiries = (inquiryData ?? []) as ProductInquiryRow[];
+    creditPacks = (creditPackData ?? []) as CreditPackRow[];
+    creditBalance = balance;
+
+    if (products.length > 0) {
+      const { data: galleryRows } = await supabase
+        .from("product_gallery_images")
+        .select("id, product_id, image_url, sort_order")
+        .in(
+          "product_id",
+          products.map((product) => product.id)
+        )
+        .order("sort_order", { ascending: true });
+      for (const row of (galleryRows ?? []) as ProductGalleryImage[]) {
+        const list = galleryByProduct.get(row.product_id) ?? [];
+        list.push(row);
+        galleryByProduct.set(row.product_id, list);
+      }
+    }
   }
 
   const domainOptions = domains.map((domain) => ({
     value: domain.id,
     label: domain.name,
   }));
-  const categoryOptionsByDomain = new Map<string, ProductCategoryOption[]>();
-  for (const category of categoryOptions) {
-    if (!category.domain_id) continue;
-    const existing = categoryOptionsByDomain.get(category.domain_id) ?? [];
-    existing.push(category);
-    categoryOptionsByDomain.set(category.domain_id, existing);
-  }
   const primaryDomainId = creatorDomainIds[0] ?? "";
-  const createCategoryOptions =
-    (primaryDomainId ? categoryOptionsByDomain.get(primaryDomainId) : null) ??
-    categoryOptions;
+  const allProductCategories = categoryOptions.map((category) => ({
+    id: category.id,
+    name: category.name,
+    domain_id: category.domain_id,
+  }));
+
+  const makerListings = products.filter(
+    (product) =>
+      product.product_type === "handmade" || product.product_type === "destash"
+  );
+  const webshopProducts = products.filter(
+    (product) =>
+      Boolean(product.medusa_product_id) ||
+      product.product_type === "supply" ||
+      product.product_type === "workshop_kit"
+  );
+  const vendorPanelUrl =
+    process.env.NEXT_PUBLIC_VENDOR_PANEL_URL?.replace(/\/$/, "") ||
+    "https://verkoper.hobbysalon.be";
 
   return (
     <section className="space-y-6">
       <h1 className="text-3xl font-bold text-[var(--foreground)]">Beheer je creaties</h1>
       <p className="max-w-2xl text-[var(--muted)]">
         Plaats je handmade creaties als vermelding. Bezoekers contacteren jou
-        rechtstreeks — Hobbysalon verwerkt geen betalingen voor makers.
+        rechtstreeks. Hobbysalon verwerkt geen betalingen voor makers.
+      </p>
+      <p className="max-w-2xl text-sm text-[var(--muted)]">
+        Webshopproducten (voorraad, prijs, verzending, checkout) beheer je in het{" "}
+        <a
+          href={vendorPanelUrl}
+          className="font-medium text-[var(--accent)] underline underline-offset-2"
+        >
+          Verkopersportaal
+        </a>
+        .
       </p>
 
       {success && (
@@ -171,316 +268,407 @@ export default async function DashboardProductsPage({ searchParams }: Props) {
         </p>
       ) : (
         <>
-          <CardShell variant="default" padding="lg" className="mb-8">
-            <form action={createProductAction} encType="multipart/form-data">
-              <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Input name="title" label="Titel *" required />
-                <Input name="slug" label="Slug" />
-                <Select
-                  name="product_type"
-                  label="Type *"
-                  options={PRODUCT_TYPE_OPTIONS}
-                  required
-                  defaultValue="handmade"
-                />
-                <Input
-                  name="price_cents"
-                  label="Richtprijs (cent) *"
-                  type="number"
-                  min={0}
-                  required
-                  defaultValue="0"
-                />
-                <Input
-                  name="currency_code"
-                  label="Valuta *"
-                  defaultValue="EUR"
-                  maxLength={3}
-                  required
-                />
-                <Select
-                  name="domain_id"
-                  label="Domein"
-                  options={domainOptions}
-                  placeholder="Selecteer domein"
-                  defaultValue={primaryDomainId}
-                />
-                <Select
-                  name="category_id"
-                  label="Categorie"
-                  options={createCategoryOptions.map((category) => ({
-                    value: category.id,
-                    label: category.name,
-                  }))}
-                  placeholder="Selecteer categorie"
-                />
-                <Select
-                  name="condition_type"
-                  label="Conditie"
-                  options={PRODUCT_CONDITION_OPTIONS}
-                  defaultValue="handmade"
-                />
-                <Input
-                  name="estimated_dispatch_days"
-                  label="Verzending binnen (dagen)"
-                  type="number"
-                  min={0}
-                />
-                <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
-                  <ImageUploadField
-                    name="featured_image_file"
-                    label="Foto van je creatie"
-                    uploadPathPrefix={`creators/${creator.id}/products`}
-                    hint="Deze foto verschijnt als hoofdafbeelding in je shop."
-                  />
-                </div>
-                <Input name="short_description" label="Korte omschrijving" className="sm:col-span-2" />
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
-                  <textarea
-                    name="description"
-                    rows={3}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                  />
-                </div>
-                <label className="inline-flex items-center gap-2 sm:col-span-2">
-                  <input type="checkbox" name="is_active" />
-                  <span className="text-sm">Direct zichtbaar in je shop</span>
-                </label>
-                <label className="inline-flex items-center gap-2 sm:col-span-2">
-                  <input type="checkbox" name="personalization_available" />
-                  <span className="text-sm">Personalisatie mogelijk</span>
-                </label>
-              </div>
-              <Button type="submit" className="mt-4">
-                Plaatsing toevoegen
-              </Button>
-            </form>
-          </CardShell>
-
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Jouw plaatsingen ({products.length})</h2>
-            {products.length === 0 ? (
-              <EmptyState
-                title="Nog geen plaatsingen"
-                description="Voeg je eerste creatie toe met het formulier hierboven."
-              />
-            ) : (
-              products.map((product) => (
-                <CardShell key={product.id} variant="default" padding="md">
-                <details>
-                  <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
-                    {product.title}{" "}
-                    <span className="text-sm text-[var(--muted)]">
-                      ({product.product_type})
-                      {product.is_active ? " · actief" : " · concept"}
-                      {typeof product.price_cents === "number"
-                        ? ` · ${formatEuroFromCents(product.price_cents)}`
-                        : ""}
-                      {product.medusa_product_id ? " · webshop" : " · contact"}
-                    </span>
-                  </summary>
-                  <form action={updateProductAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <input type="hidden" name="id" value={product.id} />
-                    <input
-                      type="hidden"
-                      name="medusa_product_id"
-                      value={product.medusa_product_id ?? ""}
-                    />
-                    <Input
-                      name="title"
-                      label="Titel *"
-                      required
-                      defaultValue={product.title}
-                    />
-                    <Input
-                      name="slug"
-                      label="Slug"
-                      defaultValue={product.slug}
-                    />
-                    <Select
-                      name="product_type"
-                      label="Type *"
-                      options={PRODUCT_TYPE_OPTIONS}
-                      required
-                      defaultValue={product.product_type}
-                    />
-                    <Input
-                      name="price_cents"
-                      label="Richtprijs (cent)"
-                      type="number"
-                      min={0}
-                      defaultValue={
-                        typeof product.price_cents === "number"
-                          ? String(product.price_cents)
-                          : ""
-                      }
-                    />
-                    <Input
-                      name="currency_code"
-                      label="Valuta"
-                      defaultValue={product.currency_code ?? "EUR"}
-                      maxLength={3}
-                    />
-                    <Select
-                      name="domain_id"
-                      label="Domein"
-                      options={domainOptions}
-                      placeholder="Selecteer domein"
-                      defaultValue={product.domain_id ?? primaryDomainId}
-                    />
-                    <Select
-                      name="category_id"
-                      label="Categorie"
-                      options={(
-                        product.domain_id
-                          ? categoryOptionsByDomain.get(product.domain_id)
-                          : createCategoryOptions
-                      )?.map((category) => ({
-                        value: category.id,
-                        label: category.name,
-                      })) ?? []}
-                      placeholder="Selecteer categorie"
-                      defaultValue={product.category_id ?? ""}
-                    />
-                    <Select
-                      name="condition_type"
-                      label="Conditie"
-                      options={PRODUCT_CONDITION_OPTIONS}
-                      defaultValue={product.condition_type ?? "handmade"}
-                    />
-                    <Input
-                      name="estimated_dispatch_days"
-                      label="Verzending binnen (dagen)"
-                      type="number"
-                      min={0}
-                      defaultValue={product.estimated_dispatch_days ?? ""}
-                    />
-                    <div className="sm:col-span-2 grid gap-4 rounded-lg border border-[var(--border)] p-4">
-                      <ImageUploadField
-                        name="featured_image_file"
-                        label="Foto van je creatie"
-                        currentUrl={product.featured_image_url}
-                        uploadPathPrefix={`creators/${creator.id}/products`}
-                        hint="Laat leeg om de huidige foto te behouden."
-                      />
-                    </div>
-                    <Input
-                      name="short_description"
-                      label="Korte omschrijving"
-                      defaultValue={product.short_description ?? ""}
-                      className="sm:col-span-2"
-                    />
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Omschrijving</label>
-                      <textarea
-                        name="description"
-                        rows={3}
-                        defaultValue={product.description ?? ""}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                      />
-                    </div>
-                    <label className="inline-flex items-center gap-2 sm:col-span-2">
-                      <input type="checkbox" name="is_active" defaultChecked={product.is_active} />
-                      <span className="text-sm">Zichtbaar in je shop</span>
-                    </label>
-                    <label className="inline-flex items-center gap-2 sm:col-span-2">
-                      <input
-                        type="checkbox"
-                        name="personalization_available"
-                        defaultChecked={product.personalization_available}
-                      />
-                      <span className="text-sm">Personalisatie mogelijk</span>
-                    </label>
-                    <div className="sm:col-span-2 flex flex-wrap gap-2">
-                      <Button type="submit" variant="secondary" size="sm">
-                        Opslaan
-                      </Button>
-                      <Button
-                        type="submit"
-                        formAction={unpublishProductAction}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        Uit shop halen
-                      </Button>
-                      <Button
-                        type="submit"
-                        formAction={deleteProductAction}
-                        variant="danger"
-                        size="sm"
-                      >
-                        Verwijder
-                      </Button>
-                    </div>
-                  </form>
-                </details>
-                </CardShell>
-              ))
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">
-              Aanvragen inbox ({productInquiries.length})
-            </h2>
+          <div id="aanvragen" className="scroll-mt-6 space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">
+                Aanvragen inbox ({productInquiries.length})
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Beantwoord geïnteresseerden via e-mail. Hobbysalon verwerkt geen
+                betaling — jullie regelen de deal zelf.
+              </p>
+            </div>
             {productInquiries.length === 0 ? (
               <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-6 text-sm text-[var(--muted)]">
                 Nog geen aanvragen. Zodra iemand reageert op een plaatsing,
                 verschijnt dat hier.
               </p>
             ) : (
-              productInquiries.map((inquiry) => (
-                <div
-                  key={inquiry.id}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {inquiry.full_name} · {inquiry.email}
-                      </p>
-                      <p className="text-sm text-[var(--muted)]">
-                        Plaatsing: {inquiryProductTitle(inquiry)}
-                      </p>
-                      {inquiry.message && (
-                        <p className="mt-1 text-sm text-[var(--foreground)]">
-                          {inquiry.message}
+              productInquiries.map((inquiry) => {
+                const isNew = inquiry.status === "new";
+                return (
+                  <div
+                    key={inquiry.id}
+                    className={`rounded-lg border p-4 ${
+                      isNew
+                        ? "border-amber-300 bg-amber-50/60"
+                        : "border-[var(--border)] bg-[var(--card)]"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-[var(--foreground)]">
+                            {inquiry.full_name}
+                          </p>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              isNew
+                                ? "bg-amber-200 text-amber-950"
+                                : "bg-[var(--background)] text-[var(--muted)]"
+                            }`}
+                          >
+                            {inquiryStatusLabel(inquiry.status)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          <a
+                            href={`mailto:${inquiry.email}`}
+                            className="font-medium text-[var(--accent)] underline underline-offset-2"
+                          >
+                            {inquiry.email}
+                          </a>
+                          {" · "}
+                          Plaatsing: {inquiryProductTitle(inquiry)}
                         </p>
-                      )}
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {new Date(inquiry.created_at).toLocaleString("nl-BE")}
-                      </p>
+                        {inquiry.message && (
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--foreground)]">
+                            {inquiry.message}
+                          </p>
+                        )}
+                        <p className="mt-2 text-xs text-[var(--muted)]">
+                          {new Date(inquiry.created_at).toLocaleString("nl-BE")}
+                        </p>
+                      </div>
                     </div>
-                    <form
-                      action={updateProductInquiryStatusAction}
-                      className="flex items-center gap-2"
-                    >
-                      <input type="hidden" name="id" value={inquiry.id} />
-                      <select
-                        name="status"
-                        defaultValue={inquiry.status}
-                        className="rounded-md border border-[var(--border)] px-2 py-1.5 text-sm"
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <a
+                        href={buildInquiryMailto(inquiry)}
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] hover:opacity-90"
                       >
-                        {INQUIRY_STATUS_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+                        Antwoord via e-mail
+                      </a>
+                      {isNew ? (
+                        <form action={updateProductInquiryStatusAction}>
+                          <input type="hidden" name="id" value={inquiry.id} />
+                          <input type="hidden" name="status" value="contacted" />
+                          <button
+                            type="submit"
+                            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 text-sm font-medium hover:border-[var(--accent)]"
+                          >
+                            Markeer als gecontacteerd
+                          </button>
+                        </form>
+                      ) : null}
+                      <form
+                        action={updateProductInquiryStatusAction}
+                        className="flex flex-wrap items-center gap-2"
                       >
-                        Update
-                      </button>
-                    </form>
+                        <input type="hidden" name="id" value={inquiry.id} />
+                        <label className="sr-only" htmlFor={`status-${inquiry.id}`}>
+                          Status
+                        </label>
+                        <select
+                          id={`status-${inquiry.id}`}
+                          name="status"
+                          defaultValue={inquiry.status}
+                          className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 text-sm"
+                        >
+                          {INQUIRY_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border)] px-3 text-sm hover:border-[var(--accent)]"
+                        >
+                          Status opslaan
+                        </button>
+                      </form>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
+
+          {isCommercialGatingEnabled() && (
+          <CardShell variant="default" padding="lg" className="mb-8">
+            <h2 className="text-lg font-semibold">Listing credits</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Je huidige saldo: <strong>{creditBalance} credits</strong>. Elke
+              plaatsing kost credits; koop een pakket om te blijven publiceren.
+            </p>
+            {creditPacks.length > 0 && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {creditPacks.map((pack) => (
+                  <form
+                    key={pack.pack_code}
+                    action={createCreditPackCheckoutAction}
+                    className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3"
+                  >
+                    <input type="hidden" name="pack_code" value={pack.pack_code} />
+                    <span className="font-semibold text-[var(--foreground)]">
+                      {pack.name}
+                    </span>
+                    <span className="text-sm text-[var(--muted)]">
+                      {pack.credits} credits
+                    </span>
+                    <span className="text-sm text-[var(--foreground)]">
+                      {formatEuroFromCents(pack.price_cents)}
+                    </span>
+                    <Button type="submit" variant="secondary" size="sm">
+                      Kopen
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            )}
+          </CardShell>
+          )}
+
+          {webshopProducts.length > 0 ? (
+            <CardShell variant="default" padding="md">
+              <h2 className="text-lg font-semibold text-[var(--foreground)]">
+                Webshopproducten ({webshopProducts.length})
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Deze producten komen uit Medusa (checkout + voorraad). Bewerken
+                doe je in het Verkopersportaal, niet hier.
+              </p>
+              <ul className="mt-4 space-y-2">
+                {webshopProducts.map((product) => (
+                  <li
+                    key={product.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium text-[var(--foreground)]">
+                      {product.title}
+                      <span className="ml-2 font-normal text-[var(--muted)]">
+                        · Webshop
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-2">
+                      <a
+                        href={`/product/${product.slug}`}
+                        className="text-[var(--accent)] underline underline-offset-2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Bekijken
+                      </a>
+                      <a
+                        href={`${vendorPanelUrl}/products`}
+                        className="font-medium text-[var(--accent)] underline underline-offset-2"
+                      >
+                        Beheer in verkoper
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardShell>
+          ) : null}
+
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-[var(--foreground)]">
+                Jouw plaatsingen
+              </h2>
+              <p className="mt-1 text-base text-[var(--muted)]">
+                {makerListings.length === 0
+                  ? "Nog geen creaties. Voeg er een toe met het formulier hieronder."
+                  : `${makerListings.length} ${makerListings.length === 1 ? "plaatsing" : "plaatsingen"} in je shop.`}
+              </p>
+            </div>
+            {makerListings.length === 0 ? (
+              <EmptyState
+                title="Nog geen plaatsingen"
+                description="Voeg je eerste creatie toe met het formulier hieronder."
+              />
+            ) : (
+              <ul className="space-y-4">
+                {makerListings.map((product) => (
+                  <li key={product.id}>
+                    <DashboardProductListItem
+                      product={product}
+                      priceLabel={formatEuroFromCents(product.price_cents)}
+                    >
+                      {(galleryByProduct.get(product.id) ?? []).length > 0 ? (
+                        <div className="mb-4 space-y-2">
+                          <p className="text-sm font-medium">Extra foto&apos;s</p>
+                          <ul className="grid gap-2 sm:grid-cols-3">
+                            {(galleryByProduct.get(product.id) ?? []).map((image) => (
+                              <li
+                                key={image.id}
+                                className="overflow-hidden rounded-md border border-[var(--border)]"
+                              >
+                                <img
+                                  src={image.image_url}
+                                  alt=""
+                                  className="aspect-square w-full object-cover"
+                                />
+                                <form
+                                  action={deleteProductGalleryImageAction}
+                                  className="p-2"
+                                >
+                                  <input
+                                    type="hidden"
+                                    name="gallery_image_id"
+                                    value={image.id}
+                                  />
+                                  <Button
+                                    type="submit"
+                                    variant="secondary"
+                                    size="sm"
+                                  >
+                                    Verwijder
+                                  </Button>
+                                </form>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      <form
+                        action={updateProductAction}
+                        encType="multipart/form-data"
+                        className="grid gap-4 sm:grid-cols-2"
+                      >
+                        <input type="hidden" name="id" value={product.id} />
+                        <input
+                          type="hidden"
+                          name="medusa_product_id"
+                          value={product.medusa_product_id ?? ""}
+                        />
+                        <Input
+                          name="title"
+                          label="Titel *"
+                          required
+                          defaultValue={product.title}
+                        />
+                        <Select
+                          name="product_type"
+                          label="Type *"
+                          options={PRODUCT_TYPE_OPTIONS}
+                          required
+                          defaultValue={product.product_type}
+                        />
+                        <Input
+                          name="price_euro"
+                          label="Richtprijs (€) *"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          required
+                          defaultValue={centsToEuroInput(product.price_cents)}
+                        />
+                        <input type="hidden" name="currency_code" value="EUR" />
+                        <ProductDomainCategoryFields
+                          domainOptions={domainOptions}
+                          categories={allProductCategories}
+                          defaults={{
+                            domain_id: product.domain_id ?? primaryDomainId,
+                            category_id: product.category_id,
+                          }}
+                        />
+                        <Select
+                          name="condition_type"
+                          label="Conditie"
+                          options={PRODUCT_CONDITION_OPTIONS}
+                          defaultValue={product.condition_type ?? "handmade"}
+                        />
+                        <Input
+                          name="estimated_dispatch_days"
+                          label="Verzending binnen (dagen)"
+                          type="number"
+                          min={0}
+                          defaultValue={product.estimated_dispatch_days ?? ""}
+                        />
+                        <div className="grid gap-4 rounded-lg border border-[var(--border)] p-4 sm:col-span-2">
+                          <ImageUploadField
+                            name="featured_image_file"
+                            label="Hoofdfoto"
+                            currentUrl={product.featured_image_url}
+                            uploadPathPrefix={`creators/${creator.id}/products`}
+                            hint="Vierkant of liggend · min. 1000×1000 px. Laat leeg om de huidige foto te behouden."
+                          />
+                          <MultiImageUploadField
+                            uploadPathPrefix={`creators/${creator.id}/products/gallery`}
+                            label="Extra foto's toevoegen"
+                            existingCount={
+                              (galleryByProduct.get(product.id) ?? []).length
+                            }
+                            hint="Optioneel. Vierkant werkt het best · min. 1000×1000 px."
+                          />
+                        </div>
+                        <Input
+                          name="short_description"
+                          label="Korte omschrijving"
+                          defaultValue={product.short_description ?? ""}
+                          className="sm:col-span-2"
+                        />
+                        <div className="sm:col-span-2">
+                          <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
+                            Omschrijving
+                          </label>
+                          <textarea
+                            name="description"
+                            rows={3}
+                            defaultValue={product.description ?? ""}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                          />
+                        </div>
+                        <label className="inline-flex items-center gap-2 sm:col-span-2">
+                          <input
+                            type="checkbox"
+                            name="is_active"
+                            defaultChecked={product.is_active}
+                          />
+                          <span className="text-sm">Zichtbaar in je shop</span>
+                        </label>
+                        <label className="inline-flex items-center gap-2 sm:col-span-2">
+                          <input
+                            type="checkbox"
+                            name="personalization_available"
+                            defaultChecked={product.personalization_available}
+                          />
+                          <span className="text-sm">Personalisatie mogelijk</span>
+                        </label>
+                        <div className="flex flex-wrap gap-2 sm:col-span-2">
+                          <Button type="submit" variant="secondary" size="sm">
+                            Opslaan
+                          </Button>
+                          <Button
+                            type="submit"
+                            formAction={unpublishProductAction}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Uit shop halen
+                          </Button>
+                          <Button
+                            type="submit"
+                            formAction={deleteProductAction}
+                            variant="danger"
+                            size="sm"
+                          >
+                            Verwijder
+                          </Button>
+                        </div>
+                      </form>
+                    </DashboardProductListItem>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+
+          <CardShell variant="default" padding="lg" className="mb-8">
+            <CreateProductDraftForm
+              action={createProductAction}
+              creatorId={creator.id}
+              domainOptions={domainOptions}
+              categories={allProductCategories}
+              primaryDomainId={primaryDomainId}
+              productTypeOptions={PRODUCT_TYPE_OPTIONS}
+              conditionOptions={PRODUCT_CONDITION_OPTIONS}
+            />
+          </CardShell>
         </>
       )}
     </section>

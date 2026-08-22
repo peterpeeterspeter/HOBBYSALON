@@ -635,11 +635,18 @@ const nextConfig: NextConfig = {
     turbopack: { root: workspaceRoot },
   }),
   async redirects() {
-    return legacyArticleSlugs.map((slug) => ({
-      source: `/${slug}`,
-      destination: `/artikel/${slug}`,
-      statusCode: 301,
-    }));
+    return [
+      {
+        source: "/landing",
+        destination: "/over-ons",
+        permanent: true,
+      },
+      ...legacyArticleSlugs.map((slug) => ({
+        source: `/${slug}`,
+        destination: `/artikel/${slug}`,
+        statusCode: 301 as const,
+      })),
+    ];
   },
   async headers() {
     return [

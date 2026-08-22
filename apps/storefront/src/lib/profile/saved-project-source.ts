@@ -7,13 +7,18 @@ import {
   listProjectSoughtMaterials,
   listProjectSteps,
 } from "@/lib/platform/queries/projects";
+import {
+  mergeMaterialsWithProducts,
+  parseArticleMaterials,
+} from "@/lib/content/parse-article-materials";
+import { parseArticleSteps } from "@/lib/content/parse-article-steps";
 import type { EntityType } from "@/types/platform";
 import type { ProjectRequirementItem } from "./project-requirements";
-import { parseArticleMaterialRequirements } from "@/lib/content/article-materials";
 
 export type SavedProjectItem = ProjectRequirementItem & {
   detail: string | null;
   href?: string;
+  linkLabel?: string;
 };
 
 export type SavedProjectSource = {
@@ -22,6 +27,8 @@ export type SavedProjectSource = {
   title: string;
   imageUrl: string | null;
   description: string | null;
+  sourceHref: string | null;
+  sourceCtaLabel: string;
   items: SavedProjectItem[];
 };
 
@@ -36,6 +43,13 @@ function orderByIds<T extends { id: string }>(items: T[], ids: string[]): T[] {
   return ids.map((id) => byId.get(id)).filter((item): item is T => item != null);
 }
 
+function articleSourceCtaLabel(articleType: string | null | undefined): string {
+  if (articleType === "pattern") {
+    return "Bekijk het originele patroon";
+  }
+  return "Lees het originele artikel";
+}
+
 export async function getSavedProjectSource(
   entityType: "article" | "project",
   entityId: string
@@ -45,11 +59,14 @@ export async function getSavedProjectSource(
   if (entityType === "project") {
     const { data: project } = await supabase
       .from("projects")
-      .select("id,title,short_description,featured_image_url")
+      .select("id,slug,title,short_description,featured_image_url")
       .eq("id", entityId)
       .eq("is_active", true)
       .maybeSingle();
     if (!project) return null;
+
+    const sourceHref = project.slug ? `/project/${project.slug}` : null;
+    const sourceCtaLabel = "Bekijk het project";
 
     const [steps, productLinks, sought] = await Promise.all([
       listProjectSteps(entityId),
@@ -68,7 +85,21 @@ export async function getSavedProjectSource(
       title: project.title,
       imageUrl: project.featured_image_url,
       description: project.short_description,
+      sourceHref,
+      sourceCtaLabel,
       items: [
+        ...(sourceHref
+          ? [
+              {
+                key: "step:read",
+                title: "Bekijk het project",
+                detail: "Neem rustig de uitleg door voordat je begint.",
+                href: sourceHref,
+                linkLabel: sourceCtaLabel,
+                kind: "step" as const,
+              },
+            ]
+          : []),
         ...steps.map((step) => ({
           key: `step:${step.id}`,
           title: step.title,
@@ -82,6 +113,7 @@ export async function getSavedProjectSource(
             title: product?.title ?? "Materiaal",
             detail: null,
             href: product ? `/product/${product.slug}` : undefined,
+            linkLabel: product ? "Bekijk" : undefined,
             kind: "material" as const,
           };
         }),
@@ -97,11 +129,14 @@ export async function getSavedProjectSource(
 
   const { data: article } = await supabase
     .from("articles")
-    .select("id,title,excerpt,featured_image_url,body_markdown")
+    .select("id,slug,title,excerpt,featured_image_url,body_markdown,article_type")
     .eq("id", entityId)
     .eq("is_published", true)
     .maybeSingle();
   if (!article) return null;
+
+  const sourceHref = article.slug ? `/artikel/${article.slug}` : null;
+  const sourceCtaLabel = articleSourceCtaLabel(article.article_type);
 
   const connections = await getEntityConnections("article", entityId);
   const productIds = connections
@@ -122,7 +157,14 @@ export async function getSavedProjectSource(
           .in("id", [...new Set(productIds)])
           .eq("is_active", true)
           .eq("status", "active")
-      : Promise.resolve({ data: [] as Array<{ id: string; title: string; slug: string; short_description: string | null }> }),
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            title: string;
+            slug: string;
+            short_description: string | null;
+          }>,
+        }),
     listWorkshopsByIds(workshopIds),
     listEventsByIds(eventIds),
   ]);
@@ -131,32 +173,44 @@ export async function getSavedProjectSource(
   const orderedWorkshops = orderByIds(workshops, workshopIds);
   const orderedEvents = orderByIds(events, eventIds);
 
+  const checklist = parseArticleMaterials(article.body_markdown);
+  const { materials, offers } = mergeMaterialsWithProducts(checklist, products);
+  const articleSteps = parseArticleSteps(article.body_markdown);
+
   return {
     entityType,
     entityId,
     title: article.title,
     imageUrl: article.featured_image_url,
     description: article.excerpt,
+    sourceHref,
+    sourceCtaLabel,
     items: [
       {
         key: "step:read",
-        title: "Lees het patroon of artikel",
+        title:
+          article.article_type === "pattern"
+            ? "Lees het patroon"
+            : "Lees het artikel",
         detail: "Neem rustig de uitleg door voordat je begint.",
+        href: sourceHref ?? undefined,
+        linkLabel: sourceCtaLabel,
         kind: "step",
       },
-      ...parseArticleMaterialRequirements(article.body_markdown),
-      ...products.map((product) => ({
-        key: `material:product:${product.id}`,
-        title: product.title,
-        detail: product.short_description,
-        href: `/product/${product.slug}`,
-        kind: "material" as const,
+      ...articleSteps.map((step) => ({
+        key: step.key,
+        title: step.title,
+        detail: step.detail,
+        kind: "step" as const,
       })),
+      ...materials,
+      ...offers,
       ...orderedWorkshops.map((workshop) => ({
         key: `workshop:${workshop.id}`,
         title: workshop.title,
         detail: workshop.short_description,
         href: `/workshop/${workshop.slug}`,
+        linkLabel: "Bekijk aanbod",
         kind: "workshop" as const,
       })),
       ...orderedEvents.map((event) => ({
@@ -164,6 +218,7 @@ export async function getSavedProjectSource(
         title: event.title,
         detail: event.short_description,
         href: `/agenda/${event.slug}`,
+        linkLabel: "Bekijk aanbod",
         kind: "event" as const,
       })),
     ],

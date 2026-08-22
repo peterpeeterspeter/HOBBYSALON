@@ -11,6 +11,7 @@ import {
   formatMerchantProvisionError,
   provisionMerchantSeller,
 } from "@/lib/commerce/medusa/merchant-registration";
+import { ensureMerchantCreatorProfile } from "@/lib/platform/queries/merchant-creator";
 import { sendRoleRequestAdminEmail } from "@/lib/platform/notifications/role-request-email";
 
 export type PrivilegedRole = Extract<
@@ -237,6 +238,26 @@ async function provisionMerchantFromPayload(
     };
   }
 
+  const creatorResult = await ensureMerchantCreatorProfile({
+    userId,
+    sellerId: merchantResult.sellerId,
+    displayName,
+    businessName: payload.businessName?.trim() || displayName,
+    city: payload.city,
+    postalCode: payload.postalCode,
+    countryCode: payload.countryCode,
+    email,
+  });
+
+  if (!creatorResult.ok) {
+    return {
+      ok: false,
+      message:
+        creatorResult.errors[0] ??
+        "Merchant-winkel gekoppeld, maar creator-profiel aanmaken mislukt.",
+    };
+  }
+
   return { ok: true, message: "" };
 }
 
@@ -292,6 +313,27 @@ export async function approveRoleRequest(
     return { ok: false, message: "Goedkeuren mislukt. Probeer opnieuw." };
   }
 
+  const userEmail =
+    payload.email?.trim() ||
+    (await supabase.auth.admin.getUserById(userId)).data.user?.email ||
+    null;
+  if (userEmail) {
+    const { sendRoleApprovedUserEmail } = await import(
+      "@/lib/platform/notifications/role-request-email"
+    );
+    void sendRoleApprovedUserEmail({
+      role,
+      toEmail: userEmail,
+      displayName: payload.displayName,
+    }).catch((emailError) => {
+      console.error("Failed to send role approved user email", {
+        userId,
+        role,
+        error: emailError,
+      });
+    });
+  }
+
   return { ok: true, message: "Aanvraag goedgekeurd." };
 }
 
@@ -335,11 +377,19 @@ export async function withdrawPendingRoleRequest(
 export async function syncPrivilegedRolesFromCreatorTypes(
   userId: string,
   creatorTypes: string[],
-  options?: { source?: string }
+  options?: RoleRequestPayload & { source?: string }
 ): Promise<string | null> {
   const supabase = createPlatformClient();
   const wantsWorkshopHost = creatorTypes.includes("workshopgever");
   const wantsOrganizer = creatorTypes.includes("organizer");
+  const payload: RoleRequestPayload = {
+    displayName: options?.displayName,
+    businessName: options?.businessName,
+    email: options?.email,
+    city: options?.city,
+    countryCode: options?.countryCode,
+    source: options?.source,
+  };
 
   const { data: roleRows } = await supabase
     .from("user_account_roles")
@@ -350,8 +400,8 @@ export async function syncPrivilegedRolesFromCreatorTypes(
 
   if (wantsWorkshopHost && !activeRoles.has("workshop_host")) {
     const result = await createRoleRequest(userId, "workshop_host", {
+      ...payload,
       creatorType: "workshopgever",
-      source: options?.source,
     });
     if (!result.ok) {
       return result.errors[0] ?? "Workshopgever-aanvraag mislukt.";
@@ -360,8 +410,8 @@ export async function syncPrivilegedRolesFromCreatorTypes(
 
   if (wantsOrganizer && !activeRoles.has("organizer")) {
     const result = await createRoleRequest(userId, "organizer", {
+      ...payload,
       creatorType: "organizer",
-      source: options?.source,
     });
     if (!result.ok) {
       return result.errors[0] ?? "Organisator-aanvraag mislukt.";

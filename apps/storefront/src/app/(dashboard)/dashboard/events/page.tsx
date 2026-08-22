@@ -1,20 +1,33 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
-import { createEventAction, updateEventAction } from "@/app/actions/dashboard";
+import { createEventAction, updateEventAction, deleteEventAction, deleteEventGalleryImageAction } from "@/app/actions/dashboard";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { updateEventVendorInquiryStatusAction } from "@/app/actions/event-vendor-inquiry";
+import { sendExhibitorOutreachAction } from "@/app/actions/exhibitor-outreach";
 import { getDashboardCommercialContext } from "@/lib/platform/commercial-enforcement";
+import { isCommercialGatingEnabled } from "@/lib/platform/commercial-entitlements";
+import { LISTING_CREDIT_COSTS, getEventCreditCost } from "@/lib/platform/listing-credits";
 import { CardShell } from "@/components/ui/card-shell";
 import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
 import type { Event } from "@/types/platform";
 
 type Props = {
   searchParams: Promise<{ success?: string; error?: string }>;
+};
+
+type GalleryImage = {
+  id: string;
+  event_id: string;
+  image_url: string;
+  sort_order: number;
 };
 
 const EVENT_TYPES = [
@@ -56,7 +69,7 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     creatorTypes: creator?.creator_types,
     hasCreatorProfile: Boolean(creator),
   });
-  requireDashboardCapability(caps.canManageEvents);
+  requireDashboardCapability(caps.canDraftEvents);
 
   const { success, error } = await searchParams;
 
@@ -71,6 +84,11 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     status: string;
     created_at: string;
   }> = [];
+  const standhoudersByEvent = new Map<
+    string,
+    Array<{ creator_id: string; display_name: string; slug: string }>
+  >();
+  const galleryByEvent = new Map<string, GalleryImage[]>();
   let commercialContext: Awaited<ReturnType<typeof getDashboardCommercialContext>> | null =
     null;
 
@@ -95,6 +113,49 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
     ]);
     events = (eventsResult.data ?? []) as Event[];
     vendorInquiries = inquiriesResult.data ?? [];
+
+    const eventIds = events.map((event) => event.id);
+    if (eventIds.length > 0) {
+      const [{ data: rosterRows }, { data: galleryData }] = await Promise.all([
+        supabase
+          .from("event_creators")
+          .select("event_id, creator_id, role, creators(display_name, slug)")
+          .in("event_id", eventIds)
+          .eq("role", "vendor"),
+        supabase
+          .from("event_gallery_images")
+          .select("id, event_id, image_url, sort_order")
+          .in("event_id", eventIds)
+          .order("sort_order", { ascending: true }),
+      ]);
+
+      for (const row of (rosterRows ?? []) as Array<{
+        event_id: string;
+        creator_id: string;
+        creators:
+          | { display_name: string; slug: string }
+          | { display_name: string; slug: string }[]
+          | null;
+      }>) {
+        const creatorMeta = Array.isArray(row.creators)
+          ? row.creators[0]
+          : row.creators;
+        if (!creatorMeta) continue;
+        const list = standhoudersByEvent.get(row.event_id) ?? [];
+        list.push({
+          creator_id: row.creator_id,
+          display_name: creatorMeta.display_name,
+          slug: creatorMeta.slug,
+        });
+        standhoudersByEvent.set(row.event_id, list);
+      }
+
+      for (const image of (galleryData ?? []) as GalleryImage[]) {
+        const list = galleryByEvent.get(image.event_id) ?? [];
+        list.push(image);
+        galleryByEvent.set(image.event_id, list);
+      }
+    }
   }
 
   const defaultStart = new Date();
@@ -139,6 +200,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                   {EVENT_TYPES.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                      {isCommercialGatingEnabled()
+                        ? ` (${getEventCreditCost(option.value)} credits)`
+                        : ""}
                     </option>
                   ))}
                 </select>
@@ -207,9 +271,16 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
               <div className="sm:col-span-2">
                 <ImageUploadField
                   name="featured_image_file"
-                  label="Eventfoto"
+                  label="Hoofdfoto"
                   uploadPathPrefix={`creators/${creator.id}/events`}
-                  hint="Foto voor in de agenda. JPEG, PNG, WebP of GIF."
+                  hint="Deze foto verschijnt als eerste in de agenda."
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <MultiImageUploadField
+                  uploadPathPrefix={`creators/${creator.id}/events/gallery`}
+                  label="Extra foto's"
+                  hint="Optioneel. Voeg meerdere foto's toe van de locatie, stands of sfeer."
                 />
               </div>
               <label className="sm:col-span-2">
@@ -238,7 +309,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                 Nog geen events.
               </p>
             ) : (
-              events.map((event) => (
+              events.map((event) => {
+                const gallery = galleryByEvent.get(event.id) ?? [];
+                return (
                 <details key={event.id} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
                   <summary className="cursor-pointer list-none font-medium">
                     {event.title}{" "}
@@ -246,6 +319,37 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       ({event.event_type}){event.is_active ? " · actief" : " · concept"}
                     </span>
                   </summary>
+                  {gallery.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-medium">
+                        Extra foto&apos;s ({gallery.length})
+                      </p>
+                      <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        {gallery.map((image) => (
+                          <li key={image.id} className="space-y-1">
+                            <img
+                              src={image.image_url}
+                              alt=""
+                              className="aspect-square w-full rounded-lg border border-[var(--border)] object-cover"
+                            />
+                            <form action={deleteEventGalleryImageAction}>
+                              <input
+                                type="hidden"
+                                name="gallery_image_id"
+                                value={image.id}
+                              />
+                              <button
+                                type="submit"
+                                className="text-xs text-red-700 hover:underline"
+                              >
+                                Verwijder
+                              </button>
+                            </form>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   <form action={updateEventAction} encType="multipart/form-data" className="mt-4 grid gap-4 sm:grid-cols-2">
                     <input type="hidden" name="id" value={event.id} />
                     <label className="sm:col-span-2">
@@ -258,6 +362,9 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                         {EVENT_TYPES.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
+                            {isCommercialGatingEnabled() && !event.is_active
+                              ? ` (${getEventCreditCost(option.value)} credits)`
+                              : ""}
                           </option>
                         ))}
                       </select>
@@ -326,10 +433,18 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                     <div className="sm:col-span-2">
                       <ImageUploadField
                         name="featured_image_file"
-                        label="Eventfoto"
+                        label="Hoofdfoto"
                         currentUrl={event.featured_image_url}
                         uploadPathPrefix={`creators/${creator.id}/events`}
-                        hint="Foto voor in de agenda. Laat leeg om de huidige foto te behouden."
+                        hint="Laat leeg om de huidige foto te behouden."
+                      />
+                    </div>
+                    <div className="sm:col-span-2 space-y-3">
+                      <MultiImageUploadField
+                        uploadPathPrefix={`creators/${creator.id}/events/gallery`}
+                        label="Extra foto's toevoegen"
+                        existingCount={gallery.length}
+                        hint="Worden bewaard wanneer je Opslaan klikt. Vierkant · min. 1000×1000 px."
                       />
                     </div>
                     <label className="sm:col-span-2">
@@ -344,14 +459,87 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
                       <input type="checkbox" name="is_active" defaultChecked={event.is_active} />
                       <span className="text-sm">Actief</span>
                     </label>
-                    <div className="sm:col-span-2">
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
                       <button type="submit" className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]">
                         Opslaan
                       </button>
+                      <ConfirmSubmitButton
+                        variant="danger"
+                        size="sm"
+                        formAction={deleteEventAction}
+                        formNoValidate
+                        message={
+                          event.is_active
+                            ? "Dit evenement verdwijnt van de site. Doorgaan?"
+                            : "Dit concept definitief verwijderen?"
+                        }
+                      >
+                        {event.is_active ? "Evenement verwijderen" : "Verwijder concept"}
+                      </ConfirmSubmitButton>
                     </div>
                   </form>
+
+                  {(() => {
+                    const standhouders = standhoudersByEvent.get(event.id) ?? [];
+                    return (
+                      <div className="mt-4 border-t border-[var(--border)] pt-4">
+                        <h3 className="text-sm font-semibold">
+                          Bevestigde standhouders ({standhouders.length})
+                        </h3>
+                        {standhouders.length === 0 ? (
+                          <p className="mt-1 text-xs text-[var(--muted)]">
+                            Nog geen RSVP’s. Makers en workshopgevers bevestigen
+                            zichzelf op de eventpagina.
+                          </p>
+                        ) : (
+                          <ul className="mt-2 space-y-1 text-sm">
+                            {standhouders.map((standhouder) => (
+                              <li key={standhouder.creator_id}>
+                                <Link
+                                  href={`/creator/${standhouder.slug}`}
+                                  className="font-medium text-[var(--accent)] hover:underline"
+                                >
+                                  {standhouder.display_name}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <form
+                    action={sendExhibitorOutreachAction}
+                    className="mt-4 border-t border-[var(--border)] pt-4"
+                  >
+                    <input type="hidden" name="event_id" value={event.id} />
+                    <h3 className="text-sm font-semibold">
+                      Standhouders werven
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Stuur een oproep naar makers die aangaven open te staan
+                      voor markten en beurzen.
+                      {isCommercialGatingEnabled()
+                        ? ` Kost ${LISTING_CREDIT_COSTS.exhibitorOutreach} credits.`
+                        : " Momenteel gratis."}
+                    </p>
+                    <textarea
+                      name="message"
+                      rows={2}
+                      placeholder="Korte boodschap voor makers (optioneel)"
+                      className="mt-2 w-full rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      className="mt-2 rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium hover:border-[var(--accent)]"
+                    >
+                      Oproep versturen
+                    </button>
+                  </form>
                 </details>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -363,50 +551,64 @@ export default async function DashboardEventsPage({ searchParams }: Props) {
               </p>
             ) : (
               <ul className="mt-4 space-y-4">
-                {vendorInquiries.map((inquiry) => (
-                  <li
-                    key={inquiry.id}
-                    className="rounded-lg border border-[var(--border)] p-4"
-                  >
-                    <p className="font-semibold">{inquiry.business_name}</p>
-                    <p className="text-sm text-[var(--muted)]">
-                      {inquiry.contact_name} · {inquiry.email}
-                    </p>
-                    {inquiry.message && (
-                      <p className="mt-2 text-sm">{inquiry.message}</p>
-                    )}
-                    <form
-                      className="mt-3 flex items-center gap-2"
-                      action={async (formData) => {
-                        "use server";
-                        if (!creator) return;
-                        await updateEventVendorInquiryStatusAction({
-                          inquiryId: inquiry.id,
-                          organizerCreatorId: creator.id,
-                          status: formData.get("status") as
-                            | "new"
-                            | "contacted"
-                            | "accepted"
-                            | "declined",
-                        });
-                      }}
+                {vendorInquiries.map((inquiry) => {
+                  const isNew = inquiry.status === "new";
+                  return (
+                    <li
+                      key={inquiry.id}
+                      className={`rounded-lg border p-4 ${
+                        isNew
+                          ? "border-amber-300 bg-amber-50/60"
+                          : "border-[var(--border)]"
+                      }`}
                     >
-                      <select
-                        name="status"
-                        defaultValue={inquiry.status}
-                        className="rounded-md border border-[var(--border)] px-2 py-1 text-sm"
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">{inquiry.business_name}</p>
+                        {isNew ? (
+                          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                            Nieuw
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-sm text-[var(--muted)]">
+                        {inquiry.contact_name} · {inquiry.email}
+                      </p>
+                      {inquiry.message && (
+                        <p className="mt-2 text-sm">{inquiry.message}</p>
+                      )}
+                      <form
+                        className="mt-3 flex items-center gap-2"
+                        action={async (formData: FormData) => {
+                          "use server";
+                          if (!creator) return;
+                          await updateEventVendorInquiryStatusAction({
+                            inquiryId: inquiry.id,
+                            organizerCreatorId: creator.id,
+                            status: formData.get("status") as
+                              | "new"
+                              | "contacted"
+                              | "accepted"
+                              | "declined",
+                          });
+                        }}
                       >
-                        <option value="new">Nieuw</option>
-                        <option value="contacted">Gecontacteerd</option>
-                        <option value="accepted">Geaccepteerd</option>
-                        <option value="declined">Afgewezen</option>
-                      </select>
-                      <Button type="submit" variant="secondary">
-                        Status opslaan
-                      </Button>
-                    </form>
-                  </li>
-                ))}
+                        <select
+                          name="status"
+                          defaultValue={inquiry.status}
+                          className="rounded-md border border-[var(--border)] px-2 py-1 text-sm"
+                        >
+                          <option value="new">Nieuw</option>
+                          <option value="contacted">Gecontacteerd</option>
+                          <option value="accepted">Geaccepteerd</option>
+                          <option value="declined">Afgewezen</option>
+                        </select>
+                        <Button type="submit" variant="secondary">
+                          Status opslaan
+                        </Button>
+                      </form>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardShell>

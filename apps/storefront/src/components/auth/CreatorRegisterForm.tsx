@@ -32,7 +32,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-[var(--accent)] px-5 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90 disabled:opacity-60"
+      className="min-h-12 w-full rounded-xl bg-[var(--accent)] px-5 py-3 text-base font-semibold text-[var(--accent-foreground)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
     >
       {pending ? "Creator-account maken..." : "Creator-account maken"}
     </button>
@@ -63,7 +63,7 @@ export function CreatorRegisterForm({
           type="text"
           name="display_name"
           maxLength={80}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Bijv. Studio Wol"
         />
       </label>
@@ -76,7 +76,7 @@ export function CreatorRegisterForm({
           type="text"
           name="business_name"
           maxLength={120}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Juridische naam"
         />
       </label>
@@ -90,7 +90,7 @@ export function CreatorRegisterForm({
           type="email"
           name="email"
           autoComplete="email"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="naam@voorbeeld.be"
         />
       </label>
@@ -105,7 +105,7 @@ export function CreatorRegisterForm({
           name="password"
           minLength={8}
           autoComplete="new-password"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Minimaal 8 karakters"
         />
       </label>
@@ -119,7 +119,7 @@ export function CreatorRegisterForm({
             type="text"
             name="slug"
             maxLength={80}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="studio-wol"
           />
         </label>
@@ -132,7 +132,7 @@ export function CreatorRegisterForm({
             type="text"
             name="city"
             maxLength={80}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="Antwerpen"
           />
         </label>
@@ -148,7 +148,7 @@ export function CreatorRegisterForm({
             name="postal_code"
             maxLength={16}
             autoComplete="postal-code"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="Bijv. 2800"
           />
         </label>
@@ -160,7 +160,7 @@ export function CreatorRegisterForm({
           <select
             name="country_code"
             defaultValue={REGISTRATION_DEFAULT_COUNTRY}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           >
             {REGISTRATION_COUNTRY_OPTIONS.map((country) => (
               <option key={country.value} value={country.value}>
@@ -182,7 +182,7 @@ export function CreatorRegisterForm({
           {CREATOR_TYPE_OPTIONS.map((type) => (
             <label
               key={type.value}
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-sm"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
             >
               <input
                 type="checkbox"
@@ -207,7 +207,7 @@ export function CreatorRegisterForm({
           {REGISTRATION_INTEREST_OPTIONS.map((interest) => (
             <label
               key={interest.value}
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-sm"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
             >
               <input type="checkbox" name="interest_types" value={interest.value} />
               <span>{interest.label}</span>

@@ -141,5 +141,9 @@ export async function resolveProductImageUrl(
     return url;
   }
 
+  if (formData.get(`${options.fileField}_remove`) === "1") {
+    return null;
+  }
+
   return options.existingUrl ?? null;
 }

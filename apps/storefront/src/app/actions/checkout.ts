@@ -14,6 +14,7 @@ import {
   getPaymentProviders,
   type CartAddress,
 } from "@/lib/commerce/medusa/cart";
+import { medusaAmountToCents } from "@/lib/commerce/money";
 
 export type CheckoutStep = "address" | "shipping" | "payment";
 
@@ -90,6 +91,9 @@ export async function checkoutSelectShipping(
 export type CheckoutInitiatePaymentResult = {
   success: boolean;
   clientSecret?: string;
+  payment_already_succeeded?: boolean;
+  payment_already_completed?: boolean;
+  orderSetId?: string;
   message?: string;
 };
 
@@ -109,6 +113,40 @@ export async function checkoutInitiatePayment(): Promise<CheckoutInitiatePayment
     return { success: false, message: "Regio ontbreekt" };
   }
 
+  const existingPc = (
+    cart as {
+      payment_collection?: { payment_sessions?: unknown[] };
+    }
+  )?.payment_collection;
+  const hasExistingSession = (existingPc?.payment_sessions?.length ?? 0) > 0;
+
+  // If a session already exists, check Stripe first. A succeeded PaymentIntent
+  // must complete the order — never create a replacement session.
+  if (hasExistingSession) {
+    const existingSecret = await getPaymentClientSecret(cartId);
+    if (existingSecret.payment_succeeded) {
+      const completed = await checkoutComplete({ redirect: false });
+      if (completed.success) {
+        return {
+          success: true,
+          clientSecret: existingSecret.client_secret,
+          payment_already_completed: true,
+          orderSetId: completed.orderSetId,
+        };
+      }
+      return {
+        success: false,
+        payment_already_succeeded: true,
+        message:
+          completed.message ??
+          "Betaling is ontvangen, maar de bestelling kon niet worden afgerond. Vernieuw de pagina of neem contact op.",
+      };
+    }
+    if (existingSecret.client_secret) {
+      return { success: true, clientSecret: existingSecret.client_secret };
+    }
+  }
+
   const providers = await getPaymentProviders(regionId);
   const stripeProvider = providers.find(
     (p: { id?: string }) =>
@@ -126,32 +164,53 @@ export async function checkoutInitiatePayment(): Promise<CheckoutInitiatePayment
   );
 
   if (!result.success) {
-    return { success: false, message: "Betaling kon niet worden gestart" };
-  }
-
-  // Prefer payment_collection from initiate response (may include full session data)
-  const pc = (result as { payment_collection?: { payment_sessions?: unknown[] } })
-    ?.payment_collection;
-  let sessions = pc?.payment_sessions ?? [];
-
-  // Fallback: refetch cart if initiate response has no usable session
-  if (sessions.length === 0) {
-    const updatedCart = await getCartForCheckout(cartId);
-    const cartPc = (updatedCart as { payment_collection?: { payment_sessions?: unknown[] } })
-      ?.payment_collection;
-    sessions = cartPc?.payment_sessions ?? [];
-  }
-
-  // Always fetch client_secret from backend route (auto-refreshes if PaymentIntent is terminal)
-  const { client_secret, error } = await getPaymentClientSecret(cartId);
-  if (!client_secret) {
+    // Initiate can fail when a succeeded PI cannot be replaced — check again.
+    const secretResult = await getPaymentClientSecret(cartId);
+    if (secretResult.payment_succeeded) {
+      const completed = await checkoutComplete({ redirect: false });
+      if (completed.success) {
+        return {
+          success: true,
+          clientSecret: secretResult.client_secret,
+          payment_already_completed: true,
+          orderSetId: completed.orderSetId,
+        };
+      }
+    }
     return {
       success: false,
-      message: error ?? "Betaalsessie niet beschikbaar",
+      message: secretResult.error ?? "Betaling kon niet worden gestart",
     };
   }
 
-  return { success: true, clientSecret: client_secret };
+  const secretResult = await getPaymentClientSecret(cartId);
+  if (secretResult.payment_succeeded) {
+    const completed = await checkoutComplete({ redirect: false });
+    if (completed.success) {
+      return {
+        success: true,
+        clientSecret: secretResult.client_secret,
+        payment_already_completed: true,
+        orderSetId: completed.orderSetId,
+      };
+    }
+    return {
+      success: false,
+      payment_already_succeeded: true,
+      message:
+        completed.message ??
+        "Betaling is ontvangen, maar de bestelling kon niet worden afgerond. Vernieuw de pagina of neem contact op.",
+    };
+  }
+
+  if (!secretResult.client_secret) {
+    return {
+      success: false,
+      message: secretResult.error ?? "Betaalsessie niet beschikbaar",
+    };
+  }
+
+  return { success: true, clientSecret: secretResult.client_secret };
 }
 
 export type CheckoutCompleteResult = {
@@ -189,7 +248,7 @@ function getBundleContextFromCart(cart: unknown): {
     const itemTotal =
       item.total ??
       ((item.unit_price ?? 0) * (item.quantity && item.quantity > 0 ? item.quantity : 1));
-    bundleValue += itemTotal;
+    bundleValue += medusaAmountToCents(itemTotal);
   }
 
   return {

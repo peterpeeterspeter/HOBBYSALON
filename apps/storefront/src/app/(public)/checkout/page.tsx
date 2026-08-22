@@ -6,6 +6,7 @@ import {
   getShippingOptions,
   CART_COOKIE_NAME,
 } from "@/lib/commerce/medusa/cart";
+import { medusaAmountToCents } from "@/lib/commerce/money";
 import { CheckoutAddressForm } from "@/components/checkout/CheckoutAddressForm";
 import { CheckoutShippingStep } from "@/components/checkout/CheckoutShippingStep";
 import { CheckoutPaymentForm } from "@/components/checkout/CheckoutPaymentForm";
@@ -51,12 +52,14 @@ function getBundleGroups(items: CheckoutPageCartItem[] | undefined): BundleGroup
         ? item.metadata.bundle_label
         : bundleId;
     const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
-    const itemTotal = item.total ?? (item.unit_price ?? 0) * quantity;
+    const itemTotalCents = medusaAmountToCents(
+      item.total ?? (item.unit_price ?? 0) * quantity
+    );
     const existing = groups.get(bundleId);
 
     if (existing) {
       existing.itemCount += quantity;
-      existing.total += itemTotal;
+      existing.total += itemTotalCents;
       continue;
     }
 
@@ -64,7 +67,7 @@ function getBundleGroups(items: CheckoutPageCartItem[] | undefined): BundleGroup
       bundleId,
       bundleLabel,
       itemCount: quantity,
-      total: itemTotal,
+      total: itemTotalCents,
     });
   }
 
@@ -107,14 +110,21 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const currentStep = getCheckoutStep({ hasAddress, hasShipping });
 
   const items = (c.items ?? []) as CheckoutPageCartItem[];
-  const subtotal = items.reduce((sum, item) => {
+  const subtotalMajor = items.reduce((sum, item) => {
     const unitPrice = item.unit_price ?? 0;
     const qty = item.quantity ?? 1;
     return sum + unitPrice * qty;
   }, 0);
 
-  const shippingTotal = (cart as { shipping_total?: number }).shipping_total ?? 0;
-  const total = (cart as { total?: number }).total ?? subtotal + shippingTotal;
+  const shippingTotalMajor =
+    (cart as { shipping_total?: number }).shipping_total ?? 0;
+  const totalMajor =
+    (cart as { total?: number }).total ?? subtotalMajor + shippingTotalMajor;
+  const subtotalCents = medusaAmountToCents(
+    (cart as { subtotal?: number }).subtotal ?? subtotalMajor
+  );
+  const shippingTotalCents = medusaAmountToCents(shippingTotalMajor);
+  const totalCents = medusaAmountToCents(totalMajor);
   const itemCount = items.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
   const bundleGroups = getBundleGroups(c.items);
   const bundleIds = bundleGroups.map((group) => group.bundleId);
@@ -127,7 +137,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         event="checkout_started"
         payload={{
           currency_code: currencyCode,
-          total_amount: total,
+          total_amount: totalCents,
           item_count: itemCount,
           bundle_id: primaryBundleId,
           bundle_count: bundleGroups.length,
@@ -149,11 +159,13 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
           const title =
             variant?.product?.title ?? variant?.title ?? "Product";
           const qty = i.quantity ?? 1;
-          const itemTotal = i.total ?? 0;
+          const itemTotalCents = medusaAmountToCents(
+            i.total ?? (i.unit_price ?? 0) * qty
+          );
           return (
             <div key={i.id} className="flex justify-between text-sm text-[var(--muted)]">
               <span>{title} × {qty}</span>
-              <PriceDisplay amount={itemTotal} currencyCode={currencyCode} size="sm" />
+              <PriceDisplay amount={itemTotalCents} currencyCode={currencyCode} size="sm" />
             </div>
           );
         })}
@@ -181,18 +193,18 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         )}
         <div className="mt-2 flex justify-between border-t border-[var(--border)] pt-2 font-medium text-[var(--foreground)]">
           <span>Subtotaal</span>
-          <PriceDisplay amount={subtotal} currencyCode={currencyCode} size="sm" />
+          <PriceDisplay amount={subtotalCents} currencyCode={currencyCode} size="sm" />
         </div>
         {hasShipping && (
           <div className="flex justify-between text-sm">
             <span className="text-[var(--muted)]">Verzending</span>
-            <PriceDisplay amount={shippingTotal} currencyCode={currencyCode} size="sm" />
+            <PriceDisplay amount={shippingTotalCents} currencyCode={currencyCode} size="sm" />
           </div>
         )}
         {hasShipping && (
           <div className="flex justify-between border-t border-[var(--border)] pt-2 text-lg font-bold text-[var(--foreground)]">
             <span>Totaal</span>
-            <PriceDisplay amount={total} currencyCode={currencyCode} size="md" />
+            <PriceDisplay amount={totalCents} currencyCode={currencyCode} size="md" />
           </div>
         )}
       </CardShell>
@@ -224,7 +236,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
                 De betaling is mislukt. Controleer je betaalgegevens of probeer een andere betaalmethode.
               </div>
             )}
-            <CheckoutPaymentForm total={total} currencyCode={currencyCode} />
+            <CheckoutPaymentForm total={totalCents} currencyCode={currencyCode} />
           </CardShell>
         )}
 

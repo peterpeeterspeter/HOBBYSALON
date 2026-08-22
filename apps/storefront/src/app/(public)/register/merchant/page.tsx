@@ -27,59 +27,66 @@ type Props = {
 export default async function RegisterMerchantPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, error } = await searchParams;
-  const nextPath = getSafeInternalPath(next, "/dashboard/verkoper");
+  const nextPath = getSafeInternalPath(next, "/dashboard");
 
   if (user) {
     const context = await getUserRegistrationContext(user.id);
     if (context.roles.includes("merchant")) {
-      redirect(nextPath);
+      // Confirmed merchants use the creator dashboard; Verkopersportaal is opt-in.
+      redirect("/dashboard");
     }
   }
 
   return (
-    <PageLayout
-      title="Merchant registreren"
-      description="Voor winkels en handelaars met materiaalcatalogi. Na registratie kan je direct je import en mapping setup starten."
-      size="narrow"
-    >
-      <CardShell variant="default" padding="lg">
-        {error && (
-          <p className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {error}
-          </p>
-        )}
+    <div className="bg-[var(--section-alt)]">
+      <PageLayout
+        title="Merchant registreren"
+        description="Voor winkels en handelaars met materiaalcatalogi. Na registratie kan je direct je import en mapping setup starten."
+        size="narrow"
+      >
+        <CardShell
+          variant="default"
+          padding="lg"
+          className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
+        >
+          {error && (
+            <p className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
+            </p>
+          )}
+          {user ? (
+            <MerchantUpgradeForm
+              action={onboardMerchantForLoggedInUserAction}
+              nextPath={nextPath}
+              defaultEmail={user.email ?? ""}
+            />
+          ) : (
+            <MerchantRegisterForm action={registerMerchantAction} nextPath={nextPath} />
+          )}
+        </CardShell>
+
         {user ? (
-          <MerchantUpgradeForm
-            action={onboardMerchantForLoggedInUserAction}
-            nextPath={nextPath}
-            defaultEmail={user.email ?? ""}
-          />
-        ) : (
-          <MerchantRegisterForm action={registerMerchantAction} nextPath={nextPath} />
-        )}
-      </CardShell>
-
-      {user ? (
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          Je bent aangemeld als <strong>{user.email ?? "account"}</strong>. Activeer hierboven je
-          merchant-profiel op deze account.
-        </p>
-      ) : (
-        <>
           <p className="mt-4 text-sm text-[var(--muted)]">
-            Al een account?{" "}
-            <Link
-              href={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="text-[var(--accent)] underline"
-            >
-              Meld je aan
-            </Link>
-            .
+            Je bent aangemeld als <strong>{user.email ?? "account"}</strong>. Activeer hierboven je
+            merchant-profiel op deze account.
           </p>
+        ) : (
+          <>
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Al een account?{" "}
+              <Link
+                href={`/login?next=${encodeURIComponent(nextPath)}`}
+                className="text-[var(--accent)] underline"
+              >
+                Meld je aan
+              </Link>
+              .
+            </p>
 
-          <AccountChoiceCards nextPath={nextPath} current="merchant" />
-        </>
-      )}
-    </PageLayout>
+            <AccountChoiceCards nextPath={nextPath} current="merchant" />
+          </>
+        )}
+      </PageLayout>
+    </div>
   );
 }

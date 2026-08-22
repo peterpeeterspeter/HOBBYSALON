@@ -46,6 +46,9 @@ services:
       DATABASE_SSL: "false"
       REDIS_URL: redis://redis:6379
       WORKER_MODE: shared
+    volumes:
+      # Persist vendor uploads across image rebuilds/redeploys.
+      - backend_static:/app/apps/backend/static
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,3 +71,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  backend_static:

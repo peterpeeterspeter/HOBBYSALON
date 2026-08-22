@@ -141,9 +141,12 @@ for each row execute function public.set_updated_at();
 -- =========================================================
 -- PRODUCTS
 -- Platform owns: display/discovery metadata.
--- Medusa owns: price, inventory, variants, SKU, weight, shipping.
--- Linked via medusa_product_id.
--- Types: supply | handmade | event_listing | event_ticket | workshop_ticket | workshop_kit
+-- Medusa owns price/inventory/variants/SKU/weight/shipping for `supply`
+-- (merchant), linked via medusa_product_id.
+-- `handmade`/`destash` (maker listings) are platform-only: price_cents is
+-- an indicative asking price, medusa_product_id is null, and buyers
+-- contact the maker via product_inquiries instead of a cart.
+-- Types: supply | handmade | destash | event_listing | event_ticket | workshop_ticket | workshop_kit
 -- =========================================================
 
 create table if not exists public.products (
@@ -169,9 +172,6 @@ create table if not exists public.products (
   stock_mode text,
   seo_title text,
   seo_description text,
-  price_cents integer,
-  currency_code text not null default 'EUR',
-  listing_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint products_product_type_check check (
@@ -201,9 +201,6 @@ create index if not exists idx_products_product_type on public.products(product_
 create index if not exists idx_products_status on public.products(status);
 create index if not exists idx_products_is_featured on public.products(is_featured);
 create index if not exists idx_products_is_active on public.products(is_active);
-create index if not exists idx_products_listing_expires_at
-  on public.products(listing_expires_at)
-  where listing_expires_at is not null;
 
 create trigger trg_products_updated_at
 before update on public.products
@@ -269,9 +266,10 @@ create table if not exists public.workshops (
   country_code text,
   is_featured boolean not null default false,
   is_active boolean not null default true,
+  listing_fee_status text not null default 'unpaid',
+  listing_expires_at timestamptz,
   seo_title text,
   seo_description text,
-  listing_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint workshops_format_type_check check (
@@ -282,6 +280,9 @@ create table if not exists public.workshops (
   ),
   constraint workshops_booking_mode_check check (
     booking_mode in ('request','external_link','internal_booking')
+  ),
+  constraint workshops_listing_fee_status_check check (
+    listing_fee_status in ('launch_free','paid','unpaid')
   )
 );
 
@@ -290,9 +291,6 @@ create index if not exists idx_workshops_domain_id on public.workshops(domain_id
 create index if not exists idx_workshops_city on public.workshops(city);
 create index if not exists idx_workshops_is_featured on public.workshops(is_featured);
 create index if not exists idx_workshops_is_active on public.workshops(is_active);
-create index if not exists idx_workshops_listing_expires_at
-  on public.workshops(listing_expires_at)
-  where listing_expires_at is not null;
 
 create trigger trg_workshops_updated_at
 before update on public.workshops
@@ -1045,79 +1043,111 @@ before update on public.workshop_booking_requests
 for each row execute function public.set_updated_at();
 
 -- =========================================================
--- LISTING INQUIRIES
--- Generic contact/inquiry inbox for listing-first entities (product,
--- event). Mirrors workshop_booking_requests; workshop_booking_requests
--- keeps its own workshop-specific fields and is not folded into this.
+-- PRODUCT INQUIRIES
+-- Contact/inquiry inbox for maker listings (handmade/destash) that have
+-- no Medusa cart. Public may only insert new inquiries; dashboard
+-- reads/updates go through the service-role client (bypasses RLS), same
+-- trust boundary as listing_credit_wallets/listing_credit_transactions.
 -- =========================================================
 
-create table if not exists public.listing_inquiries (
+create table if not exists public.product_inquiries (
   id uuid primary key default gen_random_uuid(),
-  entity_type text not null,
-  entity_id uuid not null,
+  product_id uuid not null references public.products(id) on delete cascade,
   creator_id uuid not null references public.creators(id) on delete cascade,
   full_name text not null,
   email text not null,
-  phone text,
   message text,
   status text not null default 'new',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint listing_inquiries_entity_type_check check (
-    entity_type in ('product', 'event', 'creator')
-  ),
-  constraint listing_inquiries_status_check check (
-    status in ('new', 'read', 'replied', 'archived', 'spam')
+  constraint product_inquiries_status_check check (
+    status in ('new', 'contacted', 'accepted', 'declined')
   )
 );
 
-create index if not exists idx_listing_inquiries_creator_id on public.listing_inquiries(creator_id);
-create index if not exists idx_listing_inquiries_entity on public.listing_inquiries(entity_type, entity_id);
-create index if not exists idx_listing_inquiries_status on public.listing_inquiries(status);
+create index if not exists idx_product_inquiries_product_id on public.product_inquiries(product_id);
+create index if not exists idx_product_inquiries_creator_id on public.product_inquiries(creator_id);
+create index if not exists idx_product_inquiries_status on public.product_inquiries(status);
 
-create trigger trg_listing_inquiries_updated_at
-before update on public.listing_inquiries
+create trigger trg_product_inquiries_updated_at
+before update on public.product_inquiries
 for each row execute function public.set_updated_at();
 
-alter table public.listing_inquiries enable row level security;
+alter table public.product_inquiries enable row level security;
 
-create policy listing_inquiries_anon_insert
-  on public.listing_inquiries
+create policy product_inquiries_anon_insert on public.product_inquiries
   for insert
   to anon, authenticated
   with check (
-    entity_type in ('product', 'event', 'creator')
-    and entity_id is not null
-    and creator_id is not null
-    and full_name is not null
-    and char_length(trim(full_name)) between 2 and 120
+    full_name is not null
+    and length(trim(full_name)) > 0
     and email is not null
-    and email ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+    and length(trim(email)) > 0
     and status = 'new'
   );
 
-create policy listing_inquiries_owner_select
-  on public.listing_inquiries
-  for select
-  to authenticated
-  using (
-    creator_id in (
-      select id from public.creators where user_id = auth.uid()
-    )
-  );
+-- =========================================================
+-- SURVEY RESPONSES
+-- Public multi-role enquête submissions (/enquete). Insert-only RLS.
+-- =========================================================
 
-create policy listing_inquiries_owner_update
-  on public.listing_inquiries
-  for update
-  to authenticated
-  using (
-    creator_id in (
-      select id from public.creators where user_id = auth.uid()
-    )
+create table if not exists public.survey_responses (
+  id uuid primary key default gen_random_uuid(),
+  survey_key text not null default 'aanbod-verbeteren-2026',
+  activity_types text[] not null,
+  activity_status text not null,
+  outcomes text[] not null default '{}',
+  answers jsonb not null default '{}'::jsonb,
+  contact_ok boolean not null,
+  contact_name text,
+  contact_email text,
+  user_id uuid references auth.users(id) on delete set null,
+  status text not null default 'new',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint survey_responses_status_check check (status in ('new', 'reviewed', 'archived')),
+  constraint survey_responses_activity_types_nonempty check (cardinality(activity_types) >= 1),
+  constraint survey_responses_activity_types_allowed check (
+    activity_types <@ array[
+      'content',
+      'handmade',
+      'workshop',
+      'webshop',
+      'hobbybeurs',
+      'makers_market'
+    ]::text[]
   )
+);
+
+create index if not exists idx_survey_responses_survey_key on public.survey_responses(survey_key);
+create index if not exists idx_survey_responses_status on public.survey_responses(status);
+create index if not exists idx_survey_responses_created_at on public.survey_responses(created_at desc);
+create index if not exists idx_survey_responses_activity_types on public.survey_responses using gin(activity_types);
+
+create trigger trg_survey_responses_updated_at
+before update on public.survey_responses
+for each row execute function public.set_updated_at();
+
+alter table public.survey_responses enable row level security;
+
+create policy survey_responses_anon_insert on public.survey_responses
+  for insert
+  to anon, authenticated
   with check (
-    creator_id in (
-      select id from public.creators where user_id = auth.uid()
+    survey_key is not null
+    and length(trim(survey_key)) > 0
+    and cardinality(activity_types) >= 1
+    and activity_status is not null
+    and length(trim(activity_status)) > 0
+    and status = 'new'
+    and jsonb_typeof(answers) = 'object'
+    and (
+      contact_ok = false
+      or (
+        contact_email is not null
+        and length(trim(contact_email)) > 0
+        and contact_email ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+      )
     )
   );
 
@@ -1206,8 +1236,7 @@ create table if not exists public.listing_credit_transactions (
   constraint listing_credit_transactions_reason_check check (
     reason in (
       'purchase', 'listing_create', 'listing_bump', 'spotlight',
-      'refund', 'manual_adjustment',
-      'workshop_publish', 'event_publish', 'exhibitor_outreach', 'newsletter_feature'
+      'refund', 'manual_adjustment'
     )
   )
 );

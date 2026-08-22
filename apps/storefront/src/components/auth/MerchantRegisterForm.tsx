@@ -6,7 +6,6 @@ import type { AuthActionState } from "@/app/actions/auth";
 import {
   REGISTRATION_COUNTRY_OPTIONS,
   REGISTRATION_DEFAULT_COUNTRY,
-  REGISTRATION_INTEREST_OPTIONS,
 } from "@/lib/auth/registration-options";
 
 type MerchantRegisterFormProps = {
@@ -23,7 +22,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-[var(--accent)] px-5 py-3 font-semibold text-[var(--accent-foreground)] hover:opacity-90 disabled:opacity-60"
+      className="min-h-12 w-full rounded-xl bg-[var(--accent)] px-5 py-3 text-base font-semibold text-[var(--accent-foreground)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
     >
       {pending ? "Merchant-account maken..." : "Merchant-account maken"}
     </button>
@@ -52,20 +51,21 @@ export function MerchantRegisterForm({
           type="text"
           name="display_name"
           maxLength={120}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Bijv. HobbyShop Antwerpen"
         />
       </label>
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-          Contactpersoon (optioneel)
+          Contactpersoon
         </span>
         <input
+          required
           type="text"
           name="contact_name"
           maxLength={120}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Voor- en achternaam"
         />
       </label>
@@ -79,7 +79,7 @@ export function MerchantRegisterForm({
           type="email"
           name="email"
           autoComplete="email"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="naam@voorbeeld.be"
         />
       </label>
@@ -94,7 +94,7 @@ export function MerchantRegisterForm({
           name="password"
           minLength={8}
           autoComplete="new-password"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+          className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           placeholder="Minimaal 8 karakters"
         />
       </label>
@@ -102,26 +102,30 @@ export function MerchantRegisterForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-            Telefoon (optioneel)
+            Telefoon
           </span>
           <input
-            type="text"
+            required
+            type="tel"
             name="phone"
             maxLength={32}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            autoComplete="tel"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="+32 ..."
           />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-            Stad (optioneel)
+            Stad
           </span>
           <input
+            required
             type="text"
             name="city"
             maxLength={80}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            autoComplete="address-level2"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="Antwerpen"
           />
         </label>
@@ -137,7 +141,7 @@ export function MerchantRegisterForm({
             name="postal_code"
             maxLength={16}
             autoComplete="postal-code"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             placeholder="Bijv. 2800"
           />
         </label>
@@ -149,7 +153,7 @@ export function MerchantRegisterForm({
           <select
             name="country_code"
             defaultValue={REGISTRATION_DEFAULT_COUNTRY}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[var(--foreground)]"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-base text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           >
             {REGISTRATION_COUNTRY_OPTIONS.map((country) => (
               <option key={country.value} value={country.value}>
@@ -159,28 +163,6 @@ export function MerchantRegisterForm({
           </select>
         </label>
       </div>
-
-      <fieldset className="space-y-2 rounded-lg border border-[var(--border)] p-3">
-        <legend className="px-1 text-sm font-medium text-[var(--foreground)]">
-          Interesses
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {REGISTRATION_INTEREST_OPTIONS.map((interest) => (
-            <label
-              key={interest.value}
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-sm"
-            >
-              <input
-                type="checkbox"
-                name="interest_types"
-                value={interest.value}
-                defaultChecked={interest.value === "supply"}
-              />
-              <span>{interest.label}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
 
       {state.message && (
         <p

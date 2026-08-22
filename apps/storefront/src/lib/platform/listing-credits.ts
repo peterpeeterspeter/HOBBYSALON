@@ -2,14 +2,15 @@ import "server-only";
 
 import { createPlatformClient } from "./client";
 
-export const LISTING_CREDIT_COSTS = {
-  handmadeListing: 1,
-  collectionListing: 3,
-  listingBump: 1,
-  spotlight7Days: 5,
-  homepageSpotlight: 20,
-  newsletterFeature: 35,
-} as const;
+// Pricing lives in a pure, import-free module so it stays testable and
+// reviewable on its own; re-exported here so existing importers of
+// listing-credits keep working unchanged.
+export {
+  LISTING_CREDIT_COSTS,
+  EVENT_CREDIT_COSTS,
+  getEventCreditCost,
+} from "./listing-credit-costs";
+import { LISTING_CREDIT_COSTS } from "./listing-credit-costs";
 
 export async function getCreditBalance(creatorId: string): Promise<number> {
   const supabase = createPlatformClient();

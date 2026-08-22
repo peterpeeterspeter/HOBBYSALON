@@ -109,7 +109,7 @@ export default async function CreatorPage({ params }: Props) {
       <JsonLd data={creatorJsonLd} />
 
       {/* Cover banner */}
-      <div className="relative h-48 overflow-hidden sm:h-56 lg:h-64">
+      <div className="relative h-52 overflow-hidden sm:h-64 lg:h-72">
         {creator.banner_url ? (
           <img
             src={creator.banner_url}
@@ -119,17 +119,17 @@ export default async function CreatorPage({ params }: Props) {
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-[var(--color-amber-500)] to-[var(--color-amber-700)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(77,59,42,0.4)]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--foreground)]/55 via-[var(--foreground)]/15 to-transparent" />
       </div>
 
       {/* Profile header */}
       <div className="border-b border-[var(--border)] bg-[var(--card)]">
         <div className="mx-auto max-w-6xl px-4">
           {/* Identity row */}
-          <div className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-end">
+          <div className="flex flex-col gap-4 pb-6 sm:flex-row sm:items-end">
             {/* Avatar overlapping the cover */}
-            <div className="-mt-12 shrink-0 sm:-mt-14">
-              <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-[var(--card)] bg-[var(--section-warm)] shadow-lg sm:h-28 sm:w-28">
+            <div className="-mt-14 shrink-0 sm:-mt-16">
+              <div className="h-28 w-28 overflow-hidden rounded-[1.5rem] border-4 border-[var(--card)] bg-[var(--section-alt)] shadow-[var(--shadow-md)] sm:h-32 sm:w-32 sm:rounded-[1.75rem]">
                 {creator.avatar_url ? (
                   <img
                     src={creator.avatar_url}
@@ -146,7 +146,7 @@ export default async function CreatorPage({ params }: Props) {
 
             {/* Name, handle, domains */}
             <div className="min-w-0 flex-1 pb-1">
-              <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+              <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-[-0.03em] text-[var(--foreground)] sm:text-3xl">
                 {creator.display_name}
               </h1>
               {(creator.business_name || creator.city) && (
@@ -172,6 +172,11 @@ export default async function CreatorPage({ params }: Props) {
                     </Badge>
                   </Link>
                 ))}
+                {(creator.specialty_tags ?? []).map((tag) => (
+                  <Badge key={tag} variant="domain">
+                    {tag}
+                  </Badge>
+                ))}
                 {creator.is_verified && (
                   <Badge variant="new">Geverifieerd</Badge>
                 )}
@@ -189,7 +194,7 @@ export default async function CreatorPage({ params }: Props) {
               {relatedWorkshops.length > 0 && (
                 <Link
                   href="#workshops"
-                  className="inline-flex h-10 items-center rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:translate-y-px"
                 >
                   Boek workshop
                 </Link>
@@ -199,16 +204,16 @@ export default async function CreatorPage({ params }: Props) {
 
           {/* Stats bar */}
           {stats.length > 0 && (
-            <div className="mb-4 flex overflow-hidden rounded-[10px] border border-[var(--border)]">
+            <div className="mb-5 flex overflow-hidden rounded-[1rem] bg-[var(--section-alt)]">
               {stats.map((stat, i) => (
                 <div
                   key={stat.label}
-                  className={`flex-1 py-3 text-center ${i > 0 ? "border-l border-[var(--border)]" : ""}`}
+                  className={`flex-1 py-3.5 text-center ${i > 0 ? "border-l border-[var(--border)]" : ""}`}
                 >
                   <p className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--accent)]">
                     {stat.value}
                   </p>
-                  <p className="text-xs text-[var(--muted)]">{stat.label}</p>
+                  <p className="text-sm text-[var(--muted)]">{stat.label}</p>
                 </div>
               ))}
             </div>

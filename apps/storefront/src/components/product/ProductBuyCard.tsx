@@ -37,8 +37,12 @@ export function ProductBuyCard({
   const hasCart = !isMakerListing || !!product.medusa_product_id;
 
   return (
-    <CardShell variant="default" padding="lg" className="rounded-2xl">
-      <span className="text-sm font-medium uppercase tracking-wide text-[var(--accent)]">
+    <CardShell
+      variant="default"
+      padding="lg"
+      className="rounded-[1.25rem] border-[var(--accent)]/25 bg-[var(--section-highlight)] shadow-[var(--shadow-md)]"
+    >
+      <span className="text-sm font-semibold text-[var(--accent)]">
         {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
       </span>
 
@@ -51,7 +55,7 @@ export function ProductBuyCard({
           />
           {isMakerListing && !hasCart && (
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Richtprijs — aankoop via de maker
+              Richtprijs. Aankoop via de maker
             </p>
           )}
         </div>

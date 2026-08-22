@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import {
+  consumeAuthNextPath,
   persistAuthSession,
   validateAuthSession,
 } from "@/lib/auth/session";
+import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 
 type ConfirmationBody = {
   accessToken?: unknown;
@@ -26,5 +28,14 @@ export async function POST(request: Request) {
   }
 
   await persistAuthSession(session);
-  return NextResponse.json({ ok: true });
+
+  // Cookie is bootstrap only; DB intent wins when cookie is missing/stale.
+  const cookieNext = await consumeAuthNextPath("");
+  const next = await resolvePostAuthRedirectPath({
+    userId: session.user?.id ?? null,
+    requestedNextPath: cookieNext || null,
+    defaultPath: "/profile",
+  });
+
+  return NextResponse.json({ ok: true, next });
 }

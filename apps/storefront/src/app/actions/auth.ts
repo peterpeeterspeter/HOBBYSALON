@@ -20,16 +20,20 @@ import {
 } from "@/lib/platform/queries/role-requests";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
+  parseRegistrationOfferRoles,
+  resolveOfferOnboardingPath,
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
 import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registration";
 import { completeMerchantOnboarding } from "@/lib/commerce/medusa/merchant-onboarding";
 import { persistCreatorRegistrationProfile } from "@/lib/platform/queries/creator-registration";
 import {
+  getUserRegistrationContext,
   linkUserToSeller,
   persistUserRegistrationProfile,
   runRegistrationCompatibilityMigration,
 } from "@/lib/platform/queries/user-registration";
+import { ensureMerchantSellerLinked } from "@/lib/commerce/medusa/merchant-seller-link";
 import {
   LOCATION_CITY_COOKIE,
   LOCATION_COUNTRY_COOKIE,
@@ -116,7 +120,7 @@ export async function loginAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: registrationUserId,
     requestedNextPath,
-    defaultPath: "/",
+    defaultPath: "/profile",
   });
 
   await persistAuthSession(session);
@@ -135,7 +139,18 @@ export async function registerAction(
   const preferredDomainIds = (formData.getAll("preferred_domain_ids") ?? [])
     .map((value) => value.toString().trim())
     .filter(Boolean);
+  const offerRoles = parseRegistrationOfferRoles(
+    (formData.getAll("offer_roles") ?? []).map((value) => value.toString())
+  );
+  const marketingOptIn = formData.get("marketing_opt_in") === "on";
+  const offerOnboardingPath = resolveOfferOnboardingPath(offerRoles);
   const requestedNextPath = formData.get("next")?.toString() ?? null;
+  const effectiveNextPath =
+    requestedNextPath &&
+    requestedNextPath.startsWith("/") &&
+    !requestedNextPath.startsWith("//")
+      ? requestedNextPath
+      : offerOnboardingPath;
 
   if (!email || !password) {
     return {
@@ -154,13 +169,33 @@ export async function registerAction(
   const { session, user, error } = await registerEmailUser(
     email,
     password,
-    requestedNextPath
+    effectiveNextPath
   );
 
   if (error) {
+    console.error("registerAction signup failed", { email, error });
+    const normalized = error.toLowerCase();
+    if (normalized.includes("rate limit")) {
+      return {
+        success: false,
+        message:
+          "Te veel bevestigingsmails vanaf Hobbysalon (limiet per uur). Wacht ongeveer een uur en probeer opnieuw, of meld je aan als je account al bestaat.",
+      };
+    }
+    if (
+      normalized.includes("already") ||
+      normalized.includes("user already registered")
+    ) {
+      return {
+        success: false,
+        message:
+          "Dit e-mailadres is al in gebruik. Meld je aan of gebruik ‘Wachtwoord vergeten’.",
+      };
+    }
     return {
       success: false,
-      message: "Registratie mislukt. Gebruik een ander e-mailadres.",
+      message:
+        "Registratie mislukt. Controleer je gegevens of probeer het later opnieuw.",
     };
   }
 
@@ -174,6 +209,10 @@ export async function registerAction(
       countryCode,
       interestTypes,
       preferredDomainIds,
+      offerRoles,
+      marketingOptIn,
+      marketingConsentSource: marketingOptIn ? "register" : null,
+      onboardingCompleted: offerRoles.length === 0,
     });
 
     if (!profileResult.ok) {
@@ -188,19 +227,30 @@ export async function registerAction(
   if (session) {
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
-      requestedNextPath,
-      defaultPath: "/",
+      requestedNextPath: effectiveNextPath,
+      defaultPath: offerOnboardingPath ?? "/profile",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
   }
 
   if (user) {
+    const roleLabels = offerRoles.map((role) => {
+      if (role === "merchant") return "hobbymaterialenverkoper";
+      if (role === "workshopgever") return "workshopgever";
+      if (role === "organizer") return "organisator";
+      return "maker";
+    });
+    const offerHint =
+      roleLabels.length > 0
+        ? ` Na bevestiging rond je je profiel af als ${roleLabels.join(", ")}.`
+        : "";
+
     return {
       success: true,
       message: profilePersisted
-        ? "Controleer je e-mail en bevestig je account voordat je inlogt."
-        : "Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.",
+        ? `Controleer je e-mail en bevestig je account voordat je inlogt.${offerHint}`
+        : `Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.${offerHint}`,
     };
   }
 
@@ -336,7 +386,7 @@ export async function registerCreatorAction(
     const redirectPath = await resolvePostAuthRedirectPath({
       userId: registrationUserId ?? session.user?.id ?? null,
       requestedNextPath,
-      defaultPath: "/profile?tab=profiel#maker-pagina",
+      defaultPath: "/profile",
     });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -368,18 +418,40 @@ export async function registerMerchantAction(
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
   const password = formData.get("password")?.toString() ?? "";
   const displayName = formData.get("display_name")?.toString().trim() ?? "";
-  const contactName = formData.get("contact_name")?.toString() ?? null;
-  const phone = formData.get("phone")?.toString() ?? null;
-  const city = formData.get("city")?.toString() ?? null;
+  const contactName = formData.get("contact_name")?.toString().trim() ?? "";
+  const phone = formData.get("phone")?.toString().trim() ?? "";
+  const city = formData.get("city")?.toString().trim() ?? "";
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
-  const interestTypes = parseInterestTypes(formData);
+  // Merchants are supply-focused; interesse checkboxes removed from the form.
+  const interestTypes: RegistrationInterestType[] = ["supply"];
   const requestedNextPath = formData.get("next")?.toString() ?? null;
 
   if (!displayName) {
     return {
       success: false,
       message: "Handelsnaam is verplicht.",
+    };
+  }
+
+  if (!contactName) {
+    return {
+      success: false,
+      message: "Contactpersoon is verplicht.",
+    };
+  }
+
+  if (!phone) {
+    return {
+      success: false,
+      message: "Telefoon is verplicht.",
+    };
+  }
+
+  if (!city) {
+    return {
+      success: false,
+      message: "Stad is verplicht.",
     };
   }
 
@@ -414,7 +486,7 @@ export async function registerMerchantAction(
   const nextPath =
     requestedNextPath?.startsWith("/") && !requestedNextPath.startsWith("//")
       ? requestedNextPath
-      : "/dashboard/verkoper";
+      : "/dashboard";
 
   let onboarding: Awaited<ReturnType<typeof completeMerchantOnboarding>> | null = null;
 
@@ -449,11 +521,11 @@ export async function registerMerchantAction(
 
   if (session) {
     const redirectPath = onboarding?.pendingApproval
-      ? `/dashboard/account?success=${encodeURIComponent(onboarding.message)}`
+      ? `/dashboard?success=${encodeURIComponent(onboarding.message)}#account`
       : await resolvePostAuthRedirectPath({
           userId: registrationUserId ?? session.user?.id ?? null,
           requestedNextPath,
-          defaultPath: "/dashboard/verkoper",
+          defaultPath: "/dashboard",
         });
     await persistAuthSession(session);
     redirect(redirectPath);
@@ -488,17 +560,39 @@ export async function onboardMerchantForLoggedInUserAction(
 
   const email = user.email?.trim().toLowerCase() ?? "";
   const displayName = formData.get("display_name")?.toString().trim() ?? "";
-  const contactName = formData.get("contact_name")?.toString() ?? null;
-  const phone = formData.get("phone")?.toString() ?? null;
-  const city = formData.get("city")?.toString() ?? null;
+  const contactName = formData.get("contact_name")?.toString().trim() ?? "";
+  const phone = formData.get("phone")?.toString().trim() ?? "";
+  const city = formData.get("city")?.toString().trim() ?? "";
   const postalCode = formData.get("postal_code")?.toString() ?? null;
   const countryCode = formData.get("country_code")?.toString() ?? null;
-  const interestTypes = parseInterestTypes(formData);
+  // Merchants are supply-focused; interesse checkboxes removed from the form.
+  const interestTypes: RegistrationInterestType[] = ["supply"];
 
   if (!displayName) {
     return {
       success: false,
       message: "Handelsnaam is verplicht.",
+    };
+  }
+
+  if (!contactName) {
+    return {
+      success: false,
+      message: "Contactpersoon is verplicht.",
+    };
+  }
+
+  if (!phone) {
+    return {
+      success: false,
+      message: "Telefoon is verplicht.",
+    };
+  }
+
+  if (!city) {
+    return {
+      success: false,
+      message: "Stad is verplicht.",
     };
   }
 
@@ -510,6 +604,41 @@ export async function onboardMerchantForLoggedInUserAction(
   }
 
   const accessToken = await resolveSupabaseAccessToken();
+  const context = await getUserRegistrationContext(user.id);
+  const hasMerchantRole = context.roles.includes("merchant");
+  const hasMerchantLink = context.sellerLinks.some(
+    (link) => link.sellerType === "merchant"
+  );
+
+  // Already approved: ensure Medusa merchant seller is linked, then hand off.
+  if (hasMerchantRole) {
+    if (!hasMerchantLink) {
+      const linkResult = await ensureMerchantSellerLinked({
+        userId: user.id,
+        email,
+        displayName,
+        contactName,
+        phone,
+        city,
+        postalCode,
+        countryCode,
+        supabaseAccessToken: accessToken,
+      });
+
+      if (!linkResult.ok) {
+        return {
+          success: false,
+          message:
+            linkResult.error ??
+            "Merchant-winkel koppelen mislukt. Probeer opnieuw.",
+        };
+      }
+    }
+
+    revalidatePath("/dashboard");
+    redirect("/dashboard");
+  }
+
   const onboarding = await completeMerchantOnboarding({
     userId: user.id,
     displayName,
@@ -530,10 +659,10 @@ export async function onboardMerchantForLoggedInUserAction(
     };
   }
 
-  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard");
 
   redirect(
-    `/dashboard/account?success=${encodeURIComponent(onboarding.message)}`
+    `/dashboard?success=${encodeURIComponent(onboarding.message)}#account`
   );
 }
 
@@ -567,7 +696,7 @@ export async function updateAccountPreferencesAction(
     };
   }
 
-  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/onboarding");
   revalidatePath("/profile");
 
@@ -611,7 +740,7 @@ export async function completeRegistrationProfileAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
-    defaultPath: "/",
+    defaultPath: "/profile",
   });
   redirect(redirectPath);
 }
@@ -684,7 +813,7 @@ export async function updatePasswordAction(
   const redirectPath = await resolvePostAuthRedirectPath({
     userId: user.id,
     requestedNextPath,
-    defaultPath: "/dashboard",
+    defaultPath: "/profile",
   });
   redirect(redirectPath);
 }

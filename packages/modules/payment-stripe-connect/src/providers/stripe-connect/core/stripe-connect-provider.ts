@@ -92,14 +92,23 @@ abstract class StripeConnectProvider extends AbstractPaymentProvider<Options> {
   async initiatePayment(
     input: InitiatePaymentInput
   ): Promise<InitiatePaymentOutput> {
-    const { amount, currency_code } = input;
+    const { amount, currency_code, data } = input;
 
     const email = input.context?.customer?.email;
+    // Medusa passes payment_session.id as data.session_id so webhooks can
+    // authorize/capture the correct session (process-payment → session_id).
+    const sessionId =
+      (data?.session_id as string | undefined) ??
+      (data?.sessionId as string | undefined);
 
     const paymentIntentInput: Stripe.PaymentIntentCreateParams = {
       ...this.paymentIntentOptions,
       currency: currency_code,
       amount: getSmallestUnit(amount, currency_code),
+      metadata: {
+        ...((data?.metadata as Record<string, string> | undefined) ?? {}),
+        ...(sessionId ? { session_id: sessionId } : {}),
+      },
     };
 
     // revisit when you could update customer using initiatePayment
@@ -174,6 +183,15 @@ abstract class StripeConnectProvider extends AbstractPaymentProvider<Options> {
       const data = (await this.client_.paymentIntents.cancel(id)) as any;
       return { data };
     } catch (error) {
+      // Already terminal — allow Medusa to replace the session / complete cart
+      const status = error?.payment_intent?.status;
+      if (
+        status === ErrorIntentStatus.SUCCEEDED ||
+        status === ErrorIntentStatus.CANCELED ||
+        error?.code === ErrorCodes.PAYMENT_INTENT_UNEXPECTED_STATE
+      ) {
+        return { data: error.payment_intent ?? paymentSessionData };
+      }
       throw this.buildError("An error occurred in cancelPayment", error);
     }
   }

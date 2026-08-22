@@ -135,6 +135,8 @@ export type Creator = {
   is_featured: boolean;
   accepts_bookings?: boolean;
   accepts_marketplace_orders?: boolean;
+  open_to_markets?: boolean;
+  specialty_tags?: string[];
   created_at: string;
   updated_at: string;
 };
@@ -163,7 +165,6 @@ export type Product = {
   is_active: boolean;
   seo_title: string | null;
   seo_description: string | null;
-  listing_expires_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -218,8 +219,15 @@ export type Workshop = {
   country_code: string | null;
   creator_id: string;
   domain_id: string | null;
+  category_id: string | null;
+  audience_types: string[];
+  age_groups: string[];
+  languages: string[];
+  offer_type: string | null;
   is_featured: boolean;
   is_active: boolean;
+  listing_fee_status?: "launch_free" | "paid" | "unpaid";
+  listing_expires_at?: string | null;
   seo_title: string | null;
   seo_description: string | null;
   created_at: string;

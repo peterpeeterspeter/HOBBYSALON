@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getDomainBySlug } from "@/lib/platform/queries/domains";
 import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import { WorkshopCard } from "@/components/cards";
-import { Container } from "@/components/ui/container";
+import { DomainSubListingShell } from "@/components/domain/DomainSubListingShell";
 import { GridLayout } from "@/components/layout/grid-layout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getLocationPreference } from "@/lib/location/preference";
@@ -38,47 +37,23 @@ export default async function DomainWorkshopsPage({ params, searchParams }: Prop
     preferred_country_code: locationPreference.countryCode ?? undefined,
   });
 
+  let lead: string | undefined;
+  if (workshops.length > 0) {
+    const count = `${workshops.length} workshop${workshops.length !== 1 ? "s" : ""}`;
+    lead = locationPreference.hasPreference
+      ? `${count}, lokale prioriteit voor ${locationPreference.label}`
+      : count;
+  } else if (locationPreference.hasPreference) {
+    lead = `Lokale prioriteit actief voor ${locationPreference.label}.`;
+  }
+
   return (
-    <Container className="py-8">
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[var(--muted)]">
-        <ol className="flex flex-wrap gap-2">
-          <li>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Home
-            </Link>
-          </li>
-          <li>/</li>
-          <li>
-            <Link href={`/${domain.slug}`} className="hover:text-[var(--foreground)]">
-              {domain.name}
-            </Link>
-          </li>
-          <li>/</li>
-          <li className="text-[var(--foreground)]">Workshops</li>
-        </ol>
-      </nav>
-
-      <header className="mb-8">
-        <p className="mb-1 text-sm font-bold uppercase tracking-wider text-[var(--accent)]">
-          {domain.name}
-        </p>
-        <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
-          Workshops
-        </h1>
-        {workshops.length > 0 && (
-          <p className="mt-1 text-[var(--muted)]">
-            {workshops.length} workshop{workshops.length !== 1 ? "s" : ""}
-            {locationPreference.hasPreference &&
-              ` · lokale prioriteit voor ${locationPreference.label}`}
-          </p>
-        )}
-        {locationPreference.hasPreference && !workshops.length && (
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Lokale prioriteit actief voor {locationPreference.label}.
-          </p>
-        )}
-      </header>
-
+    <DomainSubListingShell
+      domain={domain}
+      title="Workshops"
+      lead={lead}
+      breadcrumbLabel="Workshops"
+    >
       {workshops.length === 0 ? (
         <EmptyState
           title="Nog geen workshops"
@@ -92,6 +67,6 @@ export default async function DomainWorkshopsPage({ params, searchParams }: Prop
           ))}
         </GridLayout>
       )}
-    </Container>
+    </DomainSubListingShell>
   );
 }

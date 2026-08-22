@@ -13,8 +13,8 @@ import { PAYOUT_MODULE } from "../../../modules/payout";
 import {
   calculatePayoutForOrderStep,
   createPayoutStep,
+  resolveSellerPayoutAccountStep,
   validateNoExistingPayoutForOrderStep,
-  validateSellerPayoutAccountStep,
 } from "../steps";
 
 type ProcessPayoutForOrderWorkflowInput = {
@@ -54,25 +54,15 @@ export const processPayoutForOrderWorkflow = createWorkflow(
       };
     });
 
-    const { data: sellers } = useQueryGraphStep({
-      entity: "seller",
-      fields: ["*", "payout_account.*"],
-      filters: {
-        id: order.seller_id,
-      },
-    }).config({ name: "query-seller" });
-
-    const seller = transform(sellers, (sellers) => sellers[0]);
-
-    validateSellerPayoutAccountStep(seller);
+    const payoutAccount = resolveSellerPayoutAccountStep(order.seller_id);
 
     const payout_total = calculatePayoutForOrderStep(input);
 
-    const { payout, err: createPayoutErr } = createPayoutStep({
+    const { payout, err: createPayoutErr, error_message } = createPayoutStep({
       transaction_id: order.id,
       amount: payout_total,
       currency_code: order.currency_code,
-      account_id: seller.payout_account.id,
+      account_id: payoutAccount.id,
       source_transaction: order.source_transaction,
     });
 
@@ -105,6 +95,7 @@ export const processPayoutForOrderWorkflow = createWorkflow(
           eventName: PayoutWorkflowEvents.FAILED,
           data: {
             order_id: order.id,
+            error_message,
           },
         }).config({ name: "emit-payout-failed" });
       }

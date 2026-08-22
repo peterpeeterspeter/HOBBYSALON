@@ -14,12 +14,13 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null;
 
-function formatPrice(amount: number, currencyCode: string): string {
+/** `total` is already in cents (PriceDisplay / medusaAmountToCents). */
+function formatPrice(amountCents: number, currencyCode: string): string {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: currencyCode.toUpperCase(),
     minimumFractionDigits: 2,
-  }).format(amount / 100);
+  }).format(amountCents / 100);
 }
 
 function PaymentFormInner({
@@ -158,6 +159,17 @@ export function CheckoutPaymentForm({
     setError(null);
     checkoutInitiatePayment()
       .then((res) => {
+        if (res.payment_already_completed && res.orderSetId) {
+          window.location.href = `/checkout/success?order=${encodeURIComponent(res.orderSetId)}`;
+          return;
+        }
+        if (res.payment_already_succeeded) {
+          setError(
+            res.message ??
+              "Betaling is ontvangen, maar de bestelling moet nog worden afgerond. Vernieuw de pagina."
+          );
+          return;
+        }
         if (res.success && res.clientSecret) {
           setClientSecret(res.clientSecret);
           setElementsKey((k) => k + 1);

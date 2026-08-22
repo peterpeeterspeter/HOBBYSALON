@@ -103,6 +103,59 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), var(--font-body);
 }
 
+/* Homepage Taste: soft hero enter (MOTION_INTENSITY 4) */
+@keyframes home-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-reveal {
+  animation: home-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Listing featured heroes */
+@keyframes listing-hero-kenburns {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes listing-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.listing-hero-media {
+  animation: listing-hero-kenburns 18s ease-out forwards;
+}
+
+.listing-hero-featured {
+  animation: listing-hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-reveal,
+  .listing-hero-media,
+  .listing-hero-featured {
+    animation: none;
+  }
+}
+
 :where(a, button, input, select, textarea, summary):focus-visible {
   outline: 3px solid color-mix(in srgb, var(--accent) 70%, white);
   outline-offset: 2px;
@@ -507,6 +560,19 @@ details > summary::-webkit-details-marker {
 
 .home-audience-card {
   border-radius: 1.5rem;
+}
+
+.home-audience-card-primary {
+  max-width: 52rem;
+}
+
+.home-audience-card-primary h3 {
+  font-size: 1.55rem;
+}
+
+.home-audience-card-primary p {
+  font-size: 1.1rem;
+  max-width: 40rem;
 }
 
 .home-audience-card h3 {

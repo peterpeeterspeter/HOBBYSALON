@@ -26,7 +26,7 @@ export default async function DashboardOnboardingPage({ searchParams }: Props) {
         <h1 className="text-3xl font-bold text-[var(--foreground)]">Voorkeuren</h1>
         <p className="mt-2 text-[var(--muted)]">
           Werk je interesses en locatie bij. Voor rollen en winkel-activatie ga naar{" "}
-          <Link href="/dashboard/account" className="text-[var(--accent)] underline">
+          <Link href="/dashboard#account" className="text-[var(--accent)] underline">
             Account & rollen
           </Link>
           .

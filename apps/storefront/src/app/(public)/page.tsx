@@ -1,472 +1,54 @@
-import Image from "next/image";
+import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  BookOpen,
-  CalendarDays,
-  Search,
-  Store,
-  Users,
-} from "lucide-react";
-import { getHomePageData } from "@/lib/services/home-page";
-import { selectHomeRecommendationResult } from "@/lib/services/home-recommendation-selection";
-import { getProjectRecommendations } from "@/lib/platform/queries/recommendations";
-import { getAuthUser } from "@/lib/auth/session";
-import { listResumableSavedProjects } from "@/lib/profile/resumable-saved-project-service";
-import { withTimeout } from "@/lib/perf/with-timeout";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { CardShell } from "@/components/ui/card-shell";
-import {
-  ProductCard,
-  WorkshopCard,
-  EventCard,
-  ProjectCard,
-} from "@/components/cards";
-import { Container } from "@/components/ui/container";
-import { SectionHeader } from "@/components/ui/section-header";
-import { GridLayout } from "@/components/layout/grid-layout";
-import { Section } from "@/components/layout/section";
-import { buildPageMetadata, absoluteUrl } from "@/lib/seo";
+import { HomeAgendaTeaser } from "@/components/home/HomeAgendaTeaser";
+import { HomeDiscoverBlock } from "@/components/home/HomeDiscoverBlock";
+import { HomeHero } from "@/components/home/HomeHero";
+import { HomeHobbyChips } from "@/components/home/HomeHobbyChips";
+import { HomeJourneySection } from "@/components/home/HomeJourneySection";
+import { HomeMakers } from "@/components/home/HomeMakers";
+import { HomeProductRail } from "@/components/home/HomeProductRail";
+import { HomeProvidersCta } from "@/components/home/HomeProvidersCta";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { TrackOnMount } from "@/components/analytics/TrackOnMount";
-import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
-import { FeatureJourneyBanner } from "@/components/shared/FeatureJourneyBanner";
-import { DiscoveryFeed } from "@/components/discovery/DiscoveryFeed";
-import type { CreatorWithStats } from "@/lib/platform/queries/creators";
+import { Container } from "@/components/ui/container";
+import { getAuthUser } from "@/lib/auth/session";
+import {
+  getHomePageData,
+  homeWeekendAgendaHref,
+} from "@/lib/services/home-page";
+import { listResumableSavedProjects } from "@/lib/profile/resumable-saved-project-service";
+import { absoluteUrl } from "@/lib/seo";
 
-export const metadata = buildPageMetadata({
-  title: "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
-  description:
-    "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
-  path: "/",
-});
 export const revalidate = 300;
 
-const CREATOR_TYPE_LABELS: Record<string, string> = {
-  maker: "Maker",
-  workshopgever: "Workshopgever",
-  supplier: "Leverancier",
-  content_creator: "Contentmaker",
-  organizer: "Organisator",
+export const metadata: Metadata = {
+  title: "Hobbysalon | Creatief platform voor België en Nederland",
+  description:
+    "Vind een creatief uitje, workshop, maker of stap-voor-stap project in België en Nederland.",
 };
-
-const ARTICLE_TYPE_LABELS: Record<string, string> = {
-  tutorial: "Tutorial",
-  guide: "Gids",
-  inspiration: "Inspiratie",
-  interview: "Interview",
-  pattern: "Patroon",
-};
-
-const HERO_VISUALS = [
-  {
-    title: "Leer het van iemand die het graag doet",
-    body: "Boek een les bij makers die hun vak met plezier delen. Geen voorkennis nodig, wel zin om te beginnen.",
-    image: "/landing/workshop.jpg",
-    alt: "Deelnemers tijdens een gezellige keramiekworkshop",
-    href: "/workshops",
-    icon: CalendarDays,
-  },
-  {
-    title: "Materiaal met een verhaal",
-    body: "Wol die je wil vasthouden, klei die wacht op je handen. Ontdek mooie vondsten van winkels en makers dichtbij.",
-    image: "/landing/crafts-grid.jpg",
-    alt: "Handgemaakte keramiek, wol en macramé materiaal op tafel",
-    href: "/materials",
-    icon: Store,
-  },
-  {
-    title: "Maak er een uitje van",
-    body: "Struin over een makers market, snuffel op een beurs of stap een open atelier binnen. Inspiratie neem je gratis mee naar huis.",
-    image: "/landing/products/event-ambachtsmarkt-gent.jpg",
-    alt: "Ambachtsmarkt met creatieve standen en bezoekers",
-    href: "/agenda",
-    icon: Users,
-  },
-];
-
-const PLATFORM_PILLARS = [
-  {
-    title: "Kies een workshop",
-    body: "Van een eerste haaksteek tot een avond keramiek: vind een plek waar je meteen zin van krijgt.",
-    href: "/workshops",
-    image: "/landing/products/workshop-handvormen-klei.jpg",
-    alt: "Handen die klei vormen tijdens een creatieve workshop",
-    icon: CalendarDays,
-  },
-  {
-    title: "Ontmoet makers",
-    body: "Volg ateliers, ontwerpers en creatieve ondernemers die hun werk en kennis met je delen.",
-    href: "/creators",
-    image: "/landing/placeholder-creator.jpg",
-    alt: "Creatieve maker in een warm atelier",
-    icon: Users,
-  },
-  {
-    title: "Shop lokaal",
-    body: "Vind hobbywinkels en materialen die passen bij wat jij vandaag of dit weekend wil maken.",
-    href: "/materials",
-    image: "/landing/products/wolpakket-merino.jpg",
-    alt: "Zachte bollen merinowol in warme kleuren",
-    icon: Store,
-  },
-  {
-    title: "Laat je inspireren",
-    body: "Bewaar patronen, lees gidsen en ontdek technieken die je stap voor stap verder helpen.",
-    href: "/gratis-haakpatronen",
-    image: "/landing/hero.jpg",
-    alt: "Lichte hobbytafel met wol, verf en keramiek",
-    icon: BookOpen,
-  },
-];
-
-const AUDIENCES = [
-  {
-    title: "Ik wil iets creatiefs doen",
-    body: "Alle workshops, winkels en events op één plek. Geen twintig tabbladen meer nodig.",
-    href: "/workshops",
-    cta: "Vind iets leuks",
-  },
-  {
-    title: "Ik deel graag mijn vak",
-    body: "Toon wat je organiseert, ontvang aanvragen en laat je werk voor zich spreken.",
-    href: "/voor-workshopgevers",
-    cta: "Word aanbieder",
-  },
-  {
-    title: "Ik heb een hobbywinkel",
-    body: "Breng je materialen en lessen onder de ogen van mensen die er écht naar zoeken.",
-    href: "/voor-winkels",
-    cta: "Toon je winkel",
-  },
-  {
-    title: "Ik organiseer een event",
-    body: "Zet je markt of beurs in dé agenda waar hobbyisten actief plannen.",
-    href: "/voor-organisatoren",
-    cta: "Promoot je event",
-  },
-];
-
-const GRAPH_EXAMPLES = [
-  { label: "Macramé workshops in Antwerpen", query: "Macramé workshops Antwerpen" },
-  { label: "Haakworkshops voor beginners", query: "Haakworkshops beginners" },
-  { label: "Keramiek workshops in Limburg", query: "Keramiek workshops Limburg" },
-  { label: "Hobbywinkels voor scrapbooking", query: "Hobbywinkels scrapbooking" },
-  { label: "Workshops met wol", query: "Workshops wol" },
-  { label: "Makers markets dit weekend", query: "Makers markets weekend" },
-];
-
-const FALLBACK_HOME_DATA: Awaited<ReturnType<typeof getHomePageData>> = {
-  popularDomains: [],
-  upcomingWorkshops: [],
-  featuredHandmade: [],
-  featuredSupplies: [],
-  upcomingEvents: [],
-  latestArticles: [],
-  discoveryFeed: [],
-  creatorsOfTheMonth: [],
-  featuredProjects: [],
-  recommendedProjects: [],
-  recommendationSource: "cold_start",
-  recommendationLatencyMs: 0,
-  viewerUserId: null,
-};
-
-const HOME_RECOMMENDATIONS_TIMEOUT_MS = 15_000;
-
-function CreatorFeatureCard({ creator }: { creator: CreatorWithStats }) {
-  const firstType = creator.creator_types?.[0];
-  const badgeLabel =
-    creator.primary_domain_name ??
-    (firstType ? (CREATOR_TYPE_LABELS[firstType] ?? firstType) : null);
-
-  return (
-    <Link href={`/creator/${creator.slug}`} className="block">
-      <CardShell
-        variant="interactive"
-        padding="md"
-        className="flex min-h-full flex-col items-start gap-4 rounded-[1.5rem] p-5"
-      >
-        <Avatar src={creator.avatar_url} alt={creator.display_name} size="xl" />
-        <div>
-          <p className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--foreground)]">
-            {creator.display_name}
-          </p>
-          {badgeLabel && (
-            <div className="mt-2">
-              <Badge variant="domain">{badgeLabel}</Badge>
-            </div>
-          )}
-          {creator.workshop_count > 0 && (
-            <p className="mt-3 text-sm text-[var(--muted)]">
-              {creator.workshop_count} workshop{creator.workshop_count === 1 ? "" : "s"}
-            </p>
-          )}
-        </div>
-      </CardShell>
-    </Link>
-  );
-}
-
-function HeroSection({ domainCount }: { domainCount: number }) {
-  return (
-    <section className="relative overflow-hidden bg-[var(--hero-bg)] py-10 md:py-14 lg:py-16">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_12%,rgba(226,126,74,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(51,116,88,0.14),transparent_28%)]" aria-hidden="true" />
-      <Container size="wide" className="relative grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr]">
-        <div className="max-w-3xl">
-          <p className="mb-4 inline-flex rounded-full border border-[var(--border-strong)] bg-[var(--card)] px-4 py-2 text-sm font-bold text-[var(--accent)] shadow-[var(--shadow-sm)]">
-            Creatief platform voor België en Nederland
-          </p>
-          <h1 className="max-w-[14ch] font-display text-5xl font-black leading-[0.98] tracking-[-0.055em] text-[var(--foreground)] sm:text-6xl lg:text-7xl">
-            Zin om iets moois te maken?
-          </h1>
-          <p className="mt-5 max-w-2xl text-xl leading-relaxed text-[var(--muted)]">
-            Vind workshops, materialen en makers bij jou in de buurt — van je eerste haaksteek tot je
-            mooiste keramiekschaal.
-          </p>
-
-          <form action="/zoeken" role="search" className="mt-7 max-w-2xl">
-            <label htmlFor="home-search" className="sr-only">
-              Zoek workshops, makers, winkels of inspiratie
-            </label>
-            <div className="flex flex-col gap-3 rounded-[1.4rem] border border-[var(--border-strong)] bg-[var(--card)] p-2 shadow-[var(--shadow-lg)] sm:flex-row">
-              <div className="relative min-w-0 flex-1">
-                <Search
-                  size={22}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--accent)]"
-                />
-                <input
-                  id="home-search"
-                  type="search"
-                  name="q"
-                  placeholder="Probeer 'keramiek in Gent' of 'haken voor beginners'"
-                  className="min-h-[58px] w-full rounded-[1rem] bg-transparent pl-12 pr-4 text-lg text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]/70"
-                />
-              </div>
-              <button
-                type="submit"
-                className="min-h-[58px] whitespace-nowrap rounded-[1rem] bg-[var(--accent)] px-7 text-base font-black text-[var(--accent-foreground)] transition hover:bg-[var(--accent-hover)] active:translate-y-px"
-              >
-                Zoek
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link className="home-primary-cta" href="/workshops">
-              Ontdek inspiratie
-            </Link>
-            <Link className="home-secondary-cta" href="/voor-makers">
-              Deel jouw vak
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-[0.82fr_1fr]">
-          <div className="space-y-4 sm:pt-10">
-            {HERO_VISUALS.slice(1).map((visual) => {
-              const Icon = visual.icon;
-              return (
-                <Link key={visual.title} href={visual.href} className="home-photo-card home-photo-card-small">
-                  <Image src={visual.image} alt={visual.alt} fill sizes="(min-width: 1024px) 260px, 50vw" className="object-cover" />
-                  <div className="home-photo-card-copy">
-                    <Icon size={24} aria-hidden="true" />
-                    <h3>{visual.title}</h3>
-                    <p>{visual.body}</p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-          <Link href={HERO_VISUALS[0].href} className="home-photo-card home-photo-card-large">
-            <Image
-              src={HERO_VISUALS[0].image}
-              alt={HERO_VISUALS[0].alt}
-              fill
-              priority
-              sizes="(min-width: 1024px) 340px, 100vw"
-              className="object-cover"
-            />
-            <div className="home-photo-card-copy">
-              <CalendarDays size={30} aria-hidden="true" />
-              <h3>{HERO_VISUALS[0].title}</h3>
-              <p>{HERO_VISUALS[0].body}</p>
-              <span>{domainCount > 0 ? `${domainCount} hobbywerelden` : "365 dagen Hobbysalon"}</span>
-            </div>
-          </Link>
-        </div>
-      </Container>
-    </section>
-  );
-}
-
-function PlatformPillars() {
-  return (
-    <Section spacing="lg" className="home-section-grid">
-      <Container size="wide">
-        <div className="max-w-3xl">
-          <h2 className="home-section-title">Niet wachten tot de volgende beurs.</h2>
-          <p className="home-section-copy">
-            Waarom één keer per jaar genieten? Met Hobbysalon vind je het hele jaar door iets om te
-            maken, te leren of te bezoeken.
-          </p>
-        </div>
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {PLATFORM_PILLARS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.title} href={item.href} className="home-pillar-card">
-                <div className="home-pillar-image">
-                  <Image src={item.image} alt={item.alt} fill sizes="(min-width: 1280px) 280px, (min-width: 768px) 45vw, 100vw" className="object-cover" />
-                </div>
-                <div className="home-pillar-content">
-                  <span className="home-icon-box"><Icon size={24} aria-hidden="true" /></span>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </Container>
-    </Section>
-  );
-}
-
-function AudienceSection() {
-  return (
-    <Section spacing="lg" variant="alt">
-      <Container size="wide">
-        <div className="home-audience-layout">
-          <div>
-            <h2 className="home-section-title">Iedereen vindt zijn plek.</h2>
-            <p className="home-section-copy">
-              Hobbyisten komen om te ontdekken. Makers, winkels en organisatoren krijgen een plek waar ze gevonden worden.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {AUDIENCES.map((item) => (
-              <CardShell key={item.title} variant="default" padding="lg" className="home-audience-card">
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-                <Link href={item.href}>{item.cta}</Link>
-              </CardShell>
-            ))}
-          </div>
-        </div>
-      </Container>
-    </Section>
-  );
-}
-
-function GraphSection() {
-  return (
-    <Section spacing="lg" className="overflow-hidden">
-      <Container size="wide">
-        <div className="home-graph-card">
-          <div className="max-w-2xl">
-            <span className="home-kicker">Slimmer ontdekken</span>
-            <h2 className="home-graph-title">Van één idee naar alles wat erbij past.</h2>
-            <p>
-              Zoek je naar macramé, keramiek of haken? Dan brengt Hobbysalon workshops, materialen, winkels, makers en artikels vanzelf dichter bij elkaar.
-            </p>
-          </div>
-          <div className="home-graph-cluster" aria-label="Zoeksuggesties">
-            {GRAPH_EXAMPLES.map((example) => (
-              <Link
-                key={example.label}
-                href={`/zoeken?q=${encodeURIComponent(example.query)}`}
-              >
-                {example.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </Container>
-    </Section>
-  );
-}
-
-function EmptyPlatformPreview() {
-  return (
-    <Section spacing="md" variant="highlight">
-      <Container>
-        <div className="home-empty-preview">
-          <div>
-            <h2>Binnenkort meer inspiratie</h2>
-            <p>
-              We vullen Hobbysalon met workshops, makers, winkels, evenementen en artikels. Wil je zichtbaar zijn vanaf de start?
-            </p>
-          </div>
-          <Link href="/register">Word aanbieder</Link>
-        </div>
-      </Container>
-    </Section>
-  );
-}
 
 export default async function HomePage() {
-  let data: Awaited<ReturnType<typeof getHomePageData>> = FALLBACK_HOME_DATA;
+  const data = await getHomePageData().catch(() => ({
+    domainsWithLiveContent: [],
+    featuredEvents: [],
+    journey: null,
+    upcomingWorkshops: [],
+    homeMakeItems: [],
+    makers: [],
+    materials: [],
+    makersmarkt: [],
+  }));
 
+  let resumableProject: Awaited<
+    ReturnType<typeof listResumableSavedProjects>
+  >[number] | null = null;
   try {
-    data = await getHomePageData();
-  } catch {
-    data = FALLBACK_HOME_DATA;
-  }
-
-  let user: Awaited<ReturnType<typeof getAuthUser>> = null;
-  try {
-    user = await getAuthUser();
-  } catch {
-    user = null;
-  }
-
-  let resumableProject: Awaited<ReturnType<typeof listResumableSavedProjects>>[number] | null = null;
-  if (user) {
-    try {
+    const user = await getAuthUser();
+    if (user?.id) {
       [resumableProject] = await listResumableSavedProjects(user.id);
-    } catch {
-      resumableProject = null;
     }
-  }
-
-  let requestRecommendations: Awaited<ReturnType<typeof getProjectRecommendations>> | null = null;
-  try {
-    requestRecommendations = await withTimeout(
-      getProjectRecommendations({ userId: user?.id ?? null, limit: 6 }),
-      HOME_RECOMMENDATIONS_TIMEOUT_MS,
-      null,
-    );
   } catch {
-    requestRecommendations = null;
+    resumableProject = null;
   }
-
-  const recommendations = selectHomeRecommendationResult(
-    {
-      recommendedProjects: data.recommendedProjects,
-      recommendationSource: data.recommendationSource,
-      recommendationLatencyMs: data.recommendationLatencyMs,
-      viewerUserId: data.viewerUserId,
-    },
-    requestRecommendations
-      ? {
-          recommendedProjects: requestRecommendations.projects,
-          recommendationSource: requestRecommendations.source,
-          recommendationLatencyMs: requestRecommendations.latencyMs,
-          viewerUserId: user?.id ?? null,
-        }
-      : null,
-  );
-
-  const hasLiveSections =
-    data.upcomingWorkshops.length > 0 ||
-    data.featuredHandmade.length > 0 ||
-    data.featuredSupplies.length > 0 ||
-    data.upcomingEvents.length > 0 ||
-    data.latestArticles.length > 0 ||
-    data.creatorsOfTheMonth.length > 0 ||
-    data.featuredProjects.length > 0;
 
   const orgSchema = {
     "@context": "https://schema.org",
@@ -476,11 +58,6 @@ export default async function HomePage() {
     logo: absoluteUrl("/logo.png"),
     description:
       "Creatief platform voor workshops, makers, hobbywinkels, evenementen en creatieve inspiratie in België en Nederland.",
-    areaServed: ["BE", "NL"],
-    sameAs: [
-      "https://www.facebook.com/hobbysalon",
-      "https://www.instagram.com/hobbysalon",
-    ],
   };
 
   const websiteSchema = {
@@ -488,7 +65,6 @@ export default async function HomePage() {
     "@type": "WebSite",
     name: "Hobbysalon",
     url: absoluteUrl("/"),
-    inLanguage: "nl-BE",
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -499,283 +75,76 @@ export default async function HomePage() {
     },
   };
 
+  const heroImage =
+    data.upcomingWorkshops.find((w) => w.featured_image_url?.trim())
+      ?.featured_image_url ?? null;
+
   return (
     <>
       <JsonLd data={[orgSchema, websiteSchema]} />
-      <TrackOnMount
-        event="home_recommendations_viewed"
-        payload={{
-          recommendation_source: recommendations.recommendationSource,
-          item_count: recommendations.recommendedProjects.length,
-          latency_ms: recommendations.recommendationLatencyMs,
-          user_id: recommendations.viewerUserId,
-        }}
+
+      <HomeHero
+        weekendHref={homeWeekendAgendaHref()}
+        imageSrc={heroImage}
       />
 
-      <HeroSection domainCount={data.popularDomains.length} />
-
-      {resumableProject && (
-        <Section spacing="sm">
-          <Container size="wide">
-            <section
-              aria-labelledby="verder-met-project-heading"
-              className="overflow-hidden rounded-[1.25rem] border border-[var(--border-strong)] bg-[var(--card)] shadow-[var(--shadow-sm)]"
-            >
-              <div className="flex flex-col sm:flex-row">
-                {resumableProject.source.imageUrl && (
-                  <img
-                    src={resumableProject.source.imageUrl}
-                    alt=""
-                    className="h-40 w-full object-cover sm:h-auto sm:w-52"
-                  />
-                )}
-                <div className="flex flex-1 flex-col justify-center p-5 sm:p-6">
-                  <p className="text-sm font-bold text-[var(--accent)]">Verder met je project</p>
-                  <h2 id="verder-met-project-heading" className="mt-1 text-2xl font-bold text-[var(--foreground)]">
-                    {resumableProject.source.title}
-                  </h2>
-                  <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
-                    Je was al begonnen. Ga rustig verder wanneer het jou past.
-                  </p>
-                  <Link
-                    href={`/profile/start/${resumableProject.entityType}/${resumableProject.entityId}`}
-                    className="mt-4 inline-flex min-h-11 w-fit items-center rounded-md bg-[var(--accent)] px-4 text-base font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
-                  >
-                    Verder met dit project
-                  </Link>
-                </div>
-              </div>
-            </section>
-          </Container>
-        </Section>
-      )}
-
-      {(data.discoveryFeed?.length ?? 0) > 0 && (
-        <Section spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title="Ontdek vandaag"
-              description="Een rustige selectie van inspiratie, materialen, workshops en creatieve uitstappen."
-            />
-            <DiscoveryFeed items={data.discoveryFeed ?? []} />
-          </Container>
-        </Section>
-      )}
-
-      <PlatformPillars />
-      <AudienceSection />
-      <GraphSection />
-      <Section spacing="md" variant="alt">
-        <Container size="wide"><FeatureJourneyBanner context="home" /></Container>
-      </Section>
-
-      {data.popularDomains.length > 0 && (
-        <Section spacing="sm" className="border-y border-[var(--border)] bg-[var(--card)]">
-          <Container size="wide">
-            <div className="flex gap-3 overflow-x-auto py-1 scrollbar-hide">
-              {data.popularDomains.slice(0, 10).map((domain) => (
-                <Link key={domain.id} href={`/${domain.slug}`} className="home-domain-chip">
-                  {domain.name}
-                </Link>
-              ))}
-            </div>
-          </Container>
-        </Section>
-      )}
-
-      {!hasLiveSections && <EmptyPlatformPreview />}
-
-      {data.upcomingWorkshops.length > 0 && (
-        <Section spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title="Workshops waar je zin van krijgt"
-              description="Kies een les, schuif aan tafel en ga naar huis met iets dat je zelf maakte."
-              href="/workshops"
-              linkText="Bekijk workshops"
-            />
-            <GridLayout cols={4} gap="md">
-              {data.upcomingWorkshops.slice(0, 4).map((workshop) => (
-                <WorkshopCard key={workshop.id} workshop={workshop} />
-              ))}
-            </GridLayout>
-          </Container>
-        </Section>
-      )}
-
-      {(data.featuredHandmade.length > 0 || data.featuredSupplies.length > 0) && (
-        <Section variant="alt" spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title="Alles voor je volgende project"
-              description="Van zachte merinowol tot handgemaakte stukken met een verhaal. Gemaakt en gekozen door mensen die hun vak kennen."
-              href="/materials"
-              linkText="Bekijk materialen"
-            />
-            <GridLayout cols={4} gap="md">
-              {[...data.featuredHandmade, ...data.featuredSupplies]
-                .slice(0, 4)
-                .map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-            </GridLayout>
-          </Container>
-        </Section>
-      )}
-
-      {data.creatorsOfTheMonth.length > 0 && (
-        <Section spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title="De handen achter het werk"
-              description="Ontmoet de ateliers, ontwerpers en lesgevers die je project tot leven brengen."
-              href="/creators"
-              linkText="Bekijk makers"
-            />
-            <GridLayout cols={4} gap="md">
-              {data.creatorsOfTheMonth.slice(0, 4).map((creator) => (
-                <CreatorFeatureCard key={creator.id} creator={creator} />
-              ))}
-            </GridLayout>
-          </Container>
-        </Section>
-      )}
-
-      {data.upcomingEvents.length > 0 && (
-        <Section variant="alt" spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title="Een agenda vol creatieve uitstappen"
-              description="Plan je volgende beurs, makers market, open atelier of workshopdag."
-              href="/agenda"
-              linkText="Bekijk agenda"
-            />
-            <GridLayout cols={3} gap="md">
-              {data.upcomingEvents.slice(0, 3).map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </GridLayout>
-          </Container>
-        </Section>
-      )}
-
-      {data.latestArticles.length > 0 && (
-        <Section spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title="Inspiratie voor thuis aan tafel"
-              description="Patronen, gidsen en verhalen die je helpen kiezen wat je straks wil maken."
-              href="/gratis-haakpatronen"
-              linkText="Lees inspiratie"
-            />
-            <div className="grid gap-5 md:grid-cols-3">
-              {data.latestArticles.slice(0, 3).map((article) => (
-                <Link key={article.id} href={`/artikel/${article.slug}`} className="group/article block">
-                  <CardShell variant="interactive" padding="none" className="home-article-card">
-                    {article.featured_image_url && (
-                      <img
-                        src={article.featured_image_url}
-                        alt=""
-                        className="aspect-video w-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                    <div className="p-5">
-                      <p className="text-sm font-bold text-[var(--accent)]">
-                        {ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type}
-                        {article.reading_time_minutes ? `, ${article.reading_time_minutes} min lezen` : ""}
-                      </p>
-                      <h3 className="mt-2 font-[family-name:var(--font-heading)] text-xl font-bold leading-snug text-[var(--foreground)] line-clamp-2">
-                        {article.title}
-                      </h3>
-                    </div>
-                  </CardShell>
-                </Link>
-              ))}
-            </div>
-          </Container>
-        </Section>
-      )}
-
-      {recommendations.recommendedProjects.length > 0 && (
-        <Section variant="highlight" spacing="lg">
-          <Container size="wide">
-            <SectionHeader
-              title={
-                recommendations.recommendationSource === "personalized"
-                  ? "Iets voor jou"
-                  : "Projecten om mee te beginnen"
-              }
-              description={
-                recommendations.recommendationSource === "personalized"
-                  ? "Gekozen op basis van wat je bekijkt, bewaart en graag maakt."
-                  : "Laagdrempelige ideeën uit de community om meteen mee aan de slag te gaan."
-              }
-            />
-            <GridLayout cols={3}>
-              {recommendations.recommendedProjects.map((item) => (
-                <div key={item.project.id} className="space-y-2">
-                  <ProjectCard project={item.project} />
-                  <p className="text-sm text-[var(--muted)]">
-                    {item.reasons[0] ?? "Aanbevolen project"}
-                  </p>
-                </div>
-              ))}
-            </GridLayout>
-          </Container>
-        </Section>
-      )}
-
-      {data.featuredProjects.length > 0 && (
-        <Section variant="alt" spacing="lg">
-          <Container size="wide">
-            <SectionHeader title="Uitgelichte projecten" />
-            <GridLayout cols={4}>
-              {data.featuredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </GridLayout>
-          </Container>
-        </Section>
-      )}
-
-      <Section variant="alt" spacing="lg">
-        <Container size="wide">
-          <div className="mx-auto grid max-w-4xl gap-8 rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-md)] md:grid-cols-[minmax(0,1fr)_minmax(21rem,0.9fr)] md:p-8">
+      {resumableProject ? (
+        <Container className="py-5">
+          <div className="flex flex-col gap-2 border-b border-[var(--border)] py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <p className="home-kicker">Creatieve inspiratie</p>
-              <h2 className="mt-2 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)]">
-                Elke week één rustig, creatief idee in je inbox
-              </h2>
-              <p className="mt-3 text-lg leading-relaxed text-[var(--muted)]">
-                Een maaktip, een nieuwe workshop of gewoon iets moois. Uitschrijven kan met één klik.
+              <p className="text-[15px] font-semibold text-[var(--foreground)]">
+                Verder met je project
+              </p>
+              <p className="mt-1 text-[15px] text-[var(--muted)]">
+                {resumableProject.source.title}
               </p>
             </div>
-            <NewsletterSignupForm />
+            <Link
+              href={`/profile/start/${resumableProject.entityType}/${resumableProject.entityId}`}
+              className="inline-flex min-h-11 shrink-0 items-center font-bold text-[var(--accent)] underline underline-offset-4"
+            >
+              Ga verder
+            </Link>
           </div>
         </Container>
-      </Section>
+      ) : null}
 
-      <section className="home-final-cta">
-        <Container size="wide" className="home-final-cta-inner">
-          <div>
-            <span className="home-kicker">Voor aanbieders</span>
-            <h2>Jouw vak verdient publiek</h2>
-            <p>
-              Geef workshops, toon je winkel of promoot je event. Hobbysalon brengt je bij mensen die
-              al zin hebben om te beginnen.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-            <Link href="/voor-workshopgevers" className="home-primary-cta home-primary-cta-light">
-              Word aanbieder
-            </Link>
-            <Link href="/agenda" className="home-secondary-cta home-secondary-cta-light">
-              Bekijk agenda
-            </Link>
-          </div>
+      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
+        <Container className="py-8 sm:py-10">
+          <HomeHobbyChips domains={data.domainsWithLiveContent} />
         </Container>
-      </section>
+      </div>
+
+      <Container className="flex flex-col gap-14 py-10 sm:gap-16 sm:py-14">
+        <HomeAgendaTeaser events={data.featuredEvents} />
+
+        {data.journey ? <HomeJourneySection journey={data.journey} /> : null}
+
+        <HomeDiscoverBlock
+          workshops={data.upcomingWorkshops}
+          makeItems={data.homeMakeItems}
+        />
+
+        <HomeProductRail
+          title="Materialen voor je project"
+          lead="Wol, papier, klei en meer van hobbywinkels in België en Nederland."
+          href="/materials"
+          ctaLabel="Alle materialen"
+          products={data.materials}
+        />
+
+        <HomeProductRail
+          title="Rechtstreeks van makers"
+          lead="Handgemaakte creaties en restanten. Kies iets unieks of vraag de maker."
+          href="/creators"
+          ctaLabel="Naar de makersmarkt"
+          products={data.makersmarkt}
+        />
+
+        <HomeMakers makers={data.makers} />
+      </Container>
+
+      <HomeProvidersCta />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, Package, Presentation } from "lucide-react";
+import { CalendarDays, Package, Presentation, Sparkles } from "lucide-react";
 import {
   getAccountRegistrationHref,
   type AccountRegistrationType,
@@ -20,22 +20,29 @@ const CHOICES: Array<{
     type: "workshopgever",
     title: "Workshopgever",
     description:
-      "Deel je vak, zet je lessen online en ontvang aanvragen van hobbyisten.",
+      "Maak je eigen profiel, publiceer workshops en ontvang aanvragen van geïnteresseerden.",
     icon: Presentation,
+  },
+  {
+    type: "maker",
+    title: "Maker",
+    description:
+      "Toon je creaties en laat hobbyisten ontdekken wat je maakt.",
+    icon: Sparkles,
+  },
+  {
+    type: "organizer",
+    title: "Organisator",
+    description:
+      "Publiceer je markt, beurs of creatief evenement in de Hobbysalon-agenda.",
+    icon: CalendarDays,
   },
   {
     type: "merchant",
     title: "Hobbymaterialenverkoper",
     description:
-      "Importeer je catalogus en breng je materialen onder de ogen van makers.",
+      "Presenteer je winkel en materialen aan een gericht creatief publiek.",
     icon: Package,
-  },
-  {
-    type: "organizer",
-    title: "Makersmarkt organisator",
-    description:
-      "Promoot je markt, beurs of open atelier in dé creatieve agenda.",
-    icon: CalendarDays,
   },
 ];
 
@@ -46,16 +53,22 @@ function shouldHideChoice(
   if (!current) return false;
   if (choice === current) return true;
 
-  // Creator registration covers workshop hosts and organizers.
+  // Creator registration covers workshop hosts, makers and organizers.
   if (
-    current === "creator" &&
-    (choice === "workshopgever" || choice === "organizer")
+    (current === "creator" || current === "maker") &&
+    (choice === "workshopgever" ||
+      choice === "organizer" ||
+      choice === "maker" ||
+      choice === "creator")
   ) {
     return true;
   }
   if (
     (current === "workshopgever" || current === "organizer") &&
-    (choice === "workshopgever" || choice === "organizer" || choice === "creator")
+    (choice === "workshopgever" ||
+      choice === "organizer" ||
+      choice === "creator" ||
+      choice === "maker")
   ) {
     return true;
   }
@@ -79,18 +92,15 @@ export function AccountChoiceCards({
       className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6"
     >
       <div className="mb-4 max-w-xl">
-        <p className="text-sm font-semibold uppercase tracking-wide text-[var(--accent)]">
-          Optioneel
-        </p>
         <h2
           id="account-choice-title"
-          className="mt-1 font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
+          className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
         >
-          Wat wil je doen op Hobbysalon?
+          Wil je zelf iets aanbieden?
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          Wil je niet alleen hobbyist zijn? Kies hieronder een extra rol. Je
-          kunt later altijd uitbreiden via je account.
+          Eén account kan meerdere rollen hebben. Kies hieronder wat bij jou past.
+          Je kunt later altijd uitbreiden via je account.
         </p>
       </div>
 
@@ -118,12 +128,12 @@ export function AccountChoiceCards({
 
       {current && current !== "member" && (
         <p className="mt-4 text-sm text-[var(--muted)]">
-          Liever eerst als hobbyist starten?{" "}
+          Liever eerst een gratis account?{" "}
           <Link
             href={getAccountRegistrationHref("member", nextPath)}
             className="font-medium text-[var(--accent)] underline"
           >
-            Maak een hobbyistenaccount
+            Maak je Hobbysalon-account
           </Link>
           .
         </p>

@@ -108,6 +108,35 @@ const toNullableString = (value: unknown): string | null => {
   return trimmed.length ? trimmed : null
 }
 
+/** Rewrite localhost Medusa static URLs to the public API host before projection. */
+const toPublicAssetUrl = (value: unknown): string | null => {
+  const url = toNullableString(value)
+  if (!url) return null
+
+  const backend =
+    process.env.MEDUSA_BACKEND_URL?.trim() ||
+    process.env.BACKEND_URL?.trim() ||
+    'https://api.hobbysalon.be'
+
+  try {
+    const parsed = new URL(url)
+    const isLocal =
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '0.0.0.0'
+
+    if (!isLocal) return url
+
+    const publicBase = new URL(backend)
+    parsed.protocol = publicBase.protocol
+    parsed.hostname = publicBase.hostname
+    parsed.port = publicBase.port
+    return parsed.toString()
+  } catch {
+    return url
+  }
+}
+
 const escapePostgrestValue = (value: string) =>
   value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/\)/g, '\\)')
 
@@ -326,7 +355,8 @@ const ensurePlatformCreator = async (
 
   const ensureSyntheticCreator = async (
     slugPrefix: 'merchant' | 'creator',
-    creatorTypes: string[]
+    creatorTypes: string[],
+    userId?: string | null
   ) => {
     const creatorSlug = sanitizeSlug(
       `${slugPrefix}-${seller.id}`,
@@ -334,12 +364,19 @@ const ensurePlatformCreator = async (
     )
 
     const existing = (await supabase.get('creators', {
-      select: 'id',
+      select: 'id,user_id',
       slug: `eq.${creatorSlug}`,
       limit: '1',
-    })) as ExistingCreatorRow[] | null
+    })) as Array<{ id: string; user_id?: string | null }> | null
 
     if (existing?.[0]?.id) {
+      if (userId && !existing[0].user_id) {
+        await supabase.patch(
+          'creators',
+          { user_id: userId, updated_at: new Date().toISOString() },
+          { id: `eq.${existing[0].id}` }
+        )
+      }
       return existing[0].id
     }
 
@@ -349,6 +386,7 @@ const ensurePlatformCreator = async (
       [
         {
           slug: creatorSlug,
+          user_id: userId || null,
           display_name:
             seller.name ||
             seller.handle ||
@@ -409,24 +447,60 @@ const ensurePlatformCreator = async (
       }
     }
 
-    const syntheticCreatorId = await ensureSyntheticCreator('creator', ['creator'])
+    const syntheticCreatorId = await ensureSyntheticCreator(
+      'creator',
+      ['creator'],
+      linkedUserId
+    )
     sellerCache.set(seller.id, syntheticCreatorId)
     return syntheticCreatorId
   }
 
+  const merchantLinks = (await supabase.get('user_seller_links', {
+    select: 'user_id',
+    seller_id: `eq.${escapePostgrestValue(seller.id)}`,
+    seller_type: 'eq.merchant',
+    limit: '1',
+  })) as UserSellerLinkRow[] | null
+  const merchantUserId = merchantLinks?.[0]?.user_id || null
+
+  if (merchantUserId) {
+    const linkedCreators = (await supabase.get('creators', {
+      select: 'id',
+      user_id: `eq.${escapePostgrestValue(merchantUserId)}`,
+      limit: '1',
+    })) as ExistingCreatorRow[] | null
+
+    if (linkedCreators?.[0]?.id) {
+      sellerCache.set(seller.id, linkedCreators[0].id)
+      return linkedCreators[0].id
+    }
+  }
+
   const creatorSlug = sanitizeSlug(`merchant-${seller.id}`, `merchant-${seller.id}`)
   const existing = (await supabase.get('creators', {
-    select: 'id',
+    select: 'id,user_id',
     slug: `eq.${creatorSlug}`,
     limit: '1',
-  })) as ExistingCreatorRow[] | null
+  })) as Array<{ id: string; user_id?: string | null }> | null
 
   if (existing?.[0]?.id) {
+    if (merchantUserId && !existing[0].user_id) {
+      await supabase.patch(
+        'creators',
+        { user_id: merchantUserId, updated_at: new Date().toISOString() },
+        { id: `eq.${existing[0].id}` }
+      )
+    }
     sellerCache.set(seller.id, existing[0].id)
     return existing[0].id
   }
 
-  const creatorId = await ensureSyntheticCreator('merchant', ['supplier'])
+  const creatorId = await ensureSyntheticCreator(
+    'merchant',
+    ['supplier'],
+    merchantUserId
+  )
   sellerCache.set(seller.id, creatorId)
   return creatorId
 }
@@ -548,7 +622,7 @@ const buildUpsertRows = async (
       product.id,
       slugCache
     )
-    const featuredImage = toNullableString(product.images?.[0]?.url)
+    const featuredImage = toPublicAssetUrl(product.images?.[0]?.url)
     const metadataDomainId = toNullableString(product.metadata?.platform_domain_id)
     const metadataCategoryId = toNullableString(
       product.metadata?.platform_category_id
