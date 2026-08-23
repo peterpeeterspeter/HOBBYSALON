@@ -14,6 +14,10 @@ export default [
       '**/*.js',
       '**/*.mjs',
       '**/*.cjs',
+      // Test files are type-checked and linted by their own vitest tooling,
+      // not by the workspace tsconfig project service.
+      '**/*.test.ts',
+      '**/*.spec.ts',
       // Upstream Mercur vendor UI; lint separately when customized
       'apps/vendor-panel/**'
     ]
