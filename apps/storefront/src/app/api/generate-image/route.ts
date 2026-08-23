@@ -6,9 +6,18 @@
  */
 
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth/session";
 import { generateImage } from "@/lib/laozhang/client";
 
 export async function POST(request: Request) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Je moet ingelogd zijn." },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { prompt, aspectRatio = "16:9", imageSize = "2K" } = body;
