@@ -354,10 +354,12 @@ export async function removeUserRoles(
   };
 }
 
-async function isStaleAuthUser(userId: string): Promise<boolean> {
+async function isStaleAuthUser(userId: string): Promise<boolean | null> {
   const supabase = createPlatformClient();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
-  return !!error || !data.user;
+  // null = transient lookup failure: caller must fail closed, never treat as stale.
+  if (error) return null;
+  return !data.user;
 }
 
 export async function linkUserToSeller(
@@ -404,6 +406,15 @@ export async function linkUserToSeller(
 
   if (existingForSeller && existingForSeller.user_id !== userId) {
     const staleOwner = await isStaleAuthUser(existingForSeller.user_id);
+    if (staleOwner === null) {
+      // Transient auth lookup failure — fail closed, never claim another user's link.
+      return {
+        ok: false,
+        errors: [
+          "Kan accountstatus nu niet verifiëren. Probeer het later opnieuw.",
+        ],
+      };
+    }
     if (staleOwner) {
       const { error: deleteStaleError } = await supabase
         .from("user_seller_links")

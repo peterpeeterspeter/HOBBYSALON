@@ -205,18 +205,9 @@ export async function exchangePlatformSellerAuth(
     .whereNull("deleted_at")
     .first()) as MemberRow | undefined;
 
-  let resolvedMember = member;
-
-  if (!resolvedMember) {
-    resolvedMember = (await knex("member")
-      .select("id", "seller_id", "email", "name")
-      .where("seller_id", link.seller_id)
-      .whereNull("deleted_at")
-      .orderBy("created_at", "asc")
-      .first()) as MemberRow | undefined;
-  }
-
-  if (!resolvedMember) {
+  // Security: require an exact email match. Never fall back to another member
+  // (e.g. oldest) — that would let a mismatched linked user act as someone else.
+  if (!member) {
     throw new MedusaError(
       MedusaError.Types.NOT_FOUND,
       "No seller member found for this account."
@@ -226,19 +217,19 @@ export async function exchangePlatformSellerAuth(
   const authIdentityId = await ensureAuthIdentityForEmail(
     container,
     supabaseUser.email,
-    resolvedMember.id
+    member.id
   );
 
   const token = generateSellerJwt(
     container,
     authIdentityId,
-    resolvedMember.id
+    member.id
   );
 
   return {
     token,
     seller_id: link.seller_id,
-    member_id: resolvedMember.id,
+    member_id: member.id,
     seller_type: link.seller_type,
   };
 }
