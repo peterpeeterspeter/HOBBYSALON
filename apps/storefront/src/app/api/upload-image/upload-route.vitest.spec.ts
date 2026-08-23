@@ -93,7 +93,12 @@ describe("POST /api/upload-image — P1-5 forced path prefix", () => {
     h.authUser = null;
 
     const response = await POST(
-      makeRequest(new Map([["file", FILE], ["path_prefix", "x"]]))
+      makeRequest(
+        new Map<string, unknown>([
+          ["file", FILE],
+          ["path_prefix", "x"],
+        ])
+      )
     );
 
     expect(response.status).toBe(401);

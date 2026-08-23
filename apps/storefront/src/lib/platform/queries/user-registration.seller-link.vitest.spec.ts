@@ -42,7 +42,10 @@ vi.mock("../client", () => ({
         }
         const filters: Array<[string, unknown]> = [];
         const apply = () =>
-          h.links.filter((row) => filters.every(([c, v]) => row[c] === v));
+          h.links.filter(
+            (row: Record<string, unknown>) =>
+              filters.every(([c, v]) => row[c] === v)
+          );
         return {
           select() {
             return this;
