@@ -15,11 +15,13 @@ import {
 import {
   canCreateHandmadeListing,
   consumeCredits,
+  addCredits,
   countActiveHandmadeProducts,
   getCreditBalance,
   getEventCreditCost,
   LISTING_CREDIT_COSTS,
 } from "./listing-credits";
+import { createPlatformClient } from "./client";
 import { createVisibilityBoost, grantPlanVisibilityBoost } from "./ranking";
 
 export async function enforceCreatorSocialUrls(
@@ -273,6 +275,36 @@ export async function purchaseSpotlightBoostAction(input: {
       ? LISTING_CREDIT_COSTS.homepageSpotlight
       : LISTING_CREDIT_COSTS.spotlight7Days;
 
+  // Ownership assertion: the boosted entity must belong to the paying creator.
+  if (input.entityType === "creator") {
+    if (input.entityId !== input.creatorId) {
+      return { ok: false, error: "Je kunt alleen je eigen profiel boosten." };
+    }
+  } else {
+    const supabase = createPlatformClient();
+    const table =
+      input.entityType === "product"
+        ? "products"
+        : input.entityType === "workshop"
+          ? "workshops"
+          : "events";
+    const ownerColumn =
+      input.entityType === "event" ? "organizer_creator_id" : "creator_id";
+    const { data: owned, error: ownedError } = await supabase
+      .from(table)
+      .select("id")
+      .eq("id", input.entityId)
+      .eq(ownerColumn, input.creatorId)
+      .maybeSingle();
+
+    if (ownedError || !owned) {
+      return {
+        ok: false,
+        error: "Deze entiteit bestaat niet of is niet van jou.",
+      };
+    }
+  }
+
   const consumed = await consumeCredits(
     input.creatorId,
     cost,
@@ -287,7 +319,7 @@ export async function purchaseSpotlightBoostAction(input: {
     Date.now() + (input.boostType === "homepage" ? 14 : 7) * 86400000
   ).toISOString();
 
-  await createVisibilityBoost({
+  const created = await createVisibilityBoost({
     entityType: input.entityType,
     entityId: input.entityId,
     boostType: input.boostType === "homepage" ? "homepage" : "spotlight",
@@ -295,6 +327,19 @@ export async function purchaseSpotlightBoostAction(input: {
     boostScore: input.boostType === "homepage" ? 150 : 50,
     endsAt,
   });
+
+  // Compensating action: refund credits if the boost could not be created.
+  if (!created.ok) {
+    await addCredits(input.creatorId, cost, "spotlight_refund", {
+      type: input.entityType,
+      id: input.entityId,
+      reason: created.error,
+    });
+    return {
+      ok: false,
+      error: created.error ?? "Boost kon niet worden aangemaakt; credits teruggezet.",
+    };
+  }
 
   return { ok: true };
 }

@@ -16,9 +16,10 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = getFileFromFormData(formData, "file");
-    const pathPrefix =
-      formData.get("path_prefix")?.toString().trim() ||
-      `uploads/${user.id}`;
+    // Security: force the storage namespace server-side. Never trust a
+    // client-supplied path_prefix — it allowed writing into other users' or
+    // convention-based gallery paths.
+    const pathPrefix = `uploads/${user.id}`;
 
     if (!pathPrefix || pathPrefix.includes("..")) {
       return NextResponse.json({ error: "Ongeldig uploadpad." }, { status: 400 });

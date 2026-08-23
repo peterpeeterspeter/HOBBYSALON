@@ -42,6 +42,17 @@ function resolveToExistingFile(absolutePathWithoutExt) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  // 0. "server-only" is a Next.js compile-time guard with no runtime export.
+  //    Under node --test it must resolve to a noop module or every test that
+  //    transitively imports a server module fails with ERR_MODULE_NOT_FOUND.
+  if (specifier === "server-only") {
+    return {
+      url: pathToFileURL(path.join(import.meta.dirname, "server-only-noop.mjs"))
+        .href,
+      shortCircuit: true,
+    };
+  }
+
   // 1. tsconfig path alias: "@/lib/foo" -> <src>/lib/foo
   if (specifier.startsWith("@/")) {
     const resolved = resolveToExistingFile(
