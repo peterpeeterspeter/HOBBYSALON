@@ -201,7 +201,7 @@ export async function exchangePlatformSellerAuth(
   const member = (await knex("member")
     .select("id", "seller_id", "email", "name")
     .where("seller_id", link.seller_id)
-    .whereRaw("lower(email) = ?", [supabaseUser.email])
+    .whereRaw("lower(email) = ?", [supabaseUser.email.trim().toLowerCase()])
     .whereNull("deleted_at")
     .first()) as MemberRow | undefined;
 

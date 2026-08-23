@@ -34,12 +34,16 @@ export async function checkImageGenerationRateLimit(
   return { allowed: true };
 }
 
-export async function recordImageGeneration(userId: string): Promise<void> {
+export async function recordImageGeneration(
+  userId: string
+): Promise<{ ok: boolean; error?: string }> {
   const supabase = createPlatformClient();
-  await supabase.from("user_activity_log").insert({
+  const { error } = await supabase.from("user_activity_log").insert({
     user_id: userId,
     event_name: "image_generation",
     source: "storefront",
     occurred_at: new Date().toISOString(),
   });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }

@@ -54,7 +54,16 @@ export async function POST(request: Request) {
       imageSize: imageSize as "1K" | "2K" | "4K",
     });
 
-    await recordImageGeneration(user.id);
+    // Metering must succeed; a failing insert means the rate limiter can no
+    // longer see this generation, so fail the request instead of returning
+    // an unmetered result.
+    const recorded = await recordImageGeneration(user.id);
+    if (!recorded.ok) {
+      return NextResponse.json(
+        { error: "Kon generatie niet registreren. Probeer het later opnieuw." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ image: base64, format: "base64" });
   } catch (e) {

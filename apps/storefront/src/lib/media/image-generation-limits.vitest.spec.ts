@@ -97,9 +97,17 @@ describe("checkImageGenerationRateLimit — P1-4", () => {
 
 describe("recordImageGeneration — P1-4", () => {
   it("records the event with the fixed event name", async () => {
-    await recordImageGeneration("user-1");
+    const result = await recordImageGeneration("user-1");
+    expect(result.ok).toBe(true);
     expect(h.inserted).toHaveLength(1);
     expect(h.inserted[0].event_name).toBe("image_generation");
     expect(h.inserted[0].user_id).toBe("user-1");
+  });
+
+  it("reports failure when the metering insert fails (F-4)", async () => {
+    h.insertError = { message: "RLS violation" };
+    const result = await recordImageGeneration("user-1");
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("RLS violation");
   });
 });
