@@ -28,6 +28,7 @@
     ".medusa/server",
     ".medusa/admin",
     "src/admin",
-    ".cache"
+    ".cache",
+    "src/**/*.test.ts"
   ]
 }
