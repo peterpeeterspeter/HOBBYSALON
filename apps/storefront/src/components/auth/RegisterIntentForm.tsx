@@ -13,6 +13,7 @@ import {
   type RegistrationOfferRole,
 } from "@/lib/auth/registration-options";
 import { cn } from "@/lib/utils";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 
 export type RegistrationHobbyDomain = {
   id: string;
@@ -117,6 +118,7 @@ export function RegisterIntentForm({
     new Set()
   );
   const [allHobbies, setAllHobbies] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const showHobbyCategories =
     wantDiscover && selectedInterests.has("article") && hobbyDomains.length > 0;
@@ -451,6 +453,9 @@ export function RegisterIntentForm({
             {state.message}
           </p>
         ) : null}
+
+        <TurnstileWidget onTokenChange={setCaptchaToken} />
+        <input type="hidden" name="cf-turnstile-response" value={captchaToken ?? ""} />
 
         <SubmitButton />
 
