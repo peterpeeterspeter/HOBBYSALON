@@ -70,9 +70,16 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
       setScriptReady(true);
     }
 
+    // Script tag already injected by a previous mount/hydration pass.
     if (document.querySelector(`script[src^="${SCRIPT_SRC}"]`)) {
+      // The script may have fully loaded long ago — the load event already
+      // fired and onTurnstileLoad would never be called. Detect readiness
+      // directly instead of relying on the callback.
+      if (window.turnstile) {
+        setScriptReady(true);
+        return;
+      }
       window.onTurnstileLoad = handleLoad;
-      if (window.turnstile) handleLoad();
       return;
     }
 
@@ -85,7 +92,9 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
     document.head.appendChild(script);
 
     const timeout = window.setTimeout(() => {
-      if (!window.turnstile) setScriptFailed(true);
+      // Also catch "loaded but onload missed" races.
+      if (window.turnstile) setScriptReady(true);
+      else setScriptFailed(true);
     }, SCRIPT_TIMEOUT_MS);
 
     return () => {
