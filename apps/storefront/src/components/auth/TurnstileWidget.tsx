@@ -5,6 +5,11 @@ import { useEffect, useId, useRef, useState } from "react";
 /**
  * Cloudflare Turnstile widget (managed mode).
  * Renders nothing when NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set (local/dev).
+ *
+ * If the script fails to load within a few seconds (adblockers commonly block
+ * challenges.cloudflare.com), the user sees a clear explanation instead of a
+ * silent missing checkbox. The server still enforces the captcha, so users in
+ * that state are told how to proceed.
  */
 
 declare global {
@@ -23,6 +28,8 @@ declare global {
 
 const SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+/** ms to wait for the Turnstile script before showing the blocked notice. */
+const SCRIPT_TIMEOUT_MS = 6000;
 
 type TurnstileWidgetProps = {
   /** Called with the token whenever the widget produces/resets one. */
@@ -37,6 +44,7 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
   const [scriptReady, setScriptReady] = useState(
     typeof window !== "undefined" && Boolean(window.turnstile)
   );
+  const [scriptFailed, setScriptFailed] = useState(false);
   const elementId = useId();
 
   callbackRef.current = onTokenChange;
@@ -60,9 +68,16 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
     script.src = SCRIPT_SRC;
     script.async = true;
     script.defer = true;
+    // Detect total load failure (blocked by extension / network).
+    script.onerror = () => setScriptFailed(true);
     document.head.appendChild(script);
 
+    const timeout = window.setTimeout(() => {
+      if (!window.turnstile) setScriptFailed(true);
+    }, SCRIPT_TIMEOUT_MS);
+
     return () => {
+      window.clearTimeout(timeout);
       delete window.onTurnstileLoad;
     };
   }, [siteKey, scriptReady]);
@@ -96,6 +111,20 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
   }, [siteKey, scriptReady]);
 
   if (!siteKey) return null;
+
+  if (scriptFailed && !scriptReady) {
+    return (
+      <p
+        role="alert"
+        className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900"
+      >
+        De beveiligingscontrole kan niet laden. Dit komt meestal door een
+        adblocker of privacy-extensie die Cloudflare blokkeert. Schakel deze
+        uit voor hobbysalon.be of gebruik een incognitovenster, en herlaad de
+        pagina.
+      </p>
+    );
+  }
 
   return (
     <div>
