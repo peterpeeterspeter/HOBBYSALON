@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
+import { verifyTurnstileToken } from "@/lib/auth/turnstile";
 
 export const AUTH_ACCESS_COOKIE = "hs_auth_access";
 export const AUTH_REFRESH_COOKIE = "hs_auth_refresh";
@@ -144,7 +145,8 @@ export async function registerEmailUser(
   email: string,
   password: string,
   nextPath?: string | null,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
+  captchaToken?: string | null
 ): Promise<{ user: User | null; session: Session | null; error: string | null }> {
   const supabase = getSupabaseAuthClient();
   // Keep emailRedirectTo allowlist-safe and stable. Nested ?next=…/#… caused
@@ -152,12 +154,18 @@ export async function registerEmailUser(
   await persistAuthNextPath(nextPath);
   const confirmationUrl = buildAuthConfirmUrl();
 
+  const captcha = await verifyTurnstileToken(captchaToken);
+  if (!captcha.ok) {
+    return { user: null, session: null, error: captcha.error ?? "captcha-failed" };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       emailRedirectTo: confirmationUrl,
       data: metadata,
+      captchaToken: captchaToken ?? undefined,
     },
   });
 

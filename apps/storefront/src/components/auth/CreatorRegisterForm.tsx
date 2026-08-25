@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AuthActionState } from "@/app/actions/auth";
 import {
@@ -8,6 +8,7 @@ import {
   REGISTRATION_DEFAULT_COUNTRY,
   REGISTRATION_INTEREST_OPTIONS,
 } from "@/lib/auth/registration-options";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 
 type CreatorRegisterFormProps = {
   action: (
@@ -48,6 +49,7 @@ export function CreatorRegisterForm({
     success: false,
     message: "",
   });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const defaultTypes = new Set(defaultCreatorTypes);
 
   return (
@@ -231,6 +233,9 @@ export function CreatorRegisterForm({
           Open de bevestigingsmail en kom daarna hier terug om aan te melden. Je dashboard staat dan voor je klaar.
         </p>
       )}
+
+      <TurnstileWidget onTokenChange={setCaptchaToken} />
+      <input type="hidden" name="cf-turnstile-response" value={captchaToken ?? ""} />
 
       {!state.success && <SubmitButton />}
     </form>

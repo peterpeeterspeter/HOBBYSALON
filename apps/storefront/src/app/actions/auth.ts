@@ -12,6 +12,7 @@ import {
   resolveSupabaseAccessToken,
   sendPasswordResetEmail,
 } from "@/lib/auth/session";
+import { turnstileErrorMessage } from "@/lib/auth/turnstile";
 import { createPlatformClient } from "@/lib/platform/client";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import { creatorTypesRequiringApproval } from "@/lib/auth/role-request-status";
@@ -169,12 +170,20 @@ export async function registerAction(
   const { session, user, error } = await registerEmailUser(
     email,
     password,
-    effectiveNextPath
+    effectiveNextPath,
+    undefined,
+    formData.get("cf-turnstile-response")?.toString() ?? null
   );
 
   if (error) {
     console.error("registerAction signup failed", { email, error });
     const normalized = error.toLowerCase();
+    if (normalized.startsWith("captcha")) {
+      return {
+        success: false,
+        message: turnstileErrorMessage(error),
+      };
+    }
     if (normalized.includes("rate limit")) {
       return {
         success: false,
@@ -313,10 +322,17 @@ export async function registerCreatorAction(
       country_code: countryCode,
       interest_types: interestTypes,
       creator_types: creatorTypes,
-    }
+    },
+    formData.get("cf-turnstile-response")?.toString() ?? null
   );
 
   if (error) {
+    if (error.toLowerCase().startsWith("captcha")) {
+      return {
+        success: false,
+        message: turnstileErrorMessage(error),
+      };
+    }
     return {
       success: false,
       message: "Registratie mislukt. Gebruik een ander e-mailadres.",
@@ -472,10 +488,18 @@ export async function registerMerchantAction(
   const { session, user, error } = await registerEmailUser(
     email,
     password,
-    requestedNextPath
+    requestedNextPath,
+    undefined,
+    formData.get("cf-turnstile-response")?.toString() ?? null
   );
 
   if (error) {
+    if (error.toLowerCase().startsWith("captcha")) {
+      return {
+        success: false,
+        message: turnstileErrorMessage(error),
+      };
+    }
     return {
       success: false,
       message: "Registratie mislukt. Gebruik een ander e-mailadres.",

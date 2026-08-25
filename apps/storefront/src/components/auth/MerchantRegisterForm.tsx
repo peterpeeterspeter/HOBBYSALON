@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AuthActionState } from "@/app/actions/auth";
 import {
   REGISTRATION_COUNTRY_OPTIONS,
   REGISTRATION_DEFAULT_COUNTRY,
 } from "@/lib/auth/registration-options";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 
 type MerchantRegisterFormProps = {
   action: (
@@ -37,6 +38,7 @@ export function MerchantRegisterForm({
     success: false,
     message: "",
   });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -173,6 +175,9 @@ export function MerchantRegisterForm({
           {state.message}
         </p>
       )}
+
+      <TurnstileWidget onTokenChange={setCaptchaToken} />
+      <input type="hidden" name="cf-turnstile-response" value={captchaToken ?? ""} />
 
       <SubmitButton />
     </form>
