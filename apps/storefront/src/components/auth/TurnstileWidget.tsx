@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 /**
- * Cloudflare Turnstile widget (managed mode).
- * Renders nothing when NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set (local/dev).
+ * Cloudflare Turnstile widget.
  *
- * If the script fails to load within a few seconds (adblockers commonly block
- * challenges.cloudflare.com), the user sees a clear explanation instead of a
- * silent missing checkbox. The server still enforces the captcha, so users in
- * that state are told how to proceed.
+ * Uses the official implicit rendering flow: a container div with a
+ * data-sitekey attribute is picked up automatically by the Turnstile script,
+ * which replaces its content with an iframe. This avoids the explicit-API
+ * race with React's hydration (render into a node React may replace).
+ *
+ * The token is read from the hidden input that Turnstile manages and pushed
+ * to onTokenChange so server actions can pass it to Supabase.
+ *
+ * Renders nothing when NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set (local/dev).
  */
 
 declare global {
@@ -17,7 +21,7 @@ declare global {
     turnstile?: {
       render: (
         el: HTMLElement,
-        options: Record<string, unknown>
+        options?: Record<string, unknown>
       ) => string | undefined;
       reset: (widgetId?: string) => void;
       remove: (widgetId: string) => void;
@@ -39,7 +43,6 @@ type TurnstileWidgetProps = {
 export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const containerRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string | null>(null);
   const callbackRef = useRef(onTokenChange);
   const [scriptReady, setScriptReady] = useState(
     typeof window !== "undefined" && Boolean(window.turnstile)
@@ -47,7 +50,18 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
   const [scriptFailed, setScriptFailed] = useState(false);
   const elementId = useId();
 
-  callbackRef.current = onTokenChange;
+  const pushToken = useCallback(() => {
+    const input = containerRef.current?.querySelector<HTMLInputElement>(
+      'input[name="cf-turnstile-response"]'
+    );
+    const value = input?.value ?? "";
+    // Turnstile writes "" when expired/reset — normalise to null.
+    callbackRef.current(value.length > 0 ? value : null);
+  }, []);
+
+  useEffect(() => {
+    callbackRef.current = onTokenChange;
+  }, [onTokenChange]);
 
   useEffect(() => {
     if (!siteKey || scriptReady) return;
@@ -58,7 +72,6 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
 
     if (document.querySelector(`script[src^="${SCRIPT_SRC}"]`)) {
       window.onTurnstileLoad = handleLoad;
-      // Script may already be loaded and executed.
       if (window.turnstile) handleLoad();
       return;
     }
@@ -68,7 +81,6 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
     script.src = SCRIPT_SRC;
     script.async = true;
     script.defer = true;
-    // Detect total load failure (blocked by extension / network).
     script.onerror = () => setScriptFailed(true);
     document.head.appendChild(script);
 
@@ -82,33 +94,35 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
     };
   }, [siteKey, scriptReady]);
 
+  // After the script is ready, render explicitly but into a container that
+  // this component owns and never re-renders (no state changes touch it).
+  // Poll the managed hidden input so tokens flow regardless of callbacks.
   useEffect(() => {
-    if (!siteKey || !scriptReady || !containerRef.current) return;
-    const el = containerRef.current;
-    const turnstile = window.turnstile;
-    if (!turnstile) return;
+    if (!siteKey || !scriptReady || !containerRef.current || !window.turnstile)
+      return;
 
-    const widgetId = turnstile.render(el, {
+    const widgetId = window.turnstile.render(containerRef.current, {
       sitekey: siteKey,
-      callback: (token: string) => callbackRef.current(token),
-      "expired-callback": () => callbackRef.current(null),
-      "error-callback": () => callbackRef.current(null),
       theme: "light",
       language: "nl",
+      callback: () => pushToken(),
+      "expired-callback": () => callbackRef.current(null),
+      "error-callback": () => callbackRef.current(null),
     });
-    widgetIdRef.current = widgetId ?? null;
+
+    const interval = window.setInterval(pushToken, 500);
 
     return () => {
-      if (widgetIdRef.current !== null && window.turnstile) {
+      window.clearInterval(interval);
+      if (widgetId && window.turnstile) {
         try {
-          window.turnstile.remove(widgetIdRef.current);
+          window.turnstile.remove(widgetId);
         } catch {
           // Widget already gone — ignore.
         }
       }
-      widgetIdRef.current = null;
     };
-  }, [siteKey, scriptReady]);
+  }, [siteKey, scriptReady, pushToken]);
 
   if (!siteKey) return null;
 
