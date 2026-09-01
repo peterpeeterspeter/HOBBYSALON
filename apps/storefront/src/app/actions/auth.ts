@@ -41,6 +41,11 @@ import {
   sanitizeLocationCity,
   sanitizeLocationCountryCode,
 } from "@/lib/location/preference";
+import {
+  captchaFailedMessage,
+  missingCaptchaMessage,
+  parseCaptchaToken,
+} from "@/lib/auth/captcha";
 
 export type AuthActionState = {
   success: boolean;
@@ -57,6 +62,15 @@ const ALLOWED_CREATOR_TYPES = new Set<string>([
   "content_creator",
   "organizer",
 ]);
+
+function readCaptchaToken(
+  formData: FormData
+): { ok: true; token: string | null } | { ok: false; message: string } {
+  const token = parseCaptchaToken(formData);
+  const missing = missingCaptchaMessage(token);
+  if (missing) return { ok: false, message: missing };
+  return { ok: true, token };
+}
 
 function parseInterestTypes(formData: FormData): RegistrationInterestType[] {
   return (formData.getAll("interest_types") ?? [])
@@ -82,14 +96,29 @@ export async function loginAction(
     };
   }
 
-  const { user, session, error } = await createEmailSession(email, password);
+  const captcha = readCaptchaToken(formData);
+  if (!captcha.ok) {
+    return { success: false, message: captcha.message };
+  }
+
+  const { user, session, error } = await createEmailSession(
+    email,
+    password,
+    captcha.token
+  );
 
   if (error || !session) {
-    const message = error?.toLowerCase().includes("email not confirmed")
-      ? "Bevestig eerst je e-mailadres via de link in je inbox, of vraag een nieuwe bevestigingsmail aan."
-      : error?.toLowerCase().includes("invalid login credentials")
-        ? "Aanmelden mislukt. Controleer je e-mailadres en wachtwoord."
-        : "Aanmelden mislukt. Controleer je gegevens of gebruik ‘Wachtwoord vergeten’.";
+    const lower = error?.toLowerCase() ?? "";
+    if (error) {
+      console.error("loginAction supabase error", error);
+    }
+    const message =
+      captchaFailedMessage(error) ??
+      (lower.includes("email not confirmed")
+        ? "Bevestig eerst je e-mailadres via de link in je inbox, of vraag een nieuwe bevestigingsmail aan."
+        : lower.includes("invalid login credentials")
+          ? "Aanmelden mislukt. Controleer je e-mailadres en wachtwoord."
+          : "Aanmelden mislukt. Controleer je gegevens of gebruik ‘Wachtwoord vergeten’.");
     return {
       success: false,
       message,
@@ -167,16 +196,25 @@ export async function registerAction(
     };
   }
 
+  const captcha = readCaptchaToken(formData);
+  if (!captcha.ok) {
+    return { success: false, message: captcha.message };
+  }
+
   const { session, user, error } = await registerEmailUser(
     email,
     password,
     effectiveNextPath,
     undefined,
-    formData.get("cf-turnstile-response")?.toString() ?? null
+    captcha.token
   );
 
   if (error) {
     console.error("registerAction signup failed", { email, error });
+    const captchaMessage = captchaFailedMessage(error);
+    if (captchaMessage) {
+      return { success: false, message: captchaMessage };
+    }
     const normalized = error.toLowerCase();
     if (normalized.startsWith("captcha")) {
       return {
@@ -308,6 +346,11 @@ export async function registerCreatorAction(
     };
   }
 
+  const captcha = readCaptchaToken(formData);
+  if (!captcha.ok) {
+    return { success: false, message: captcha.message };
+  }
+
   const { session, user, error } = await registerEmailUser(
     email,
     password,
@@ -323,7 +366,7 @@ export async function registerCreatorAction(
       interest_types: interestTypes,
       creator_types: creatorTypes,
     },
-    formData.get("cf-turnstile-response")?.toString() ?? null
+    captcha.token
   );
 
   if (error) {
@@ -335,7 +378,9 @@ export async function registerCreatorAction(
     }
     return {
       success: false,
-      message: "Registratie mislukt. Gebruik een ander e-mailadres.",
+      message:
+        captchaFailedMessage(error) ??
+        "Registratie mislukt. Gebruik een ander e-mailadres.",
     };
   }
 
@@ -485,12 +530,17 @@ export async function registerMerchantAction(
     };
   }
 
+  const captcha = readCaptchaToken(formData);
+  if (!captcha.ok) {
+    return { success: false, message: captcha.message };
+  }
+
   const { session, user, error } = await registerEmailUser(
     email,
     password,
     requestedNextPath,
     undefined,
-    formData.get("cf-turnstile-response")?.toString() ?? null
+    captcha.token
   );
 
   if (error) {
@@ -502,7 +552,9 @@ export async function registerMerchantAction(
     }
     return {
       success: false,
-      message: "Registratie mislukt. Gebruik een ander e-mailadres.",
+      message:
+        captchaFailedMessage(error) ??
+        "Registratie mislukt. Gebruik een ander e-mailadres.",
     };
   }
 
@@ -787,7 +839,12 @@ export async function forgotPasswordAction(
     };
   }
 
-  const { error } = await sendPasswordResetEmail(email);
+  const captcha = readCaptchaToken(formData);
+  if (!captcha.ok) {
+    return { success: false, message: captcha.message };
+  }
+
+  const { error } = await sendPasswordResetEmail(email, captcha.token);
 
   if (error) {
     console.error("Password reset email failed", { email, error });

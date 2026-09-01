@@ -3,7 +3,6 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { verifyTurnstileToken } from "@/lib/auth/turnstile";
 
 export const AUTH_ACCESS_COOKIE = "hs_auth_access";
 export const AUTH_REFRESH_COOKIE = "hs_auth_refresh";
@@ -126,12 +125,14 @@ export async function hasAuthSessionCookie(): Promise<boolean> {
 
 export async function createEmailSession(
   email: string,
-  password: string
+  password: string,
+  captchaToken?: string | null
 ): Promise<{ user: User | null; session: Session | null; error: string | null }> {
   const supabase = getSupabaseAuthClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: captchaToken ? { captchaToken } : undefined,
   });
 
   return {
@@ -154,18 +155,13 @@ export async function registerEmailUser(
   await persistAuthNextPath(nextPath);
   const confirmationUrl = buildAuthConfirmUrl();
 
-  const captcha = await verifyTurnstileToken(captchaToken);
-  if (!captcha.ok) {
-    return { user: null, session: null, error: captcha.error ?? "captcha-failed" };
-  }
-
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       emailRedirectTo: confirmationUrl,
       data: metadata,
-      captchaToken: captchaToken ?? undefined,
+      captchaToken: captchaToken || undefined,
     },
   });
 
@@ -238,13 +234,15 @@ export function buildAuthConfirmUrl(_nextPath?: string | null): string {
 }
 
 export async function sendPasswordResetEmail(
-  email: string
+  email: string,
+  captchaToken?: string | null
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseAuthClient();
   await persistAuthNextPath("/auth/update-password");
   const redirectTo = buildAuthConfirmUrl();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
+    captchaToken: captchaToken || undefined,
   });
 
   return { error: error?.message ?? null };

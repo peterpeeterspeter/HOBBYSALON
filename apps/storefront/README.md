@@ -66,6 +66,7 @@ yarn build
 Storefront deploys to Vercel. Configure environment variables in Project Settings → Environment Variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — Cloudflare Turnstile site key (public). The **secret** belongs in Supabase Auth → Attack protection → CAPTCHA (Turnstile), not in Vercel.
 - `MEDUSA_BACKEND_URL` — deployed Medusa API (e.g. `https://api.yoursite.com`)
 - `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` — from Medusa seed
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — for checkout

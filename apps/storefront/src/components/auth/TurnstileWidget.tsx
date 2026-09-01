@@ -22,7 +22,7 @@ declare global {
 }
 
 const SCRIPT_SRC =
-  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad";
 
 type TurnstileWidgetProps = {
   /** Called with the token whenever the widget produces/resets one. */
@@ -60,6 +60,7 @@ export function TurnstileWidget({ onTokenChange }: TurnstileWidgetProps) {
     script.src = SCRIPT_SRC;
     script.async = true;
     script.defer = true;
+    script.addEventListener("load", handleLoad);
     document.head.appendChild(script);
 
     return () => {

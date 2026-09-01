@@ -10,6 +10,7 @@ import {
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
 import { cn } from "@/lib/utils";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 
 export type RegistrationHobbyDomain = {
   id: string;
@@ -63,6 +64,7 @@ export function AuthForm({
     new Set()
   );
   const [allHobbies, setAllHobbies] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const showHobbyCategories =
     mode === "register" && selectedInterests.has("article");
@@ -289,6 +291,13 @@ export function AuthForm({
           {state.message}
         </p>
       )}
+
+      <TurnstileWidget onTokenChange={setCaptchaToken} />
+      <input
+        type="hidden"
+        name="cf-turnstile-response"
+        value={captchaToken ?? ""}
+      />
 
       <SubmitButton mode={mode} />
     </form>

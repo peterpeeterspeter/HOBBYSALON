@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 
 function safeNextPath(value: string | null): string {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/profile";
@@ -55,6 +56,7 @@ export default function ConfirmAccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     const confirmAccount = async () => {
@@ -123,10 +125,21 @@ export default function ConfirmAccountPage() {
         detectSessionInUrl: false,
       },
     });
+    const captchaTokenFromForm =
+      new FormData(event.currentTarget)
+        .get("cf-turnstile-response")
+        ?.toString()
+        .trim() ||
+      captchaToken ||
+      undefined;
+
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email: resendEmail,
-      options: { emailRedirectTo: redirectTo },
+      options: {
+        emailRedirectTo: redirectTo,
+        captchaToken: captchaTokenFromForm,
+      },
     });
 
     setResendMessage(
@@ -166,6 +179,12 @@ export default function ConfirmAccountPage() {
                 placeholder="naam@voorbeeld.be"
               />
             </label>
+            <TurnstileWidget onTokenChange={setCaptchaToken} />
+            <input
+              type="hidden"
+              name="cf-turnstile-response"
+              value={captchaToken ?? ""}
+            />
             <button
               type="submit"
               className="rounded-lg bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--accent-foreground)] hover:opacity-90"

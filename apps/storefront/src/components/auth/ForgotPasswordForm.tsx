@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AuthActionState } from "@/app/actions/auth";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 
 type Props = {
   action: (
@@ -29,6 +30,7 @@ export function ForgotPasswordForm({ action }: Props) {
     success: false,
     message: "",
   });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -62,6 +64,13 @@ export function ForgotPasswordForm({ action }: Props) {
           {state.message}
         </p>
       )}
+
+      <TurnstileWidget onTokenChange={setCaptchaToken} />
+      <input
+        type="hidden"
+        name="cf-turnstile-response"
+        value={captchaToken ?? ""}
+      />
 
       <SubmitButton />
     </form>
