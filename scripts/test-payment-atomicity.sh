@@ -9,14 +9,16 @@ trap cleanup EXIT
 # Image may be cached; Docker fetches it if needed before starting isolation.
 docker run -d --name "$NAME" --network none --memory 192m \
   -e POSTGRES_HOST_AUTH_METHOD=trust -v "$ROOT:/fixture:ro" postgres:16-alpine >/dev/null
+# The image starts a socket-only temporary server during initdb, then restarts.
+# TCP is ready only on the final server, so the probe cannot pass mid-bootstrap.
 ready=false
 for attempt in {1..30}; do
-  if docker exec "$NAME" pg_isready -U postgres >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$NAME" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 $ready || { docker logs "$NAME"; exit 1; }
-docker exec "$NAME" createdb -U postgres listing_payment_atomicity_test
-sql() { docker exec "$NAME" psql -X -U postgres -d listing_payment_atomicity_test -v ON_ERROR_STOP=1 "$@"; }
+docker exec "$NAME" createdb -h 127.0.0.1 -U postgres listing_payment_atomicity_test
+sql() { docker exec "$NAME" psql -h 127.0.0.1 -X -U postgres -d listing_payment_atomicity_test -v ON_ERROR_STOP=1 "$@"; }
 sql -f /fixture/supabase/tests/listing_checkout_atomicity.sql
 # Real independent connections: one application, all other deliveries duplicates.
 pids=()
