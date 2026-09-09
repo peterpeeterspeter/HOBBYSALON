@@ -12,6 +12,65 @@ export { CART_COOKIE_NAME, CART_COOKIE_MAX_AGE };
 
 type CartLineMetadata = Record<string, unknown>;
 
+export type CartAddError = {
+  kind: "cart_not_found" | "cart_completed" | "inventory" | "validation" | "transport" | "unknown";
+  status?: number;
+  type?: string;
+  code?: string;
+};
+
+type CartAddResult =
+  | { success: true; cart_id: string }
+  | { success: false; message: string; error: CartAddError };
+
+export function isStaleCartError(error: CartAddError): boolean {
+  return error.kind === "cart_not_found" || error.kind === "cart_completed";
+}
+
+function readCartError(error: unknown) {
+  const err = error as {
+    message?: string; status?: number; type?: string; code?: string;
+    response?: { status?: number; data?: { message?: string; type?: string; code?: string } };
+  } | null;
+  return {
+    status: err?.response?.status ?? err?.status,
+    type: err?.response?.data?.type ?? err?.type,
+    code: err?.response?.data?.code ?? err?.code,
+    detail: err?.response?.data?.message ?? err?.message ?? (typeof error === "string" ? error : undefined),
+  };
+}
+
+async function classifyCartError(cartId: string, error: unknown): Promise<CartAddError> {
+  const { status, type, code, detail } = readCartError(error);
+  const backend = { status, type, code };
+  if (!status || status >= 500 || status === 408 || status === 429) {
+    return { ...backend, kind: "transport" };
+  }
+  if (/inventory|stock|insufficient|not enough/i.test([type, code, detail].join(" "))) {
+    return { ...backend, kind: "inventory" };
+  }
+
+  // SDK FetchError drops the response's type/code. A 404 may refer to a
+  // variant, and a 400 may mean validation OR a completed cart. Confirm the
+  // cart's state rather than using status/message alone as a reset signal.
+  if (status === 400 || status === 404 || status === 409) {
+    try {
+      const { cart } = await sdk.store.cart.retrieve(cartId, { fields: "id,completed_at" });
+      // The backend can return this explicitly requested field even though
+      // the SDK's StoreCart type omits it. Narrow the response without a cast.
+      if (cart && "completed_at" in cart && cart.completed_at) {
+        return { ...backend, kind: "cart_completed" };
+      }
+    } catch (verificationError) {
+      if (readCartError(verificationError).status === 404) {
+        return { ...backend, kind: "cart_not_found" };
+      }
+      // A failed state check is not proof of a stale cart.
+    }
+  }
+  return { ...backend, kind: status === 400 || status === 422 ? "validation" : "unknown" };
+}
+
 export type BundleLineInput = {
   variant_id: string;
   quantity?: number;
@@ -57,7 +116,7 @@ export async function addToCart(
   variantId: string,
   quantity: number = 1,
   metadata?: CartLineMetadata
-): Promise<{ success: boolean; cart_id?: string; message?: string }> {
+): Promise<CartAddResult> {
   try {
     const fields =
       "id,currency_code,*items,*items.variant,*items.variant.product";
@@ -75,22 +134,16 @@ export async function addToCart(
     );
     return { success: true, cart_id: cartId };
   } catch (e) {
-    const err = e as {
-      message?: string;
-      response?: { status?: number; data?: { message?: string } };
-    };
-    const detail =
-      err?.response?.data?.message ??
-      err?.message ??
-      (typeof e === "string" ? e : null);
+    const { detail, status } = readCartError(e);
     console.error(
       "Add to cart failed:",
-      detail ?? err,
-      err?.response?.status ? `(HTTP ${err.response.status})` : ""
+      detail ?? e,
+      status ? `(HTTP ${status})` : ""
     );
     return {
       success: false,
       message: mapAddToCartError(detail),
+      error: await classifyCartError(cartId, e),
     };
   }
 }
@@ -128,9 +181,11 @@ export async function addBundleToCart(
   cart_id: string;
   added_count: number;
   failed_variant_ids: string[];
+  failures: { variant_id: string; error: CartAddError }[];
 }> {
   let addedCount = 0;
   const failedVariantIds: string[] = [];
+  const failures: { variant_id: string; error: CartAddError }[] = [];
 
   for (let i = 0; i < items.length; i += 1) {
     const line = items[i];
@@ -152,6 +207,7 @@ export async function addBundleToCart(
       addedCount += 1;
     } else {
       failedVariantIds.push(line.variant_id);
+      failures.push({ variant_id: line.variant_id, error: result.error });
     }
   }
 
@@ -160,6 +216,7 @@ export async function addBundleToCart(
     cart_id: cartId,
     added_count: addedCount,
     failed_variant_ids: failedVariantIds,
+    failures,
   };
 }
 

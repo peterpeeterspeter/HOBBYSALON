@@ -1,4 +1,5 @@
 import "server-only";
+import { sanitizeInternalRedirect } from "./safe-redirect";
 
 import { cache } from "react";
 import { cookies } from "next/headers";
@@ -179,11 +180,9 @@ function getSiteUrl(): string {
   );
 }
 
-/** Strip hash fragments; they break Location headers and must not enter auth redirects. */
+/** Apply the same-origin redirect policy while preserving the no-leading-space contract. */
 export function sanitizeAuthNextPath(nextPath?: string | null): string | null {
-  if (!nextPath?.startsWith("/") || nextPath.startsWith("//")) return null;
-  const withoutHash = nextPath.split("#", 1)[0]?.trim() ?? "";
-  return withoutHash || null;
+  return sanitizeInternalRedirect(nextPath, { trim: false });
 }
 
 export async function persistAuthNextPath(nextPath?: string | null): Promise<void> {
@@ -214,7 +213,7 @@ export async function consumeAuthNextPath(
 ): Promise<string> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(AUTH_NEXT_COOKIE)?.value ?? null;
-  const safeNext = sanitizeAuthNextPath(raw) ?? fallback;
+  const safeNext = sanitizeAuthNextPath(raw) ?? sanitizeAuthNextPath(fallback) ?? "/profile";
   cookieStore.set(AUTH_NEXT_COOKIE, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

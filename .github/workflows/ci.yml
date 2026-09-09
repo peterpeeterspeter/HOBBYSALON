@@ -97,6 +97,16 @@ jobs:
       - name: Run storefront tests
         run: yarn workspace storefront test
 
+      - name: Build framework required by security regressions
+        # Vite resolves the package's dist entry before applying vi.mock.
+        run: yarn workspace @mercurjs/framework build
+
+      - name: Run security and provisioning regressions
+        run: yarn workspace storefront test:security
+
+      - name: Run isolated payment SQL rollback and concurrency tests
+        run: bash scripts/test-payment-atomicity.sh
+
   build:
     name: Build
     runs-on: ubuntu-latest

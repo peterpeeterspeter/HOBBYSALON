@@ -17,7 +17,7 @@ export default {
     ],
   },
   test: {
-    include: ["src/**/*.vitest.spec.ts"],
+    include: ["src/**/*.vitest.spec.ts", "../../tests/**/*.vitest.spec.ts"],
     environment: "node",
   },
 };

@@ -59,6 +59,41 @@ const buildUniqueHandle = async (knex: any, name: string): Promise<string> => {
   return `${safeBase}-${Date.now()}`.slice(0, 80);
 };
 
+async function ensureMerchantRequiredRecords(
+  sellerService: SellerModuleService,
+  seller: { id: string; email?: string | null; name: string },
+  contactName?: string | null
+) {
+  // Persisted seller identity is authoritative, including on partial retries.
+  const email = seller.email?.trim().toLowerCase();
+  if (!email) {
+    throw new Error("Merchant seller email is required to provision its owner");
+  }
+
+  const owners = await sellerService.listMembers({
+    seller_id: seller.id,
+    role: MemberRole.OWNER,
+  });
+  if (owners.some((owner) => owner.email?.trim().toLowerCase() !== email)) {
+    throw new Error("Merchant owner identity conflict");
+  }
+  if (!owners.length) {
+    await sellerService.createMembers({
+      seller_id: seller.id,
+      role: MemberRole.OWNER,
+      email,
+      name: normalizeNullable(contactName) ?? seller.name,
+    });
+  }
+
+  const onboardings = await sellerService.listSellerOnboardings({
+    seller_id: seller.id,
+  });
+  if (!onboardings.length) {
+    await sellerService.createSellerOnboardings({ seller_id: seller.id });
+  }
+}
+
 async function finalizeMerchantSeller(
   scope: MedusaContainer,
   sellerId: string,
@@ -80,6 +115,23 @@ export async function registerMerchantSeller(
 ): Promise<RegisterMerchantSellerResult> {
   const email = input.email.trim().toLowerCase();
   const knex = scope.resolve(ContainerRegistrationKeys.PG_CONNECTION);
+  // Cross-process mutex around lookup AND repair. Service writes use their own
+  // transactions; this transaction only owns the lock, released even on errors.
+  // A failed service write remains repairable on the next serialized attempt.
+  return knex.transaction(async (trx: { raw: (sql: string, values: string[]) => Promise<unknown> }) => {
+    await trx.raw("select pg_advisory_xact_lock(hashtextextended(?, 0))", [
+      `merchant-registration:${email}`,
+    ]);
+    return registerMerchantSellerLocked(scope, { ...input, email });
+  });
+}
+
+async function registerMerchantSellerLocked(
+  scope: MedusaContainer,
+  input: RegisterMerchantSellerInput
+): Promise<RegisterMerchantSellerResult> {
+  const email = input.email;
+  const knex = scope.resolve(ContainerRegistrationKeys.PG_CONNECTION);
 
   // Allow the same person to own a creator seller and a merchant seller.
   // Email is not unique at DB level; only block duplicate merchant sellers.
@@ -91,6 +143,11 @@ export async function registerMerchantSeller(
     .first();
 
   if (existingMerchant) {
+    await ensureMerchantRequiredRecords(
+      scope.resolve<SellerModuleService>(SELLER_MODULE),
+      existingMerchant,
+      input.contact_name
+    );
     return finalizeMerchantSeller(
       scope,
       existingMerchant.id,
@@ -117,16 +174,7 @@ export async function registerMerchantSeller(
     tax_id: normalizeNullable(input.tax_id),
   });
 
-  await sellerService.createMembers({
-    seller_id: seller.id,
-    role: MemberRole.OWNER,
-    email,
-    name: normalizeNullable(input.contact_name) ?? input.name,
-  });
-
-  await sellerService.createSellerOnboardings({
-    seller_id: seller.id,
-  });
+  await ensureMerchantRequiredRecords(sellerService, seller, input.contact_name);
 
   return finalizeMerchantSeller(
     scope,
