@@ -56,7 +56,11 @@ async function classifyCartError(cartId: string, error: unknown): Promise<CartAd
   if (status === 400 || status === 404 || status === 409) {
     try {
       const { cart } = await sdk.store.cart.retrieve(cartId, { fields: "id,completed_at" });
-      if (cart?.completed_at) return { ...backend, kind: "cart_completed" };
+      // The backend can return this explicitly requested field even though
+      // the SDK's StoreCart type omits it. Narrow the response without a cast.
+      if (cart && "completed_at" in cart && cart.completed_at) {
+        return { ...backend, kind: "cart_completed" };
+      }
     } catch (verificationError) {
       if (readCartError(verificationError).status === 404) {
         return { ...backend, kind: "cart_not_found" };
