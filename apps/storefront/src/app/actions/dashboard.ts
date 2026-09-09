@@ -595,44 +595,24 @@ async function creatorOwnsEntityTarget(
     return (organizerResult.count ?? 0) > 0 || (participantResult.count ?? 0) > 0;
   }
 
-  if (targetType === "project") {
-    const { count } = await supabase
-      .from("entity_links")
-      .select("id", { head: true, count: "exact" })
-      .eq("source_entity_type", "creator")
-      .eq("source_entity_id", creatorId)
-      .eq("target_entity_type", "project")
-      .eq("target_entity_id", targetId)
-      .limit(1);
-    return (count ?? 0) > 0;
-  }
-
   return false;
 }
 
-async function getCreatorLinkedProject(
-  creatorId: string,
+// Public creator associations are not editor grants, including existing links.
+// Project writes are authorized only by the authenticated user's ownership.
+async function getUserOwnedProject(
+  userId: string,
   projectId: string
 ): Promise<{ id: string; slug: string } | null> {
   const supabase = createPlatformClient();
-  const { data: creatorProjectLink } = await supabase
-    .from("entity_links")
-    .select("id")
-    .eq("source_entity_type", "creator")
-    .eq("source_entity_id", creatorId)
-    .eq("target_entity_type", "project")
-    .eq("target_entity_id", projectId)
-    .maybeSingle();
-
-  if (!creatorProjectLink?.id) return null;
-
-  const { data: projectRow } = await supabase
+  const { data: projectRow, error } = await supabase
     .from("projects")
     .select("id,slug")
     .eq("id", projectId)
+    .eq("created_by_user_id", userId)
     .maybeSingle();
 
-  if (!projectRow?.id || !projectRow.slug) return null;
+  if (error || !projectRow?.id || !projectRow.slug) return null;
   return { id: projectRow.id as string, slug: projectRow.slug as string };
 }
 
@@ -1027,6 +1007,7 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
       fail(CREATOR_MAKER_PATH, "Ongeldig target type.");
     }
 
+    // Project associations are public discovery links, never write authorization.
     if (targetType !== "project") {
       const creatorOwnsTarget = await creatorOwnsEntityTarget(
         creator.id,
@@ -1112,19 +1093,14 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
 
 export async function createProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { user, creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const altText = parseOptionalString(formData, "alt_text");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
-    const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
+    const ownedProject = await getUserOwnedProject(user.id, projectId);
 
-    if (!linkedProject) {
-      fail(CREATOR_MAKER_PATH, "Project niet gelinkt aan jouw creator-profiel.");
-    }
-
-    const user = await getAuthUser();
-    if (!user) {
-      fail("/login?next=/profile", "Meld je eerst aan.");
+    if (!ownedProject) {
+      fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
     const imageUrl = await requireUploadedImageUrl(
@@ -1147,7 +1123,7 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
 
     revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    revalidatePath(`/project/${linkedProject.slug}`);
+    revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Galerijafbeelding toegevoegd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1160,7 +1136,7 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
 
 export async function deleteProjectGalleryImageAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { user, creator } = await getRequiredCreatorProfile();
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1173,8 +1149,8 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
       fail(CREATOR_MAKER_PATH, "Galerijafbeelding niet gevonden.");
     }
 
-    const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id as string);
-    if (!linkedProject) {
+    const ownedProject = await getUserOwnedProject(user.id, row.project_id as string);
+    if (!ownedProject) {
       fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
@@ -1188,7 +1164,7 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
 
     revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    revalidatePath(`/project/${linkedProject.slug}`);
+    revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Galerijafbeelding verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1201,15 +1177,15 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
 
 export async function createProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { user, creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const productId = parseRequiredUuid(formData, "product_id");
     const linkType = parseOptionalString(formData, "link_type") ?? "material";
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
-    const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
+    const ownedProject = await getUserOwnedProject(user.id, projectId);
 
-    if (!linkedProject) {
-      fail(CREATOR_MAKER_PATH, "Project niet gelinkt aan jouw creator-profiel.");
+    if (!ownedProject) {
+      fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
     const ownsProduct = await creatorOwnsEntityTarget(creator.id, "product", productId);
@@ -1247,7 +1223,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
 
     revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    revalidatePath(`/project/${linkedProject.slug}`);
+    revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Product gekoppeld aan project.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1260,7 +1236,7 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
 
 export async function deleteProjectProductLinkAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { user, creator } = await getRequiredCreatorProfile();
     const projectProductLinkId = parseRequiredUuid(formData, "project_product_link_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1273,8 +1249,8 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
       fail(CREATOR_MAKER_PATH, "Project-productlink niet gevonden.");
     }
 
-    const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id as string);
-    if (!linkedProject) {
+    const ownedProject = await getUserOwnedProject(user.id, row.project_id as string);
+    if (!ownedProject) {
       fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
@@ -1288,7 +1264,7 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
 
     revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    revalidatePath(`/project/${linkedProject.slug}`);
+    revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Project-productlink verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1301,15 +1277,15 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
 
 export async function createProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { user, creator } = await getRequiredCreatorProfile();
     const projectId = parseRequiredUuid(formData, "project_id");
     const title = parseRequiredString(formData, "title");
     const notes = parseOptionalString(formData, "notes");
     const sortOrder = parseOptionalInt(formData, "sort_order") ?? 0;
-    const linkedProject = await getCreatorLinkedProject(creator.id, projectId);
+    const ownedProject = await getUserOwnedProject(user.id, projectId);
 
-    if (!linkedProject) {
-      fail(CREATOR_MAKER_PATH, "Project niet gelinkt aan jouw creator-profiel.");
+    if (!ownedProject) {
+      fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
     const { insertProjectSoughtMaterial } = await import("@/lib/platform/queries/projects");
@@ -1327,7 +1303,7 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
 
     revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    revalidatePath(`/project/${linkedProject.slug}`);
+    revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Materiaal gezocht toegevoegd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1340,7 +1316,7 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
 
 export async function deleteProjectSoughtMaterialAction(formData: FormData): Promise<void> {
   try {
-    const { creator } = await getRequiredCreatorProfile();
+    const { user, creator } = await getRequiredCreatorProfile();
     const soughtMaterialId = parseRequiredUuid(formData, "sought_material_id");
     const supabase = createPlatformClient();
     const { data: row } = await supabase
@@ -1353,8 +1329,8 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
       fail(CREATOR_MAKER_PATH, "Gezocht materiaal niet gevonden.");
     }
 
-    const linkedProject = await getCreatorLinkedProject(creator.id, row.project_id);
-    if (!linkedProject) {
+    const ownedProject = await getUserOwnedProject(user.id, row.project_id);
+    if (!ownedProject) {
       fail(CREATOR_MAKER_PATH, "Geen rechten op dit project.");
     }
 
@@ -1366,7 +1342,7 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
 
     revalidatePath("/profile");
     revalidatePath(`/creator/${creator.slug}`);
-    revalidatePath(`/project/${linkedProject.slug}`);
+    revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Gezocht materiaal verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1448,7 +1424,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
     }
 
     const supabase = createPlatformClient();
-    const { error } = await supabase
+    const { data: article, error } = await supabase
       .from("articles")
       .update({
         slug,
@@ -1461,9 +1437,12 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
         published_at: formData.get("is_published") ? new Date().toISOString() : null,
       })
       .eq("id", articleId)
-      .eq("author_creator_id", creator.id);
+      .eq("author_creator_id", creator.id)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    // A successful zero-row update is not authorization for recommendation writes.
+    if (error || !article?.id) {
       fail(CREATOR_MAKER_PATH, "Bijwerken van artikel mislukt.");
     }
 

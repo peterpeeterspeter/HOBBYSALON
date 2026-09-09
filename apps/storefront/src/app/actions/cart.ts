@@ -6,6 +6,7 @@ import {
   createCart,
   addToCart,
   addBundleToCart,
+  isStaleCartError,
   type BundleLineInput,
   removeFromCart,
   updateCartLineItemQuantity,
@@ -54,19 +55,18 @@ export async function addToCartAction(
   }
 
   const cookieStore = await cookies();
-  let cartId = await getOrCreateCartId(cookieStore);
+  const cartId = await getOrCreateCartId(cookieStore);
   if (!cartId) {
     return { success: false, message: "Winkelwagen kon niet worden aangemaakt" };
   }
 
   let result = await addToCart(cartId, variantId, quantity);
-  if (!result.success) {
-    // Retry with fresh cart if existing cart may be stale (deleted in Medusa)
+  if (!result.success && isStaleCartError(result.error)) {
+    // Keep the old cookie until an add to the replacement succeeds.
     const created = await createCart();
     if (created?.cart_id) {
-      cartId = created.cart_id;
-      setCartCookie(cookieStore, cartId);
-      result = await addToCart(cartId, variantId, quantity);
+      result = await addToCart(created.cart_id, variantId, quantity);
+      if (result.success) setCartCookie(cookieStore, created.cart_id);
     }
   }
   if (!result.success) {
@@ -108,7 +108,7 @@ export async function addBundleToCartAction(
   }
 
   const cookieStore = await cookies();
-  let cartId = await getOrCreateCartId(cookieStore);
+  const cartId = await getOrCreateCartId(cookieStore);
   if (!cartId) {
     return { success: false, message: "Winkelwagen kon niet worden aangemaakt" };
   }
@@ -118,15 +118,19 @@ export async function addBundleToCartAction(
     bundleSource: "project",
   });
 
-  if (!result.success) {
+  if (
+    !result.success && result.added_count === 0 &&
+    result.failures.length > 0 &&
+    result.failures.every(({ error }) => isStaleCartError(error))
+  ) {
     const created = await createCart();
     if (created?.cart_id) {
-      cartId = created.cart_id;
-      setCartCookie(cookieStore, cartId);
-      result = await addBundleToCart(cartId, bundleId, validItems, {
+      result = await addBundleToCart(created.cart_id, bundleId, validItems, {
         bundleLabel,
         bundleSource: "project",
       });
+      // Partial progress is usable: retain access to successful bundle lines.
+      if (result.added_count > 0) setCartCookie(cookieStore, created.cart_id);
     }
   }
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { sanitizeInternalRedirect } from "./safe-redirect";
 
 import {
   getUserRegistrationContext,
@@ -15,16 +16,8 @@ export function sanitizeNextPath(
   requestedPath: string | null | undefined,
   fallbackPath: string
 ): string {
-  const candidate = requestedPath?.trim().split("#", 1)[0]?.trim();
-  if (!candidate) return fallbackPath;
-
-  const isInternalPath =
-    candidate.startsWith("/") &&
-    !candidate.startsWith("//") &&
-    !candidate.includes("\n") &&
-    !candidate.includes("\r");
-
-  return isInternalPath ? candidate : fallbackPath;
+  return sanitizeInternalRedirect(requestedPath) ??
+    (fallbackPath === "" ? "" : sanitizeInternalRedirect(fallbackPath) ?? "/profile");
 }
 
 export async function resolvePostAuthRedirectPath(options: {

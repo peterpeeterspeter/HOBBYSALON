@@ -97,6 +97,12 @@ jobs:
       - name: Run storefront tests
         run: yarn workspace storefront test
 
+      - name: Run security and provisioning regressions
+        run: yarn workspace storefront test:security
+
+      - name: Run isolated payment SQL rollback and concurrency tests
+        run: bash scripts/test-payment-atomicity.sh
+
   build:
     name: Build
     runs-on: ubuntu-latest
