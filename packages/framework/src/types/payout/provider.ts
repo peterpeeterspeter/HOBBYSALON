@@ -16,6 +16,7 @@ export type ReversePayoutInput = {
   transfer_id: string
   amount: BigNumberInput
   currency: string
+  idempotency_key: string
 }
 
 export type ProcessPayoutResponse = {

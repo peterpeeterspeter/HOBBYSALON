@@ -17,4 +17,8 @@ export type UpdateSplitOrderPaymentsDTO = {
 export type RefundSplitOrderPaymentsDTO = {
   id: string
   amount: number
+  /** Stable business operation reference for order accounting/reconciliation. */
+  operation_id?: string
+  /** Native payment identity, which must belong to the split's collection. */
+  payment_id?: string
 }

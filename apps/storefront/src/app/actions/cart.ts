@@ -35,16 +35,30 @@ function setCartCookie(cookieStore: CookieStore, cartId: string): void {
 }
 
 async function getOrCreateCartId(
-  cookieStore: CookieStore
-): Promise<string | null> {
+  cookieStore: CookieStore,
+  variantIds: string | string[]
+): Promise<{ ok: true; cartId: string } | { ok: false; message: string }> {
   const existing = cookieStore.get(CART_COOKIE_NAME)?.value;
-  if (existing) return existing;
+  if (existing) {
+    const check = await assertSingleSellerCart(existing, variantIds);
+    // A confirmed missing/completed cart is replaced by the add path after the
+    // original add fails, so a failed replacement never drops the old cookie
+    // or the original error.
+    if (!check.ok && !(check.error && isStaleCartError(check.error))) {
+      return { ok: false, message: check.message };
+    }
+    return { ok: true, cartId: existing };
+  }
+
+  const check = await assertSingleSellerCart(null, variantIds);
+  if (!check.ok) return { ok: false, message: check.message };
 
   const created = await createCart();
-  if (!created?.cart_id) return null;
-
-  setCartCookie(cookieStore, created.cart_id);
-  return created.cart_id;
+  if (!created?.cart_id) {
+    return { ok: false, message: "Winkelwagen kon niet worden aangemaakt" };
+  }
+  // Keep an old cookie until a replacement actually contains added items.
+  return { ok: true, cartId: created.cart_id };
 }
 
 export async function addToCartAction(
@@ -56,23 +70,19 @@ export async function addToCartAction(
   }
 
   const cookieStore = await cookies();
-  const cartId = await getOrCreateCartId(cookieStore);
-  if (!cartId) {
-    return { success: false, message: "Winkelwagen kon niet worden aangemaakt" };
-  }
-
-  const sellerCheck = await assertSingleSellerCart(cartId, variantId);
-  if (!sellerCheck.ok) {
-    return { success: false, message: sellerCheck.message };
-  }
+  const prepared = await getOrCreateCartId(cookieStore, variantId);
+  if (!prepared.ok) return { success: false, message: prepared.message };
+  let cartId = prepared.cartId;
 
   let result = await addToCart(cartId, variantId, quantity);
   if (!result.success && isStaleCartError(result.error)) {
+    const check = await assertSingleSellerCart(null, variantId);
+    if (!check.ok) return { success: false, message: check.message };
     // Keep the old cookie until an add to the replacement succeeds.
     const created = await createCart();
     if (created?.cart_id) {
       result = await addToCart(created.cart_id, variantId, quantity);
-      if (result.success) setCartCookie(cookieStore, created.cart_id);
+      if (result.success) cartId = created.cart_id;
     }
   }
   if (!result.success) {
@@ -82,6 +92,9 @@ export async function addToCartAction(
     };
   }
 
+  if (cookieStore.get(CART_COOKIE_NAME)?.value !== cartId) {
+    setCartCookie(cookieStore, cartId);
+  }
   revalidatePath("/cart");
   return { success: true };
 }
@@ -101,30 +114,21 @@ export async function addBundleToCartAction(
     return { success: false, message: "Bundel is leeg" };
   }
 
-  const validItems: BundleLineInput[] = items
-    .filter((item) => !!item.variant_id)
-    .map((item) => ({
-      variant_id: item.variant_id,
-      quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
-      product_id: item.product_id,
-    }));
-
-  if (!validItems.length) {
-    return { success: false, message: "Geen geldige bundelitems geselecteerd" };
+  if (items.some((item) => typeof item.variant_id !== "string" || !item.variant_id.trim())) {
+    return { success: false, message: "Eén of meer bundelitems hebben geen geldige variant" };
   }
+
+  const validItems: BundleLineInput[] = items.map((item) => ({
+    variant_id: item.variant_id,
+    quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
+    product_id: item.product_id,
+  }));
 
   const cookieStore = await cookies();
-  const cartId = await getOrCreateCartId(cookieStore);
-  if (!cartId) {
-    return { success: false, message: "Winkelwagen kon niet worden aangemaakt" };
-  }
-
-  for (const item of validItems) {
-    const sellerCheck = await assertSingleSellerCart(cartId, item.variant_id);
-    if (!sellerCheck.ok) {
-      return { success: false, message: sellerCheck.message };
-    }
-  }
+  const variantIds = validItems.map((item) => item.variant_id);
+  const prepared = await getOrCreateCartId(cookieStore, variantIds);
+  if (!prepared.ok) return { success: false, message: prepared.message };
+  let cartId = prepared.cartId;
 
   let result = await addBundleToCart(cartId, bundleId, validItems, {
     bundleLabel,
@@ -136,6 +140,8 @@ export async function addBundleToCartAction(
     result.failures.length > 0 &&
     result.failures.every(({ error }) => isStaleCartError(error))
   ) {
+    const check = await assertSingleSellerCart(null, variantIds);
+    if (!check.ok) return { success: false, message: check.message };
     const created = await createCart();
     if (created?.cart_id) {
       result = await addBundleToCart(created.cart_id, bundleId, validItems, {
@@ -143,10 +149,13 @@ export async function addBundleToCartAction(
         bundleSource: "project",
       });
       // Partial progress is usable: retain access to successful bundle lines.
-      if (result.added_count > 0) setCartCookie(cookieStore, created.cart_id);
+      if (result.added_count > 0) cartId = created.cart_id;
     }
   }
 
+  if (result.added_count > 0 && cookieStore.get(CART_COOKIE_NAME)?.value !== cartId) {
+    setCartCookie(cookieStore, cartId);
+  }
   revalidatePath("/cart");
 
   if (result.added_count === 0) {

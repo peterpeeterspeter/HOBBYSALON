@@ -19,7 +19,13 @@ export const refundSplitOrderPaymentWorkflow = createWorkflow(
     const splitOrderPayment = updateSplitOrderPaymentsStep(
       transform(updatePayload, (updatePayload) => [updatePayload])
     )
-    partialPaymentRefundWorkflow.runAsStep({ input })
+    // The SDK schedules dependencies, not statement order. Do not refund until
+    // the compensatable split-payment update has completed successfully.
+    const refundInput = transform(
+      { input, splitOrderPayment },
+      ({ input }) => input
+    )
+    partialPaymentRefundWorkflow.runAsStep({ input: refundInput })
     return new WorkflowResponse(splitOrderPayment)
   }
 )

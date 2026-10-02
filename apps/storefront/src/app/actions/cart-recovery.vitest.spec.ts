@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   retrieve: vi.fn(),
   createLineItem: vi.fn(),
+  listProducts: vi.fn(),
 }));
 vi.mock("next/headers", () => ({ cookies: async () => ({
   get: (name: string) => ({ value: mocks.jar.get(name) }),
@@ -16,6 +17,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/commerce/medusa/client", () => ({ sdk: { store: {
   region: { list: async () => ({ regions: [{ id: "region", name: "Europe" }] }) },
   cart: { create: mocks.create, retrieve: mocks.retrieve, createLineItem: mocks.createLineItem },
+  product: { list: mocks.listProducts },
 } } }));
 
 import { addBundleToCartAction, addToCartAction } from "./cart";
@@ -33,8 +35,16 @@ beforeEach(() => {
   mocks.jar.set(CART_COOKIE_NAME, "old-cart");
   mocks.set.mockImplementation((name: string, value: string) => mocks.jar.set(name, value));
   mocks.create.mockResolvedValue({ cart: { id: "new-cart" } });
-  mocks.retrieve.mockResolvedValue({ cart: { id: "old-cart", completed_at: null } });
+  mocks.retrieve.mockResolvedValue({ cart: { id: "old-cart", completed_at: null, items: [] } });
   mocks.createLineItem.mockResolvedValue({});
+  mocks.listProducts.mockResolvedValue({
+    products: [{
+      id: "prod",
+      seller: { id: "seller_1" },
+      variants: [{ id: "variant" }, { id: "first" }, { id: "second" }],
+    }],
+    count: 1,
+  });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 

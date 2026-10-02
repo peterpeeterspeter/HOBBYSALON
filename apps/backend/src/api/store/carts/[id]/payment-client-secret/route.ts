@@ -1,6 +1,10 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import Stripe from "stripe"
+import {
+  COMMERCE_PAYMENTS_PAUSED_MESSAGE,
+  isCommercePaymentsEnabled,
+} from "../../../../middlewares/commerce-payment-policy"
 
 /**
  * GET /store/carts/:id/payment-client-secret
@@ -88,6 +92,10 @@ export async function GET(
       (data?.id as string) ?? (typeof session.id === "string" && session.id.startsWith("pi_") ? session.id : null)
 
     const recreatePaymentSession = async (providerIdOverride?: string) => {
+      // Check before deletion as well as creation. A pause preserves recovery.
+      if (!isCommercePaymentsEnabled()) {
+        return false
+      }
       if (!paymentCollectionId) {
         return
       }
@@ -158,11 +166,16 @@ export async function GET(
         }
 
         if (pi.status === "canceled") {
-          await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
+          // Never return the canceled intent's secret if replacement fails.
+          clientSecret = undefined
+          const recreated = await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
+          if (recreated === false) {
+            return res.status(503).json({ message: COMMERCE_PAYMENTS_PAUSED_MESSAGE })
+          }
         }
       } catch (e) {
-        // Stripe retrieve failed: keep existing session; do not recreate.
-        console.error("[payment-client-secret] Stripe retrieve:", e)
+        // Status/replacement failure is inconclusive; never retry creation here.
+        console.error("[payment-client-secret] Stripe status or session recovery:", e)
         if (!clientSecret) {
           return res.status(202).json({
             message: "Payment status unknown; try again shortly",
@@ -176,13 +189,15 @@ export async function GET(
       }
     }
 
-    // Only recreate when there is no PaymentIntent id and no secret (never created).
+    // Missing identity is not proof that the provider never created a payment.
+    // Only the confirmed-canceled branch above may replace an existing session.
     if (!clientSecret && !paymentIntentId) {
-      try {
-        await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
-      } catch (e) {
-        console.error("[payment-client-secret] Recreate payment session fallback:", e)
-      }
+      const enabled = isCommercePaymentsEnabled()
+      return res.status(enabled ? 202 : 503).json({
+        message: enabled
+          ? "De status van je bestaande betaling is nog onbekend. Probeer het later opnieuw."
+          : COMMERCE_PAYMENTS_PAUSED_MESSAGE,
+      })
     }
 
     if (!clientSecret) {

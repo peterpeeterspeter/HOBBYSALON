@@ -32,4 +32,6 @@ export type CreatePayoutReversalDTO = {
   payout_id: string
   amount: BigNumberInput
   currency_code: string
+  /** Stable business operation, distinct for separate equal-amount returns. */
+  operation_id: string
 }

@@ -163,6 +163,13 @@ export async function checkoutInitiatePayment(): Promise<CheckoutInitiatePayment
     if (existingSecret.client_secret) {
       return { success: true, clientSecret: existingSecret.client_secret };
     }
+    // A failed/empty status check is not permission to replace a possibly-paid
+    // session. Retry status recovery on a later request, never initiation here.
+    return {
+      success: false,
+      message:
+        "We kunnen de status van je bestaande betaling nog niet vaststellen. Probeer het later opnieuw of neem contact op. Start geen nieuwe betaling.",
+    };
   }
 
   const providers = await getPaymentProviders(regionId);

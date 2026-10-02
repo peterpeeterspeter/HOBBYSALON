@@ -2,6 +2,7 @@ import { ContainerRegistrationKeys, MathBN, MedusaError } from '@medusajs/framew
 import { StepResponse, createStep } from '@medusajs/framework/workflows-sdk'
 
 import { SplitOrderPaymentDTO } from '@mercurjs/framework'
+import { refundMoney, remainingSellerEntitlement } from '../../../utils/refund-money'
 
 export const calculatePayoutForOrderStep = createStep(
   'calculate-payout-for-order',
@@ -17,7 +18,7 @@ export const calculatePayoutForOrderStep = createStep(
       data: [order]
     } = await query.graph({
       entity: 'order',
-      fields: ['items.id', 'split_order_payment.*'],
+      fields: ['items.id', 'currency_code', 'split_order_payment.*'],
       filters: {
         id: input.order_id
       }
@@ -62,12 +63,15 @@ export const calculatePayoutForOrderStep = createStep(
 
     const orderPayment: SplitOrderPaymentDTO = order.split_order_payment
 
-    const captured_amount = MathBN.convert(orderPayment.captured_amount)
-    const refunded_amount = MathBN.convert(orderPayment.refunded_amount)
-
-    const payout_total = captured_amount
-      .minus(refunded_amount)
-      .minus(total_commission)
+    const money = refundMoney(order.currency_code)
+    // Reduce the original commission proportionally with refunds. Derive the
+    // retained seller amount using the allocator's cumulative rounding policy,
+    // so refund-before-transfer and refund-after-transfer have identical net.
+    const payout_total = MathBN.convert(money.fromMinor(remainingSellerEntitlement(
+      money.toMinor(Number(orderPayment.captured_amount)),
+      money.toMinor(Number(total_commission)),
+      money.toMinor(Number(orderPayment.refunded_amount))
+    )))
 
     return new StepResponse(payout_total)
   }
