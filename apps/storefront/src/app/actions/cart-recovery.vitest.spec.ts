@@ -73,19 +73,31 @@ describe("actual cart actions with mocked SDK and cookies", () => {
   });
 
   it.each([stockError, { status: 503, message: "Service unavailable" }, new TypeError("fetch failed")])("failed replacement retry leaves old cookie intact: %j", async (error) => {
-    mocks.createLineItem.mockRejectedValueOnce(missingError).mockRejectedValueOnce(error);
-    mocks.retrieve.mockRejectedValue(missingError);
+    mocks.retrieve.mockImplementation(async (id: string) => {
+      if (id === "old-cart") throw missingError;
+      return { cart: { id, completed_at: null, items: [] } };
+    });
+    mocks.createLineItem.mockRejectedValue(error);
     expect((await addToCartAction("variant")).success).toBe(false);
     expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.createLineItem).toHaveBeenCalledWith("new-cart", expect.any(Object), expect.any(Object));
     expect(mocks.set).not.toHaveBeenCalled();
     expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("old-cart");
   });
 
   it.each(["missing", "completed"])("confirmed %s cart recovers and publishes cookie only after successful add", async (state) => {
-    mocks.createLineItem.mockRejectedValueOnce(state === "missing" ? missingError : { status: 400, message: "Cart is already completed" });
-    if (state === "missing") mocks.retrieve.mockRejectedValue(missingError);
-    else mocks.retrieve.mockResolvedValue({ cart: { id: "old-cart", completed_at: "2026-01-01" } });
-    mocks.createLineItem.mockImplementationOnce(async (cartId: string) => {
+    if (state === "missing") {
+      mocks.retrieve.mockImplementation(async (id: string) => {
+        if (id === "old-cart") throw missingError;
+        return { cart: { id, completed_at: null, items: [] } };
+      });
+    } else {
+      mocks.retrieve.mockImplementation(async (id: string) => {
+        if (id === "old-cart") return { cart: { id, completed_at: "2026-01-01", items: [] } };
+        return { cart: { id, completed_at: null, items: [] } };
+      });
+    }
+    mocks.createLineItem.mockImplementation(async (cartId: string) => {
       expect(cartId).toBe("new-cart");
       expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("old-cart");
       expect(mocks.set).not.toHaveBeenCalled();
@@ -106,21 +118,26 @@ describe("actual cart actions with mocked SDK and cookies", () => {
   });
 
   it("failure to create a replacement preserves the original cart and error", async () => {
-    mocks.createLineItem.mockRejectedValue(missingError);
     mocks.retrieve.mockRejectedValue(missingError);
     mocks.create.mockRejectedValue(new TypeError("fetch failed"));
-    expect(await addToCartAction("variant")).toEqual({ success: false, message: "Toevoegen mislukt" });
-    expect(mocks.createLineItem).toHaveBeenCalledTimes(1);
+    expect(await addToCartAction("variant")).toEqual({
+      success: false,
+      message: "Winkelwagen kon niet worden aangemaakt",
+    });
+    expect(mocks.createLineItem).not.toHaveBeenCalled();
     expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("old-cart");
     expect(mocks.set).not.toHaveBeenCalled();
   });
 
-  it("a repeated stale response retries only once", async () => {
+  it("a repeated stale response does not create a second replacement", async () => {
+    mocks.retrieve.mockImplementation(async (id: string) => {
+      if (id === "old-cart") throw missingError;
+      return { cart: { id, completed_at: null, items: [] } };
+    });
     mocks.createLineItem.mockRejectedValue(missingError);
-    mocks.retrieve.mockRejectedValue(missingError);
     expect((await addToCartAction("variant")).success).toBe(false);
     expect(mocks.create).toHaveBeenCalledTimes(1);
-    expect(mocks.createLineItem).toHaveBeenCalledTimes(2);
+    expect(mocks.createLineItem).toHaveBeenCalledTimes(1);
     expect(mocks.set).not.toHaveBeenCalled();
   });
 
@@ -150,7 +167,6 @@ describe("actual cart actions with mocked SDK and cookies", () => {
 
   it.each([stockError, missingError])("bundle failure after partial progress never resets or replays items: %j", async (error) => {
     mocks.createLineItem.mockResolvedValueOnce({}).mockRejectedValueOnce(error);
-    mocks.retrieve.mockRejectedValue(missingError);
     expect(await addBundleToCartAction("bundle", items)).toMatchObject({ success: false, added_count: 1, failed_count: 1 });
     expect(mocks.createLineItem).toHaveBeenCalledTimes(2);
     expect(mocks.create).not.toHaveBeenCalled();
@@ -160,39 +176,47 @@ describe("actual cart actions with mocked SDK and cookies", () => {
 
   it("mixed bundle failures with no progress cannot reset a cart", async () => {
     mocks.createLineItem.mockRejectedValueOnce(missingError).mockRejectedValueOnce(stockError);
-    mocks.retrieve.mockRejectedValue(missingError);
     expect((await addBundleToCartAction("bundle", items)).success).toBe(false);
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.set).not.toHaveBeenCalled();
   });
 
   it("replacement bundle partial progress remains accessible", async () => {
-    mocks.createLineItem.mockRejectedValueOnce(missingError).mockRejectedValueOnce(missingError)
-      .mockResolvedValueOnce({}).mockRejectedValueOnce(stockError);
-    mocks.retrieve.mockRejectedValue(missingError);
+    mocks.retrieve.mockImplementation(async (id: string) => {
+      if (id === "old-cart") throw missingError;
+      return { cart: { id, completed_at: null, items: [] } };
+    });
+    mocks.createLineItem.mockResolvedValueOnce({}).mockRejectedValueOnce(stockError);
     expect(await addBundleToCartAction("bundle", items)).toMatchObject({ success: false, added_count: 1, failed_count: 1 });
     expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.createLineItem).toHaveBeenCalledTimes(2);
     expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("new-cart");
   });
 
   it("fully successful replacement bundle publishes only after its adds succeed", async () => {
-    mocks.createLineItem.mockRejectedValueOnce(missingError).mockRejectedValueOnce(missingError)
-      .mockImplementation(async () => {
-        expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("old-cart");
-        expect(mocks.set).not.toHaveBeenCalled();
-        return {};
-      });
-    mocks.retrieve.mockRejectedValue(missingError);
+    mocks.retrieve.mockImplementation(async (id: string) => {
+      if (id === "old-cart") throw missingError;
+      return { cart: { id, completed_at: null, items: [] } };
+    });
+    mocks.createLineItem.mockImplementation(async () => {
+      expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("old-cart");
+      expect(mocks.set).not.toHaveBeenCalled();
+      return {};
+    });
     expect(await addBundleToCartAction("bundle", items)).toEqual({ success: true, added_count: 2, failed_count: 0 });
-    expect(mocks.createLineItem).toHaveBeenCalledTimes(4);
+    expect(mocks.createLineItem).toHaveBeenCalledTimes(2);
     expect(mocks.set).toHaveBeenCalledTimes(1);
     expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("new-cart");
   });
 
   it("replacement bundle with zero successful adds retains the original cookie", async () => {
-    mocks.createLineItem.mockRejectedValueOnce(missingError).mockRejectedValueOnce(missingError).mockRejectedValue(stockError);
-    mocks.retrieve.mockRejectedValue(missingError);
+    mocks.retrieve.mockImplementation(async (id: string) => {
+      if (id === "old-cart") throw missingError;
+      return { cart: { id, completed_at: null, items: [] } };
+    });
+    mocks.createLineItem.mockRejectedValue(stockError);
     expect((await addBundleToCartAction("bundle", items)).success).toBe(false);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.jar.get(CART_COOKIE_NAME)).toBe("old-cart");
     expect(mocks.set).not.toHaveBeenCalled();
   });

@@ -67,7 +67,7 @@ export async function adapterHarness({ effects = { calls: [], payloads: {} }, fa
   const module = await source('workflows/order-return-request/steps/prepare-native-return.ts', {
     '@medusajs/framework/utils': { ContainerRegistrationKeys: { PG_CONNECTION: 'pg_connection' }, Modules: { ORDER: 'order' },
       MathBN: { eq: (a, b) => Number(a) === Number(b) }, ReturnStatus: { OPEN: 'open', REQUESTED: 'requested', RECEIVED: 'received', PARTIALLY_RECEIVED: 'partially_received' },
-      OrderChangeStatus: { PENDING: 'pending', CONFIRMED: 'confirmed' }, ChangeActionType: { RETURN_ITEM: 'RETURN_ITEM' } },
+      OrderChangeStatus: { PENDING: 'pending', CONFIRMED: 'confirmed' }, OrderChangeType: { RETURN_REQUEST: 'return_request' }, ChangeActionType: { RETURN_ITEM: 'RETURN_ITEM' } },
     '@medusajs/framework/workflows-sdk': { StepResponse: sdk?.StepResponse ?? StepResponse,
       createStep(options, body, compensation) { config = options; compensator = compensation;
         invoke = async data => (await body(data, { container })).value
