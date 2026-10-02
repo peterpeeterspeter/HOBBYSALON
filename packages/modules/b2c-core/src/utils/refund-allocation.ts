@@ -1,10 +1,14 @@
+import { refundMoney, remainingSellerEntitlement } from './refund-money'
+
 /**
  * Pure refund / payout-reversal allocation (D5).
  * Customer refund and seller transfer reversal are separate amounts.
  */
 
 export type RefundAllocationInput = {
-  /** Amount captured from the buyer for this seller order (minor or major — same unit throughout). */
+  /** Currency of all amounts (major units); EUR remains the legacy default. */
+  currencyCode?: string
+  /** Amount captured from the buyer for this seller order in major units. */
   capturedAmount: number
   /** Already refunded to the customer. */
   alreadyRefundedAmount: number
@@ -25,10 +29,8 @@ export type RefundAllocationResult = {
   remainingSellerReversible: number
 }
 
-function clampNonNegative(n: number): number {
-  if (!Number.isFinite(n) || n < 0) return 0
-  return n
-}
+const min = (a: bigint, b: bigint): bigint => a < b ? a : b
+const nonNegative = (value: bigint): bigint => value > 0n ? value : 0n
 
 /**
  * Allocate a customer refund and the matching seller transfer reversal.
@@ -38,40 +40,36 @@ function clampNonNegative(n: number): number {
 export function allocateRefundAndReversal(
   input: RefundAllocationInput
 ): RefundAllocationResult {
-  const captured = clampNonNegative(input.capturedAmount)
-  const alreadyRefunded = clampNonNegative(input.alreadyRefundedAmount)
-  const transferred = clampNonNegative(input.transferredAmount)
-  const alreadyReversed = clampNonNegative(input.alreadyReversedAmount)
-  const commission = clampNonNegative(input.commissionAmount)
-  const requested = clampNonNegative(input.requestedCustomerRefund)
+  const money = refundMoney(input.currencyCode)
+  const captured = money.toMinor(input.capturedAmount)
+  const alreadyRefunded = money.toMinor(input.alreadyRefundedAmount)
+  const transferred = money.toMinor(input.transferredAmount)
+  const alreadyReversed = money.toMinor(input.alreadyReversedAmount)
+  const commission = money.toMinor(input.commissionAmount)
+  const requested = money.toMinor(input.requestedCustomerRefund)
+  const remainingCustomerRefundable = nonNegative(captured - alreadyRefunded)
+  const customerRefund = min(requested, remainingCustomerRefundable)
+  const sellerNet = nonNegative(captured - commission)
+  const remainingSellerReversible = nonNegative(min(transferred, sellerNet) - alreadyReversed)
 
-  const remainingCustomerRefundable = Math.max(0, captured - alreadyRefunded)
-  const customerRefund = Math.min(requested, remainingCustomerRefundable)
-
-  // Net originally owed to seller after commission (informational bound).
-  const sellerNet = Math.max(0, captured - commission)
-  const remainingSellerReversible = Math.max(
-    0,
-    Math.min(transferred - alreadyReversed, sellerNet - alreadyReversed)
-  )
-
-  // Scale reversal with the fraction of remaining refundable that this refund covers,
-  // but never exceed remainingSellerReversible.
-  let sellerReversal = 0
-  if (transferred > 0 && remainingCustomerRefundable > 0 && customerRefund > 0) {
-    const fraction = customerRefund / remainingCustomerRefundable
-    const proportional = remainingSellerReversible * fraction
-    sellerReversal = Math.min(remainingSellerReversible, proportional)
-    // Full customer refund of remaining balance → reverse all remaining transfer.
-    if (customerRefund >= remainingCustomerRefundable) {
-      sellerReversal = remainingSellerReversible
-    }
+  // Difference from the cumulative entitlement, never a newly rounded fraction
+  // of the remaining transfer. A transfer made after an earlier refund already
+  // excludes that refund's seller share; do not reverse that share a second time.
+  let sellerReversal = 0n
+  if (customerRefund > 0n && remainingSellerReversible > 0n) {
+    const entitlement = remainingSellerEntitlement(
+      captured, commission, alreadyRefunded + customerRefund
+    )
+    sellerReversal = min(
+      remainingSellerReversible,
+      nonNegative(remainingSellerReversible - entitlement)
+    )
   }
 
   return {
-    customerRefund,
-    sellerReversal,
-    remainingCustomerRefundable: remainingCustomerRefundable - customerRefund,
-    remainingSellerReversible: remainingSellerReversible - sellerReversal
+    customerRefund: money.fromMinor(customerRefund),
+    sellerReversal: money.fromMinor(sellerReversal),
+    remainingCustomerRefundable: money.fromMinor(remainingCustomerRefundable - customerRefund),
+    remainingSellerReversible: money.fromMinor(remainingSellerReversible - sellerReversal)
   }
 }

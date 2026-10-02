@@ -1,9 +1,10 @@
 import Stripe from "stripe";
 
 import { ConfigModule, Logger } from "@medusajs/framework/types";
-import { MedusaError, isPresent } from "@medusajs/framework/utils";
+import { MathBN, MedusaError, isPresent } from "@medusajs/framework/utils";
 
 import { PAYOUT_MODULE } from "..";
+import { currentPayoutDispatchPlan } from '../../../utils/payout-execution';
 
 import {
   CreatePayoutAccountInput,
@@ -15,6 +16,7 @@ import {
   ProcessPayoutInput,
   ProcessPayoutResponse,
   ReversePayoutInput,
+  getAmountFromSmallestUnit,
   getSmallestUnit,
 } from "@mercurjs/framework";
 
@@ -88,6 +90,21 @@ export class PayoutProvider implements IPayoutProvider {
     transaction_id,
     source_transaction,
   }: ProcessPayoutInput): Promise<ProcessPayoutResponse> {
+    if (typeof currency !== 'string' || !/^[a-z]{3}$/.test(currency) ||
+        ![transaction_id, account_reference_id, source_transaction].every(value =>
+          typeof value === 'string' && value.length > 0 && value.trim() === value) ||
+        `${transaction_id}:${account_reference_id}`.length > 255) throw new Error('Invalid payout transfer identity');
+    const frozen = currentPayoutDispatchPlan();
+    if (frozen && (frozen.account_reference_id !== account_reference_id || frozen.transaction_id !== transaction_id ||
+        frozen.source_transaction !== source_transaction || frozen.currency !== currency || !MathBN.eq(frozen.amount, amount))) {
+      throw new Error('Payout request changed after durable planning');
+    }
+    const minorAmount = getSmallestUnit(amount, currency);
+    if (!Number.isSafeInteger(minorAmount) || minorAmount <= 0 ||
+        !MathBN.eq(getAmountFromSmallestUnit(minorAmount, currency), amount)) {
+      throw new Error('Payout amount is not exactly representable by the provider');
+    }
+    const evidence = { amount: minorAmount, currency, account_reference_id, transaction_id, source_transaction };
     try {
       this.logger_.info(
         `Processing payout for transaction with ID ${transaction_id}`
@@ -108,6 +125,7 @@ export class PayoutProvider implements IPayoutProvider {
         { idempotencyKey }
       );
 
+      this.validateTransferEvidence(transfer, evidence);
       return {
         data: transfer as unknown as Record<string, unknown>,
       };
@@ -116,8 +134,7 @@ export class PayoutProvider implements IPayoutProvider {
         (error as Error)?.message ?? "Error occured while creating payout";
 
       const recovered = await this.recoverExistingTransfer({
-        transaction_id,
-        account_reference_id,
+        ...evidence,
         errorMessage: message,
       });
 
@@ -140,9 +157,27 @@ export class PayoutProvider implements IPayoutProvider {
    * Stripe idempotency keys bind to the first request params. After Connect
    * re-onboarding the destination can change while the order id stays the same.
    */
+  private validateTransferEvidence(transfer: Stripe.Transfer, input: {
+    amount: number; currency: string; account_reference_id: string;
+    transaction_id: string; source_transaction?: string;
+  }): void {
+    const destination = typeof transfer.destination === 'string' ? transfer.destination : transfer.destination?.id;
+    const source = typeof transfer.source_transaction === 'string' ? transfer.source_transaction : transfer.source_transaction?.id;
+    if (typeof transfer.id !== 'string' || !transfer.id.trim() ||
+        !Number.isSafeInteger(transfer.amount) || transfer.amount !== input.amount ||
+        transfer.currency !== input.currency || destination !== input.account_reference_id ||
+        !input.source_transaction || source !== input.source_transaction ||
+        transfer.metadata?.transaction_id !== input.transaction_id) {
+      throw new Error('Transfer evidence does not match payout request');
+    }
+  }
+
   private async recoverExistingTransfer(input: {
     transaction_id: string;
     account_reference_id: string;
+    amount: number;
+    currency: string;
+    source_transaction?: string;
     errorMessage: string;
   }): Promise<Stripe.Transfer | null> {
     const isIdempotencyConflict =
@@ -154,31 +189,24 @@ export class PayoutProvider implements IPayoutProvider {
     }
 
     let startingAfter: string | undefined;
-
+    let found: Stripe.Transfer | null = null;
     for (let page = 0; page < 5; page++) {
       const list = await this.client_.transfers.list({
         destination: input.account_reference_id,
         limit: 100,
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       });
-
-      const match = list.data.find(
-        (transfer) =>
-          transfer.metadata?.transaction_id === input.transaction_id
-      );
-
-      if (match) {
-        return match;
+      for (const transfer of list.data) {
+        if (transfer.metadata?.transaction_id !== input.transaction_id) continue;
+        this.validateTransferEvidence(transfer, input);
+        if (found) throw new Error('Ambiguous payout transfer evidence');
+        found = transfer;
       }
-
-      if (!list.has_more || list.data.length === 0) {
-        break;
-      }
-
+      if (!list.has_more) return found;
+      if (!list.data.length) throw new Error('Incomplete payout transfer evidence');
       startingAfter = list.data[list.data.length - 1]?.id;
     }
-
-    return null;
+    throw new Error('Payout transfer recovery pagination incomplete');
   }
 
   /**
@@ -341,12 +369,22 @@ export class PayoutProvider implements IPayoutProvider {
   }
 
   async reversePayout(input: ReversePayoutInput) {
+    if (typeof input.idempotency_key !== "string" ||
+        !input.idempotency_key.trim() || input.idempotency_key.length > 255) {
+      throw new Error("Payout reversal requires a stable operation identity");
+    }
+    const amount = getSmallestUnit(input.amount, input.currency);
+    if (!Number.isSafeInteger(amount) || amount <= 0 ||
+        !MathBN.eq(getAmountFromSmallestUnit(amount, input.currency), input.amount)) {
+      throw new Error("Payout reversal amount is not exactly representable by the provider");
+    }
     try {
       const reversal = await this.client_.transfers.createReversal(
         input.transfer_id,
         {
-          amount: getSmallestUnit(input.amount, input.currency),
-        }
+          amount,
+        },
+        { idempotencyKey: input.idempotency_key }
       );
 
       return reversal;

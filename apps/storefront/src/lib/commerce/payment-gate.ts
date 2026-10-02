@@ -5,6 +5,28 @@
 
 const ALLOWED_CHECKOUT_COUNTRIES = new Set(["be", "nl"]);
 
+/** Read the established Mercur product-seller link, never line-item metadata. */
+export function getCartItemSellerId(item: unknown): string | null {
+  const row = item as {
+    variant?: { product?: { seller?: { id?: unknown }; seller_id?: unknown } };
+    product?: { seller?: { id?: unknown } };
+  } | null | undefined;
+  const candidates = [
+    row?.variant?.product?.seller?.id,
+    row?.variant?.product?.seller_id,
+    row?.product?.seller?.id,
+  ].filter((id) => id !== undefined && id !== null);
+
+  if (
+    !candidates.length ||
+    candidates.some((id) => typeof id !== "string" || !id.trim()) ||
+    new Set(candidates).size !== 1
+  ) {
+    return null;
+  }
+  return candidates[0] as string;
+}
+
 export function isCommercePaymentsEnabled(): boolean {
   const raw = process.env.COMMERCE_PAYMENTS_ENABLED?.trim().toLowerCase();
   if (!raw) return true;
@@ -42,8 +64,19 @@ export function assertCartReadyForPayment(cart: {
     };
   }
 
-  if (!cart.items?.length) {
+  if (!Array.isArray(cart.items) || !cart.items.length) {
     return { ok: false, message: "Je winkelwagen is leeg" };
+  }
+
+  // A selected method is not proof that every seller is covered. Mixed-seller
+  // checkout is unsupported even when COMMERCE_SINGLE_SELLER_CART is false.
+  const sellers = cart.items.map(getCartItemSellerId);
+  if (sellers.some((id) => id === null) || new Set(sellers).size !== 1) {
+    return {
+      ok: false,
+      message:
+        "We kunnen deze winkelwagen niet veilig afrekenen. Controleer of alle producten van één verkoper zijn.",
+    };
   }
 
   if (!cart.email?.trim() || !cart.shipping_address?.address_1?.trim()) {

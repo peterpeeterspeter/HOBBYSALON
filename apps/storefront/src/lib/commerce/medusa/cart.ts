@@ -1,4 +1,5 @@
 import { sdk } from "./client";
+import { getCartItemSellerId } from "../payment-gate";
 
 const getBackendUrl = () =>
   process.env.MEDUSA_BACKEND_URL ??
@@ -220,19 +221,22 @@ export async function addBundleToCart(
   };
 }
 
+async function retrieveCartWithSellerItems(cartId: string) {
+  const { cart } = await sdk.store.cart.retrieve(cartId, {
+    fields: "id,completed_at,currency_code,*items,*items.variant,*items.variant.product,*items.variant.product.seller",
+  });
+  if (!cart) return null;
+  const c = cart as { items?: unknown[]; line_items?: unknown[] };
+  const items = c.items ?? c.line_items;
+  // An omitted relation is not evidence that the cart is empty.
+  if (!Array.isArray(items)) return null;
+  return { ...cart, items };
+}
+
 /** Retrieve cart with items and totals. */
 export async function getCart(cartId: string) {
   try {
-    const query = {
-      fields:
-        "id,currency_code,*items,*items.variant,*items.variant.product,*items.variant.product.seller",
-    };
-    const { cart } = await sdk.store.cart.retrieve(cartId, query);
-    if (!cart) return null;
-    // Mercur/Medusa cart uses items relation
-    const c = cart as { items?: unknown[]; line_items?: unknown[] };
-    const items = c.items ?? c.line_items ?? [];
-    return { ...cart, items };
+    return await retrieveCartWithSellerItems(cartId);
   } catch (e) {
     if (process.env.NODE_ENV === "development") {
       console.error("[getCart] failed:", e);
@@ -241,50 +245,53 @@ export async function getCart(cartId: string) {
   }
 }
 
-function sellerIdFromCartItem(item: unknown): string | null {
-  const row = item as {
-    variant?: { product?: { seller?: { id?: string }; seller_id?: string } };
-    product?: { seller?: { id?: string } };
-  };
-  return (
-    row.variant?.product?.seller?.id ??
-    row.variant?.product?.seller_id ??
-    row.product?.seller?.id ??
-    null
-  );
+/** Seller ids for display; validation must also reject every unresolved item. */
+export function getCartSellerIds(cart: { items?: unknown[] } | null): string[] {
+  if (!Array.isArray(cart?.items)) return [];
+  return [...new Set(cart.items.map(getCartItemSellerId).filter((id): id is string => id !== null))];
 }
 
-/** Seller ids already represented in the cart (D1 single-seller). */
-export function getCartSellerIds(cart: { items?: unknown[] } | null): string[] {
-  if (!cart?.items?.length) return [];
-  const ids = new Set<string>();
-  for (const item of cart.items) {
-    const sellerId = sellerIdFromCartItem(item);
-    if (sellerId) ids.add(sellerId);
-  }
-  return [...ids];
-}
+const SELLER_LOOKUP_PAGE_SIZE = 100;
+const SELLER_LOOKUP_MAX_PAGES = 20;
 
 /**
- * Resolve seller id for a variant by scanning store products that expose seller.
- * Returns null when seller cannot be determined (caller should not block add).
+ * Medusa SDK 2.11.3 product.list supports fields/limit/offset, not a variant-id
+ * filter (StoreProductListParams.variants only accepts options). Resolve the
+ * whole batch in one bounded scan. Missing links, lookup errors and exhaustion
+ * are all inconclusive, never permission to add. Product IDs from bundle
+ * metadata are not evidence of a variant's product/seller association.
  */
-export async function getSellerIdForVariant(
-  variantId: string
-): Promise<string | null> {
+async function getSellerIdsForVariants(
+  variantIds: string[]
+): Promise<Map<string, string> | null> {
+  if (!variantIds.length || variantIds.some((id) => typeof id !== "string" || !id.trim())) {
+    return null;
+  }
+  const requested = new Set(variantIds);
+  const resolved = new Map<string, string>();
+  let offset = 0;
   try {
-    const { products } = await sdk.store.product.list({
-      fields: "id,*variants,*seller",
-      limit: 100,
-    });
-    for (const product of products ?? []) {
-      const p = product as {
-        seller?: { id?: string };
-        variants?: Array<{ id?: string }>;
-      };
-      if (p.variants?.some((v) => v.id === variantId)) {
-        return p.seller?.id ?? null;
+    for (let page = 0; page < SELLER_LOOKUP_MAX_PAGES; page += 1) {
+      const { products, count } = await sdk.store.product.list({
+        fields: "id,*variants,*seller",
+        limit: SELLER_LOOKUP_PAGE_SIZE,
+        offset,
+      });
+      if (!Array.isArray(products) || !products.length) return null;
+      for (const product of products) {
+        for (const variant of product.variants ?? []) {
+          if (!requested.has(variant.id)) continue;
+          const sellerId = getCartItemSellerId({ variant: { product } });
+          if (!sellerId || (resolved.has(variant.id) && resolved.get(variant.id) !== sellerId)) {
+            return null;
+          }
+          resolved.set(variant.id, sellerId);
+        }
       }
+      if (resolved.size === requested.size) return resolved;
+      // Use the actual page length: servers can clamp the requested limit.
+      offset += products.length;
+      if (offset >= count) return null;
     }
   } catch {
     return null;
@@ -292,33 +299,59 @@ export async function getSellerIdForVariant(
   return null;
 }
 
+/** Null means unresolved and must not be treated as permission to add. */
+export async function getSellerIdForVariant(
+  variantId: string
+): Promise<string | null> {
+  return (await getSellerIdsForVariants([variantId]))?.get(variantId) ?? null;
+}
+
 /**
- * D1: reject adding a variant from a second seller into a non-empty cart.
+ * Validate the proposed FINAL seller set before any add (including bundles).
+ * A null cartId explicitly means a new cart, not a failed cart retrieval.
+ * This preflight is not atomic: backend enforcement is still required.
  */
 export async function assertSingleSellerCart(
-  cartId: string,
-  variantId: string
-): Promise<{ ok: true } | { ok: false; message: string }> {
-  const cart = await getCart(cartId);
-  const existingSellers = getCartSellerIds(cart);
-  if (existingSellers.length === 0) {
-    return { ok: true };
-  }
-
-  const nextSeller = await getSellerIdForVariant(variantId);
-  if (!nextSeller) {
-    return { ok: true };
-  }
-
-  if (existingSellers.every((id) => id === nextSeller)) {
-    return { ok: true };
-  }
-
-  return {
-    ok: false,
-    message:
-      "Je winkelwagen bevat al producten van een andere verkoper. Rond die bestelling eerst af of maak de winkelwagen leeg.",
+  cartId: string | null,
+  variantIds: string | string[]
+): Promise<{ ok: true } | { ok: false; message: string; error?: CartAddError }> {
+  const unknownSeller = {
+    ok: false as const,
+    message: "De verkoper van één of meer producten kon niet worden gecontroleerd. Probeer het later opnieuw.",
   };
+  const mixedSellers = {
+    ok: false as const,
+    message: "Je kunt alleen producten van één verkoper tegelijk bestellen. Rond je bestelling eerst af of pas je winkelwagen aan.",
+  };
+
+  let cart;
+  try {
+    cart = cartId === null ? { items: [] } : await retrieveCartWithSellerItems(cartId);
+  } catch (error) {
+    // Only a confirmed missing cart may enter replacement recovery. Transport
+    // errors and incomplete responses cannot be interpreted as an empty cart.
+    return readCartError(error).status === 404
+      ? { ...unknownSeller, error: { kind: "cart_not_found" } }
+      : unknownSeller;
+  }
+  if (!cart || !Array.isArray(cart.items)) return unknownSeller;
+  if ("completed_at" in cart && cart.completed_at) {
+    return { ...unknownSeller, error: { kind: "cart_completed" } };
+  }
+  const sellers = new Set<string>();
+  for (const item of cart.items) {
+    const sellerId = getCartItemSellerId(item);
+    if (!sellerId) return unknownSeller;
+    sellers.add(sellerId);
+  }
+  if (sellers.size > 1) return mixedSellers;
+
+  const nextSellers = await getSellerIdsForVariants(
+    typeof variantIds === "string" ? [variantIds] : variantIds
+  );
+  if (!nextSellers) return unknownSeller;
+  for (const sellerId of nextSellers.values()) sellers.add(sellerId);
+  return sellers.size === 1 ? { ok: true } : mixedSellers;
 }
 
 /** Retrieve cart with checkout fields (region, shipping, payment). */
@@ -326,12 +359,14 @@ export async function getCartForCheckout(cartId: string) {
   try {
     const query = {
       fields:
-        "id,currency_code,region_id,email,shipping_address.*,billing_address.*,subtotal,total,shipping_total,*items,*items.variant,*items.variant.product,shipping_methods.*,payment_collection.*,payment_collection.payment_sessions.*,payment_collection.payment_sessions.data",
+        "id,currency_code,region_id,email,shipping_address.*,billing_address.*,subtotal,total,shipping_total,*items,*items.variant,*items.variant.product,*items.variant.product.seller,shipping_methods.*,payment_collection.*,payment_collection.payment_sessions.*,payment_collection.payment_sessions.data",
     };
     const { cart } = await sdk.store.cart.retrieve(cartId, query);
     if (!cart) return null;
     const c = cart as { items?: unknown[]; line_items?: unknown[] };
-    const items = c.items ?? c.line_items ?? [];
+    const items = c.items ?? c.line_items;
+    // An omitted relation is not evidence that the cart is empty.
+    if (!Array.isArray(items)) return null;
     return { ...cart, items };
   } catch (e) {
     if (process.env.NODE_ENV === "development") {

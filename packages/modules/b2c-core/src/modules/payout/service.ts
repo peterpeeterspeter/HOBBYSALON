@@ -3,6 +3,7 @@ import { EntityManager } from "@medusajs/framework/mikro-orm/knex";
 import { Context } from "@medusajs/framework/types";
 import {
   InjectTransactionManager,
+  MathBN,
   MedusaContext,
   MedusaError,
   MedusaService,
@@ -14,6 +15,8 @@ import {
   CreatePayoutAccountDTO,
   CreatePayoutDTO,
   CreatePayoutReversalDTO,
+  getAmountFromSmallestUnit,
+  getSmallestUnit,
   IPayoutProvider,
   PayoutAccountStatus,
   PayoutWebhookActionPayload,
@@ -201,26 +204,83 @@ class PayoutModuleService extends MedusaService({
     input: CreatePayoutReversalDTO,
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
-    const payout = await this.retrievePayout(input.payout_id);
-
+    if (typeof input.operation_id !== "string" || !input.operation_id.trim() ||
+        typeof input.payout_id !== "string" || !input.payout_id.trim()) {
+      throw new Error("Payout reversal requires a stable operation identity");
+    }
+    const currency = input.currency_code.toLowerCase();
+    const providerAmount = getSmallestUnit(input.amount, currency);
+    const amount = getAmountFromSmallestUnit(providerAmount, currency);
+    // Keep the original decimal input for equality before using the normalized
+    // round-trip amount for provider calls and storage.
+    if (!Number.isSafeInteger(providerAmount) || providerAmount <= 0 ||
+        !MathBN.eq(amount, input.amount)) {
+      throw new Error("Payout reversal amount is not exactly representable by the provider");
+    }
+    // Include the payout as well as the return/cancellation identity. Never key
+    // by amount: separate equal-amount returns must remain separate operations.
+    const idempotencyKey = `payout-reversal:${encodeURIComponent(input.payout_id)}:${encodeURIComponent(input.operation_id)}`;
+    if (idempotencyKey.length > 255) {
+      throw new Error("Payout reversal operation identity is too long");
+    }
+    const payout = await this.retrievePayout(input.payout_id, undefined, sharedContext);
     if (!payout || !payout.data || !payout.data.id) {
       throw new MedusaError(MedusaError.Types.NOT_FOUND, "Payout not found");
     }
-
+    if (payout.currency_code.toLowerCase() !== currency) {
+      throw new Error("Payout reversal currency does not match payout");
+    }
     const transfer_id = payout.data.id as string;
+    const validateResult = (data: Record<string, unknown> | null | undefined) => {
+      const transfer = data?.transfer;
+      const transferId = typeof transfer === "string" ? transfer :
+        (transfer as { id?: string } | null)?.id;
+      if (typeof data?.id !== "string" || !data.id ||
+          data.amount !== providerAmount || data.currency !== currency || transferId !== transfer_id) {
+        throw new Error("Payout reversal provider result does not match operation");
+      }
+    };
+
+    // Paginate rather than silently ignoring older operations past the service
+    // default page. Existing rows without this marker are NOT replay evidence.
+    const pageSize = 100;
+    for (let skip = 0; ; skip += pageSize) {
+      const reversals = await this.listPayoutReversals(
+        { payout_id: payout.id },
+        { take: pageSize, skip, order: { id: "ASC" } },
+        sharedContext
+      );
+      const saved = reversals.find((row) => row.data?.idempotency_key === idempotencyKey);
+      if (saved) {
+        if (!MathBN.eq(saved.amount, amount) || saved.currency_code !== currency ||
+            saved.id !== saved.data?.id) {
+          throw new Error("Payout reversal operation conflicts with saved amount or currency");
+        }
+        validateResult(saved.data);
+        return saved;
+      }
+      if (reversals.length < pageSize) break;
+    }
 
     const transferReversal = await this.provider_.reversePayout({
       transfer_id,
-      amount: input.amount,
-      currency: input.currency_code,
+      amount,
+      currency,
+      idempotency_key: idempotencyKey,
     });
+    validateResult(transferReversal as unknown as Record<string, unknown>);
 
-    // @ts-expect-error BigNumber incompatible interface
+    // The external ID is also the primary key: concurrent replies for the same
+    // provider operation cannot create two local amount rows. A uniqueness or
+    // persistence error propagates; retry finds the winner or reuses the same
+    // provider key. This is NOT a durable pending-operation ledger: unknown
+    // outcomes beyond provider key retention still require reconciliation.
     const payoutReversal = await this.createPayoutReversals(
       {
-        data: transferReversal as unknown as Record<string, unknown>,
-        amount: input.amount,
-        currency_code: input.currency_code,
+        id: transferReversal.id,
+        data: { ...transferReversal, idempotency_key: idempotencyKey },
+        amount,
+        currency_code: currency,
         payout: payout.id,
       },
       sharedContext

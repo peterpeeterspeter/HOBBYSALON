@@ -1,89 +1,36 @@
-import {
-  WorkflowResponse,
-  WorkflowData,
-  createWorkflow,
-  transform
-} from '@medusajs/framework/workflows-sdk'
-import {
-  beginReturnOrderWorkflow,
-  confirmReturnRequestWorkflow,
-  requestItemReturnWorkflow
-} from '@medusajs/medusa/core-flows'
-
-import {
-  AdminUpdateOrderReturnRequestDTO,
-  VendorUpdateOrderReturnRequestDTO
-} from '@mercurjs/framework'
+import { WorkflowResponse, WorkflowData, createWorkflow, transform } from '@medusajs/framework/workflows-sdk'
+import { AdminUpdateOrderReturnRequestDTO, VendorUpdateOrderReturnRequestDTO } from '@mercurjs/framework'
 import { refundSellerOrderForReturnWorkflow } from '@mercurjs/b2c-core/workflows'
-
 import { retrieveOrderFromReturnRequestStep } from '../steps'
+import { prepareNativeReturnStep } from '../steps/prepare-native-return'
 
-/**
- * Approve a return: create Medusa return, then Stripe-grounded refund (EC15).
- * Status "refunded" must only stick when this path completes — the update
- * workflow runs this before persisting the status.
- */
+/** Native preparation is durable outside outer compensation. Refund must finish
+ * before this workflow returns and the parent persists the refunded status. */
 export const proceedReturnRequestWorkflow = createWorkflow(
   'proceed-return-request',
-  function (
-    input: WorkflowData<
-      VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
-    >
-  ) {
+  function (input: WorkflowData<VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO>) {
     const order = retrieveOrderFromReturnRequestStep(input)
-    const beginPayload = transform({ order, input }, ({ order, input }) => {
+    const plan = transform({ order, input }, ({ order, input }) => {
+      if (order.order_return_request.id !== input.id) throw new Error('Return request identity mismatch')
       return {
-        input: {
-          order_id: order.order_id,
-          location_id: input.location_id
-        }
+        request_id: order.order_return_request.id,
+        order_id: order.order_id,
+        location_id: input.location_id ?? null,
+        items: order.order_return_request.line_items.map((item) => ({
+          id: item.line_item_id, quantity: item.quantity, reason_id: item.reason_id ?? null,
+        })),
       }
     })
-
-    const returnOrder = beginReturnOrderWorkflow.runAsStep(beginPayload)
-
-    const requestItemReturnPayload = transform(
-      { returnOrder, order },
-      ({ returnOrder, order }) => {
-        return {
-          input: {
-            return_id: returnOrder.return_id,
-            items: order.order_return_request.line_items.map((item) => {
-              return {
-                id: item.line_item_id,
-                quantity: item.quantity,
-                reason_id: item.reason_id
-              }
-            })
-          }
-        }
-      }
-    )
-
-    requestItemReturnWorkflow.runAsStep(requestItemReturnPayload)
-
-    const confirmReturnRequestPayload = transform(
-      returnOrder,
-      (returnOrder) => {
-        return {
-          input: {
-            return_id: returnOrder.return_id
-          }
-        }
-      }
-    )
-
-    confirmReturnRequestWorkflow.runAsStep(confirmReturnRequestPayload)
-
-    const refundInput = transform({ order }, ({ order }) => ({
-      order_id: order.order_id,
-      line_item_ids: (order.order_return_request.line_items ?? []).map(
-        (item: { line_item_id: string }) => item.line_item_id
-      )
+    const prepared = prepareNativeReturnStep(plan)
+    // Only the ledger's frozen plan can authorize money, never a fresh request snapshot.
+    const refundInput = transform({ prepared }, ({ prepared }) => ({
+      order_id: prepared.plan.order_id,
+      operation_id: prepared.plan.request_id,
+      return_lines: prepared.plan.items.map(item => ({ line_item_id: item.id, quantity: item.quantity })),
     }))
-
-    refundSellerOrderForReturnWorkflow.runAsStep({ input: refundInput })
-
-    return new WorkflowResponse(returnOrder)
+    const refund = refundSellerOrderForReturnWorkflow.runAsStep({ input: refundInput })
+    return new WorkflowResponse(transform({ prepared, refund }, ({ prepared }) => ({
+      id: prepared.identity.order_change_id, return_id: prepared.identity.return_id, order_id: prepared.plan.order_id,
+    })))
   }
 )

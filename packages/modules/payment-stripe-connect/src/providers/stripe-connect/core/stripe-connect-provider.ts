@@ -8,6 +8,7 @@ import {
 } from "@medusajs/framework/types";
 import {
   AbstractPaymentProvider,
+  MathBN,
   MedusaError,
   PaymentActions,
   PaymentSessionStatus,
@@ -220,15 +221,27 @@ abstract class StripeConnectProvider extends AbstractPaymentProvider<Options> {
   async refundPayment({
     data: paymentSessionData,
     amount,
+    context,
   }: RefundPaymentInput): Promise<RefundPaymentOutput> {
     const id = paymentSessionData?.id as string;
+    // Medusa 2.11.3 supplies the persisted refund ID here. Never substitute an
+    // amount-based key: two legitimate equal partial refunds are distinct.
+    const idempotencyKey = context?.idempotency_key;
+    if (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 255) {
+      throw new Error("Refund requires a stable Medusa refund identity");
+    }
 
     try {
       const currency = paymentSessionData?.currency as string;
+      const providerAmount = getSmallestUnit(amount, currency);
+      if (!Number.isSafeInteger(providerAmount) || providerAmount <= 0 ||
+          !MathBN.eq(getAmountFromSmallestUnit(providerAmount, currency), amount)) {
+        throw new Error("Refund amount is not exactly representable by the provider");
+      }
       await this.client_.refunds.create({
-        amount: getSmallestUnit(amount, currency),
+        amount: providerAmount,
         payment_intent: id as string,
-      });
+      }, { idempotencyKey });
     } catch (e) {
       throw this.buildError("An error occurred in refundPayment", e);
     }

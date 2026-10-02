@@ -30,11 +30,14 @@ export const updateOrderReturnRequestWorkflow = createWorkflow(
       VendorUpdateOrderReturnRequestDTO | AdminUpdateOrderReturnRequestDTO
     >
   ) {
-    when(input, (input) => input.status === "refunded").then(() => {
-      proceedReturnRequestWorkflow.runAsStep({ input });
+    const proceeded = when(input, (input) => input.status === "refunded").then(() => {
+      return proceedReturnRequestWorkflow.runAsStep({ input });
     });
 
-    const request = updateOrderReturnRequestStep(input);
+    // A skipped branch resolves without refund work; a failed branch must not
+    // allow the refunded status (or its downstream updated hook) to be persisted.
+    const updateInput = transform({ input, proceeded }, ({ input }) => input);
+    const request = updateOrderReturnRequestStep(updateInput);
 
     const requestId = transform(request, (request: OrderReturnRequestDTO) => request.id);
     const order = useQueryGraphStep({
