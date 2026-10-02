@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto'
 import type { Knex } from 'knex'
-import { NativeReturnError, validNativeReturnId, fingerprintNativeReturnPlan } from './native-return-lifecycle'
-import type { NativeReturnRecord, NativeReturnSession, NativeReturnStore } from './native-return-lifecycle'
+import {
+  NativeReturnError,
+  validNativeReturnId,
+  fingerprintNativeReturnPlan,
+  type NativeReturnRecord,
+  type NativeReturnSession,
+  type NativeReturnStore,
+} from './native-return-lifecycle'
 
 const columns = 'request_id, order_id, fingerprint, plan, native_return_id, order_change_id, phase'
 function decode(row: any): NativeReturnRecord | null {

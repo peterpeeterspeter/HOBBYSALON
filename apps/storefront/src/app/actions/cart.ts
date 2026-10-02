@@ -38,16 +38,20 @@ async function getOrCreateCartId(
   cookieStore: CookieStore,
   variantIds: string | string[]
 ): Promise<{ ok: true; cartId: string } | { ok: false; message: string }> {
-  let existing = cookieStore.get(CART_COOKIE_NAME)?.value;
-  let check = await assertSingleSellerCart(existing ?? null, variantIds);
-  if (!check.ok && check.error && isStaleCartError(check.error)) {
-    // A confirmed missing/completed cart can be replaced, but the entire
-    // proposed batch must still validate as a new cart before we create it.
-    existing = undefined;
-    check = await assertSingleSellerCart(null, variantIds);
+  const existing = cookieStore.get(CART_COOKIE_NAME)?.value;
+  if (existing) {
+    const check = await assertSingleSellerCart(existing, variantIds);
+    // A confirmed missing/completed cart is replaced by the add path after the
+    // original add fails, so a failed replacement never drops the old cookie
+    // or the original error.
+    if (!check.ok && !(check.error && isStaleCartError(check.error))) {
+      return { ok: false, message: check.message };
+    }
+    return { ok: true, cartId: existing };
   }
+
+  const check = await assertSingleSellerCart(null, variantIds);
   if (!check.ok) return { ok: false, message: check.message };
-  if (existing) return { ok: true, cartId: existing };
 
   const created = await createCart();
   if (!created?.cart_id) {

@@ -1,8 +1,13 @@
 import { ContainerRegistrationKeys, Modules, MathBN, ReturnStatus, OrderChangeStatus, ChangeActionType } from '@medusajs/framework/utils'
 import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk'
 import { beginReturnOrderWorkflow, requestItemReturnWorkflow, confirmReturnRequestWorkflow } from '@medusajs/medusa/core-flows'
-import { executeNativeReturn, fingerprintNativeReturnPlan, validNativeReturnId } from '../../../utils/native-return-lifecycle'
-import type { NativeReturnPlan, NativeReturnIdentity } from '../../../utils/native-return-lifecycle'
+import {
+  executeNativeReturn,
+  fingerprintNativeReturnPlan,
+  validNativeReturnId,
+  type NativeReturnPlan,
+  type NativeReturnIdentity,
+} from '../../../utils/native-return-lifecycle'
 import { createPostgresNativeReturnStore } from '../../../utils/native-return-store'
 
 function requireEvidence(ok: unknown): asserts ok {

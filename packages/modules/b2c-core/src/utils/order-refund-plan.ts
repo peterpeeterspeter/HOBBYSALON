@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto'
 import { MathBN, MedusaError } from '@medusajs/framework/utils'
 import { allocateRefundAndReversal } from './refund-allocation'
-import { calculateReturnRefundAmount } from './return-refund-amount'
-import type { ReturnRefundLine } from './return-refund-amount'
+import {
+  calculateReturnRefundAmount,
+  type ReturnRefundLine,
+} from './return-refund-amount'
 import type { SettlementInput, SettlementPlan } from './refund-settlement'
 
 type Amount = Parameters<typeof MathBN.convert>[0]

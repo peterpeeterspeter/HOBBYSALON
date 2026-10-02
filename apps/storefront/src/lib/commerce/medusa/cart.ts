@@ -226,8 +226,11 @@ async function retrieveCartWithSellerItems(cartId: string) {
     fields: "id,completed_at,currency_code,*items,*items.variant,*items.variant.product,*items.variant.product.seller",
   });
   if (!cart) return null;
-  const c = cart as { items?: unknown[]; line_items?: unknown[] };
+  const c = cart as { items?: unknown[]; line_items?: unknown[]; completed_at?: string | null };
   const items = c.items ?? c.line_items;
+  if (c.completed_at) {
+    return { ...cart, items: Array.isArray(items) ? items : [] };
+  }
   // An omitted relation is not evidence that the cart is empty.
   if (!Array.isArray(items)) return null;
   return { ...cart, items };
@@ -247,7 +250,7 @@ export async function getCart(cartId: string) {
 
 /** Seller ids for display; validation must also reject every unresolved item. */
 export function getCartSellerIds(cart: { items?: unknown[] } | null): string[] {
-  if (!Array.isArray(cart?.items)) return [];
+  if (!cart || !Array.isArray(cart.items)) return [];
   return [...new Set(cart.items.map(getCartItemSellerId).filter((id): id is string => id !== null))];
 }
 
@@ -334,10 +337,11 @@ export async function assertSingleSellerCart(
       ? { ...unknownSeller, error: { kind: "cart_not_found" } }
       : unknownSeller;
   }
-  if (!cart || !Array.isArray(cart.items)) return unknownSeller;
+  if (!cart) return unknownSeller;
   if ("completed_at" in cart && cart.completed_at) {
     return { ...unknownSeller, error: { kind: "cart_completed" } };
   }
+  if (!Array.isArray(cart.items)) return unknownSeller;
   const sellers = new Set<string>();
   for (const item of cart.items) {
     const sellerId = getCartItemSellerId(item);

@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto'
 import type { Knex } from 'knex'
-import { SettlementError } from './refund-settlement'
-import type { SettlementPhase, SettlementRecord, SettlementSession, SettlementStore } from './refund-settlement'
+import {
+  SettlementError,
+  type SettlementPhase,
+  type SettlementRecord,
+  type SettlementSession,
+  type SettlementStore,
+} from './refund-settlement'
 
 const columns = 'operation_id, order_id, scope_id, fingerprint, plan, phase, reversal_receipt_id'
 function validId(value: unknown): value is string {

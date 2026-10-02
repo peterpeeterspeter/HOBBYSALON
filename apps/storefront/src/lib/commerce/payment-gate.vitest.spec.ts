@@ -25,7 +25,7 @@ describe("normalizeCheckoutCountryCode", () => {
 
 describe("assertCartReadyForPayment", () => {
   const base = {
-    items: [{ id: "li_1" }],
+    items: [{ id: "li_1", variant: { product: { seller: { id: "sel_1" } } } }],
     email: "buyer@example.com",
     shipping_address: { address_1: "Straat 1", country_code: "be" },
     shipping_methods: [{ id: "sm_1" }],
