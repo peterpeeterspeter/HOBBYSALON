@@ -10,6 +10,7 @@ import {
   type BundleLineInput,
   removeFromCart,
   updateCartLineItemQuantity,
+  assertSingleSellerCart,
   CART_COOKIE_NAME,
   CART_COOKIE_MAX_AGE,
 } from "@/lib/commerce/medusa/cart";
@@ -58,6 +59,11 @@ export async function addToCartAction(
   const cartId = await getOrCreateCartId(cookieStore);
   if (!cartId) {
     return { success: false, message: "Winkelwagen kon niet worden aangemaakt" };
+  }
+
+  const sellerCheck = await assertSingleSellerCart(cartId, variantId);
+  if (!sellerCheck.ok) {
+    return { success: false, message: sellerCheck.message };
   }
 
   let result = await addToCart(cartId, variantId, quantity);
@@ -111,6 +117,13 @@ export async function addBundleToCartAction(
   const cartId = await getOrCreateCartId(cookieStore);
   if (!cartId) {
     return { success: false, message: "Winkelwagen kon niet worden aangemaakt" };
+  }
+
+  for (const item of validItems) {
+    const sellerCheck = await assertSingleSellerCart(cartId, item.variant_id);
+    if (!sellerCheck.ok) {
+      return { success: false, message: sellerCheck.message };
+    }
   }
 
   let result = await addBundleToCart(cartId, bundleId, validItems, {

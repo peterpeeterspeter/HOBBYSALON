@@ -12,7 +12,10 @@ import { useEffect } from "react"
 import { VendorUpdateOrderReturnRequestPayload } from "../../../types/request"
 
 
-const STATUS_OPTIONS = ["refunded", "escalated"]
+const STATUS_OPTIONS = [
+  { value: "refunded", label: "Goedkeuren + Stripe-terugbetaling" },
+  { value: "escalated", label: "Doorschakelen naar support" },
+] as const
 
 export function RequestOrderReturn() {
   const { id } = useParams()
@@ -25,7 +28,7 @@ export function RequestOrderReturn() {
 
   const form = useForm({
     defaultValues: {
-      status: order_return_request?.status || STATUS_OPTIONS[0],
+      status: order_return_request?.status || STATUS_OPTIONS[0].value,
       vendor_reviewer_note: order_return_request?.vendor_reviewer_note || "",
       location_id: undefined,
     },
@@ -34,7 +37,7 @@ export function RequestOrderReturn() {
   useEffect(() => {
     if (order_return_request) {
       form.reset({
-        status: order_return_request.status || STATUS_OPTIONS[0],
+        status: order_return_request.status || STATUS_OPTIONS[0].value,
         vendor_reviewer_note: order_return_request.vendor_reviewer_note || "",
         location_id: undefined,
       })
@@ -46,10 +49,18 @@ export function RequestOrderReturn() {
   const handleUpdateOrderReturnRequest = async (payload: VendorUpdateOrderReturnRequestPayload) => {
     updateOrderReturnRequest(payload, {
       onSuccess: () => {
+        toast.success(
+          payload.status === "refunded"
+            ? "Retour goedgekeurd. Terugbetaling via Stripe is gestart."
+            : "Retouraanvraag doorgestuurd."
+        )
         navigate("/requests/orders", { replace: true })
       },
       onError: (error) => {
-        toast.error(error.message)
+        toast.error(
+          error.message ||
+            "Kon retour niet afronden. Status blijft open tot Stripe-terugbetaling lukt."
+        )
       },
     })
   }
@@ -66,6 +77,11 @@ export function RequestOrderReturn() {
         </RouteDrawer.Title>
       </RouteDrawer.Header>
       <RouteDrawer.Body>
+        <p className="text-ui-fg-subtle mb-4 text-sm">
+          Kies &quot;Goedkeuren + Stripe-terugbetaling&quot; alleen als je de retour
+          echt wilt afronden. De status &quot;refunded&quot; wordt pas gezet nadat
+          de Stripe-terugbetaling (en eventuele payout-reversal) is uitgevoerd.
+        </p>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleUpdateOrderReturnRequest)}>
             <Form.Field
@@ -85,12 +101,12 @@ export function RequestOrderReturn() {
                           <Select.Value />
                         </Select.Trigger>
                         <Select.Content>
-                          {STATUS_OPTIONS.map((reason, index) => (
+                          {STATUS_OPTIONS.map((option, index) => (
                             <Select.Item
                               key={`select-option-${index}`}
-                              value={reason}
+                              value={option.value}
                             >
-                              {reason}
+                              {option.label}
                             </Select.Item>
                           ))}
                         </Select.Content>

@@ -3,16 +3,22 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
+import { PriceDisplay } from "@/components/domain/price-display";
+import { medusaAmountToCents } from "@/lib/commerce/money";
 
 type Variant = {
   id: string;
   title: string;
+  calculated_amount?: number;
+  currency_code?: string;
 };
 
 type ProductPurchaseControlsProps = {
   variants: Variant[];
   productType?: string;
   creatorSlug?: string | null;
+  /** Fallback display price (cents) when variants have no per-variant amount. */
+  fallbackPrice?: { amount: number; currency_code: string } | null;
   className?: string;
 };
 
@@ -20,16 +26,30 @@ export function ProductPurchaseControls({
   variants,
   productType,
   creatorSlug,
+  fallbackPrice,
   className,
 }: ProductPurchaseControlsProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     variants[0]?.id ?? null
   );
 
-  const selectedVariantTitle = useMemo(
-    () => variants.find((variant) => variant.id === selectedVariantId)?.title,
+  const selectedVariant = useMemo(
+    () => variants.find((variant) => variant.id === selectedVariantId) ?? null,
     [selectedVariantId, variants]
   );
+
+  const displayPrice = useMemo(() => {
+    if (
+      selectedVariant?.calculated_amount != null &&
+      Number.isFinite(selectedVariant.calculated_amount)
+    ) {
+      return {
+        amount: medusaAmountToCents(selectedVariant.calculated_amount),
+        currency_code: selectedVariant.currency_code ?? "EUR",
+      };
+    }
+    return fallbackPrice ?? null;
+  }, [selectedVariant, fallbackPrice]);
 
   if (!variants.length || !selectedVariantId) {
     const isHandmade = productType === "handmade";
@@ -55,6 +75,16 @@ export function ProductPurchaseControls({
 
   return (
     <div className={className}>
+      {displayPrice && (
+        <div className="mb-4">
+          <PriceDisplay
+            amount={displayPrice.amount}
+            currencyCode={displayPrice.currency_code}
+            size="lg"
+          />
+        </div>
+      )}
+
       {variants.length > 1 && (
         <div className="mb-4">
           <label
@@ -75,9 +105,9 @@ export function ProductPurchaseControls({
               </option>
             ))}
           </select>
-          {selectedVariantTitle && (
+          {selectedVariant?.title && (
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Geselecteerd: {selectedVariantTitle}
+              Geselecteerd: {selectedVariant.title}
             </p>
           )}
         </div>

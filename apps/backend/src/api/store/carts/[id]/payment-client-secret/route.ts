@@ -123,8 +123,8 @@ export async function GET(
       clientSecret = (newData?.client_secret ?? newData?.clientSecret) as string | undefined
     }
 
-    // Check if PaymentIntent is terminal; if succeeded, tell the client to
-    // complete the cart instead of creating a new (unpayable) session.
+    // Check PaymentIntent status before mutating sessions.
+    // Unknown / retrieve failure must NOT delete a possibly-paid session.
     if (paymentIntentId && stripeKey) {
       try {
         const stripe = new Stripe(stripeKey)
@@ -139,18 +139,45 @@ export async function GET(
           })
         }
 
+        if (
+          pi.status === "processing" ||
+          pi.status === "requires_action" ||
+          pi.status === "requires_confirmation" ||
+          pi.status === "requires_capture"
+        ) {
+          if (!clientSecret) {
+            return res.status(202).json({
+              message: "Payment is still processing",
+              payment_intent_id: pi.id,
+            })
+          }
+          return res.json({
+            client_secret: clientSecret,
+            payment_intent_id: pi.id,
+          })
+        }
+
         if (pi.status === "canceled") {
           await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
         }
       } catch (e) {
+        // Stripe retrieve failed: keep existing session; do not recreate.
+        console.error("[payment-client-secret] Stripe retrieve:", e)
         if (!clientSecret) {
-          console.error("[payment-client-secret] Stripe retrieve:", e)
+          return res.status(202).json({
+            message: "Payment status unknown; try again shortly",
+            payment_intent_id: paymentIntentId,
+          })
         }
+        return res.json({
+          client_secret: clientSecret,
+          payment_intent_id: paymentIntentId,
+        })
       }
     }
 
-    // Deterministic fallback: regenerate session for this payment collection.
-    if (!clientSecret) {
+    // Only recreate when there is no PaymentIntent id and no secret (never created).
+    if (!clientSecret && !paymentIntentId) {
       try {
         await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
       } catch (e) {

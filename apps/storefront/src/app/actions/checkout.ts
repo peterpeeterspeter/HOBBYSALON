@@ -15,6 +15,10 @@ import {
   type CartAddress,
 } from "@/lib/commerce/medusa/cart";
 import { medusaAmountToCents } from "@/lib/commerce/money";
+import {
+  assertCartReadyForPayment,
+  normalizeCheckoutCountryCode,
+} from "@/lib/commerce/payment-gate";
 
 export type CheckoutStep = "address" | "shipping" | "payment";
 
@@ -37,6 +41,13 @@ export async function checkoutUpdateAddress(
     return { success: false, message: "E-mailadres is verplicht" };
   }
 
+  const country = normalizeCheckoutCountryCode(
+    formData.get("country_code")?.toString()
+  );
+  if (!country.ok) {
+    return { success: false, message: country.message };
+  }
+
   const address: CartAddress = {
     first_name: formData.get("first_name")?.toString()?.trim() ?? "",
     last_name: formData.get("last_name")?.toString()?.trim() ?? "",
@@ -45,7 +56,7 @@ export async function checkoutUpdateAddress(
     city: formData.get("city")?.toString()?.trim() ?? "",
     postal_code: formData.get("postal_code")?.toString()?.trim() ?? "",
     province: formData.get("province")?.toString()?.trim() || undefined,
-    country_code: formData.get("country_code")?.toString()?.trim() ?? "nl",
+    country_code: country.country_code,
     phone: formData.get("phone")?.toString()?.trim() || undefined,
   };
 
@@ -106,6 +117,13 @@ export async function checkoutInitiatePayment(): Promise<CheckoutInitiatePayment
   const cart = await getCartForCheckout(cartId);
   if (!cart) {
     return { success: false, message: "Winkelwagen niet gevonden" };
+  }
+
+  const ready = assertCartReadyForPayment(
+    cart as Parameters<typeof assertCartReadyForPayment>[0]
+  );
+  if (!ready.ok) {
+    return { success: false, message: ready.message };
   }
 
   const regionId = (cart as { region_id?: string }).region_id;

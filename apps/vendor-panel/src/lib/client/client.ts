@@ -3,8 +3,6 @@ import Medusa from '@medusajs/js-sdk';
 export const backendUrl = __BACKEND_URL__ ?? '/';
 export const publishableApiKey = __PUBLISHABLE_API_KEY__ ?? '';
 
-const token = window.localStorage.getItem('medusa_auth_token') || '';
-
 const decodeJwt = (token: string) => {
   try {
     const payload = token.split('.')[1];
@@ -24,6 +22,12 @@ const isTokenExpired = (token: string | null) => {
   return payload.exp * 1000 < Date.now();
 };
 
+/** Always read the current token — do not snapshot at module load (F7 / EC13). */
+function getAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem('medusa_auth_token') || '';
+}
+
 export const sdk = new Medusa({
   baseUrl: backendUrl,
   publishableKey: publishableApiKey
@@ -35,38 +39,66 @@ if (typeof window !== 'undefined') {
 }
 
 export const importProductsQuery = async (file: File) => {
+  const token = getAuthToken();
+  if (isTokenExpired(token)) {
+    return { message: 'Unauthorized' };
+  }
+
   const formData = new FormData();
   formData.append('file', file);
 
-  return await fetch(`${backendUrl}/vendor/products/import`, {
+  const response = await fetch(`${backendUrl}/vendor/products/import`, {
     method: 'POST',
     body: formData,
     headers: {
       authorization: `Bearer ${token}`,
       'x-publishable-api-key': publishableApiKey
     }
-  })
-    .then(res => res.json())
-    .catch(() => null);
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    return {
+      message:
+        (payload as { message?: string } | null)?.message ??
+        `Import failed (${response.status})`
+    };
+  }
+
+  return response.json().catch(() => null);
 };
 
 export const uploadFilesQuery = async (files: any[]) => {
+  const token = getAuthToken();
+  if (isTokenExpired(token)) {
+    return { message: 'Unauthorized' };
+  }
+
   const formData = new FormData();
 
   for (const { file } of files) {
     formData.append('files', file);
   }
 
-  return await fetch(`${backendUrl}/vendor/uploads`, {
+  const response = await fetch(`${backendUrl}/vendor/uploads`, {
     method: 'POST',
     body: formData,
     headers: {
       authorization: `Bearer ${token}`,
       'x-publishable-api-key': publishableApiKey
     }
-  })
-    .then(res => res.json())
-    .catch(() => null);
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    return {
+      message:
+        (payload as { message?: string } | null)?.message ??
+        `Upload failed (${response.status})`
+    };
+  }
+
+  return response.json().catch(() => null);
 };
 
 export const fetchQuery = async (
@@ -83,7 +115,7 @@ export const fetchQuery = async (
     headers?: { [key: string]: string };
   }
 ) => {
-  const bearer = (await window.localStorage.getItem('medusa_auth_token')) || '';
+  const bearer = getAuthToken();
   const params = Object.entries(query || {}).reduce((acc, [key, value]) => {
     if (value !== null && value !== undefined && value !== '') {
       if (Array.isArray(value)) {
@@ -120,7 +152,7 @@ export const fetchQuery = async (
     const errorData = await response.json();
 
     if (response.status === 401) {
-      if (isTokenExpired(token)) {
+      if (isTokenExpired(bearer)) {
         localStorage.removeItem('medusa_auth_token');
         window.location.href = '/login?reason=Unauthorized';
         return;

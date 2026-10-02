@@ -23,6 +23,15 @@ type OrderCreateFulfillmentFormProps = {
   fulfillment: ExtendedAdminOrderFulfillment
 }
 
+function isSafeHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" || url.protocol === "http:"
+  } catch {
+    return false
+  }
+}
+
 export function OrderCreateShipmentForm({
   order,
   fulfillment,
@@ -34,7 +43,9 @@ export function OrderCreateShipmentForm({
     useCreateOrderShipment(order.id, fulfillment?.id)
 
   const form = useForm<zod.infer<typeof CreateShipmentSchema>>({
-    defaultValues: {},
+    defaultValues: {
+      labels: [{ tracking_number: "", tracking_url: "", label_url: "" }],
+    },
     resolver: zodResolver(CreateShipmentSchema),
   })
 
@@ -44,20 +55,39 @@ export function OrderCreateShipmentForm({
   })
 
   const handleSubmit = form.handleSubmit(async (data) => {
+    const labelsPayload = data.labels
+      .filter((l) => !!l.tracking_number?.trim())
+      .map((l) => {
+        const trackingNumber = l.tracking_number.trim()
+        const trackingUrlRaw = (l.tracking_url ?? "").trim()
+        const trackingUrl =
+          trackingUrlRaw && isSafeHttpUrl(trackingUrlRaw)
+            ? trackingUrlRaw
+            : trackingUrlRaw
+              ? ""
+              : ""
+        if (trackingUrlRaw && !trackingUrl) {
+          throw new Error("Tracking-URL moet met http:// of https:// beginnen.")
+        }
+        return {
+          tracking_number: trackingNumber,
+          tracking_url: trackingUrl || `https://www.hobbysalon.be/account/orders`,
+          label_url: (l.label_url ?? "").trim() || trackingUrl || `https://www.hobbysalon.be/account/orders`,
+        }
+      })
+
+    if (!labelsPayload.length) {
+      toast.error("Vul minstens één trackingnummer in.")
+      return
+    }
+
     await createShipment(
       {
         items:
           fulfillment?.items
             ?.map((i) => ({ id: i?.line_item_id, quantity: i.quantity }))
             .filter((item) => !!item.id) ?? [],
-        labels: data.labels
-          .filter((l) => !!l.tracking_number)
-          .map((l) => ({
-            tracking_number: l.tracking_number,
-            tracking_url: "#",
-            label_url: "#"
-            ,
-          })),
+        labels: labelsPayload,
       },
       {
         onSuccess: () => {
@@ -99,36 +129,59 @@ export function OrderCreateShipmentForm({
                   </Heading>
 
                   {labels.map((label, index) => (
-                    <Form.Field
-                      key={label.id}
-                      control={form.control}
-                      name={`labels.${index}.tracking_number`}
-                      render={({ field }) => {
-                        return (
-                          <Form.Item className="mb-4">
-                            {index === 0 && (
-                              <Form.Label>Tracking URL</Form.Label>
-                            )}
-                            <Form.Control>
-                              <Input
-                                {...field}
-                                placeholder="https://www.dhl.com/shipment/1234567890"
-                              />
-                            </Form.Control>
-                            <Form.ErrorMessage />
-                          </Form.Item>
-                        )
-                      }}
-                    />
+                    <div key={label.id} className="mb-6 space-y-3">
+                      <Form.Field
+                        control={form.control}
+                        name={`labels.${index}.tracking_number`}
+                        render={({ field }) => {
+                          return (
+                            <Form.Item>
+                              <Form.Label>Trackingnummer</Form.Label>
+                              <Form.Control>
+                                <Input
+                                  {...field}
+                                  placeholder="3SABCD123456789"
+                                />
+                              </Form.Control>
+                              <Form.ErrorMessage />
+                            </Form.Item>
+                          )
+                        }}
+                      />
+                      <Form.Field
+                        control={form.control}
+                        name={`labels.${index}.tracking_url`}
+                        render={({ field }) => {
+                          return (
+                            <Form.Item>
+                              <Form.Label>Tracking-URL (optioneel)</Form.Label>
+                              <Form.Control>
+                                <Input
+                                  {...field}
+                                  placeholder="https://www.dhl.com/shipment/1234567890"
+                                />
+                              </Form.Control>
+                              <Form.ErrorMessage />
+                            </Form.Item>
+                          )
+                        }}
+                      />
+                    </div>
                   ))}
 
                   <Button
                     type="button"
-                    onClick={() => append({ tracking_number: "" })}
+                    onClick={() =>
+                      append({
+                        tracking_number: "",
+                        tracking_url: "",
+                        label_url: "",
+                      })
+                    }
                     className="self-end"
                     variant="secondary"
                   >
-                    Add tracking URL
+                    Tracking toevoegen
                   </Button>
                 </div>
               </div>

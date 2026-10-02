@@ -225,7 +225,7 @@ export async function getCart(cartId: string) {
   try {
     const query = {
       fields:
-        "id,currency_code,*items,*items.variant,*items.variant.product",
+        "id,currency_code,*items,*items.variant,*items.variant.product,*items.variant.product.seller",
     };
     const { cart } = await sdk.store.cart.retrieve(cartId, query);
     if (!cart) return null;
@@ -239,6 +239,86 @@ export async function getCart(cartId: string) {
     }
     return null;
   }
+}
+
+function sellerIdFromCartItem(item: unknown): string | null {
+  const row = item as {
+    variant?: { product?: { seller?: { id?: string }; seller_id?: string } };
+    product?: { seller?: { id?: string } };
+  };
+  return (
+    row.variant?.product?.seller?.id ??
+    row.variant?.product?.seller_id ??
+    row.product?.seller?.id ??
+    null
+  );
+}
+
+/** Seller ids already represented in the cart (D1 single-seller). */
+export function getCartSellerIds(cart: { items?: unknown[] } | null): string[] {
+  if (!cart?.items?.length) return [];
+  const ids = new Set<string>();
+  for (const item of cart.items) {
+    const sellerId = sellerIdFromCartItem(item);
+    if (sellerId) ids.add(sellerId);
+  }
+  return [...ids];
+}
+
+/**
+ * Resolve seller id for a variant by scanning store products that expose seller.
+ * Returns null when seller cannot be determined (caller should not block add).
+ */
+export async function getSellerIdForVariant(
+  variantId: string
+): Promise<string | null> {
+  try {
+    const { products } = await sdk.store.product.list({
+      fields: "id,*variants,*seller",
+      limit: 100,
+    });
+    for (const product of products ?? []) {
+      const p = product as {
+        seller?: { id?: string };
+        variants?: Array<{ id?: string }>;
+      };
+      if (p.variants?.some((v) => v.id === variantId)) {
+        return p.seller?.id ?? null;
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * D1: reject adding a variant from a second seller into a non-empty cart.
+ */
+export async function assertSingleSellerCart(
+  cartId: string,
+  variantId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const cart = await getCart(cartId);
+  const existingSellers = getCartSellerIds(cart);
+  if (existingSellers.length === 0) {
+    return { ok: true };
+  }
+
+  const nextSeller = await getSellerIdForVariant(variantId);
+  if (!nextSeller) {
+    return { ok: true };
+  }
+
+  if (existingSellers.every((id) => id === nextSeller)) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    message:
+      "Je winkelwagen bevat al producten van een andere verkoper. Rond die bestelling eerst af of maak de winkelwagen leeg.",
+  };
 }
 
 /** Retrieve cart with checkout fields (region, shipping, payment). */

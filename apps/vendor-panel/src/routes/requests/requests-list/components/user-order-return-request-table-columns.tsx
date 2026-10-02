@@ -50,7 +50,9 @@ export const useOrderReturnRequestTableColumns = () => {
           <div className="flex h-full w-full items-center overflow-hidden">
             <span className="truncate uppercase">
               <StatusCell color={getStatusColor(row.original.status)}>
-                {row.original.status}
+                {row.original.status === "refunded"
+                  ? "refunded (stripe)"
+                  : row.original.status}
               </StatusCell>
             </span>
           </div>

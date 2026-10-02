@@ -14,9 +14,15 @@ import {
   AdminUpdateOrderReturnRequestDTO,
   VendorUpdateOrderReturnRequestDTO
 } from '@mercurjs/framework'
+import { refundSellerOrderForReturnWorkflow } from '@mercurjs/b2c-core/workflows'
 
 import { retrieveOrderFromReturnRequestStep } from '../steps'
 
+/**
+ * Approve a return: create Medusa return, then Stripe-grounded refund (EC15).
+ * Status "refunded" must only stick when this path completes — the update
+ * workflow runs this before persisting the status.
+ */
 export const proceedReturnRequestWorkflow = createWorkflow(
   'proceed-return-request',
   function (
@@ -68,6 +74,15 @@ export const proceedReturnRequestWorkflow = createWorkflow(
     )
 
     confirmReturnRequestWorkflow.runAsStep(confirmReturnRequestPayload)
+
+    const refundInput = transform({ order }, ({ order }) => ({
+      order_id: order.order_id,
+      line_item_ids: (order.order_return_request.line_items ?? []).map(
+        (item: { line_item_id: string }) => item.line_item_id
+      )
+    }))
+
+    refundSellerOrderForReturnWorkflow.runAsStep({ input: refundInput })
 
     return new WorkflowResponse(returnOrder)
   }

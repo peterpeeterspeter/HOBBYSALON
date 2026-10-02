@@ -46,14 +46,14 @@ export function ProductBuyCard({
         {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
       </span>
 
-      {price && (
+      {price && !hasCart && (
         <div className="mt-3">
           <PriceDisplay
             amount={price.amount}
             currencyCode={price.currency_code}
             size="lg"
           />
-          {isMakerListing && !hasCart && (
+          {isMakerListing && (
             <p className="mt-1 text-xs text-[var(--muted)]">
               Richtprijs. Aankoop via de maker
             </p>
@@ -67,6 +67,7 @@ export function ProductBuyCard({
             variants={variants}
             productType={product.product_type}
             creatorSlug={creator?.slug ?? null}
+            fallbackPrice={price}
           />
         ) : creator ? (
           <ProductInquiryForm

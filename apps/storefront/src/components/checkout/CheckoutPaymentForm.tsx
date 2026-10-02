@@ -26,10 +26,12 @@ function formatPrice(amountCents: number, currencyCode: string): string {
 function PaymentFormInner({
   total,
   currencyCode,
+  countryCode = "BE",
   onTerminalError,
 }: {
   total: number;
   currencyCode: string;
+  countryCode?: string;
   onTerminalError?: () => void;
 }) {
   const stripe = useStripe();
@@ -52,7 +54,7 @@ function PaymentFormInner({
         payment_method_data: {
           billing_details: {
             address: {
-              country: "NL",
+              country: (countryCode || "BE").toUpperCase(),
             },
           },
         },
@@ -60,12 +62,7 @@ function PaymentFormInner({
     });
 
     if (error) {
-      const msg = error.message ?? "Betaling mislukt";
-      const hint =
-        msg.includes("verwerkingsfout") || msg.includes("processing error")
-          ? " Probeer de Stripe testkaart 4242 4242 4242 4242 of een andere kaart."
-          : "";
-      setMessage(msg + hint);
+      setMessage(error.message ?? "Betaling mislukt. Probeer het opnieuw.");
       setPending(false);
       return;
     }
@@ -145,9 +142,11 @@ function PaymentFormInner({
 export function CheckoutPaymentForm({
   total,
   currencyCode,
+  countryCode = "BE",
 }: {
   total: number;
   currencyCode: string;
+  countryCode?: string;
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +237,7 @@ export function CheckoutPaymentForm({
       <PaymentFormInner
         total={total}
         currencyCode={currencyCode}
+        countryCode={countryCode}
         onTerminalError={fetchPayment}
       />
     </Elements>

@@ -168,7 +168,20 @@ export function CheckoutAddressForm({
         </label>
       </div>
 
-      <input type="hidden" name="country_code" value="nl" />
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-[var(--foreground)]">
+          Land <span className="text-[var(--accent)]">*</span>
+        </span>
+        <select
+          name="country_code"
+          required
+          defaultValue={(defaultAddress?.country_code ?? "be").toLowerCase()}
+          className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+        >
+          <option value="be">België</option>
+          <option value="nl">Nederland</option>
+        </select>
+      </label>
 
       <label className="flex flex-col gap-1">
         <span className="text-sm font-medium text-[var(--foreground)]">
@@ -180,7 +193,7 @@ export function CheckoutAddressForm({
           defaultValue={defaultAddress?.phone}
           autoComplete="tel"
           className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          placeholder="+31 6 12345678"
+            placeholder="+32 470 12 34 56"
         />
       </label>
 

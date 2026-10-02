@@ -34,7 +34,7 @@ export default async function commissionOrderSetPlacedHandler({
     });
 
     if (!seller) {
-      return;
+      continue;
     }
 
     await calculateCommissionWorkflow.run({

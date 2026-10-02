@@ -23,7 +23,12 @@ export type ProductPageData = {
   creator: Creator | null;
   domain: Domain | null;
   price: { amount: number; currency_code: string } | null;
-  variants: Array<{ id: string; title: string }>;
+  variants: Array<{
+    id: string;
+    title: string;
+    calculated_amount?: number;
+    currency_code?: string;
+  }>;
   galleryImages: string[];
   relatedWorkshops: Workshop[];
   relatedSupplies: Product[];
@@ -88,7 +93,12 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
   const useMedusaCommerce = product.product_type === "supply" || hasLegacyMedusaListing;
 
   let price: { amount: number; currency_code: string } | null = null;
-  let variants: Array<{ id: string; title: string }> = [];
+  let variants: Array<{
+    id: string;
+    title: string;
+    calculated_amount?: number;
+    currency_code?: string;
+  }> = [];
 
   if (useMedusaCommerce) {
     const medusaProductId = product.medusa_product_id;
@@ -98,15 +108,28 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     const medusa =
       medusaByResolvedId ?? (await getMedusaProductByHandle(product.slug ?? null));
 
-    price = medusa?.calculated_price
+    variants =
+      medusa?.variants?.map((v) => ({
+        id: v.id,
+        title: v.title,
+        calculated_amount: v.calculated_price?.calculated_amount,
+        currency_code: v.calculated_price?.currency_code ?? "EUR",
+      })) ?? [];
+
+    const firstPriced = variants.find((v) => v.calculated_amount != null);
+    price = firstPriced?.calculated_amount != null
       ? {
-          amount: medusaAmountToCents(
-            medusa.calculated_price.calculated_amount
-          ),
-          currency_code: medusa.calculated_price.currency_code,
+          amount: medusaAmountToCents(firstPriced.calculated_amount),
+          currency_code: firstPriced.currency_code ?? "EUR",
         }
-      : null;
-    variants = medusa?.variants?.map((v) => ({ id: v.id, title: v.title })) ?? [];
+      : medusa?.calculated_price
+        ? {
+            amount: medusaAmountToCents(
+              medusa.calculated_price.calculated_amount
+            ),
+            currency_code: medusa.calculated_price.currency_code,
+          }
+        : null;
   } else if (isMakerListing(product) && typeof product.price_cents === "number") {
     price = {
       amount: product.price_cents,

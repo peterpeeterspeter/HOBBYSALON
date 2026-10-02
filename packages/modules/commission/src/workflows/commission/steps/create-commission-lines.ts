@@ -13,9 +13,26 @@ export const createCommissionLinesStep = createStep(
       COMMISSION_MODULE
     ) as CommissionModuleService;
 
-    // @ts-expect-error BigNumber incompatible interface
-    const result = await service.createCommissionLines(input);
+    if (!input.length) {
+      return new StepResponse([]);
+    }
 
-    return new StepResponse(result);
+    const itemLineIds = input.map((line) => line.item_line_id);
+    const existing = await service.listCommissionLines({
+      item_line_id: itemLineIds,
+    });
+    const existingIds = new Set(existing.map((line) => line.item_line_id));
+    const toCreate = input.filter(
+      (line) => !existingIds.has(line.item_line_id)
+    );
+
+    if (!toCreate.length) {
+      return new StepResponse(existing);
+    }
+
+    // @ts-expect-error BigNumber incompatible interface
+    const created = await service.createCommissionLines(toCreate);
+
+    return new StepResponse([...(existing ?? []), ...(created ?? [])]);
   }
 );

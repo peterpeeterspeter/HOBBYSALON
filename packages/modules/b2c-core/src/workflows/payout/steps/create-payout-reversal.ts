@@ -19,6 +19,11 @@ export const createPayoutReversalStep = createStep(
       return new StepResponse();
     }
 
+    const amountNumber = Number(input.amount);
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      return new StepResponse();
+    }
+
     let payoutReversal: PayoutDTO | null = null;
     let err = false;
 

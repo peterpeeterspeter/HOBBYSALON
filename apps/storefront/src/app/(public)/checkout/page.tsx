@@ -236,7 +236,14 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
                 De betaling is mislukt. Controleer je betaalgegevens of probeer een andere betaalmethode.
               </div>
             )}
-            <CheckoutPaymentForm total={totalCents} currencyCode={currencyCode} />
+            <CheckoutPaymentForm
+              total={totalCents}
+              currencyCode={currencyCode}
+              countryCode={(
+                (c.shipping_address as { country_code?: string } | null)
+                  ?.country_code ?? "be"
+              ).toUpperCase()}
+            />
           </CardShell>
         )}
 
