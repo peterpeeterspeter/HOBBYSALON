@@ -1,4 +1,4 @@
-import { ContainerRegistrationKeys, Modules, MathBN, ReturnStatus, OrderChangeStatus, ChangeActionType } from '@medusajs/framework/utils'
+import { ContainerRegistrationKeys, Modules, MathBN, ReturnStatus, OrderChangeStatus, OrderChangeType, ChangeActionType } from '@medusajs/framework/utils'
 import { createStep, StepResponse } from '@medusajs/framework/workflows-sdk'
 import { beginReturnOrderWorkflow, requestItemReturnWorkflow, confirmReturnRequestWorkflow } from '@medusajs/medusa/core-flows'
 import {
@@ -75,20 +75,28 @@ export const prepareNativeReturnStep = createStep(
       async verify(plan, identity, phase) {
         const ret = await orderService.retrieveReturn(identity.return_id, { relations: ['items'] })
         const change = await orderService.retrieveOrderChange(identity.order_change_id, { relations: ['actions'] })
+        // Published ReturnDTO / OrderChangeDTO unions are narrower than the 2.11.3
+        // order-module enums (open, return_request). Compare the stored strings.
+        const returnStatus = String(ret?.status)
+        const changeType = String(change?.change_type)
+        const changeStatus = String(change?.status)
         requireEvidence(ret?.id === identity.return_id && ret.order_id === plan.order_id &&
           (ret.location_id ?? null) === plan.location_id && !ret.canceled_at &&
           ret.metadata?.hobbysalon_return_request_id === plan.request_id &&
           ret.metadata?.hobbysalon_return_fingerprint === fingerprintNativeReturnPlan(plan) &&
           change?.id === identity.order_change_id && change.order_id === plan.order_id &&
-          change.return_id === identity.return_id && change.change_type === 'return_request' && !change.canceled_at)
+          change.return_id === identity.return_id && changeType === OrderChangeType.RETURN_REQUEST && !change.canceled_at)
         if (phase === 'confirmed') {
           // Receipt advances the same return without changing its original request
           // quantities/actions; the exact original identity and plan proofs still apply.
-          requireEvidence([ReturnStatus.REQUESTED, ReturnStatus.PARTIALLY_RECEIVED, ReturnStatus.RECEIVED].includes(ret.status) &&
-            change.status === OrderChangeStatus.CONFIRMED)
+          requireEvidence(
+            (returnStatus === ReturnStatus.REQUESTED ||
+              returnStatus === ReturnStatus.PARTIALLY_RECEIVED ||
+              returnStatus === ReturnStatus.RECEIVED) &&
+            changeStatus === OrderChangeStatus.CONFIRMED)
           exactItems(ret.items, plan, identity, false)
         } else {
-          requireEvidence(ret.status === ReturnStatus.OPEN && change.status === OrderChangeStatus.PENDING &&
+          requireEvidence(returnStatus === ReturnStatus.OPEN && changeStatus === OrderChangeStatus.PENDING &&
             Array.isArray(ret.items) && ret.items.length === 0)
         }
         if (phase === 'begun') requireEvidence(Array.isArray(change.actions) && change.actions.length === 0)
