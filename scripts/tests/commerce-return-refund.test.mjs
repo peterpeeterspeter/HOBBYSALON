@@ -198,7 +198,7 @@ test('proceed does not invent an operation identity when the stored request lack
 test('pure helper API exists and is imported by the workflow settlement planner', async () => {
   assert.equal(typeof calculateReturnRefundAmount, 'function')
   const source = readFileSync(new URL('packages/modules/b2c-core/src/utils/order-refund-plan.ts', root), 'utf8')
-  assert.match(source, /import\s+\{\s*calculateReturnRefundAmount\s*\}\s+from\s+['"]\.\/return-refund-amount['"]/)
+  assert.match(source, /import\s*\{[^}]*\bcalculateReturnRefundAmount\b[^}]*\}\s*from\s*['"]\.\/return-refund-amount['"]/)
 })
 
 test('pure helper uses currency precision and decimal-safe proportional rounding', async () => {

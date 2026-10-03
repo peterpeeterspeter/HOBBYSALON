@@ -33,6 +33,15 @@ for (const change of [{amount:901},{currency:'usd'},{destination:'acct_b'},{sour
 test('matching transfer accepted',async()=>assert.equal((await provider(transfer).createPayout(input)).data.id,'tr_a'))
 test('ambiguous metadata matches are rejected',async()=>await assert.rejects(provider([transfer,{...transfer,id:'tr_b'}],true).createPayout(input)))
 
+async function withPayoutsReleased(run) {
+ const prev = process.env.COMMERCE_PAYOUTS_ENABLED
+ process.env.COMMERCE_PAYOUTS_ENABLED = 'true'
+ try { return await run() }
+ finally {
+  if (prev === undefined) delete process.env.COMMERCE_PAYOUTS_ENABLED
+  else process.env.COMMERCE_PAYOUTS_ENABLED = prev
+ }
+}
 function load(path, names, bindings={}) {
  const code=read(base+path).replace(/^import[\s\S]*?from ['"][^'"]+['"];?\s*$/gm,'').replace(/^export /gm,'')
  return vm.runInNewContext(stripTypeScriptTypes(code+`;({${names}})`,{mode:'strip'}),bindings)
@@ -97,14 +106,28 @@ function adapterHarness(change=()=>{}) {
   [{id:'collection_a',currency_code:'eur',payments:[{id:'payment_a'}]}]:entity==='payment'?[payment]:entity==='split_order_payment'?splits:commission})}
  let payout
  const service={retrievePayoutAccount:async()=>account,createPayout:async input=>{financial.push(input);payout={id:'pout_a',payout_account_id:account.id,amount:input.amount,currency_code:input.currency_code,data:{...transfer,amount:Math.round(input.amount*100)}};return payout},retrievePayout:async()=>payout}
- const bindings={MathBN,...payoutMoney,executePayout,withPayoutDispatchPlan,ContainerRegistrationKeys:{QUERY:'query',PG_CONNECTION:'pg',LINK:'link'},Modules:{ORDER:'order',EVENT_BUS:'events'},PAYOUT_MODULE:'payout',
+ const {assertSellerPayoutsReleased}=load('utils/payout-release-gate.ts','assertSellerPayoutsReleased',{process})
+ const bindings={MathBN,...payoutMoney,executePayout,withPayoutDispatchPlan,assertSellerPayoutsReleased,ContainerRegistrationKeys:{QUERY:'query',PG_CONNECTION:'pg',LINK:'link'},Modules:{ORDER:'order',EVENT_BUS:'events'},PAYOUT_MODULE:'payout',
   PayoutAccountStatus:{ACTIVE:'active'},PayoutWorkflowEvents:{SUCCEEDED:'succeeded',FAILED:'failed'},orderPayoutLink:{entryPoint:'order_payout'},
   resolveSellerPayoutAccountRelation:async()=>({payout_account_id:'pa_a',payout_account:account}),
   createPostgresSettlementStore:()=>h.locks,createPostgresPayoutExecutionStore:()=>h.store,createStep:(_,fn)=>fn,StepResponse:class{constructor(value){this.value=value}}}
  const {settleOrderPayoutStep}=load('workflows/order/steps/settle-order-payout.ts','settleOrderPayoutStep',bindings)
- const deps={query,pg:{},payout:service,link:{create:async rows=>{assert.equal(h.record().phase,'started');records.push({order_id:rows[0].order.order_id,payout_id:rows[0].payout.payout_id})}},events:{emit:async e=>{if(e.name==='succeeded')assert.equal(h.record().phase,'completed');events.push(e)}}}
- return {run:()=>settleOrderPayoutStep({order_id:'order_a'},{container:{resolve:k=>deps[k]}}),financial,events,records,h}
+ const deps={query,pg:{raw:async()=>({rows:[]})},payout:service,link:{create:async rows=>{assert.equal(h.record().phase,'started');records.push({order_id:rows[0].order.order_id,payout_id:rows[0].payout.payout_id})}},events:{emit:async e=>{if(e.name==='succeeded')assert.equal(h.record().phase,'completed');events.push(e)}}}
+ const step = () => settleOrderPayoutStep({order_id:'order_a'},{container:{resolve:k=>deps[k]}})
+ return {run:()=>withPayoutsReleased(step),step,financial,events,records,h,deps}
 }
+test('seller payout stays off until explicitly released and the legacy gap query is empty',async()=>{
+ const blocked=adapterHarness()
+ delete process.env.COMMERCE_PAYOUTS_ENABLED
+ await assert.rejects(blocked.step(), /not released/)
+ assert.equal(blocked.financial.length,0); assert.equal(blocked.events.length,0)
+ const gaps=adapterHarness(); gaps.deps.pg.raw=async()=>({rows:[{gap:1}]})
+ await assert.rejects(gaps.run(), /not covered by the execution ledger/)
+ assert.equal(gaps.financial.length,0); assert.equal(gaps.events.length,0)
+ const unread=adapterHarness(); unread.deps.pg.raw=async()=>{throw new Error('relation payout_execution does not exist')}
+ await assert.rejects(unread.run(), /inspection unavailable/)
+ assert.equal(unread.financial.length,0)
+})
 test('actual coordinated step creates scalar payout, commits exact link, then succeeds; replay is read-only financially',async()=>{
  const a=adapterHarness();assert.equal((await a.run()).value.phase,'completed');assert.equal(a.financial[0].amount,9);await a.run();assert.equal(a.financial.length,1);assert.equal(a.records.length,1)
 })

@@ -6,15 +6,18 @@ import {
 import { ContainerRegistrationKeys, Modules } from '@medusajs/framework/utils'
 
 import { PayoutWorkflowEvents } from '@mercurjs/framework'
+import { areSellerPayoutsReleased, assertSellerPayoutsReleased } from '../utils/payout-release-gate'
 
 const BATCH_SIZE = 100
 const RETRY_COUNT = 3
 const DELAY_MS = 1200
 
 export default async function dailyPayoutsJob(container: MedusaContainer) {
+  if (!areSellerPayoutsReleased()) return
   const pgConnection = container.resolve(
     ContainerRegistrationKeys.PG_CONNECTION
   )
+  await assertSellerPayoutsReleased(pgConnection)
   const eventBus: IEventBusModuleService = container.resolve(Modules.EVENT_BUS)
 
   let hasMore = true
