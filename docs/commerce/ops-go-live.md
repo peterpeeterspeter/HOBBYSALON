@@ -49,7 +49,16 @@ Backend payment-client-secret must not recreate sessions for unknown Stripe stat
 | Variable | Role |
 |----------|------|
 | `COMMERCE_PAYMENTS_ENABLED` | Optional kill switch. Unset or `true` = allow when checkout prerequisites pass. `false`/`0`/`off` = server rejects payment start. |
+| `COMMERCE_PAYOUTS_ENABLED` | Seller transfers. Unset or any value other than `true` = daily payout job and payout subscriber do not dispatch. `true` still refuses while a legacy payout gap exists or the gap query cannot be read. |
 | Stripe test vs live keys | Must match environment; never mix publishable + secret across modes |
+
+## Legacy payouts before the execution ledger
+
+`GET /admin/platform/commerce-recovery/legacy-payouts` is an authenticated admin inspection. It lists local `order_payout` rows with no `payout_execution` row, and payout rows with no order link. It does not call Stripe, write a ledger row, or authorize a repair.
+
+An empty page is not proof that every historical transfer is covered. For each listed `payout_id`, an operator still matches the Stripe transfer (or an explicit zero) before any later payout adoption. In-progress refund, return, and payout checkpoints stay on `GET /admin/platform/commerce-recovery`. That route stays read-only: a recorded phase is not a completed charge, and it does not retry or force-complete.
+
+Seller transfers stay off until `COMMERCE_PAYOUTS_ENABLED=true`. The daily payout job and the payout subscriber do not dispatch while that variable is unset or any other value. When it is `true`, settlement still refuses if the same gap query returns a row or cannot be read. Checkout uses a separate switch, `COMMERCE_PAYMENTS_ENABLED`.
 
 ## Sign-off
 

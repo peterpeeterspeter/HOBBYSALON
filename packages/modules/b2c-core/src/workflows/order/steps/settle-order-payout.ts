@@ -13,6 +13,7 @@ import {
   type PayoutPlan,
 } from '../../../utils/payout-execution'
 import { refundMoney, remainingSellerEntitlement } from '../../../utils/refund-money'
+import { assertSellerPayoutsReleased } from '../../../utils/payout-release-gate'
 
 function scalar(value: any): number {
   if (value == null) throw new Error('Missing payout amount')
@@ -46,6 +47,7 @@ export const settleOrderPayoutStep = createStep('settle-order-payout', async (in
   const service = container.resolve<PayoutModuleService>(PAYOUT_MODULE)
   const knex = container.resolve(ContainerRegistrationKeys.PG_CONNECTION)
   const events = container.resolve(Modules.EVENT_BUS)
+  await assertSellerPayoutsReleased(knex)
   const readOrder = async () => {
     const { data } = await query.graph({ entity: 'order', fields: [
       'id', 'status', 'currency_code', 'seller.id', 'items.id', 'split_order_payment.*', 'payment_collections.id',
