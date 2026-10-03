@@ -7,6 +7,7 @@ import {
   type NewsletterActionState,
 } from "@/app/actions/newsletter";
 import { trackEvent } from "@/lib/analytics/track";
+import { newsletterSuccessEvent } from "@/lib/analytics/conversions";
 import { cn } from "@/lib/utils";
 
 const INITIAL_STATE: NewsletterActionState = {
@@ -58,7 +59,8 @@ export function NewsletterSignupForm({
   useEffect(() => {
     if (state.success && !trackedSuccess.current) {
       trackedSuccess.current = true;
-      trackEvent("newsletter_signup", {
+      trackEvent(newsletterSuccessEvent(state.success, leadMagnetCode)!, {
+        ...(!leadMagnetCode ? { opt_in_method: "single" } : {}),
         signup_source: leadMagnetCode
           ? "lead_magnet_form"
           : isFooter
