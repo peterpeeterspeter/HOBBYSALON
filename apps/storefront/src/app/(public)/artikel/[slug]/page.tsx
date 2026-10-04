@@ -332,7 +332,7 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {relatedProducts.length > 0 && (
-            <GraphSection title="Dit heb je nodig" seeAllHref="/materials">
+            <GraphSection title="Past bij dit project" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {relatedProducts.map((p) => (
                   <ProductCard key={p.id} product={p} />

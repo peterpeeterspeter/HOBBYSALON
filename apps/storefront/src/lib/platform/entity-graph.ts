@@ -17,11 +17,21 @@ export type GraphConnection = {
   sortOrder: number | null;
 };
 
+// Pending automatic matches are review-only. Existing editorial/legacy relation
+// strings remain public; this gate deliberately does not impose a registry.
+export function isPublicGraphEdge(
+  edge: Pick<GraphEdge, "relation_type">
+): boolean {
+  return edge.relation_type !== "suggested_auto";
+}
+
 export function resolveEntityConnection(
   edge: GraphEdge,
   entityType: string,
   entityId: string
 ): GraphConnection | null {
+  if (!isPublicGraphEdge(edge)) return null;
+
   if (
     edge.source_entity_type === entityType &&
     edge.source_entity_id === entityId

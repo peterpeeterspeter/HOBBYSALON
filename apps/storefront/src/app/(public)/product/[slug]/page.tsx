@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductPageData } from "@/lib/services/product-page";
-import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard } from "@/components/cards";
+import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard, ProjectCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { ProductBuyCard } from "@/components/product/ProductBuyCard";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -182,6 +182,14 @@ export default async function ProductPage({ params }: Props) {
             <EntityLinkBlock title="Maak verder met dit idee" isEmpty={false}>
               {data.relatedArticles.map((article) => (
                 <ArticleCard key={article.id} article={article} />
+              ))}
+            </EntityLinkBlock>
+          )}
+
+          {data.relatedProjects.length > 0 && (
+            <EntityLinkBlock title="Ontdek projecten bij dit product" isEmpty={false}>
+              {data.relatedProjects.map((project) => (
+                <ProjectCard key={project.id} project={project} />
               ))}
             </EntityLinkBlock>
           )}
