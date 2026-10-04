@@ -92,6 +92,31 @@ export async function listArticlesByIds(ids: string[]): Promise<Article[]> {
     .filter((article): article is Article => !!article);
 }
 
+/** One public read for explicit editorial targets; retain the author's order. */
+export async function listArticlesBySlugs(slugs: string[]): Promise<Article[]> {
+  const uniqueSlugs = [...new Set(slugs)];
+  if (!uniqueSlugs.length) return [];
+
+  try {
+    const supabase = createPlatformClient();
+    const { data, error } = await supabase
+      .from("articles")
+      .select("*")
+      .in("slug", uniqueSlugs)
+      .eq("is_published", true);
+
+    if (error || !data) return [];
+    const bySlug = new Map((data as Article[]).map((article) => [article.slug, article]));
+    return uniqueSlugs
+      .map((slug) => bySlug.get(slug))
+      .filter((article): article is Article => !!article && article.is_published === true);
+  } catch {
+    // Companion cards are optional: a failed read must not break approved graph
+    // recommendations, the original body or the source-material information.
+    return [];
+  }
+}
+
 export async function listLatestArticles(limit = 8): Promise<Article[]> {
   const supabase = createPlatformClient();
   const { data, error } = await supabase

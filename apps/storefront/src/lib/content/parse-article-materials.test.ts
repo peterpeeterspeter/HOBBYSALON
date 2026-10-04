@@ -4,6 +4,7 @@ import {
   materialsTitlesMatch,
   mergeMaterialsWithProducts,
   parseArticleMaterials,
+  parseArticleSourceMaterials,
   slugifyMaterialTitle,
 } from "./parse-article-materials";
 
@@ -93,6 +94,44 @@ test("uses stable keys from normalized titles and dedupes", () => {
 `);
   assert.equal(items.length, 1);
   assert.equal(items[0].key, `material:list:${slugifyMaterialTitle("Glazen potje")}`);
+});
+
+test("preserves leading dimensions and percentages while removing only item quantities", () => {
+  const items = parseArticleMaterials("## Materialen\n- 6 mm haaknaald\n- 6,5 mm haaknaald\n- 100 % katoen garen\n- 50% katoen garen\n- 2 bollen wol\n- 1x schaar");
+  assert.deepEqual(items.map(item => item.title), [
+    "6 mm haaknaald", "6,5 mm haaknaald", "100 % katoen garen", "50% katoen garen", "bollen wol", "schaar",
+  ]);
+  assert.notEqual(slugifyMaterialTitle("6 mm haaknaald"), slugifyMaterialTitle("4 mm haaknaald"));
+});
+
+test("preserves uppercase leading millimetres rather than treating them as quantities", () => {
+  assert.deepEqual(parseArticleMaterials("## Materialen\n- 6 MM haaknaald").map(item => item.title), ["6 MM haaknaald"]);
+});
+
+test("source display preserves distinct quantities and all sections without changing legacy checklist normalization", () => {
+  const body = "## Materialen\n- **2 bollen** wol\n- 3 bollen wol\n- 100 % katoen\n- 6 MM haaknaald\n## Stappen\nTekst\n## Benodigdheden\n- 1x stopnaald\n## Tips\nTekst";
+  assert.deepEqual(parseArticleSourceMaterials(body).map(item => item.title), [
+    "2 bollen wol", "3 bollen wol", "100 % katoen", "6 MM haaknaald", "1x stopnaald",
+  ]);
+  assert.deepEqual(parseArticleMaterials(body).map(item => item.title), ["bollen wol", "100 % katoen", "6 MM haaknaald"]);
+});
+
+test("source display ignores fenced fake headings and bullets, including mixed containers", () => {
+  const body = ["```md", "## Materialen", "- Fake first heading", "```", "## Benodigdheden", "- Wol", "- > ~~~~md", "  > - Fake bullet", "  > ## Tips", "  > ~~~~", "- Schaar", "## Tips"].join("\n");
+  assert.deepEqual(parseArticleSourceMaterials(body).map(item => item.title), ["Wol", "Schaar"]);
+  assert.deepEqual(parseArticleSourceMaterials("```md\n## Materialen\n- Alleen voorbeeld\n```"), []);
+  assert.deepEqual(parseArticleSourceMaterials(null), []);
+});
+
+test("source keys are stable lossless identities even for long titles and punctuation differences", () => {
+  const long = "Wol ".repeat(30);
+  const titles = [`${long}2 bollen`, `${long}3 bollen`, "Wol: rood", "Wol rood"];
+  const body = `## Materialen\n${titles.map(title => `- ${title}`).join("\n")}`;
+  const first = parseArticleSourceMaterials(body);
+  const inserted = parseArticleSourceMaterials(body.replace("## Materialen", "## Materialen\n- Extra materiaal"));
+  assert.equal(first.length, titles.length);
+  assert.equal(new Set(first.map(item => item.key)).size, titles.length);
+  for (const item of first) assert.equal(inserted.find(other => other.title === item.title)?.key, item.key);
 });
 
 test("returns empty when section is missing", () => {

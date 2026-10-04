@@ -88,6 +88,8 @@ async function loadPage(kind, edges, options = {}) {
     "@/lib/platform/queries/articles": {
       getArticleBySlug: async slug => articles.find(row => row.slug === slug) ?? null,
       listArticlesByIds: byIds(articles.filter(row => row.is_published)),
+      listArticlesBySlugs: async wanted => [...new Set(wanted)]
+        .map(slug => articles.find(row => row.slug === slug && row.is_published)).filter(Boolean),
     },
     "@/lib/platform/queries/workshops": {
       getWorkshopBySlug: async slug => workshops.find(row => row.slug === slug) ?? null,
@@ -112,6 +114,9 @@ async function loadPage(kind, edges, options = {}) {
     "@/lib/platform/queries/product-usage": "lib/platform/queries/product-usage.ts",
     "@/lib/platform/entity-graph": "lib/platform/entity-graph.ts",
     "@/lib/content/article-graph-relations": "lib/content/article-graph-relations.ts",
+    "@/lib/content/article-editorial-links": "lib/content/article-editorial-links.ts",
+    "@/lib/content/parse-article-materials": "lib/content/parse-article-materials.ts",
+    "./article-section-headings": "lib/content/article-section-headings.ts",
   };
   const modules = new Map();
   function moduleFor(name) {

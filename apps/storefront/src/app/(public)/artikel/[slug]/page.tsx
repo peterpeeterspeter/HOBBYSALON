@@ -64,6 +64,7 @@ export default async function ArticlePage({ params }: Props) {
   const {
     article,
     author,
+    sourceMaterials,
     requiredMaterials,
     requiredTools,
     optionalMaterials,
@@ -246,6 +247,28 @@ export default async function ArticlePage({ params }: Props) {
             className="prose-article text-[17px]"
           />
         ) : null}
+
+        {/* Source materials, separate from linked commerce requirements */}
+        {sourceMaterials.length > 0 && requiredMaterials.length === 0 && requiredTools.length === 0 && (
+          <section
+            aria-labelledby="source-materials-heading"
+            className="mt-10 rounded-xl border border-[var(--border)] bg-[var(--section-alt)] p-5 sm:p-6"
+          >
+            <h2 id="source-materials-heading" className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+              Materialen uit dit artikel
+            </h2>
+            <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+              Dit is de materialenlijst uit de artikeltekst, geen gekoppelde winkelproducten.
+              Genoemde bedragen zijn broninformatie, geen actuele aanbiedingen. Controleer hoeveelheden,
+              garendikte en stekenverhouding in het originele patroon.
+            </p>
+            <ul className="mt-4 list-disc space-y-3 pl-5 text-[17px] leading-relaxed text-[var(--foreground)]">
+              {sourceMaterials.map((material) => (
+                <li key={material.key}>{material.title}</li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Breadcrumb trail */}
         <nav
