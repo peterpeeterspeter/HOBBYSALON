@@ -1,0 +1,38 @@
+name: Controlled backend recovery build
+on:
+  push:
+    branches:
+      - ops/backend-recovery-build-20261004
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: 63d4b60b1930bc175b1a5ac38c41d4bfa6890988
+          fetch-depth: 1
+      - name: Exact archive and image build
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=63d4b60b1930bc175b1a5ac38c41d4bfa6890988
+          test "$(git rev-parse HEAD)" = "$sha"
+          mkdir -p /tmp/approved-context
+          git archive "$sha" | tar --exclude=.claude -xf - -C /tmp/approved-context
+          docker build --label "org.opencontainers.image.revision=$sha" --tag "hobbysalon-backend:$sha" -f /tmp/approved-context/apps/backend/Dockerfile /tmp/approved-context
+          docker image inspect --format '{{.Id}}' "hobbysalon-backend:$sha" > image-id.txt
+          docker save "hobbysalon-backend:$sha" | gzip -1 > backend-image.tar.gz
+          sha256sum backend-image.tar.gz > archive-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hobbysalon-backend-63d4b60
+          path: |
+            backend-image.tar.gz
+            image-id.txt
+            archive-sha256.txt
+          compression-level: 0
+          retention-days: 3
