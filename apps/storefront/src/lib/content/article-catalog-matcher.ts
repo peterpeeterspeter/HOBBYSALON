@@ -1,3 +1,6 @@
+import { findArticleHeadings, isMaterialsSectionHeading } from "./article-section-headings";
+import { parseArticleMaterials } from "./parse-article-materials";
+
 export type CatalogCandidate = {
   targetType: "product" | "workshop" | "event";
   targetId: string;
@@ -34,6 +37,8 @@ const SYNONYMS: Record<string, string[]> = {
   linnen: ["linnen"], linen: ["linnen"], zijde: ["zijde"], silk: ["zijde"],
   polyester: ["polyester"], nylon: ["nylon"], bamboe: ["bamboe"], bamboo: ["bamboe"],
   stoffen: ["stof"], koorden: ["koord"], knopen: ["knoop"], knoop: ["knoop"],
+  handgehaakt: ["haak"], handgehaakte: ["haak"], haakpatroon: ["haak", "haakpatroon"],
+  accentgaren: ["garen"], hoofdgaren: ["garen"], restgarens: ["garen"], wolpakket: ["wol", "garen"],
 };
 const STOPWORDS = new Set((
   "een het de dit dat deze die en of met van voor door over naar aan uit op in om te je jouw uw we wij " +
@@ -73,26 +78,59 @@ function text(original: string, source: string): Text {
   return { original, source, tokens: tokens(original) };
 }
 
-// Only explicit material headings introduce requirements. Prose outside these sections
-// remains low-weight topic evidence for products, never material compatibility.
-function articleBody(body: string): { prose: string; lines: string[] } {
-  const prose: string[] = [];
-  const lines: string[] = [];
-  let materialDepth = 0;
-  for (const line of body.split(/\r?\n/)) {
-    const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
-    if (heading) {
-      if (materialDepth && heading[1].length <= materialDepth) materialDepth = 0;
-      if (/\b(materialen|benodigdheden|gereedschap|tools|materials)\b/.test(fold(heading[2]))) {
-        materialDepth = heading[1].length;
-        continue;
+// Topic qualification uses a bounded craft vocabulary, not arbitrary prose words.
+// Concrete object words may support an anchored title match, but never qualify alone.
+const TECHNIQUES = new Set([
+  "haak", "brei", "macrame", "borduren", "borduur", "schilderen", "aquarel", "naaien",
+  "quilten", "vilten", "pottenbakken", "keramiek", "houtsnijden", "weven", "tapisserie",
+]);
+function topicTokens(original: string, description = false): Set<string> {
+  const result = new Set<string>();
+  for (const clause of original.split(/[\n.!?;]/)) {
+    const value = tokens(clause);
+    const folded = fold(clause);
+    const explicitCrochet = /\b(?:gehaakt[e]?|handgehaakt[e]?|haaknaald(?:en)?|haakgaren|haakpatroon|haakwerk|haakproject)\b/.test(folded);
+    const hardware = /\b(?:metaal|metalen|fournituren|slotjes|ringen|ophanghaken|kapstok|wandmontage|muur|montage|monteren|ophangen|bevestig[a-z]*)\b/.test(folded);
+    const yarnContext = /\b(?:garen|garens|wol|katoen|steken|kleurwerk)\b/.test(folded);
+    // A short technique title (including standalone “Haken”) is intentional;
+    // arbitrary title prose is not automatically crochet context.
+    const techniqueTitle = !description && value.has("haak") && [...value].every(token =>
+      /^(?:haak|trui|muts|sjaal|deken|mandje|wandhanger|amigurumi|tapisserie)$/.test(token));
+    // Without supplies/context, learning must target the technique itself, not
+    // “haken bevestigen” or another action performed on hardware hooks.
+    const instructionalCrochet = /\b(?:leer|leert|leren|oefen|oefent|gaan|gaat)\b[^.!?\n]{0,80}\b(?:haak|haken)\s*$/.test(folded.trim());
+    const crochetContext = !hardware && (yarnContext || techniqueTitle || instructionalCrochet);
+    for (const token of value) {
+      if (token === "haak" && !explicitCrochet && !crochetContext) continue;
+      if (TECHNIQUES.has(token) || TOOLS.has(token) || COMPOSITIONS.has(token) || MATERIAL_KINDS.has(token) ||
+        /^(?:haakpatroon|borduur(?:motief|patroon|werk|pakket|steek)|breipatroon|schilderkunst)$/.test(token)) {
+        result.add(token);
       }
     }
-    if (materialDepth) {
-      const clean = line.replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, "").trim();
-      if (clean && !heading) lines.push(clean);
-    } else prose.push(line);
   }
+  return result;
+}
+
+// Shared headings delimit every material region; the shared checklist parser supplies
+// requirements. Neither the explanatory material prose nor its headings are topics.
+function articleBody(body: string): { prose: string; lines: string[] } {
+  const headings = findArticleHeadings(body);
+  const prose: string[] = [];
+  const lines: string[] = [];
+  let cursor = 0;
+  for (let index = 0; index < headings.length; index++) {
+    const heading = headings[index];
+    // Keep the matcher's old explicit tool aliases without extending shared parser APIs.
+    const legacyTools = /^(?:tools|gereedschap)$/.test(fold(heading.text).trim());
+    if (heading.start < cursor || (!isMaterialsSectionHeading(heading.text) && !legacyTools)) continue;
+    const boundary = headings.slice(index + 1).find(next => next.level <= heading.level);
+    const end = boundary?.start ?? body.length;
+    prose.push(body.slice(cursor, heading.start));
+    const section = legacyTools ? `## Materialen\n${body.slice(heading.end, end)}` : body.slice(heading.start, end);
+    lines.push(...parseArticleMaterials(section).map(item => item.title));
+    cursor = end;
+  }
+  prose.push(body.slice(cursor));
   return { prose: prose.join("\n"), lines };
 }
 
@@ -254,29 +292,38 @@ function recordKey(candidate: CatalogCandidate): string {
 /**
  * Deterministic discovery recommendations only. `textual` is not verified material
  * compatibility and never proposes a required/optional role. No IO or input mutation.
- * Primary topic tokens score 20 each; body-only product tokens 5; a shared domain
- * adds 3 only after textual qualification. Material evidence scores 40/12.
+ * Qualified primary craft tokens score 20 each; body-only product craft tokens 5;
+ * a shared domain adds 3 only after textual qualification. Material evidence scores 40/12.
  */
 export function matchArticleCatalog(
   input: ArticleMatchInput,
   candidates: CatalogCandidate[],
   existingKeys?: ReadonlySet<string>
 ): ArticleCatalogMatch[] {
-  const primary = [text(input.title, "titel"), text(input.excerpt ?? "", "excerpt")];
+  const primary = [text(input.title, "titel"), text(input.excerpt ?? "", "excerpt")]
+    .map(source => ({ ...source, topics: topicTokens(source.original) }));
   const body = articleBody(input.bodyMarkdown ?? "");
-  const secondary = text(body.prose, "artikeltekst");
-  const required = requirements([...input.materialTitles, ...body.lines]);
+  const secondary = topicTokens(body.prose, true);
+  const required = requirements([...new Set([...input.materialTitles, ...body.lines])]);
   const byKey = new Map<string, ArticleCatalogMatch>();
 
   for (const candidate of candidates) {
     const key = `${candidate.targetType}:${candidate.targetId}`;
     if (existingKeys?.has(key)) continue;
     const productText = text([candidate.title, candidate.description ?? ""].join("\n"), "catalogus");
+    const candidateTitle = text(candidate.title, "catalogustitel");
+    const candidateTopics = new Set([...topicTokens(candidate.title), ...topicTokens(candidate.description ?? "", true)]);
     const evidence: string[] = [];
     const seenTopic = new Set<string>();
     let score = 0;
     for (const source of primary) {
-      const overlap = intersection(source.tokens, productText.tokens).filter(token => !seenTopic.has(token));
+      const anchors = intersection(source.topics, candidateTopics);
+      if (!anchors.length) continue;
+      // Object detail is allowed only in both titles after a genuine craft anchor.
+      // Descriptions cannot collect points from general words, however long they are.
+      const detail = source.source === "titel" ? intersection(source.tokens, candidateTitle.tokens)
+        .filter(token => !candidateTopics.has(token) && /^(?:mandje|sjaal|trui|muts|deken|kleurwerk)$/.test(token)) : [];
+      const overlap = [...new Set([...anchors, ...detail])].filter(token => !seenTopic.has(token));
       if (overlap.length) {
         overlap.forEach(token => seenTopic.add(token));
         score += overlap.length * 20;
@@ -285,7 +332,7 @@ export function matchArticleCatalog(
     }
     let compatibility: ArticleCatalogMatch["compatibility"] = "unknown";
     if (candidate.targetType === "product") {
-      const overlap = intersection(secondary.tokens, productText.tokens).filter(token => !seenTopic.has(token));
+      const overlap = intersection(secondary, candidateTopics).filter(token => !seenTopic.has(token));
       if (overlap.length) {
         score += overlap.length * 5;
         evidence.push(`Onderwerp (artikeltekst): ${overlap.join(", ")} → ${candidate.title}`);

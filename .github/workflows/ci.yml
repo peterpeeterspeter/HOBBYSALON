@@ -99,7 +99,7 @@ jobs:
 
       - name: Run isolated graph approval and page regressions
         # Source-bound Node VM tests; never import live application clients.
-        run: node --experimental-vm-modules --test --test-concurrency=1 scripts/tests/graph-approval.test.mjs scripts/tests/graph-query.test.mjs scripts/tests/graph-pages.test.mjs scripts/tests/graph-presentation.test.mjs scripts/tests/graph-home-eligibility.test.mjs scripts/tests/graph-journey-render.test.mjs scripts/tests/graph-home-service.test.mjs scripts/tests/graph-product-render.test.mjs scripts/tests/graph-catalog.test.mjs scripts/tests/graph-catalog-actions.test.mjs scripts/tests/graph-catalog-cli.test.mjs scripts/tests/graph-lifecycle-actions.test.mjs scripts/tests/graph-lifecycle-worker.test.mjs scripts/tests/graph-lifecycle-worker-cli.test.mjs
+        run: node --experimental-vm-modules --test --test-concurrency=1 scripts/tests/graph-approval.test.mjs scripts/tests/graph-query.test.mjs scripts/tests/graph-pages.test.mjs scripts/tests/graph-presentation.test.mjs scripts/tests/graph-home-eligibility.test.mjs scripts/tests/graph-journey-render.test.mjs scripts/tests/graph-home-service.test.mjs scripts/tests/graph-product-render.test.mjs scripts/tests/graph-catalog.test.mjs scripts/tests/graph-catalog-actions.test.mjs scripts/tests/graph-catalog-cli.test.mjs scripts/tests/graph-lifecycle-actions.test.mjs scripts/tests/graph-lifecycle-worker.test.mjs scripts/tests/graph-lifecycle-worker-cli.test.mjs scripts/tests/graph-live-article.test.mjs scripts/tests/graph-live-matcher.test.mjs
 
       - name: Build framework required by security regressions
         # Vite resolves the package's dist entry before applying vi.mock.
