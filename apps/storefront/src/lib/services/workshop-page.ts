@@ -4,7 +4,7 @@ import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { listProductsByIds } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
-import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
+import { getEntityConnections } from "@/lib/platform/queries/entity-links";
 import {
   getCreatorCommercialEntitlements,
   type CommercialEntitlements,
@@ -63,7 +63,7 @@ export async function getWorkshopPageData(
     };
   }
 
-  const [creator, domain, category, sessions, entityLinks, galleryImages] = await Promise.all([
+  const [creator, domain, category, sessions, entityConnections, galleryImages] = await Promise.all([
     getCreatorById(workshop.creator_id),
     workshop.domain_id
       ? (async () => {
@@ -80,13 +80,16 @@ export async function getWorkshopPageData(
       ? getWorkshopCategoryById(workshop.category_id)
       : Promise.resolve(null),
     getWorkshopSessions(workshop.id),
-    getRelatedEntities("workshop", workshop.id),
+    getEntityConnections("workshop", workshop.id),
     getWorkshopGalleryImages(workshop.id),
   ]);
 
-  const relatedProductIds = entityLinks
-    .filter((l) => l.target_entity_type === "product")
-    .map((l) => l.target_entity_id);
+  // Only the workshop's own outbound product links supplement its material
+  // list. Reciprocal discovery must not turn an incoming recommendation into
+  // a material requirement; workshop_required_products remains authoritative.
+  const relatedProductIds = entityConnections
+    .filter((l) => l.entityType === "product" && l.direction === "outbound")
+    .map((l) => l.entityId);
 
   const requiredRows = await getWorkshopRequiredProducts(workshop.id);
   const requiredProductIds = requiredRows.map((row) => row.product_id);
@@ -124,12 +127,12 @@ export async function getWorkshopPageData(
     ...optionalLinkedProducts,
   ];
 
-  const relatedEventIds = entityLinks
-    .filter((l) => l.target_entity_type === "event")
-    .map((l) => l.target_entity_id);
-  const relatedArticleIds = entityLinks
-    .filter((l) => l.target_entity_type === "article")
-    .map((l) => l.target_entity_id);
+  const relatedEventIds = entityConnections
+    .filter((l) => l.entityType === "event")
+    .map((l) => l.entityId);
+  const relatedArticleIds = entityConnections
+    .filter((l) => l.entityType === "article")
+    .map((l) => l.entityId);
 
   const [relatedEvents, relatedArticles] = await Promise.all([
     listEventsByIds(relatedEventIds),

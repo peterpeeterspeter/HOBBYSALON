@@ -8,9 +8,11 @@ const h = vi.hoisted(() => ({
   creator: { id: "creator-owner", slug: "maker" } as { id: string; slug: string } | null,
   rows: {} as Record<string, Row[]>,
   queries: [] as Query[],
+  timeline: [] as string[],
   failure: null as { table: string; operation: string; withData?: boolean; throws?: boolean } | null,
   zeroArticleUpdate: false,
   from: vi.fn(),
+  rpc: vi.fn(),
   upload: vi.fn(),
   revalidate: vi.fn(),
 }));
@@ -21,7 +23,7 @@ vi.mock("next/navigation", () => ({
     throw Object.assign(new Error(url), { digest: "NEXT_REDIRECT;replace;" + url });
   },
 }));
-vi.mock("@/lib/platform/client", () => ({ createPlatformClient: () => ({ from: h.from }) }));
+vi.mock("@/lib/platform/client", () => ({ createPlatformClient: () => ({ from: h.from, rpc: h.rpc }) }));
 vi.mock("@/lib/auth/session", () => ({ getAuthUser: async () => h.user }));
 vi.mock("@/lib/platform/queries/creators", () => ({
   getCreatorByUserId: async () => h.creator,
@@ -76,19 +78,23 @@ const DOMAIN = "55555555-5555-4555-8555-555555555555";
  */
 function query(table: string) {
   let operation = "select";
+  let columns = "*";
   let selected = false;
   let single = false;
   let head = false;
   let max = Infinity;
+  let offset = 0;
   let payload: Row | Row[] = {};
   const filters: Array<[string, unknown]> = [];
   const predicates: Array<(row: Row) => boolean> = [];
   const builder = {
-    select(_columns: string, options?: { head?: boolean }) { selected = true; head = !!options?.head; return builder; },
+    select(value: string, options?: { head?: boolean }) { columns = value; selected = true; head = !!options?.head; return builder; },
     eq(key: string, value: unknown) { filters.push([key, value]); predicates.push(row => row[key] === value); return builder; },
     neq(key: string, value: unknown) { predicates.push(row => row[key] !== value); return builder; },
     in(key: string, values: unknown[]) { predicates.push(row => values.includes(row[key])); return builder; },
     limit(value: number) { max = value; return builder; },
+    order() { return builder; },
+    range(start: number, end: number) { offset = start; max = end + 1; return builder; },
     maybeSingle() { single = true; return builder; },
     single() { single = true; return builder; },
     insert(value: Row | Row[]) { operation = "insert"; payload = value; return builder; },
@@ -98,8 +104,9 @@ function query(table: string) {
     then(resolve: (result: { data: Row | Row[] | null; error: { message: string } | null; count: number }) => unknown, reject?: (reason: unknown) => unknown) {
       return Promise.resolve().then(() => {
         h.queries.push({ table, operation, filters });
+        h.timeline.push(`${table}:${operation}`);
         const rows = h.rows[table] ?? [];
-        let matched = rows.filter(row => predicates.every(predicate => predicate(row))).slice(0, max);
+        let matched = rows.filter(row => predicates.every(predicate => predicate(row))).slice(offset, max);
         const failure = h.failure?.table === table && h.failure.operation === operation ? h.failure : null;
         if (failure?.throws) throw new Error("Database tijdelijk niet beschikbaar.");
         if (failure) return { data: failure.withData ? (single ? matched[0] ?? null : matched) : null, error: { message: "database failure" }, count: 0 };
@@ -110,7 +117,10 @@ function query(table: string) {
           matched = (Array.isArray(payload) ? payload : [payload]).map(row => ({ id: "inserted", ...row }));
           h.rows[table] = [...rows, ...matched];
         }
-        return { data: !selected || head ? null : single ? matched[0] ?? null : matched, error: null, count: matched.length };
+        const projected = matched.map(row => columns === "*" ? { ...row } : Object.fromEntries(
+          columns.split(",").map(column => [column.trim(), row[column.trim()]]),
+        ));
+        return { data: !selected || head ? null : single ? projected[0] ?? null : projected, error: null, count: matched.length };
       }).then(resolve, reject);
     },
   };
@@ -143,14 +153,23 @@ beforeEach(() => {
   h.zeroArticleUpdate = false;
   h.queries = [];
   h.from.mockImplementation(query);
+  h.timeline = [];
+  h.rpc.mockImplementation(async (name: string, args: Row) => {
+    h.timeline.push(`rpc:${name}`);
+    if (name === "graph_article_fingerprint") return { data: "fixture-fingerprint", error: null };
+    if (name === "graph_propose_article_suggestions") {
+      return { data: (args.p_proposals as Row[]).length, error: null };
+    }
+    throw new Error(`Unexpected RPC: ${name}`);
+  });
   h.upload.mockResolvedValue("https://cdn.example.test/gallery.jpg");
   h.rows = {
     projects: [{ id: PROJECT, slug: "test-project", created_by_user_id: "user-owner" }],
     project_gallery_images: [{ id: CHILD, project_id: PROJECT, image_url: "original" }],
     project_product_links: [{ id: CHILD, project_id: PROJECT, product_id: PRODUCT }],
     project_sought_materials: [{ id: CHILD, project_id: PROJECT, title: "Existing material" }],
-    products: [{ id: PRODUCT, creator_id: "creator-owner", product_type: "supply", title: "Knitting yarn", domain_id: DOMAIN }],
-    workshops: [], events: [],
+    products: [{ id: PRODUCT, creator_id: "creator-owner", product_type: "supply", title: "Knitting yarn", domain_id: DOMAIN, is_active: true, status: "active" }],
+    workshops: [], events: [], event_domains: [],
     articles: [{ id: ARTICLE, author_creator_id: "creator-owner", title: "Original", slug: "original" }],
     entity_links: [
       { id: "association", source_entity_type: "creator", source_entity_id: "creator-owner", target_entity_type: "project", target_entity_id: PROJECT, relation_type: "related" },
@@ -243,6 +262,7 @@ describe("article recommendation authorization", () => {
     expect(await run(updateArticleAction, articleFields)).toContain("?error=Bijwerken van artikel mislukt.");
     expect(h.rows).toEqual(original);
     expect(h.queries.filter(item => item.table !== "articles")).toEqual([]);
+    expect(h.rpc).not.toHaveBeenCalled();
     expect(h.revalidate).not.toHaveBeenCalled();
   });
 
@@ -252,19 +272,41 @@ describe("article recommendation authorization", () => {
     expect(await run(updateArticleAction, articleFields)).toContain("?error=");
     expect(h.rows).toEqual(original);
     expect(h.queries.filter(item => item.table !== "articles")).toEqual([]);
+    expect(h.rpc).not.toHaveBeenCalled();
     expect(h.revalidate).not.toHaveBeenCalled();
   });
 
-  it("refreshes only automatic recommendations after an owner-matched update", async () => {
-    expect(await run(updateArticleAction, articleFields)).toContain("?success=");
+  it("proposes recommendations atomically after an owner-matched update without changing retained links", async () => {
+    const originalLinks = structuredClone(h.rows.entity_links);
+    // Existing manual and automatic pairs are still eligible catalog matches,
+    // but must be suppressed rather than deleted, relabelled or renominated.
+    h.rows.products.push(...["old-product", "approved-product"].map(id => ({ ...h.rows.products[0], id })));
+    const location = new URL(await run(updateArticleAction, articleFields), "https://fixture.invalid");
+    expect(location.pathname).toBe("/profile");
+    expect(location.searchParams.get("tab")).toBe("profiel");
+    expect(location.searchParams.get("success")).toBe("Artikel bijgewerkt. Suggesties vernieuwd.");
+    expect(location.searchParams.has("error")).toBe(false);
     expect(h.rows.articles[0].title).toBe("Knitting yarn");
-    expect(h.rows.entity_links.some(row => row.id === "old-suggestion")).toBe(false);
-    expect(h.rows.entity_links.some(row => row.id === "approved-link")).toBe(true);
-    expect(h.rows.entity_links).toContainEqual(expect.objectContaining({
-      source_entity_id: ARTICLE, target_entity_id: PRODUCT, relation_type: "suggested_auto",
-    }));
-    expect(writes().map(item => [item.table, item.operation])).toEqual([
-      ["articles", "update"], ["entity_links", "delete"], ["entity_links", "insert"],
+    expect(writes()).toEqual([{
+      table: "articles", operation: "update", filters: [["id", ARTICLE], ["author_creator_id", "creator-owner"]],
+    }]);
+    expect(h.rows.entity_links).toEqual(originalLinks);
+    expect(h.rpc.mock.calls).toEqual([
+      ["graph_article_fingerprint", { p_article_id: ARTICLE }],
+      ["graph_propose_article_suggestions", {
+        p_article_id: ARTICLE, p_fingerprint: "fixture-fingerprint", p_proposals: [{
+          target_entity_type: "product", target_entity_id: PRODUCT,
+          weight: expect.any(Number), sort_order: 1, proposed_relation: "related_product",
+          score: expect.any(Number), evidence: expect.arrayContaining([
+            "Onderwerp (titel): Knitting yarn → Knitting yarn (garen, knitting)",
+            "Aanbeveling; materiaalcompatibiliteit onbekend.",
+          ]), compatibility: "unknown", matcher_version: "article-catalog-v1",
+        }],
+      }],
     ]);
+    expect(h.timeline.indexOf("articles:update")).toBeLessThan(h.timeline.indexOf("rpc:graph_article_fingerprint"));
+    expect(h.timeline.indexOf("rpc:graph_article_fingerprint")).toBeLessThan(h.timeline.lastIndexOf("articles:select"));
+    expect(h.timeline.lastIndexOf("entity_links:select")).toBeLessThan(h.timeline.indexOf("rpc:graph_propose_article_suggestions"));
+    expect(h.revalidate).toHaveBeenCalledWith("/profile");
   });
 });

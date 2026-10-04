@@ -30,6 +30,9 @@ import {
 import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing-fee";
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
+import { resolveArticleSuggestionRelation } from "@/lib/content/article-suggestion-relation";
+import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
+import { toArticleProposalPayload } from "@/lib/content/article-matching-jobs";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
 import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import {
@@ -616,151 +619,80 @@ async function getUserOwnedProject(
   return { id: projectRow.id as string, slug: projectRow.slug as string };
 }
 
-type SuggestionCandidate = {
-  targetType: "product" | "workshop" | "event";
-  targetId: string;
-  title: string;
-  domainId: string | null;
-};
-
-function tokenizeForSuggestion(text: string): string[] {
-  return Array.from(
-    new Set(
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/gi, " ")
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 4)
-    )
-  );
-}
-
-function scoreSuggestion(
-  articleDomainId: string | null,
-  articleTokens: string[],
-  candidate: SuggestionCandidate
-): number {
-  const titleTokens = tokenizeForSuggestion(candidate.title);
-  let score = 0;
-
-  if (articleDomainId && candidate.domainId && articleDomainId === candidate.domainId) {
-    score += 60;
-  }
-
-  for (const token of titleTokens) {
-    if (articleTokens.includes(token)) {
-      score += 20;
-    }
-  }
-
-  return Math.min(score, 100);
-}
-
 async function generateArticleLinkSuggestions(input: {
-  creatorId: string;
   articleId: string;
+  title: string;
+  excerpt: string | null;
+  bodyMarkdown: string | null;
   articleDomainId: string | null;
-  sourceText: string;
 }): Promise<void> {
   const supabase = createPlatformClient();
-  const articleTokens = tokenizeForSuggestion(input.sourceText);
-  if (articleTokens.length === 0 && !input.articleDomainId) {
-    return;
+  const read: CatalogRead = async (request) => {
+    let query = supabase.from(request.table).select(request.columns);
+    for (const [column, value] of Object.entries(request.equals ?? {})) query = query.eq(column, value);
+    for (const column of request.order) query = query.order(column, { ascending: true });
+    const { data, error } = await query.range(request.offset, request.offset + request.limit - 1);
+    if (error) throw new Error(`Laden van link-suggesties mislukt (${request.table}).`);
+    const rows: unknown = data;
+    if (!Array.isArray(rows)) throw new Error(`Ongeldige link-suggesties (${request.table}).`);
+    const records: CatalogRow[] = [];
+    for (const value of rows) {
+      const row: unknown = value;
+      if (row === null || typeof row !== "object" || Array.isArray(row)) {
+        throw new Error(`Ongeldige link-suggesties (${request.table}).`);
+      }
+      records.push(Object.fromEntries(Object.entries(row)));
+    }
+    return records;
+  };
+  // Fence before reading persisted content: submitted form data may already be stale
+  // after a concurrent save. SQL revalidates this fingerprint atomically on insertion.
+  const { data: fingerprint, error: fingerprintError } = await supabase.rpc("graph_article_fingerprint", {
+    p_article_id: input.articleId,
+  });
+  if (fingerprintError || typeof fingerprint !== "string" || !fingerprint.length) {
+    throw new Error("Laden van link-suggesties mislukt.");
   }
-
-  const [productsResult, workshopsResult, eventsResult, existingLinksResult] =
-    await Promise.all([
-      supabase
-        .from("products")
-        .select("id,title,domain_id")
-        .eq("creator_id", input.creatorId)
-        .limit(200),
-      supabase
-        .from("workshops")
-        .select("id,title,domain_id")
-        .eq("creator_id", input.creatorId)
-        .limit(200),
-      supabase
-        .from("events")
-        .select("id,title,domain_id")
-        .eq("organizer_creator_id", input.creatorId)
-        .limit(200),
-      supabase
-        .from("entity_links")
-        .select("target_entity_type,target_entity_id")
-        .eq("source_entity_type", "article")
-        .eq("source_entity_id", input.articleId)
-        .in("target_entity_type", ["product", "workshop", "event"]),
-    ]);
-
-  const existingKeySet = new Set(
-    (existingLinksResult.data ?? []).map(
-      (row) => `${row.target_entity_type}:${row.target_entity_id}`
-    )
-  );
-
-  const candidates: SuggestionCandidate[] = [
-    ...((productsResult.data ?? []) as Array<{
-      id: string;
-      title: string | null;
-      domain_id: string | null;
-    }>).map((row) => ({
-      targetType: "product" as const,
-      targetId: row.id,
-      title: row.title ?? "",
-      domainId: row.domain_id,
-    })),
-    ...((workshopsResult.data ?? []) as Array<{
-      id: string;
-      title: string | null;
-      domain_id: string | null;
-    }>).map((row) => ({
-      targetType: "workshop" as const,
-      targetId: row.id,
-      title: row.title ?? "",
-      domainId: row.domain_id,
-    })),
-    ...((eventsResult.data ?? []) as Array<{
-      id: string;
-      title: string | null;
-      domain_id?: string | null;
-    }>).map((row) => ({
-      targetType: "event" as const,
-      targetId: row.id,
-      title: row.title ?? "",
-      domainId: row.domain_id ?? null,
-    })),
-  ];
-
-  const scored = candidates
-    .map((candidate) => ({
-      candidate,
-      score: scoreSuggestion(input.articleDomainId, articleTokens, candidate),
-    }))
-    .filter(
-      (row) =>
-        row.score >= 40 &&
-        !existingKeySet.has(`${row.candidate.targetType}:${row.candidate.targetId}`)
-    )
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
-
-  if (scored.length === 0) {
-    return;
+  const articles = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id",
+    equals:{id:input.articleId},order:["id"],offset:0,limit:1});
+  const article = articles[0];
+  if (articles.length !== 1 || article?.id !== input.articleId || typeof article.title !== "string"
+    || ["excerpt","body_markdown","domain_id"].some(key => article[key] !== null && typeof article[key] !== "string")) {
+    throw new Error("Laden van het opgeslagen artikel mislukt.");
   }
+  const candidates = await loadArticleCatalog(read);
+  const existingKeys = await loadArticleExistingKeys(read, input.articleId);
+  const proposals = planArticleSuggestions({id:input.articleId,title:article.title,
+    excerpt:article.excerpt as string | null,body_markdown:article.body_markdown as string | null,
+    domain_id:article.domain_id as string | null},candidates,existingKeys).map(toArticleProposalPayload);
+  if (!proposals.length) return;
+  // The private unique pair, review memory and transaction live in the RPC, not a
+  // read-then-insert snapshot. Never fall back to direct entity_links insertion.
+  const { data: inserted, error } = await supabase.rpc("graph_propose_article_suggestions", {
+    p_article_id:input.articleId,p_fingerprint:fingerprint,p_proposals:proposals,
+  });
+  if (error || typeof inserted !== "number" || !Number.isSafeInteger(inserted)
+    || inserted < 0 || inserted > proposals.length) {
+    throw new Error("Artikel opgeslagen, maar link-suggesties opslaan is mislukt.");
+  }
+}
 
-  const rows = scored.map(({ candidate, score }, index) => ({
-    source_entity_type: "article",
-    source_entity_id: input.articleId,
-    target_entity_type: candidate.targetType,
-    target_entity_id: candidate.targetId,
-    relation_type: "suggested_auto",
-    weight: Math.max(1, Math.min(score, 100)),
-    sort_order: index + 1,
-  }));
-
-  await supabase.from("entity_links").insert(rows);
+// This runs only after the article mutation returned its persisted ID.
+// Proposal errors must not disguise a committed save as a failed article creation.
+async function refreshSavedArticleSuggestions(input: Parameters<typeof generateArticleLinkSuggestions>[0]): Promise<void> {
+  let failed = false;
+  try { await generateArticleLinkSuggestions(input); }
+  catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    failed = true;
+  }
+  revalidatePath("/profile");
+  if (failed) {
+    redirect(creatorMakerProfileUrl({
+      tab: "profiel", success: "Artikel opgeslagen.",
+      error: "De link-suggesties konden niet worden vernieuwd. Bewerk het opgeslagen artikel om opnieuw te proberen; maak geen nieuw artikel aan.",
+    }));
+  }
 }
 
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
@@ -1389,15 +1321,11 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Aanmaken van artikel mislukt.");
     }
 
-    await generateArticleLinkSuggestions({
-      creatorId: creator.id,
-      articleId: article.id,
-      articleDomainId: domainId,
-      sourceText: [title, excerpt ?? "", bodyMarkdown ?? ""].join(" "),
+    await refreshSavedArticleSuggestions({
+      articleId: article.id, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    revalidatePath("/profile");
-    ok(CREATOR_MAKER_PATH, "Artikel opgeslagen met link-suggesties.");
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel opgeslagen met link-suggesties." }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1446,22 +1374,13 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Bijwerken van artikel mislukt.");
     }
 
-    await supabase
-      .from("entity_links")
-      .delete()
-      .eq("source_entity_type", "article")
-      .eq("source_entity_id", articleId)
-      .eq("relation_type", "suggested_auto");
-
-    await generateArticleLinkSuggestions({
-      creatorId: creator.id,
-      articleId,
-      articleDomainId: domainId,
-      sourceText: [title, excerpt ?? "", bodyMarkdown ?? ""].join(" "),
+    // Preserve retained human-link rows and pending proposals on ordinary saves.
+    // Private RPC/trigger decisions keep rejected nominations suppressed.
+    await refreshSavedArticleSuggestions({
+      articleId, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    revalidatePath("/profile");
-    ok(CREATOR_MAKER_PATH, "Artikel bijgewerkt. Suggesties vernieuwd.");
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel bijgewerkt. Suggesties vernieuwd." }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1475,12 +1394,11 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
   try {
     const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
-    const relationType = parseOptionalString(formData, "relation_type") ?? "related";
     const supabase = createPlatformClient();
 
     const { data: linkRow, error: linkError } = await supabase
       .from("entity_links")
-      .select("id,source_entity_id,relation_type")
+      .select("id,source_entity_id,relation_type,target_entity_type")
       .eq("id", entityLinkId)
       .eq("source_entity_type", "article")
       .eq("relation_type", "suggested_auto")
@@ -1501,14 +1419,22 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
       fail(CREATOR_MAKER_PATH, "Geen rechten op deze suggestie.");
     }
 
-    const { error } = await supabase
-      .from("entity_links")
-      .update({
-        relation_type: relationType,
-      })
-      .eq("id", entityLinkId);
+    const requestedRelations = formData.getAll("relation_type");
+    if (requestedRelations.length > 1) {
+      fail(CREATOR_MAKER_PATH, "Ongeldig relatietype voor deze suggestie.");
+    }
+    const relationType = resolveArticleSuggestionRelation(
+      linkRow.target_entity_type,
+      requestedRelations[0]
+    );
 
-    if (error) {
+    // SQL coordinates the pair before taking an edge tuplelock and rechecks owner/CAS.
+    const { data: approved, error } = await supabase.rpc("graph_decide_article_suggestion", {
+      p_link_id:entityLinkId,p_article_id:linkRow.source_entity_id,
+      p_creator_id:creator.id,p_relation:relationType,
+    });
+
+    if (error || approved !== true) {
       fail(CREATOR_MAKER_PATH, "Bevestigen van suggestie mislukt.");
     }
 
@@ -1552,12 +1478,14 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
       fail(CREATOR_MAKER_PATH, "Geen rechten op deze suggestie.");
     }
 
-    const { error } = await supabase
-      .from("entity_links")
-      .delete()
-      .eq("id", entityLinkId);
+    const { data: dismissed, error } = await supabase.rpc("graph_decide_article_suggestion", {
+      p_link_id:entityLinkId,p_article_id:linkRow.source_entity_id,
+      p_creator_id:creator.id,p_relation:null,
+    });
 
-    if (error) {
+    // A concurrent approval or zero-row CAS is not a successful dismissal.
+    // Private decision memory and deletion are one database transaction.
+    if (error || dismissed !== true) {
       fail(CREATOR_MAKER_PATH, "Verwijderen van suggestie mislukt.");
     }
 

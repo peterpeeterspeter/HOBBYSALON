@@ -228,7 +228,6 @@ export function CreatorArticlesTab({
                             <div className="flex gap-2">
                               <form action={approveArticleSuggestionAction}>
                                 <input type="hidden" name="entity_link_id" value={link.id} />
-                                <input type="hidden" name="relation_type" value="related" />
                                 <Button type="submit" size="sm" variant="secondary">
                                   Bevestigen
                                 </Button>

@@ -70,3 +70,26 @@ test("normalizes next and related articles only from their explicit outbound rel
     { id: "read-also", sortOrder: null, weight: 9 },
   ]);
 });
+
+test("legacy related products are recommendations, pending and inbound roles stay excluded", () => {
+  const relations = normalizeArticleGraphRelations([
+    connection("product", "legacy", "related", null, 1),
+    connection("product", "pending", "suggested_auto", 0, 99),
+    connection("product", "incoming", "related", 0, 99, "inbound"),
+  ]);
+  assert.deepEqual(relations.relatedProducts, [{ id: "legacy", sortOrder: null, weight: 1 }]);
+  assert.deepEqual(relations.requiredMaterials, []);
+  assert.deepEqual(relations.requiredTools, []);
+});
+
+test("duplicate recommendations keep editorial position before stronger weight", () => {
+  const relations = normalizeArticleGraphRelations([
+    connection("product", "duplicate", "related_product", 0, 1),
+    connection("product", "duplicate", "related_product", 8, 99),
+    connection("product", "later", "related_product", 2, 1),
+  ]);
+  assert.deepEqual(relations.relatedProducts, [
+    { id: "duplicate", sortOrder: 0, weight: 1 },
+    { id: "later", sortOrder: 2, weight: 1 },
+  ]);
+});
