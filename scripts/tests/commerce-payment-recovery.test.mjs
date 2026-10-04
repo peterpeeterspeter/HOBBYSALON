@@ -38,11 +38,11 @@ function response() {
 function checkout({ sessions = [{ id: "ps_fixture" }], httpStatus = 200,
   body = {}, networkError = false, paused = false, completeFails = false,
   initiateFails = false, transport } = {}) {
-  const calls = { initiated: 0, completed: 0, fetched: 0, providers: 0, cookiesDeleted: 0 };
+  const calls = { initiated: 0, completed: 0, fetched: 0, providers: 0, cookiesDeleted: 0, methods: [] };
   const cart = { id: "cart_fixture", region_id: "region_fixture", items: [],
     payment_collection: { payment_sessions: sessions } };
   const context = vm.createContext({
-    console: quiet, process: { env: {} }, URLSearchParams,
+    console: quiet, process: { env: { NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "offline-publishable" } }, URLSearchParams,
     CART_COOKIE_NAME: "cart_cookie", getBackendUrl: () => "https://offline.invalid",
     cookies: async () => ({ get: () => ({ value: cart.id }), delete: () => calls.cookiesDeleted++ }),
     getCartForCheckout: async () => cart,
@@ -55,9 +55,14 @@ function checkout({ sessions = [{ id: "ps_fixture" }], httpStatus = 200,
     fetch: async (url, options) => {
       calls.fetched++;
       assert.equal(url, "https://offline.invalid/store/carts/cart_fixture/payment-client-secret");
-      assert.equal(options.method, "GET");
+      calls.methods.push(options.method);
+      assert.equal(options.method, "POST", "only explicit checkout requests may recover sessions");
+      assert.equal(options.headers["x-publishable-api-key"], "offline-publishable");
+      assert.equal(options.headers["Content-Type"], "application/json");
+      assert.equal(options.headers.Authorization, undefined, "guest checkout must not require customer auth");
+      assert.equal(options.body, undefined, "preserve the bodyless cart-ID contract");
       if (networkError) throw Error("offline transport failure");
-      const result = transport ? await transport() : { code: httpStatus, body };
+      const result = transport ? await transport(options.method) : { code: httpStatus, body };
       return { ok: result.code >= 200 && result.code < 300, json: async () => result.body };
     },
     sdk: { store: {
@@ -87,7 +92,7 @@ function checkout({ sessions = [{ id: "ps_fixture" }], httpStatus = 200,
 function backend({ paused = false, status = "requires_payment_method", secret = "old_secret",
   intentId = "pi_fixture", retrieveFails = false, createFails = false,
   stripeKey = true, noSession = false, listFallback = false } = {}) {
-  const calls = { retrieved: 0, created: 0, deleted: 0 };
+  const calls = { retrieved: 0, created: 0, deleted: 0, effects: [] };
   const data = { ...(intentId ? { id: intentId } : {}), ...(secret ? { client_secret: secret } : {}) };
   const session = { id: "ps_fixture", provider_id: "pp_stripe_fixture", data };
   const context = vm.createContext({
@@ -97,6 +102,7 @@ function backend({ paused = false, status = "requires_payment_method", secret = 
     ContainerRegistrationKeys: { QUERY: "query" }, Modules: { PAYMENT: "payment" },
     Stripe: class { constructor() { this.paymentIntents = { retrieve: async (id) => {
       calls.retrieved++;
+      calls.effects.push("retrieve");
       assert.equal(id, "pi_fixture");
       if (retrieveFails) throw Error("offline status failure");
       return { id, status, client_secret: secret };
@@ -110,17 +116,27 @@ function backend({ paused = false, status = "requires_payment_method", secret = 
         payment_sessions: noSession || listFallback ? [] : [session] } }] }) },
     payment: {
       listPaymentSessions: async () => noSession ? [] : [session],
-      deletePaymentSession: async () => { calls.deleted++; },
-      createPaymentSession: async () => {
+      deletePaymentSession: async (id) => {
+        calls.deleted++;
+        calls.effects.push("delete");
+        assert.equal(id, "ps_fixture");
+      },
+      createPaymentSession: async (collectionId, input) => {
         calls.created++;
+        calls.effects.push("create");
+        assert.equal(collectionId, "pc_fixture");
+        assert.equal(input.provider_id, "pp_stripe_fixture");
+        assert.equal(input.amount, 12);
+        assert.equal(input.currency_code, "eur");
         if (createFails) throw Error("offline creation failure");
         return { id: "ps_new", data: { client_secret: "new_secret" } };
       },
     },
   };
-  async function run() {
+  async function run(method = "GET") {
     const res = response();
-    await context.GET({ params: { id: "cart_fixture" }, scope: { resolve: (key) => services[key] } }, res);
+    assert.equal(typeof context[method], "function", `${method} route must be exported`);
+    await context[method]({ method, params: { id: "cart_fixture" }, scope: { resolve: (key) => services[key] } }, res);
     return res;
   }
   return { calls, run };
@@ -139,15 +155,17 @@ for (const [name, options] of [
     assert.equal(calls.providers, 0);
     assert.equal(result.success, false);
     assert.match(result.message, recoveryMessage);
+    assert.deepEqual(calls.methods, ["POST"]);
   });
 }
 
-test("existing checkout reuses a valid secret without initiation", async () => {
+test("explicit checkout POST reuses a valid secret without initiation", async () => {
   const { context, calls } = checkout({ body: { client_secret: "valid_secret" } });
   const result = await context.checkoutInitiatePayment();
   assert.equal(result.clientSecret, "valid_secret");
   assert.equal(result.success, true);
   assert.equal(calls.initiated, 0);
+  assert.deepEqual(calls.methods, ["POST"]);
 });
 
 for (const completeFails of [false, true]) {
@@ -183,9 +201,9 @@ test("pause blocks a new checkout but does not block the completion action", asy
 });
 
 for (const listFallback of [false, true]) {
-  test(`paused GET refuses canceled-session recreation (list fallback=${listFallback})`, async () => {
+  test(`paused POST refuses canceled-session recreation (list fallback=${listFallback})`, async () => {
     const fixture = backend({ paused: true, status: "canceled", listFallback });
-    const res = await fixture.run();
+    const res = await fixture.run("POST");
     assert.equal(fixture.calls.created, 0, "pause must stop provider creation");
     assert.equal(fixture.calls.deleted, 0, "pause must preserve the existing session");
     assert.equal(res.code, 503);
@@ -211,16 +229,16 @@ test("missing provider identity is inconclusive even when enabled", async () => 
   assert.equal(res.body.client_secret, undefined);
 });
 
-test("confirmed canceled GET can recreate when enabled", async () => {
+test("confirmed canceled POST can recreate when enabled", async () => {
   const fixture = backend({ status: "canceled" });
-  assert.equal((await fixture.run()).body.client_secret, "new_secret");
+  assert.equal((await fixture.run("POST")).body.client_secret, "new_secret");
   assert.equal(fixture.calls.created, 1);
   assert.equal(fixture.calls.deleted, 1);
 });
 
 test("failed canceled recreation never returns the canceled intent's cached secret", async () => {
   const fixture = backend({ status: "canceled", createFails: true });
-  assert.equal((await fixture.run()).body.client_secret, undefined);
+  assert.equal((await fixture.run("POST")).body.client_secret, undefined);
   assert.equal(fixture.calls.created, 1, "must not retry recreation in this request");
 });
 
@@ -229,11 +247,13 @@ for (const options of [
   { retrieveFails: true, secret: null },
   { stripeKey: false, secret: null },
   { status: "unrecognized", secret: null },
+  { intentId: null, secret: null },
 ]) {
-  test(`inconclusive GET-to-adapter-to-action cannot initiate: ${JSON.stringify(options)}`, async () => {
+  test(`inconclusive POST-to-adapter-to-action cannot initiate: ${JSON.stringify(options)}`, async () => {
     const route = backend(options);
     const { context, calls } = checkout({ transport: route.run });
     assert.equal((await context.checkoutInitiatePayment()).success, false);
+    assert.deepEqual(calls.methods, ["POST"]);
     assert.equal(calls.initiated, 0);
     assert.equal(route.calls.created, 0);
     assert.equal(route.calls.deleted, 0);
@@ -251,6 +271,87 @@ for (const status of ["succeeded", "requires_payment_method", "processing"]) {
     assert.equal(fixture.calls.deleted, 0);
   });
 }
+
+for (const paused of [false, true]) {
+  for (const listFallback of [false, true]) {
+    test(`canceled GET is read-only (paused=${paused}, list fallback=${listFallback})`, async () => {
+      const route = backend({ status: "canceled", paused, listFallback });
+      const res = await route.run("GET");
+      assert.equal(route.calls.deleted, 0, "GET must never delete a canceled session");
+      assert.equal(route.calls.created, 0, "GET must never create a replacement");
+      assert.equal(route.calls.retrieved, 1);
+      assert.equal(res.code, paused ? 503 : 409);
+      assert.equal(res.body.client_secret, undefined, "never expose the canceled intent's secret");
+    });
+  }
+}
+
+for (const method of ["GET", "POST"]) {
+  for (const options of [
+    { retrieveFails: true },
+    { intentId: null, secret: null },
+    { status: "unrecognized" },
+    { status: "requires_action" },
+    { status: "requires_confirmation" },
+    { status: "requires_capture" },
+    { stripeKey: false },
+    { noSession: true },
+  ]) {
+    test(`${method} never mutates uncertain or active payments: ${JSON.stringify(options)}`, async () => {
+      const route = backend(options);
+      await route.run(method);
+      assert.equal(route.calls.deleted, 0);
+      assert.equal(route.calls.created, 0);
+    });
+  }
+}
+
+for (const listFallback of [false, true]) {
+  test(`explicit checkout recovers canceled payment through real POST/adapter/action (list fallback=${listFallback})`, async () => {
+    const route = backend({ status: "canceled", listFallback });
+    const read = await route.run("GET");
+    assert.equal(read.code, 409);
+    assert.equal(read.body.client_secret, undefined);
+    assert.deepEqual(route.calls.effects, ["retrieve"], "the preceding read must not mutate");
+    const { context, calls } = checkout({ transport: route.run });
+    const result = await context.checkoutInitiatePayment();
+    assert.deepEqual(calls.methods, ["POST"]);
+    assert.equal(result.success, true);
+    assert.equal(result.clientSecret, "new_secret");
+    assert.equal(route.calls.deleted, 1);
+    assert.equal(route.calls.created, 1);
+    assert.deepEqual(route.calls.effects, ["retrieve", "retrieve", "delete", "create"]);
+    assert.equal(calls.initiated, 0, "do not create a second session via SDK");
+  });
+}
+
+for (const status of ["succeeded", "processing", "canceled"]) {
+  test(`paused POST-to-adapter-to-checkout preserves ${status} safeguards`, async () => {
+    const route = backend({ status, paused: true });
+    const { context, calls } = checkout({ transport: route.run });
+    const result = await context.checkoutInitiatePayment();
+    assert.deepEqual(calls.methods, ["POST"]);
+    assert.equal(route.calls.deleted, 0);
+    assert.equal(route.calls.created, 0);
+    assert.equal(calls.initiated, 0);
+    assert.equal(calls.completed, status === "succeeded" ? 1 : 0);
+    assert.equal(result.success, status !== "canceled");
+    if (status === "processing") assert.equal(result.clientSecret, "old_secret");
+  });
+}
+
+test("failed canceled POST recovery through adapter/action never returns a stale secret or retries initiation", async () => {
+  const route = backend({ status: "canceled", createFails: true });
+  const { context, calls } = checkout({ transport: route.run });
+  const result = await context.checkoutInitiatePayment();
+  assert.equal(result.success, false);
+  assert.equal(result.clientSecret, undefined);
+  assert.deepEqual(calls.methods, ["POST"]);
+  assert.equal(calls.initiated, 0);
+  assert.equal(route.calls.deleted, 1);
+  assert.equal(route.calls.created, 1);
+  assert.deepEqual(route.calls.effects, ["retrieve", "delete", "create"]);
+});
 
 // Loads the real registration and policy, not just an isolated helper export.
 // Matching/dispatch is emulated; this is not Medusa HTTP-server acceptance.

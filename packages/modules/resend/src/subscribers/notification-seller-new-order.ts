@@ -15,6 +15,7 @@ export default async function sellerNewOrderHandler({
   const notificationService = container.resolve(Modules.NOTIFICATION);
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const storeData = await fetchStoreData(container);
+  const errors: unknown[] = [];
 
   for (const orderId of event.data.order_ids) {
     try {
@@ -38,14 +39,12 @@ export default async function sellerNewOrderHandler({
       });
 
       if (!order) {
-        console.error("Order not found:", orderId);
-        continue;
+        throw new Error(`Order not found: ${orderId}`);
       }
 
       const sellerEmail = order.seller?.email;
       if (!sellerEmail) {
-        console.error("Seller email not found for order:", order.id);
-        continue;
+        throw new Error(`Seller email not found for order: ${order.id}`);
       }
 
       const customer_name = `${order.customer?.first_name || ""} ${order.customer?.last_name || ""}`;
@@ -54,6 +53,8 @@ export default async function sellerNewOrderHandler({
           to: sellerEmail,
           channel: "email",
           template: ResendNotificationTemplates.SELLER_NEW_ORDER,
+          // Native notification idempotency skips successful sends on event retry.
+          idempotency_key: `seller-new-order:${order.id}`,
           content: {
             subject: `New order #${order.display_id} received`,
           },
@@ -74,7 +75,11 @@ export default async function sellerNewOrderHandler({
         `Error processing seller notification for order ${orderId}:`,
         error
       );
+      errors.push(error);
     }
+  }
+  if (errors.length) {
+    throw new AggregateError(errors, "Failed to process seller order notifications");
   }
 }
 

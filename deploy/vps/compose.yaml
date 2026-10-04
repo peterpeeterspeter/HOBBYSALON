@@ -33,9 +33,12 @@ services:
       - internal
 
   backend:
+    image: hobbysalon-backend:${EXPECTED_COMMIT:?Set the full approved commit}
     build:
       context: ../..
       dockerfile: apps/backend/Dockerfile
+      labels:
+        org.opencontainers.image.revision: ${EXPECTED_COMMIT:?Set the full approved commit}
     restart: unless-stopped
     env_file:
       - ${BACKEND_ENV_FILE:-.env}
@@ -46,6 +49,8 @@ services:
       DATABASE_SSL: "false"
       REDIS_URL: redis://redis:6379
       WORKER_MODE: shared
+      COMMERCE_PAYMENTS_ENABLED: "${COMMERCE_PAYMENTS_ENABLED:-false}"
+      COMMERCE_PAYOUTS_ENABLED: "${COMMERCE_PAYOUTS_ENABLED:-false}"
     volumes:
       # Persist vendor uploads across image rebuilds/redeploys.
       - backend_static:/app/apps/backend/static
