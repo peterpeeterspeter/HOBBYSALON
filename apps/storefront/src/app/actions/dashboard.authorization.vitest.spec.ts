@@ -298,7 +298,7 @@ describe("article recommendation authorization", () => {
           target_entity_type: "product", target_entity_id: PRODUCT,
           weight: expect.any(Number), sort_order: 1, proposed_relation: "related_product",
           score: expect.any(Number), evidence: expect.arrayContaining([
-            "Onderwerp (titel): Knitting yarn → Knitting yarn (garen, knitting)",
+            "Onderwerp (titel): Knitting yarn → Knitting yarn (garen)",
             "Aanbeveling; materiaalcompatibiliteit onbekend.",
           ]), compatibility: "unknown", matcher_version: "article-catalog-v1",
         }],
