@@ -20,6 +20,7 @@ import {
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
 import { medusaAmountToCents } from "@/lib/commerce/money";
+import type { ExactVariantPriceInput } from "@/lib/commerce/variant-price";
 import { publicAssetUrl, publicAssetUrls } from "@/lib/media/public-asset-url";
 import type { Product, Creator, Domain, Workshop, Article, Event, Project } from "@/types/platform";
 
@@ -33,6 +34,8 @@ export type ProductPageData = {
     title: string;
     calculated_amount?: number;
     currency_code?: string;
+    /** Unmodified commerce provenance for validated exact-link prices. */
+    exact_price?: ExactVariantPriceInput | null;
   }>;
   galleryImages: string[];
   relatedWorkshops: Workshop[];
@@ -105,6 +108,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     title: string;
     calculated_amount?: number;
     currency_code?: string;
+    exact_price?: ExactVariantPriceInput | null;
   }> = [];
 
   if (useMedusaCommerce) {
@@ -121,6 +125,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
         title: v.title,
         calculated_amount: v.calculated_price?.calculated_amount,
         currency_code: v.calculated_price?.currency_code ?? "EUR",
+        exact_price: v.calculated_price,
       })) ?? [];
 
     const firstPriced = variants.find((v) => v.calculated_amount != null);

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductPageData } from "@/lib/services/product-page";
+import { exactEurVariantPrice } from "@/lib/commerce/variant-price";
 import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard, ProjectCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { ProductBuyCard } from "@/components/product/ProductBuyCard";
@@ -12,7 +13,10 @@ import { isFavorite } from "@/lib/platform/queries/favorites";
 import { absoluteUrl, buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -29,13 +33,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const data = await getProductPageData(slug);
 
   if (!data.product) notFound();
 
-  const { product, creator, domain, price, variants, galleryImages } = data;
+  const { product, creator, domain, price: defaultPrice, variants, galleryImages } = data;
+  // Next already decodes query values. Only an exact scalar ID from this
+  // product's current variants may change the initial purchase selection.
+  const requestedVariantId = (await searchParams)?.variant;
+  const selectedVariant = typeof requestedVariantId === "string" && requestedVariantId
+    ? variants.find((variant) => variant.id === requestedVariantId)
+    : undefined;
+  const selectedVariantId = selectedVariant?.id;
+  // An exact link must never advertise another variant's fallback price,
+  // including in JSON-LD. Without a valid link, keep the legacy page price.
+  const price = selectedVariant
+    ? exactEurVariantPrice(selectedVariant.exact_price)
+    : defaultPrice;
   const user = await getAuthUser();
   const productIsFavorite = user
     ? await isFavorite(user.id, "product", product.id)
@@ -68,7 +84,7 @@ export default async function ProductPage({ params }: Props) {
           availability: product.is_active
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
-          url: absoluteUrl(`/product/${product.slug}`),
+          url: absoluteUrl(`/product/${product.slug}${selectedVariantId ? `?variant=${encodeURIComponent(selectedVariantId)}` : ""}`),
         }
       : undefined,
   };
@@ -210,6 +226,7 @@ export default async function ProductPage({ params }: Props) {
             creator={creator}
             price={price}
             variants={variants}
+            selectedVariantId={selectedVariantId}
             isFavorite={productIsFavorite}
           />
         </aside>
