@@ -1,7 +1,11 @@
 import { defineConfig, loadEnv } from '@medusajs/framework/utils'
 import type { InputConfig, InputConfigModules } from '@medusajs/types'
+import { resolveSigningSecrets } from './src/utils/signing-secrets'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
+
+// Fail closed before constructing config/providers; validate the loaded environment.
+const signingSecrets = resolveSigningSecrets(process.env)
 
 const shouldEnableAlgolia =
   process.env.CI !== 'true' &&
@@ -126,8 +130,8 @@ module.exports = defineConfig({
       adminCors: process.env.ADMIN_CORS!,
       vendorCors: process.env.VENDOR_CORS!,
       authCors: process.env.AUTH_CORS!,
-      jwtSecret: process.env.JWT_SECRET || 'supersecret',
-      cookieSecret: process.env.COOKIE_SECRET || 'supersecret'
+      jwtSecret: signingSecrets.jwtSecret,
+      cookieSecret: signingSecrets.cookieSecret
     }
   },
   plugins: [

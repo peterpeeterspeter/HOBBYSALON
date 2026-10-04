@@ -6,21 +6,35 @@ import {
   isCommercePaymentsEnabled,
 } from "../../../../middlewares/commerce-payment-policy"
 
-/**
- * GET /store/carts/:id/payment-client-secret
- *
- * Returns the Stripe client_secret for the cart's active payment session.
- */
+type PaymentClientSecretResponse = MedusaResponse<
+  | {
+      client_secret?: string
+      payment_succeeded?: boolean
+      payment_intent_id?: string
+    }
+  | { message: string }
+>
+
+/** Read the active payment status without replacing payment sessions. */
 export async function GET(
   req: MedusaRequest<{ id: string }>,
-  res: MedusaResponse<
-    | {
-        client_secret?: string
-        payment_succeeded?: boolean
-        payment_intent_id?: string
-      }
-    | { message: string }
-  >
+  res: PaymentClientSecretResponse
+) {
+  return handlePaymentClientSecret(req, res, false)
+}
+
+/** Explicit checkout action; only confirmed-canceled sessions may be replaced. */
+export async function POST(
+  req: MedusaRequest<{ id: string }>,
+  res: PaymentClientSecretResponse
+) {
+  return handlePaymentClientSecret(req, res, true)
+}
+
+async function handlePaymentClientSecret(
+  req: MedusaRequest<{ id: string }>,
+  res: PaymentClientSecretResponse,
+  allowRecovery: boolean
 ) {
   const cartId = req.params.id
   if (!cartId) {
@@ -92,6 +106,8 @@ export async function GET(
       (data?.id as string) ?? (typeof session.id === "string" && session.id.startsWith("pi_") ? session.id : null)
 
     const recreatePaymentSession = async (providerIdOverride?: string) => {
+      // Defense in depth: GET can never dispatch delete/create effects.
+      if (!allowRecovery) return false
       // Check before deletion as well as creation. A pause preserves recovery.
       if (!isCommercePaymentsEnabled()) {
         return false
@@ -168,6 +184,14 @@ export async function GET(
         if (pi.status === "canceled") {
           // Never return the canceled intent's secret if replacement fails.
           clientSecret = undefined
+          if (!allowRecovery) {
+            const enabled = isCommercePaymentsEnabled()
+            return res.status(enabled ? 409 : 503).json({
+              message: enabled
+                ? "Deze betaling is geannuleerd. Start de betaling opnieuw via afrekenen."
+                : COMMERCE_PAYMENTS_PAUSED_MESSAGE,
+            })
+          }
           const recreated = await recreatePaymentSession((session as { provider_id?: string })?.provider_id)
           if (recreated === false) {
             return res.status(503).json({ message: COMMERCE_PAYMENTS_PAUSED_MESSAGE })
