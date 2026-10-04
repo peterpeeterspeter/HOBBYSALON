@@ -7,6 +7,7 @@ import {
   WorkflowResponse,
   createWorkflow,
   transform,
+  when,
 } from "@medusajs/workflows-sdk";
 
 import {
@@ -14,7 +15,9 @@ import {
   RequestStatus,
 } from "@mercurjs/framework";
 
+import { isMedusaTemplateCsv } from "../../../api/vendor/products/imports/normalize";
 import { validateProductsToImportStep } from "../steps";
+import { parseForeignProductListStep } from "../steps/parse-foreign-product-list";
 
 export const importSellerProductsWorkflow = createWorkflow(
   "import-seller-products",
@@ -24,7 +27,26 @@ export const importSellerProductsWorkflow = createWorkflow(
     submitter_id: string;
     import_job_id?: string;
   }) {
-    const products = parseProductCsvStep(input.file_content);
+    const isTemplate = transform({ input }, ({ input }) =>
+      isMedusaTemplateCsv(input.file_content)
+    );
+
+    const templateProducts = when({ isTemplate }, ({ isTemplate }) => isTemplate).then(
+      () => parseProductCsvStep(input.file_content)
+    );
+    const foreignProducts = when({ isTemplate }, ({ isTemplate }) => !isTemplate).then(
+      () =>
+        parseForeignProductListStep({
+          file_content: input.file_content,
+          seller_id: input.seller_id,
+        })
+    );
+
+    const products = transform(
+      { templateProducts, foreignProducts },
+      ({ templateProducts, foreignProducts }) =>
+        (templateProducts ?? foreignProducts ?? []) as unknown[]
+    );
     const batchCreate = validateProductsToImportStep(products);
 
     const created = createProductsWorkflow.runAsStep({
