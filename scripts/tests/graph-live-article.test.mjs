@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRequire, stripTypeScriptTypes } from "node:module";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
@@ -69,6 +69,7 @@ async function load(options = {}) {
   const attempts = [];
   const calls = [];
   const bodies = [];
+  const commerceCalls = [];
   const forbid = name => { attempts.push(name); throw new Error(`Forbidden side effect: ${name}`); };
   const client = { from(table) {
     if (!Object.hasOwn(rows, table)) return forbid(`table:${table}`);
@@ -81,13 +82,36 @@ async function load(options = {}) {
       eq(key, value) { filters.push(["eq", key, value]); return this; },
       neq(key, value) { filters.push(["neq", key, value]); return this; },
       in(key, value) { filters.push(["in", key, Array.from(value)]); return this; },
-      limit() { return this; },
+      not(key, op, value) { assert.equal(op, "is"); assert.equal(value, null); filters.push(["notNull", key]); return this; },
+      or(value) { filters.push(["or", "title", value]); return this; },
+      order(key, value) { (call.orders ??= []).push([key, plain(value)]); return this; },
+      range(start, end) { call.range = [start, end]; return this; },
+      limit(value) { call.limit = value; return this; },
       maybeSingle() { single = true; return this; },
       then(resolve, reject) {
         const isSlugBatch = table === "articles" && filters.some(([op, key]) => op === "in" && key === "slug");
-        if (isSlugBatch && options.rejectEditorial) return Promise.reject(new Error("local read rejection")).then(resolve, reject);
-        const data = rows[table].filter(row => filters.every(([op, key, value]) => op === "eq" ? row[key] === value : op === "neq" ? row[key] !== value : value.includes(row[key])));
-        return Promise.resolve({ data: single ? data[0] ?? null : data, error: isSlugBatch && options.errorEditorial ? { message: "local read error" } : null }).then(resolve, reject);
+        const isCatalog = table === "products" && call.select !== "*";
+        if ((isSlugBatch && options.rejectEditorial) || (isCatalog && options.rejectCatalog)) return Promise.reject(new Error("local read rejection")).then(resolve, reject);
+        let data = rows[table].filter(row => filters.every(([op, key, value]) => {
+          if (op === "eq") return row[key] === value;
+          if (op === "neq") return row[key] !== value;
+          if (op === "in") return value.includes(row[key]);
+          if (op === "notNull") return row[key] != null;
+          assert.equal(op, "or");
+          return value.split(",").some(term => {
+            assert.match(term, /^title\.ilike\.%[a-z ]+%$/, "Only constant safe title searches");
+            return String(row.title).toLowerCase().includes(term.slice(13, -1));
+          });
+        }));
+        for (const [key, { ascending }] of [...(call.orders ?? [])].reverse()) data = data.toSorted((a, b) => (a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0) * (ascending === false ? -1 : 1));
+        if (call.range) data = data.slice(call.range[0], call.range[1] + 1);
+        if (call.limit != null) data = data.slice(0, call.limit);
+        if (call.select !== "*") {
+          const columns = call.select.split(",").map(column => column.trim());
+          data = data.map(row => Object.fromEntries(columns.filter(key => Object.hasOwn(row, key)).map(key => [key, row[key]])));
+        }
+        if (isCatalog && options.nullCatalog) data = null;
+        return Promise.resolve({ data: single ? data?.[0] ?? null : data, error: (isSlugBatch && options.errorEditorial) || (isCatalog && options.errorCatalog) ? { message: "local read error" } : null }).then(resolve, reject);
       },
     };
     return new Proxy(query, { get(target, key) { if (key in target) return target[key]; return () => forbid(`query:${String(key)}`); } });
@@ -100,7 +124,21 @@ async function load(options = {}) {
     "@/lib/platform/queries/events": { listEventsByIds: async () => [] },
     "@/lib/platform/queries/projects": { listApprovedCommunityGalleryForArticle: async () => [] },
     "@/lib/platform/queries/learning-paths": { listNextLearningPathArticleIds: async () => options.learningPath ?? [] },
-    "@/lib/commerce/medusa/products": { getMedusaProduct: async id => id == null ? null : forbid("medusa") },
+    "@/lib/commerce/medusa/products": {
+      getMedusaProduct: async id => {
+        if (id == null) return null;
+        commerceCalls.push({ kind: "single", ids: [id] });
+        if (!Object.hasOwn(options.commerce ?? {}, id)) return forbid("medusa");
+        return options.commerce[id];
+      },
+      getMedusaProductsByIds: async input => {
+        const requested = Array.from(input);
+        commerceCalls.push({ kind: "batch", ids: requested });
+        if (options.rejectCommerce) throw new Error("local commerce rejection");
+        if (options.nullCommerce) return null;
+        return new Map(requested.map(id => [id, options.commerce?.[id] ?? null]));
+      },
+    },
     "react/jsx-runtime": dependency("react/jsx-runtime"),
     "next/navigation": { notFound: () => { throw new Error("NOT_FOUND"); } },
     "next/link": { default: ({ children, ...props }) => React.createElement("a", props, children) },
@@ -146,7 +184,13 @@ async function load(options = {}) {
     try { return plain(await service.namespace.getArticlePageData(slug)); }
     finally { assert.deepEqual(attempts, [], "No writes/network/review bypass even if swallowed"); assert.deepEqual(rows, before, "Source rows remain unchanged"); }
   }
-  return { current, calls, run, async render() {
+  return { current, calls, commerceCalls, run, async catalog(materials) {
+    const query = moduleFor("@/lib/platform/queries/article-material-products");
+    if (query.status === "unlinked") await query.link(moduleFor);
+    if (query.status === "linked") await query.evaluate();
+    try { return plain(await query.namespace.listArticleMaterialProducts(materials)); }
+    finally { assert.deepEqual(attempts, []); assert.deepEqual(rows, before); }
+  }, async render() {
     const page = moduleFor("app/(public)/artikel/[slug]/page.tsx");
     await page.link(moduleFor);
     await page.evaluate();
@@ -187,7 +231,6 @@ test("actual TSX with native React renders two real reading cards and a five-lin
   assert.equal((section.match(/<li\b/g) ?? []).length, 5);
   assert.doesNotMatch(section, /href=|data-product|SKU|op voorraad|compatibel/i);
   assert.doesNotMatch(html, /Ga verder met deze stap|Dit heb je nodig|Benodigd gereedschap/);
-  if (process.env.HOBBYSALON_ARTICLE_RENDER_PATH) writeFileSync(process.env.HOBBYSALON_ARTICLE_RENDER_PATH, html);
 });
 
 test("strict allowlist: excludes external, protocol confusion, images, escaped links, self, duplicates and all code forms", async () => {
@@ -313,7 +356,7 @@ test("missing/draft source has empty page data, no graph/body target reads", asy
   }
 });
 
-test("source list is hidden when explicit required material/tool cards exist; graph product/creator semantics survive", async () => {
+test("source list stays visible alongside explicit required cards; graph product/creator semantics survive", async () => {
   for (const role of ["required_material", "required_tool"]) {
     const author = { id: "maker", slug: "maker", display_name: "Maker", avatar_url: null };
     const page = await load({ current: { author_creator_id: author.id }, author, edges: [edge("supply", role, 0, { target_entity_type: "product" })], products: [{ id: "supply", slug: "supply", title: "Expliciet gekoppeld materiaal", is_active: true, status: "active", medusa_product_id: null }] });
@@ -324,7 +367,7 @@ test("source list is hidden when explicit required material/tool cards exist; gr
     const html = await page.render();
     assert.ok(html.includes('data-product="supply"'));
     assert.ok(html.includes('href="/creator/maker"'));
-    assert.ok(!html.includes('id="source-materials-heading"'));
+    assert.ok(html.includes('id="source-materials-heading"'));
   }
 });
 
@@ -337,3 +380,278 @@ test("source-only page renders materials even without reading/graph cards; no em
   const empty = await load({ current: { body_markdown: "Zonder materialenlijst." }, targets: [] });
   assert.ok(!(await empty.render()).includes('id="source-materials-heading"'));
 });
+
+const supply = (id, title, extra = {}) => ({ id, slug: id, title, product_type: "supply", is_active: true, status: "active", medusa_product_id: `medusa-${id}`, price: 999999, ...extra });
+const variant = (id, title, amount = 8.45, extra = {}) => ({ id, title, calculated_price: { calculated_amount: amount, currency_code: "eur" }, ...extra });
+const commerceProduct = (row, variants, extra = {}) => ({ id: row.medusa_product_id, title: row.title, handle: row.slug, variants, calculated_price: { calculated_amount: 999, currency_code: "eur" }, ...extra });
+const catalogCalls = page => page.calls.filter(call => call.table === "products" && call.select !== "*");
+const sourceSection = html => html.match(/<section[^>]*aria-labelledby="source-materials-heading"[\s\S]*?<\/section>/)?.[0];
+const sourceRow = (section, key) => section.match(new RegExp(`<li[^>]*data-material-key="${key}"[\\s\\S]*?<\\/li>`))?.[0];
+
+test("material offers: real query/service/TSX links exact variants under their own preserved source row, not graph", async () => {
+  const rows = [supply("black", "Accentgaren"), supply("hazel", "Accentgaren"), supply("hook", "Haaknaald"), supply("needle", "Stopnaald"), supply("tape", "Meetlint"), supply("scissors", "Schaar")];
+  const commerce = Object.fromEntries(rows.map((row, index) => [row.medusa_product_id, commerceProduct(row, [variant(`variant-${row.id}`, ["Zwart 100 g", "Hazelnoot 100 g", "6 mm", "Default", "Default", "Default"][index], 8.45 + index)])]));
+  // Price must come from the matching variant, never the first/product price.
+  commerce["medusa-black"].variants.unshift(variant("wrong-red", "Rood 100 g", 1));
+  const page = await load({ products: rows, commerce });
+  const data = await page.run();
+  assert.equal(data.sourceMaterials.length, 5);
+  assert.deepEqual(data.sourceMaterials.map(row => Object.keys(row).sort()), Array(5).fill(["key", "title"]));
+  assert.deepEqual(data.sourceMaterialOffers.map(({ key, title }) => ({ key, title })), data.sourceMaterials);
+  assert.deepEqual(data.sourceMaterialOffers.map(row => row.offers.length), [0, 0, 1, 1, 4]);
+  assert.deepEqual(data.sourceMaterialOffers[2].offers[0].price, { amount: 845, currency_code: "eur" });
+  for (const key of ["requiredMaterials", "requiredTools", "optionalMaterials", "relatedProducts"]) assert.deepEqual(data[key], []);
+  assert.deepEqual(page.commerceCalls, [{ kind: "batch", ids: ["medusa-black", "medusa-hazel", "medusa-hook", "medusa-needle", "medusa-scissors", "medusa-tape"] }]);
+  const html = await page.render();
+  const section = sourceSection(html);
+  assert.ok(section);
+  assert.equal((section.match(/<li\b/g) ?? []).length, 5);
+  for (const [index, row] of data.sourceMaterialOffers.entries()) {
+    const rendered = sourceRow(section, row.key);
+    assert.ok(rendered?.includes(row.title), `Original source row ${index}`);
+    for (const offer of row.offers) {
+      assert.ok(rendered.includes(`href="${offer.href}"`));
+      for (const text of [offer.requirementLabel, offer.productTitle, offer.variantTitle, "Winkelprijs"]) assert.ok(rendered.includes(text), text);
+    }
+  }
+  assert.match(sourceRow(section, data.sourceMaterials[2].key), /8,45/);
+  assert.doesNotMatch(section, /op voorraad|compatibel|gegarandeerd|data-product|SKU|winkelwagen/i);
+});
+
+test("material offers: approved graph cards/order/price stay unchanged, source list and offer remain visible", async () => {
+  const automatic = supply("automatic", "Stopnaald");
+  const approved = supply("approved-product", "Expliciet materiaal", { product_type: "handmade" });
+  const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen\nTekst" }, products: [automatic, approved], commerce: {
+    [automatic.medusa_product_id]: commerceProduct(automatic, [variant("exact", "Default")]),
+    [approved.medusa_product_id]: commerceProduct(approved, [variant("approved-variant", "Default", 15)], { calculated_price: { calculated_amount: 15, currency_code: "eur" } }),
+  }, edges: [edge(approved.id, "required_material", 7, { target_entity_type: "product", weight: 2 }), edge(automatic.id, "suggested_auto", -1, { target_entity_type: "product" })] });
+  const data = await page.run();
+  assert.deepEqual(ids(data.requiredMaterials), [approved.id]);
+  assert.deepEqual(data.requiredMaterials[0].graph, { sortOrder: 7, weight: 2 });
+  assert.deepEqual(data.requiredMaterials[0].price, { amount: 15, currency_code: "eur" }, "Existing approved-price contract is not migrated here");
+  assert.equal(data.sourceMaterialOffers[0].offers[0].productId, automatic.id);
+  const html = await page.render();
+  assert.equal((html.match(/data-product="approved-product"/g) ?? []).length, 1);
+  assert.ok(html.includes("Dit heb je nodig"));
+  assert.ok(sourceSection(html).includes('/product/automatic?variant=exact'));
+  assert.doesNotMatch(sourceSection(html), /data-product/);
+});
+
+for (const failure of ["errorCatalog", "rejectCatalog", "nullCatalog", "rejectCommerce", "nullCommerce", "missingCommerce"]) {
+  test(`material offers: ${failure} degrades to original source list without offers or side effects`, async () => {
+    const row = supply("needle", "Stopnaald");
+    const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [row], [failure]: true });
+    const data = await page.run();
+    assert.equal(data.sourceMaterials[0].title, "Stopnaald");
+    assert.deepEqual(data.sourceMaterialOffers, [{ ...data.sourceMaterials[0], offers: [] }]);
+    assert.doesNotMatch(sourceSection(await page.render()), /href=|Winkelprijs/);
+    if (failure.endsWith("Catalog")) assert.deepEqual(page.commerceCalls, []);
+  });
+}
+
+test("material offers: no-material/missing/draft/unsupported source performs no catalog or commerce calls", async () => {
+  for (const current of [{ body_markdown: "Geen materialen." }, { is_published: false }, { body_markdown: "## Materialen\n- stopnaald),title.ilike.%injection\n## Stappen" }]) {
+    const page = await load({ current });
+    const data = await page.run();
+    assert.ok(Array.isArray(data.sourceMaterialOffers));
+    assert.deepEqual(catalogCalls(page), []);
+    assert.deepEqual(page.commerceCalls, []);
+    if (data.article === null) assert.deepEqual(data.sourceMaterialOffers, []);
+  }
+  const missing = await load();
+  assert.deepEqual((await missing.run("absent")).sourceMaterialOffers, []);
+  assert.deepEqual(catalogCalls(missing), []);
+  assert.deepEqual(missing.commerceCalls, []);
+});
+
+test("material offers: unknown variant price never falls back to platform, product, other variant or source estimates", async () => {
+  for (const price of [undefined, { calculated_amount: 1, currency_code: "usd" }, { calculated_amount: -1, currency_code: "eur" }, { calculated_amount: NaN, currency_code: "eur" }]) {
+    const row = supply("black", "Garen");
+    const page = await load({ current: { body_markdown: "## Materialen\n- Zwart garen 100 g: € 6,95\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("wrong", "Rood 100 g", 1), variant("exact", "Zwart 100 g", 0, { calculated_price: price })]) } });
+    const data = await page.run();
+    assert.equal(data.sourceMaterialOffers[0].offers.length, 1);
+    assert.equal(data.sourceMaterialOffers[0].offers[0].price, null);
+    const rendered = sourceRow(sourceSection(await page.render()), data.sourceMaterials[0].key);
+    assert.match(rendered, /Winkelprijs onbekend/);
+    assert.ok(rendered.includes("€ 6,95"), "Original source estimate remains original text only");
+    assert.doesNotMatch(rendered, /999|1,00/);
+  }
+});
+
+test("material offers: commerce options prove single variant attributes without metadata/description pooling", async () => {
+  const row = supply("black", "Garen");
+  const good = variant("option-proof", "Default", 12.34, { options: [{ value: "Zwart", option: { title: "Kleur" } }, { value: "100 g", option: { title: "Bolgewicht" } }] });
+  const page = await load({ current: { body_markdown: "## Materialen\n- Zwart garen 100 g\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [good]) } });
+  assert.deepEqual((await page.run()).sourceMaterialOffers[0].offers[0].price, { amount: 1234, currency_code: "eur" });
+  assert.ok(sourceSection(await page.render()).includes("12,34"));
+});
+
+test("material offers: mismatches, ambiguous variants, digital/tools-for patterns, unsafe slugs and visibility do not link", async () => {
+  const cases = [
+    { catalog: { is_active: false }, variants: [variant("v", "Zwart 100 g")] },
+    { catalog: { status: "draft" }, variants: [variant("v", "Zwart 100 g")] },
+    { catalog: { product_type: "handmade" }, variants: [variant("v", "Zwart 100 g")] },
+    { catalog: { medusa_product_id: null }, variants: [variant("v", "Zwart 100 g")] },
+    { catalog: { slug: "../unsafe" }, variants: [variant("v", "Zwart 100 g")] },
+    { catalog: { title: "Garen patroon PDF" }, variants: [variant("v", "Zwart 100 g")] },
+    { catalog: { title: "Garen geschikt voor trui" }, variants: [variant("v", "Zwart 100 g")] },
+    { variants: [variant("v", "Hazelnoot 100 g")] },
+    { variants: [variant("v", "Zwart 50 g")] },
+    { variants: [variant("a", "Zwart"), variant("b", "100 g")] },
+    { variants: [variant("a", "Zwart 100 g"), variant("b", "Zwart 100 g")] },
+    { variants: [variant("a", "Default", 1, { metadata: { color: "Zwart", weight: "100 g" } })] },
+    { variants: [variant("a", "Default", 1, { options: [{ value: "Zwart 100 g", option: { title: "Description" } }] })] },
+    { variants: [variant("a", "Zwart 100 g")], commerce: { id: "wrong-id" } },
+    { variants: [variant("a", "Zwart 100 g")], commerce: { title: "Garen PDF patroon" } },
+  ];
+  for (const scenario of cases) {
+    const row = supply("candidate", "Garen", scenario.catalog);
+    const page = await load({ current: { body_markdown: "## Materialen\n- Zwart garen 100 g\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, scenario.variants, scenario.commerce) } });
+    const data = await page.run();
+    assert.deepEqual(data.sourceMaterialOffers[0].offers, [], JSON.stringify(scenario));
+    assert.doesNotMatch(sourceSection(await page.render()), /href=/);
+  }
+});
+
+test("material offers: per-family discovery and fair max-40 batch prevent yarn from displacing all four tools", async () => {
+  const yarn = Array.from({ length: 70 }, (_, index) => supply(`a-yarn-${String(index).padStart(3, "0")}`, "Accentgaren"));
+  const tools = [supply("z-hook", "Haaknaald"), supply("z-needle", "Stopnaald"), supply("z-tape", "Meetlint"), supply("z-scissors", "Schaar")];
+  const commerce = Object.fromEntries([...yarn, ...tools].map(row => [row.medusa_product_id, commerceProduct(row, [variant(`v-${row.id}`, row.title === "Accentgaren" ? "Zwart 100 g" : row.title === "Haaknaald" ? "6 mm" : "Default")])]));
+  const page = await load({ products: [...yarn, ...tools], commerce });
+  const data = await page.run();
+  const batch = page.commerceCalls[0];
+  assert.equal(batch.kind, "batch");
+  assert.equal(batch.ids.length, 40);
+  assert.equal(new Set(batch.ids).size, 40);
+  for (const row of tools) assert.ok(batch.ids.includes(row.medusa_product_id));
+  assert.equal(data.sourceMaterialOffers[2].offers.length, 2, "At most two per yarn subrequirement");
+  assert.equal(data.sourceMaterialOffers[4].offers.length, 4);
+  assert.equal(page.commerceCalls.length, 1, "No per-row/product calls");
+  const reads = catalogCalls(page);
+  assert.ok(reads.length >= 5 && reads.length <= 15);
+  for (const read of reads) {
+    assert.equal(read.select, "id,slug,title,product_type,is_active,status,medusa_product_id");
+    assert.ok(read.filters.some(([op, key, value]) => op === "eq" && key === "is_active" && value === true));
+    assert.ok(read.filters.some(([op, key, value]) => op === "eq" && key === "status" && value === "active"));
+    assert.deepEqual(read.filters.find(([op, key]) => op === "in" && key === "product_type")?.[2], ["supply"]);
+    assert.ok(read.range && read.range[1] - read.range[0] + 1 === 40 && read.range[1] < 120);
+    assert.deepEqual(read.orders, [["id", { ascending: true }]]);
+  }
+});
+
+test("material offers: duplicate/conflicting catalog rows and irrelevant titles filter before final cap, bounded pages find later candidates", async () => {
+  const invalid = Array.from({ length: 80 }, (_, index) => supply(`a-${String(index).padStart(3, "0")}`, "Stopnaald patroon PDF"));
+  const exact = supply("b-valid", "Stopnaald");
+  const conflict = supply("c-conflict", "Stopnaald");
+  const relevant = Array.from({ length: 20 }, (_, index) => supply(`d-${String(index).padStart(3, "0")}`, "Stopnaald"));
+  const beyond = supply("z-beyond", "Stopnaald");
+  const rows = [...invalid, exact, exact, conflict, { ...conflict, slug: "conflicting-slug" }, ...relevant, ...Array.from({ length: 80 }, (_, index) => supply(`e-${String(index).padStart(3, "0")}`, "Stopnaald patroon PDF")), beyond];
+  const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: rows, commerce: { [exact.medusa_product_id]: commerceProduct(exact, [variant("exact", "Default")]) } });
+  const candidates = await page.catalog([{ key: "source", title: "Stopnaald" }]);
+  assert.deepEqual(ids(candidates), [exact.id, ...relevant.map(row => row.id)]);
+  assert.equal(catalogCalls(page).length, 3);
+  assert.ok(!ids(candidates).includes(conflict.id));
+  assert.ok(!ids(candidates).includes(beyond.id), "Does not scan beyond bounded 120-row family window");
+  const data = await page.run();
+  assert.equal(data.sourceMaterialOffers[0].offers[0].productId, exact.id);
+  assert.equal(page.commerceCalls.length, 1);
+  assert.equal(page.commerceCalls[0].ids.filter(id => id === exact.medusa_product_id).length, 1);
+  assert.ok(!page.commerceCalls[0].ids.includes(conflict.medusa_product_id));
+});
+
+test("material offers: exactly two per combined subrequirement, never a flat two-offer cap per source line", async () => {
+  const rows = ["Haaknaald", "Stopnaald", "Meetlint", "Schaar"].flatMap((title, family) => Array.from({ length: 3 }, (_, index) => supply(`tool-${family}-${index}`, title)));
+  const page = await load({ current: { body_markdown: "## Materialen\n- Haaknaald 6 mm; stopnaald; meetlint; schaar\n## Stappen" }, products: rows, commerce: Object.fromEntries(rows.map(row => [row.medusa_product_id, commerceProduct(row, [variant(`v-${row.id}`, row.title === "Haaknaald" ? "6 mm" : "Default")])])) });
+  const data = await page.run();
+  const offers = data.sourceMaterialOffers[0].offers;
+  assert.equal(offers.length, 8);
+  for (const label of ["Haaknaald 6 mm", "stopnaald", "meetlint", "schaar"]) assert.equal(offers.filter(offer => offer.requirementLabel === label).length, 2);
+  assert.equal((sourceSection(await page.render()).match(/href=/g) ?? []).length, 8);
+});
+
+test("material offers: shared commerce identity hydrates once and variant query is safely encoded", async () => {
+  const first = supply("a-needle", "Stopnaald");
+  const second = supply("b-needle", "Stopnaald", { medusa_product_id: first.medusa_product_id });
+  const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [first, first, second], commerce: { [first.medusa_product_id]: commerceProduct(first, [variant("variant & needle", "Default")]) } });
+  const data = await page.run();
+  assert.equal(data.sourceMaterialOffers[0].offers.length, 2);
+  assert.deepEqual(page.commerceCalls, [{ kind: "batch", ids: [first.medusa_product_id] }]);
+  const rendered = sourceSection(await page.render());
+  assert.doesNotMatch(rendered, /<script|<img|href="javascript:/);
+  assert.ok(rendered.includes("variant=variant%20%26%20needle"));
+});
+
+test("material offers: malicious or unrecognized commerce identity stays unlinked rather than supplying positive substring evidence", async () => {
+  const row = supply("a-needle", "Stopnaald <img onerror=evil>");
+  const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("v", "Default <script>alert(1)")]) } });
+  const data = await page.run();
+  assert.deepEqual(data.sourceMaterialOffers[0].offers, []);
+  assert.deepEqual(page.commerceCalls, []);
+  assert.doesNotMatch(sourceSection(await page.render()), /<script|<img|href=|onerror/);
+});
+
+test("material offers: nullable Medusa options and zero price keep their precise contract", async () => {
+  const row = supply("needle", "Stopnaald");
+  for (const options of [null, [{ value: "Default", option: null }]]) {
+    const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("zero", "Default", 0, { options })]) } });
+    const data = await page.run();
+    assert.deepEqual(data.sourceMaterialOffers[0].offers[0].price, { amount: 0, currency_code: "eur" });
+    assert.match(sourceSection(await page.render()), /Winkelprijs:.*0,00/);
+  }
+});
+
+test("material offers: unknown White option containers block inherited commerce identity in service and TSX", async () => {
+  const row = supply("black", "Garen");
+  for (const option of [null, undefined, {}]) {
+    const page = await load({ current: { body_markdown: "## Materialen\n- Zwart garen 100 g\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("bad", "Default", 8.45, { options: [{ value: "White", option }] })], { title: "Garen zwart 100g" }) } });
+    assert.deepEqual((await page.run()).sourceMaterialOffers[0].offers, []);
+    assert.doesNotMatch(sourceSection(await page.render()), /href=|winkelwagen/i);
+  }
+});
+
+test("material offers: parsed list bullet remains valid but a signed source dimension does not link", async () => {
+  const row = supply("hook", "Haaknaald");
+  const page = await load({ current: { body_markdown: "## Materialen\n- Haaknaald 6mm\n- Haaknaald - 6mm\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("six", "6mm")]) } });
+  const data = await page.run();
+  assert.deepEqual(data.sourceMaterials.map(item => item.title), ["Haaknaald 6mm", "Haaknaald - 6mm"]);
+  assert.deepEqual(data.sourceMaterialOffers.map(item => item.offers.length), [1, 0]);
+  const section = sourceSection(await page.render());
+  assert.ok(sourceRow(section, data.sourceMaterials[0].key).includes("?variant=six"));
+  assert.doesNotMatch(sourceRow(section, data.sourceMaterials[1].key), /href=|winkelwagen/i);
+});
+
+test("material offers: plural supplies is rejected before commerce hydration and never renders an offer", async () => {
+  const row = supply("plural", "Stopnaald", { product_type: "supplies" });
+  const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("plural", "Default")]) } });
+  const data = await page.run();
+  assert.deepEqual(data.sourceMaterialOffers[0].offers, []);
+  assert.deepEqual(page.commerceCalls, []);
+  for (const key of ["requiredMaterials", "requiredTools", "optionalMaterials", "relatedProducts"]) assert.deepEqual(data[key], []);
+  assert.doesNotMatch(sourceSection(await page.render()), /href=|winkelwagen/i);
+});
+
+test("material offers: platform visibility/type filtering precedes bounded pagination, not merely final limit", async () => {
+  const rejected = Array.from({ length: 160 }, (_, index) => supply(`a-${String(index).padStart(3, "0")}`, "Stopnaald", index % 4 === 0 ? { is_active: false } : index % 4 === 1 ? { status: "published" } : index % 4 === 2 ? { product_type: "handmade" } : { medusa_product_id: null }));
+  const exact = supply("z-exact", "Stopnaald");
+  const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [...rejected, exact], commerce: { [exact.medusa_product_id]: commerceProduct(exact, [variant("exact", "Default")]) } });
+  const data = await page.run();
+  assert.equal(catalogCalls(page).length, 1, "Rejected database rows consume no discovery slots");
+  assert.deepEqual(page.commerceCalls, [{ kind: "batch", ids: [exact.medusa_product_id] }]);
+  assert.equal(data.sourceMaterialOffers[0].offers[0].productId, exact.id);
+  assert.ok(sourceSection(await page.render()).includes("/product/z-exact?variant=exact"));
+});
+
+for (const failure of ["rejectCatalog", "errorCatalog", "rejectCommerce"]) {
+  test(`material offers: ${failure} leaves approved graph intact in actual TSX`, async () => {
+    const automatic = supply("automatic", "Stopnaald");
+    const approved = supply("approved", "Goedgekeurd materiaal", { medusa_product_id: null });
+    const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [automatic, approved], edges: [edge(approved.id, "required_tool", 3, { target_entity_type: "product" })], [failure]: true });
+    const data = await page.run();
+    assert.deepEqual(ids(data.requiredTools), [approved.id]);
+    assert.deepEqual(data.sourceMaterialOffers, [{ ...data.sourceMaterials[0], offers: [] }]);
+    const html = await page.render();
+    assert.ok(html.includes('data-product="approved"'));
+    assert.ok(sourceSection(html).includes("Stopnaald"));
+    assert.doesNotMatch(sourceSection(html), /href=/);
+  });
+}

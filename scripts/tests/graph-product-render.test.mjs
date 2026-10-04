@@ -34,7 +34,12 @@ async function render(projects) {
   const transformed = ts.transpileModule(source, { fileName: "page.tsx", compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX }, reportDiagnostics: true });
   assert.deepEqual(transformed.diagnostics ?? [], [], "Actual page transpiles without syntax diagnostics");
   const module = new vm.SourceTextModule(transformed.outputText, { context });
+  // Import-aware fixture map: execute the new pure helper, never mock its price.
+  const priceHelperSource = readFileSync(new URL("../../apps/storefront/src/lib/commerce/variant-price.ts", import.meta.url), "utf8");
+  const priceHelper = new vm.SourceTextModule(ts.transpileModule(priceHelperSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText, { context });
+  await priceHelper.link(name => { throw new Error(`Pure helper dependency: ${name}`); });
   await module.link(name => {
+    if (name === "@/lib/commerce/variant-price") return priceHelper;
     assert.ok(Object.hasOwn(collaborators, name), `Unexpected import: ${name}`);
     const exports = collaborators[name];
     return new vm.SyntheticModule(Object.keys(exports), function () { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context });

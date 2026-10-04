@@ -98,6 +98,11 @@ async function loadPage(kind, edges, options = {}) {
     },
     "@/lib/platform/queries/events": { listEventsByIds: byIds(events.filter(row => row.is_active)) },
     "@/lib/platform/queries/creators": { getCreatorById: async () => null },
+    // This suite isolates graph hydration; the actual offer pipeline is exercised
+    // with query/commerce/React boundaries in graph-live-article.test.mjs.
+    "@/lib/services/article-material-offers": {
+      getArticleMaterialOffers: async materials => materials.map(({ key, title }) => ({ key, title, offers: [] })),
+    },
     "@/lib/platform/queries/projects": { listApprovedCommunityGalleryForArticle: async () => [] },
     "@/lib/platform/queries/learning-paths": { listNextLearningPathArticleIds: async () => [] },
     "@/lib/platform/queries/workshop-categories": { getWorkshopCategoryById: async () => null },

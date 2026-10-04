@@ -15,6 +15,8 @@ import type { Article, Creator, Event, Product, Workshop } from "@/types/platfor
 import type { CommunityGalleryProject } from "@/lib/content/community-gallery";
 import { extractArticleEditorialSlugs } from "@/lib/content/article-editorial-links";
 import { parseArticleSourceMaterials, type ParsedArticleMaterial } from "@/lib/content/parse-article-materials";
+import { getArticleMaterialOffers } from "@/lib/services/article-material-offers";
+import type { SourceMaterialWithOffers } from "@/lib/content/article-material-offers";
 
 export type ProductWithPrice = Product & {
   price?: { amount: number; currency_code: string } | null;
@@ -28,6 +30,7 @@ export type ArticlePageData = {
   article: Article | null;
   author: Creator | null;
   sourceMaterials: ParsedArticleMaterial[];
+  sourceMaterialOffers: SourceMaterialWithOffers[];
   requiredMaterials: GraphProduct[];
   requiredTools: GraphProduct[];
   optionalMaterials: GraphProduct[];
@@ -84,6 +87,7 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
       article: null,
       author: null,
       sourceMaterials: [],
+      sourceMaterialOffers: [],
       requiredMaterials: [],
       requiredTools: [],
       optionalMaterials: [],
@@ -97,6 +101,7 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     };
   }
 
+  const sourceMaterials = parseArticleSourceMaterials(article.body_markdown);
   const entityConnections = await getEntityConnections("article", article.id);
   const graphRelations = normalizeArticleGraphRelations(entityConnections);
   const editorialSlugs = extractArticleEditorialSlugs(article.body_markdown, article.slug);
@@ -122,6 +127,7 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     relatedCreators,
     relatedEvents,
     communityProjects,
+    sourceMaterialOffers,
   ] = await Promise.all([
     getGraphProducts(graphRelations.requiredMaterials),
     getGraphProducts(graphRelations.requiredTools),
@@ -146,6 +152,7 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
       : [],
     listEventsByIds(relatedEventIds),
     listApprovedCommunityGalleryForArticle(article.id),
+    getArticleMaterialOffers(sourceMaterials),
   ]);
 
   const nextStepIds =
@@ -180,7 +187,8 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
   return {
     article,
     author: author ?? null,
-    sourceMaterials: parseArticleSourceMaterials(article.body_markdown),
+    sourceMaterials,
+    sourceMaterialOffers,
     requiredMaterials,
     requiredTools,
     optionalMaterials,
