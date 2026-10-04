@@ -190,7 +190,7 @@ function requirements(title: string): Requirement[] {
     // A fully recognized, separate consumption annotation cannot replace the
     // purchased ball weight. Unknown prose/constraints invalidate the line.
     if (/^de bron noemt circa \d+(?:[.,]\d+)?\s*(?:g|gram)\s+gebruik\.?$/i.test(segment) && result.length > 0) continue;
-    let label = segment.replace(/(?:[, :]\s*)?(?:geraamd op\s*)?€\s*\d+(?:[.,]\d+)?\.?\s*$/i, "").replace(/[,:.\s]+$/, "").trim();
+    const label = segment.replace(/(?:[, :]\s*)?(?:geraamd op\s*)?€\s*\d+(?:[.,]\d+)?\.?\s*$/i, "").replace(/[,:.\s]+$/, "").trim();
     if (!label) return [];
     const text = normalized(label).replace(/\b(\d+)\s*(bollen?|bolletjes?|stuks?)\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gram|grams)\b)/g, "$1 $2 ");
     if (!safeEvidence(text)) return [];
