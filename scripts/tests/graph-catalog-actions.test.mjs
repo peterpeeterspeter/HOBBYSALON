@@ -23,6 +23,7 @@ async function fixture(options={}) {
         }
         reads.push({table,filters:this.filters});timeline.push('read:'+table);
         if(table===options.readError) return {data:null,error:{message:'read failed'}};
+        if(Object.hasOwn(options.rawResults??{},table)) return {data:options.rawResults[table],error:null};
         const rows=(tables[table]??[]).filter(r=>this.filters.every(([k,v,op])=>op==='neq'?r[k]!==v:op==='in'?v.includes(r[k]):r[k]===v)).slice(this.start,this.end+1);
         const projected=rows.map(r=>this.columns==='*'?{...r}:Object.fromEntries(this.columns.split(',').map(k=>[k,r[k]])));
         return {data:single?(projected[0]??null):projected,error:null};
@@ -62,11 +63,14 @@ async function fixture(options={}) {
   const mod=await real('apps/storefront/src/app/actions/dashboard.ts');await mod.evaluate();
   const form=new FormData();for(const [k,v] of Object.entries({id:A,title:'Mandje haken',slug:'mandje',article_type:'tutorial',body_markdown:'## Materialen\n- Haaknaald 6 mm'}))form.set(k,v);
   const invoke=async action=>{try{await mod.namespace[action](form);}catch(e){assert.ok(e.digest?.startsWith('NEXT_REDIRECT'));return e.location;}};
-  return {reads,writes,revalidated,rpcs,timeline,update:()=>invoke('updateArticleAction'),create:()=>invoke('createArticleAction')};
+  return {reads,writes,revalidated,rpcs,timeline,tables,update:()=>invoke('updateArticleAction'),create:()=>invoke('createArticleAction')};
 }
 test('actual article update uses entire catalog and atomic RPC, never deletes previous proposals',async()=>{
   const f=await fixture();const location=await f.update();
-  assert.ok(!location.includes('error='),location);
+  const url=new URL(location,'http://fixture.invalid');
+  assert.equal(url.pathname,'/profile');assert.equal(url.searchParams.get('tab'),'profiel');
+  assert.equal(url.searchParams.get('success'),'Artikel bijgewerkt. Suggesties vernieuwd.');
+  assert.equal(url.searchParams.has('error'),false);
   assert.equal(f.writes.filter(w=>w.op==='delete').length,0);
   assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);
   const insert=f.rpcs.find(r=>r.name==='graph_propose_article_suggestions');assert.ok(insert);
@@ -78,14 +82,66 @@ test('actual article update uses entire catalog and atomic RPC, never deletes pr
   assert.ok(f.reads.filter(r=>r.table==='products').every(r=>!r.filters.some(([k])=>k==='creator_id')));
 });
 test('existing pending nomination survives ordinary article update without duplicate insert',async()=>{
+  // Retained-state suppression is covered separately from the positive RPC path.
   const f=await fixture({links:[{id:'l',source_entity_type:'article',source_entity_id:A,target_entity_type:'product',target_entity_id:'p',relation_type:'suggested_auto'}]});
   await f.update();assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);
   assert.equal(f.rpcs.filter(r=>r.name==='graph_propose_article_suggestions').length,0);
+});
+test('actual article creation preserves profile tab and success parameters after atomic proposals',async()=>{
+  const f=await fixture();const location=await f.create();const url=new URL(location,'http://fixture.invalid');
+  assert.equal(url.pathname,'/profile');assert.equal(url.searchParams.get('tab'),'profiel');
+  assert.equal(url.searchParams.get('success'),'Artikel opgeslagen met link-suggesties.');
+  assert.equal(url.searchParams.has('error'),false);
+  assert.equal(f.writes.length,1);assert.equal(f.writes[0].table,'articles');assert.equal(f.writes[0].op,'insert');
+  assert.deepEqual(f.rpcs.map(r=>r.name),['graph_article_fingerprint','graph_propose_article_suggestions']);
 });
 test('catalog read failure does not delete existing links or report successful refresh',async()=>{
   const f=await fixture({readError:'event_domains'});const location=await f.update();
   assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);assert.ok(location.includes('error='),location);
 });
+const invalidCatalogResults = [
+  ['null response', null],
+  ['undefined response', undefined],
+  ['object response', {}],
+  ['string response', 'invalid catalog'],
+  ['number response', 1],
+  ['boolean response', false],
+  ['null row', [null]],
+  ['undefined row', [undefined]],
+  ['array row', [[]]],
+  ['string row', ['invalid catalog row']],
+  ['number row', [1]],
+  ['boolean row', [false]],
+  ['valid row followed by an invalid row', [{event_id:'event',domain_id:'domain'}, []]],
+];
+for (const action of ['create','update']) {
+  for (const [label, rawResult] of invalidCatalogResults) {
+    test(`${action}: invalid catalog ${label} fails closed after saving without proposing or changing links`,async()=>{
+      const links=[
+        {id:'pending',source_entity_type:'article',source_entity_id:A,target_entity_type:'product',target_entity_id:'old',relation_type:'suggested_auto'},
+        {id:'manual',source_entity_type:'article',source_entity_id:A,target_entity_type:'product',target_entity_id:'approved',relation_type:'related_product'},
+      ];
+      const originalLinks=structuredClone(links);
+      // With no events, downstream catalog parsing never consumes these rows.
+      // Only the real CatalogRead boundary can reject every malformed row here.
+      const f=await fixture({links,rawResults:{event_domains:rawResult}});
+      const location=await f[action]();const params=new URL(location,'http://fixture.invalid').searchParams;
+      assert.ok(f.reads.some(r=>r.table==='event_domains'));
+      assert.equal(params.get('tab'),'profiel');
+      assert.equal(params.get('success'),'Artikel opgeslagen.');
+      assert.ok(params.get('error')?.includes('link-suggesties'),location);
+      assert.equal(f.tables.articles[0].title,'Mandje haken');
+      assert.equal(f.writes.length,1);
+      assert.equal(f.writes[0].table,'articles');
+      assert.equal(f.writes[0].op,action==='create'?'insert':'update');
+      assert.equal(f.rpcs.length,1);
+      assert.equal(f.rpcs[0].name,'graph_article_fingerprint');
+      assert.deepEqual(Object.entries(f.rpcs[0].args),[['p_article_id',A]]);
+      assert.deepEqual(f.tables.entity_links,originalLinks);
+      assert.deepEqual(f.revalidated,['/profile']);
+    });
+  }
+}
 test('zero affected article update never starts suggestion reads or writes',async()=>{
   const f=await fixture({zeroAffected:true});await f.update();
   assert.ok(f.reads.every(r=>r.table==='articles'));assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);

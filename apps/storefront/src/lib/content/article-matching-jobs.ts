@@ -1,5 +1,4 @@
-import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions } from "./article-catalog-pipeline";
-import type { CatalogArticle, CatalogRead } from "./article-catalog-pipeline";
+import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogArticle, type CatalogRead } from "./article-catalog-pipeline";
 
 /** No environment, SDK, scheduler or network capability: callers explicitly supply both ports. */
 export type MatchingRpc = (name: string, args: Record<string, unknown>) => Promise<unknown>;

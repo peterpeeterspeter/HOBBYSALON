@@ -1,5 +1,4 @@
-import { matchArticleCatalog } from "./article-catalog-matcher";
-import type { CatalogCandidate } from "./article-catalog-matcher";
+import { matchArticleCatalog, type CatalogCandidate } from "./article-catalog-matcher";
 import { isWorkshopListingPubliclyVisible } from "../pricing/workshop-launch-offer";
 
 export type CatalogReadRequest = {

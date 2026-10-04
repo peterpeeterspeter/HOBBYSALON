@@ -3,8 +3,7 @@ import { readFile } from "node:fs/promises";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env";
-import { loadArticleCatalog, loadArticleExistingKeys, loadCatalogArticles, planArticleSuggestions } from "../src/lib/content/article-catalog-pipeline";
-import type { CatalogRead } from "../src/lib/content/article-catalog-pipeline";
+import { loadArticleCatalog, loadArticleExistingKeys, loadCatalogArticles, planArticleSuggestions, type CatalogRead } from "../src/lib/content/article-catalog-pipeline";
 
 // Read-only by design. The dashboard save action may insert pending nominations;
 // this tool has no write flag, SDK client, automatic approval or delete path.

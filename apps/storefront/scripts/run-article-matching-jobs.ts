@@ -3,8 +3,7 @@ import { readFile } from "node:fs/promises";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env";
-import { runArticleMatchingJobs } from "../src/lib/content/article-matching-jobs";
-import type { MatchingRpc } from "../src/lib/content/article-matching-jobs";
+import { runArticleMatchingJobs, type MatchingRpc } from "../src/lib/content/article-matching-jobs";
 import type { CatalogRead } from "../src/lib/content/article-catalog-pipeline";
 
 type Args = {help:boolean;maxJobs:number;maxCatalogBatches:number;envFile?:string};
@@ -29,7 +28,14 @@ export function parseWorkerArgs(argv: string[]): Args {
   return args;
 }
 async function fileEnv(file: string, required = false): Promise<Record<string,string>> {
-  try { return parseEnv(await readFile(file,"utf8")); }
+  try {
+    const entries: Array<[string, string]> = [];
+    for (const [name, value] of Object.entries(parseEnv(await readFile(file,"utf8")))) {
+      if (typeof value !== "string") throw new Error("Invalid worker environment value");
+      entries.push([name, value]);
+    }
+    return Object.fromEntries(entries);
+  }
   catch (error) {
     if (!required && (error as NodeJS.ErrnoException).code === "ENOENT") return {};
     throw new Error("Cannot read worker environment file");

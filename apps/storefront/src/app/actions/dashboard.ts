@@ -31,9 +31,8 @@ import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { resolveArticleSuggestionRelation } from "@/lib/content/article-suggestion-relation";
-import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions } from "@/lib/content/article-catalog-pipeline";
+import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
 import { toArticleProposalPayload } from "@/lib/content/article-matching-jobs";
-import type { CatalogRead } from "@/lib/content/article-catalog-pipeline";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
 import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import {
@@ -634,7 +633,17 @@ async function generateArticleLinkSuggestions(input: {
     for (const column of request.order) query = query.order(column, { ascending: true });
     const { data, error } = await query.range(request.offset, request.offset + request.limit - 1);
     if (error) throw new Error(`Laden van link-suggesties mislukt (${request.table}).`);
-    return data ?? [];
+    const rows: unknown = data;
+    if (!Array.isArray(rows)) throw new Error(`Ongeldige link-suggesties (${request.table}).`);
+    const records: CatalogRow[] = [];
+    for (const value of rows) {
+      const row: unknown = value;
+      if (row === null || typeof row !== "object" || Array.isArray(row)) {
+        throw new Error(`Ongeldige link-suggesties (${request.table}).`);
+      }
+      records.push(Object.fromEntries(Object.entries(row)));
+    }
+    return records;
   };
   // Fence before reading persisted content: submitted form data may already be stale
   // after a concurrent save. SQL revalidates this fingerprint atomically on insertion.
@@ -1316,7 +1325,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       articleId: article.id, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    ok(CREATOR_MAKER_PATH, "Artikel opgeslagen met link-suggesties.");
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel opgeslagen met link-suggesties." }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1371,7 +1380,7 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       articleId, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    ok(CREATOR_MAKER_PATH, "Artikel bijgewerkt. Suggesties vernieuwd.");
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel bijgewerkt. Suggesties vernieuwd." }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
