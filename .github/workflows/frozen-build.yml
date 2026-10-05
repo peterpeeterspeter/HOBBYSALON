@@ -2,12 +2,12 @@ name: Frozen Hobbysalon candidate build only
 on:
   push:
     branches:
-      - ops/backend-frozen-build-20261005
+      - ops/backend-refund-gate-build-20261005
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: frozen-backend-candidate-20261005
+  group: refund-gate-candidate-20261005
   cancel-in-progress: false
 jobs:
   build:
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: hobbysalon-frozen-candidate-20261005
+          name: hobbysalon-refund-gate-candidate-20261005
           path: release-output/
           compression-level: 0
           retention-days: 7
