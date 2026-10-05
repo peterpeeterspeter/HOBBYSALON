@@ -1,6 +1,7 @@
 import json,hashlib,subprocess,tarfile,io
 from pathlib import Path
-out=Path('release-output');out.mkdir()
+out=Path('release-output');out.mkdir(exist_ok=True)
+assert not (out/'build-acceptance.json').exists(),'NO_STALE_ACCEPTANCE'
 tag='hobbysalon-release-candidate:recovery-20261005'
 ident=json.loads(subprocess.check_output(['docker','image','inspect',tag]))[0]
 container=subprocess.check_output(['docker','create','--network','none','--entrypoint','/bin/true',tag],text=True).strip()
