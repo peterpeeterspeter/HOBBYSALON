@@ -1,0 +1,54 @@
+name: Frozen Hobbysalon candidate build only
+on:
+  push:
+    branches:
+      - ops/backend-frozen-build-20261005
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: frozen-backend-candidate-20261005
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact approved buildinput
+        run: python3 release-input/verify-input.py
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+      - name: Offline recipe preflight
+        run: sh /tmp/approved-context/deploy/release/recipe.sh verify
+      - name: Frozen image build from approved archive only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-output
+          df -h /
+          free -m
+          docker buildx build --pull --load --progress=plain --file /tmp/approved-context/apps/backend/Dockerfile --tag hobbysalon-release-candidate:recovery-20261005 /tmp/approved-context 2>&1 | tee release-output/build.log
+      - name: Verify installed parity and baked source receipts
+        run: python3 release-input/verify-image.py
+      - name: Export exact immutable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker save hobbysalon-release-candidate:recovery-20261005 | gzip -1 > release-output/backend-image.tar.gz
+          cd release-output
+          sha256sum backend-image.tar.gz > archive-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: hobbysalon-frozen-candidate-20261005
+          path: release-output/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: warn
