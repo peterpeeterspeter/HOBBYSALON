@@ -48,6 +48,7 @@ async function fixture(options={}) {
     const mod=new vm.SourceTextModule(src,{context,identifier:path});cache.set(path,mod);
     const bindings=new Map([...src.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)].map(m=>[m[2],m[1].split(',').map(s=>s.trim()).filter(Boolean)]));
     await mod.link(async spec=>{
+      if(spec==='@/lib/dashboard/return-path') return real('apps/storefront/src/lib/dashboard/return-path.ts');
       if(spec==='@/lib/profile/creator-maker-path') return real('apps/storefront/src/lib/profile/creator-maker-path.ts');
       if(spec==='@/lib/content/article-catalog-pipeline') return real('apps/storefront/src/lib/content/article-catalog-pipeline.ts');
       if(spec==='@/lib/content/article-matching-jobs') return real('apps/storefront/src/lib/content/article-matching-jobs.ts');
@@ -68,7 +69,7 @@ async function fixture(options={}) {
 test('actual article update uses entire catalog and atomic RPC, never deletes previous proposals',async()=>{
   const f=await fixture();const location=await f.update();
   const url=new URL(location,'http://fixture.invalid');
-  assert.equal(url.pathname,'/profile');assert.equal(url.searchParams.get('tab'),'profiel');
+  assert.equal(url.pathname,'/dashboard/pagina');assert.equal(url.searchParams.get('tab'),'profiel');
   assert.equal(url.searchParams.get('success'),'Artikel bijgewerkt. Suggesties vernieuwd.');
   assert.equal(url.searchParams.has('error'),false);
   assert.equal(f.writes.filter(w=>w.op==='delete').length,0);
@@ -89,7 +90,7 @@ test('existing pending nomination survives ordinary article update without dupli
 });
 test('actual article creation preserves profile tab and success parameters after atomic proposals',async()=>{
   const f=await fixture();const location=await f.create();const url=new URL(location,'http://fixture.invalid');
-  assert.equal(url.pathname,'/profile');assert.equal(url.searchParams.get('tab'),'profiel');
+  assert.equal(url.pathname,'/dashboard/pagina');assert.equal(url.searchParams.get('tab'),'profiel');
   assert.equal(url.searchParams.get('success'),'Artikel opgeslagen met link-suggesties.');
   assert.equal(url.searchParams.has('error'),false);
   assert.equal(f.writes.length,1);assert.equal(f.writes[0].table,'articles');assert.equal(f.writes[0].op,'insert');
@@ -138,7 +139,7 @@ for (const action of ['create','update']) {
       assert.equal(f.rpcs[0].name,'graph_article_fingerprint');
       assert.deepEqual(Object.entries(f.rpcs[0].args),[['p_article_id',A]]);
       assert.deepEqual(f.tables.entity_links,originalLinks);
-      assert.deepEqual(f.revalidated,['/profile']);
+      assert.deepEqual(f.revalidated,['/profile','/dashboard/pagina']);
     });
   }
 }

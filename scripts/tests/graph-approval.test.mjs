@@ -130,6 +130,11 @@ async function fixture(options = {}) {
   const importBindings = new Map([...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)]
     .map((match) => [match[2], match[1].split(",").map((name) => name.trim()).filter(Boolean)]));
   await dashboard.link(async (specifier) => {
+    if (specifier === "@/lib/dashboard/return-path") {
+      const helper = new vm.SourceTextModule(stripTypeScriptTypes(source("apps/storefront/src/lib/dashboard/return-path.ts")), { context, identifier: specifier });
+      await helper.link(tripwire);
+      return helper;
+    }
     if (specifier === "@/lib/content/article-suggestion-relation") {
       const helper = new vm.SourceTextModule(stripTypeScriptTypes(source(relationPath)), { context, identifier: relationPath });
       await helper.link(tripwire);
@@ -196,7 +201,7 @@ for (const submittedId of [LINK_ID.toUpperCase(), LINK_ID.replace("abcdefab", "a
     t.diagnostic(JSON.stringify({ rpcMatched: f.calls.rpcs[0].matching, persistedRole: f.link.relation_type, ...result, revalidated: f.calls.revalidated }));
     assert.equal(result.success, "Suggestie bevestigd.");
     assert.equal(result.error, null);
-    assert.deepEqual(f.calls.revalidated, ["/profile"]);
+    assert.deepEqual(f.calls.revalidated, ["/profile", "/dashboard/pagina"]);
   });
 }
 
@@ -208,7 +213,7 @@ for (const relation of [undefined, "", "  ", "related", ...PRODUCT_ROLES]) {
     assert.equal(result.error, null);
     assert.equal(f.link.relation_type, PRODUCT_ROLES.includes(relation) ? relation : "related_product");
     assert.deepEqual(f.calls.rpcs[0].args, { p_link_id: LINK_ID, p_article_id: ARTICLE_ID, p_creator_id: CREATOR_ID, p_relation: f.link.relation_type });
-    assert.deepEqual(f.calls.revalidated, ["/profile"]);
+    assert.deepEqual(f.calls.revalidated, ["/profile", "/dashboard/pagina"]);
     assert.equal(f.link.weight, 7, "Approval does not rescore the link");
   });
 }
@@ -379,7 +384,7 @@ test("two concurrent pending approvals allow exactly one winner without overwrit
   assert.equal(results.filter((result) => result.error).length, 1);
   assert.equal(f.link.relation_type, winner === 0 ? "required_material" : "required_tool");
   assert.equal(f.calls.rpcs.filter((update) => update.matching).length, 1);
-  assert.deepEqual(f.calls.revalidated, ["/profile"]);
+  assert.deepEqual(f.calls.revalidated, ["/profile", "/dashboard/pagina"]);
 });
 
 test("confirmation form leaves relation default to the server", () => {

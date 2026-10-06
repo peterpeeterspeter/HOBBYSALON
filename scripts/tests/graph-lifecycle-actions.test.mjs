@@ -38,7 +38,7 @@ async function fixture(options={}) {
   if(affected)deleted=true;
   return {data:options.responseData!==undefined?options.responseData:affected,error:null};
  };
- const collaborators={createPlatformClient:()=>{dbClients++;return {from,rpc}},getAuthUser:async()=>options.unauthenticated?null:{id:'user'},getCreatorByUserId:async()=>options.noCreator?null:{id:C},creatorMakerProfileUrl:()=>'/profile',revalidatePath:p=>revalidated.push(p),redirect(location){const e=Error('redirect');e.digest='NEXT_REDIRECT;';e.location=location;throw e}};
+ const collaborators={createPlatformClient:()=>{dbClients++;return {from,rpc}},getAuthUser:async()=>options.unauthenticated?null:{id:'user'},getCreatorByUserId:async()=>options.noCreator?null:{id:C},creatorMakerProfileUrl:()=>'/profile',withFlash:(path,kind,message)=>`${path}${path.includes('?')?'&':'?'}${kind}=${encodeURIComponent(message)}`,revalidatePath:p=>revalidated.push(p),redirect(location){const e=Error('redirect');e.digest='NEXT_REDIRECT;';e.location=location;throw e}};
  const ctx=vm.createContext({FormData,Error,URL,fetch:tripwire});const text=stripTypeScriptTypes(readFileSync(new URL('apps/storefront/src/app/actions/dashboard.ts',root),'utf8'));const m=new vm.SourceTextModule(text,{context:ctx});
  const bindings=new Map([...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)].map(x=>[x[2],x[1].split(',').map(s=>s.trim()).filter(Boolean)]));
  await m.link(async spec=>{
@@ -58,7 +58,7 @@ async function fixture(options={}) {
 test('dismissal pre-reads the exact pending edge and owner, then calls the managed RPC with edge ID, not source ID',async()=>{
  const f=await fixture();assert.equal(f.params.get('success'),'Suggestie verwijderd.');assert.equal(f.params.get('error'),null);assert.equal(f.rpcs.length,1);
  assert.deepEqual(f.rpcs[0].args,{p_link_id:L,p_article_id:A,p_creator_id:C,p_relation:null});
- assert.notEqual(f.rpcs[0].args.p_link_id,f.rpcs[0].args.p_article_id);assert.equal(f.deleted,true);assert.deepEqual(f.revalidated,['/profile']);
+ assert.notEqual(f.rpcs[0].args.p_link_id,f.rpcs[0].args.p_article_id);assert.equal(f.deleted,true);assert.deepEqual(f.revalidated,['/profile','/dashboard/pagina']);
 });
 for(const option of [{race:true},{zeroAffected:true},{dbError:true},{notOwner:true},{ownerRace:true},{race:{source_entity_type:'product'}},{race:{source_entity_id:'other'}}])test(`dismissal refuses misleading success ${JSON.stringify(option)}`,async()=>{
  const f=await fixture(option);assert.equal(f.params.get('success'),null);assert.ok(f.params.get('error'));assert.equal(f.deleted,false);assert.deepEqual(f.revalidated,[]);
