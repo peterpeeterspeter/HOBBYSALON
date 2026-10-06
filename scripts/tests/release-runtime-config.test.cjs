@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const { randomBytes } = require('node:crypto');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const { spawnSync } = require('node:child_process');
@@ -216,10 +217,11 @@ test('migration directories can be scanned without writes under an unprivileged 
   assert.equal(child.status, 0, child.stderr);
 });
 
+// Ephemeral offline signing fixtures: never read host credentials or deploy these values.
 const production = {
   NODE_ENV: 'production', REDIS_URL: 'redis://offline.invalid:6379/2',
-  JWT_SECRET: 'J8zP4qW9rT6xK3vN5mL2sD7fH0aB1cE4',
-  COOKIE_SECRET: 'C7yR3pV8sU5wM2nQ4kL9tF6gH1bD0aE3',
+  JWT_SECRET: randomBytes(32).toString('hex'),
+  COOKIE_SECRET: randomBytes(32).toString('hex'),
 };
 async function config(env, loaded = {}) {
   const isolatedEnv = { ...env }, calls = [], output = { exports: {} };

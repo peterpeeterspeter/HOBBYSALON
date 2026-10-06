@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -10,8 +11,9 @@ import vm from 'node:vm';
 const root = new URL('../../', import.meta.url);
 const configPath = new URL('apps/backend/medusa-config.ts', root);
 const helperPath = new URL('apps/backend/src/utils/signing-secrets.ts', root);
-const jwt = 'J8zP4qW9rT6xK3vN5mL2sD7fH0aB1cE4';
-const cookie = 'C7yR3pV8sU5wM2nQ4kL9tF6gH1bD0aE3';
+// Ephemeral offline signing fixtures: never read host credentials or deploy these values.
+const jwt = randomBytes(32).toString('hex');
+const cookie = randomBytes(32).toString('hex');
 const valid = { NODE_ENV: 'production', JWT_SECRET: jwt, COOKIE_SECRET: cookie, REDIS_URL: 'redis://127.0.0.1:6379' };
 const originalEnv = { ...process.env };
 const source = (path) => stripTypeScriptTypes(readFileSync(path, 'utf8'), { mode: 'strip' });
