@@ -8,6 +8,8 @@ import {
 type AccountChoiceCardsProps = {
   nextPath?: string | null;
   current?: AccountRegistrationType;
+  title?: string;
+  lead?: string;
 };
 
 const CHOICES: Array<{
@@ -18,28 +20,28 @@ const CHOICES: Array<{
 }> = [
   {
     type: "workshopgever",
-    title: "Workshopgever",
+    title: "Workshops geven",
     description:
       "Maak je eigen profiel, publiceer workshops en ontvang aanvragen van geïnteresseerden.",
     icon: Presentation,
   },
   {
     type: "maker",
-    title: "Maker",
+    title: "Mijn creaties, tutorials of patronen delen",
     description:
-      "Toon je creaties en laat hobbyisten ontdekken wat je maakt.",
+      "Toon wat je maakt of deel je kennis, en laat hobbyisten je werk ontdekken.",
     icon: Sparkles,
   },
   {
     type: "organizer",
-    title: "Organisator",
+    title: "Een markt of evenement organiseren",
     description:
       "Publiceer je markt, beurs of creatief evenement in de Hobbysalon-agenda.",
     icon: CalendarDays,
   },
   {
     type: "merchant",
-    title: "Hobbymaterialenverkoper",
+    title: "Mijn winkel of materialen aanbieden",
     description:
       "Presenteer je winkel en materialen aan een gericht creatief publiek.",
     icon: Package,
@@ -79,6 +81,8 @@ function shouldHideChoice(
 export function AccountChoiceCards({
   nextPath,
   current,
+  title = "Wil je zelf iets aanbieden?",
+  lead = "Kies wat bij jou past. Je kunt later altijd iets toevoegen.",
 }: AccountChoiceCardsProps) {
   const visibleChoices = CHOICES.filter(
     (choice) => !shouldHideChoice(choice.type, current)
@@ -96,16 +100,15 @@ export function AccountChoiceCards({
           id="account-choice-title"
           className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
         >
-          Wil je zelf iets aanbieden?
+          {title}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          Eén account kan meerdere rollen hebben. Kies hieronder wat bij jou past.
-          Je kunt later altijd uitbreiden via je account.
+        <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+          {lead}
         </p>
       </div>
 
       <div className="grid gap-3">
-        {visibleChoices.map(({ type, title, description, icon: Icon }) => (
+        {visibleChoices.map(({ type, title: choiceTitle, description, icon: Icon }) => (
           <Link
             key={type}
             href={getAccountRegistrationHref(type, nextPath)}
@@ -115,10 +118,10 @@ export function AccountChoiceCards({
               <Icon size={22} aria-hidden="true" />
             </span>
             <span className="min-w-0 pt-0.5">
-              <span className="block text-base font-semibold text-[var(--foreground)] group-hover:text-[var(--accent)]">
-                {title}
+              <span className="block text-lg font-semibold text-[var(--foreground)] group-hover:text-[var(--accent)]">
+                {choiceTitle}
               </span>
-              <span className="mt-1 block text-sm leading-relaxed text-[var(--muted)]">
+              <span className="mt-1 block text-base leading-relaxed text-[var(--muted)]">
                 {description}
               </span>
             </span>
@@ -126,12 +129,12 @@ export function AccountChoiceCards({
         ))}
       </div>
 
-      {current && current !== "member" && (
-        <p className="mt-4 text-sm text-[var(--muted)]">
+      {current && current !== "member" && current !== "aanbieder" && (
+        <p className="mt-4 text-base text-[var(--muted)]">
           Liever eerst een gratis account?{" "}
           <Link
             href={getAccountRegistrationHref("member", nextPath)}
-            className="font-medium text-[var(--accent)] underline"
+            className="font-semibold text-[var(--accent)] underline underline-offset-4"
           >
             Maak je Hobbysalon-account
           </Link>

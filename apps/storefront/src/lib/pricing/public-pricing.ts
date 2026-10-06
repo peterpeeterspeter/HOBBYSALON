@@ -285,7 +285,7 @@ export const CONTENT_CREATOR_OFFER: PublicPricingOffer = {
     "Materialenlijsten gekoppeld",
     "Verdienen via affiliate en digitale patronen: binnenkort",
   ],
-  href: "/register/creator",
+  href: "/register/creator?focus=maker",
   ctaLabel: "Word contentmaker",
 };
 
@@ -304,7 +304,7 @@ export const P2P_MAKER_OFFER: PublicPricingOffer = {
     "Geen commissie op je verkoop",
     "Boosts met extra credits",
   ],
-  href: "/register/creator",
+  href: "/register/creator?focus=maker",
   ctaLabel: "Maak je makersprofiel",
   finePrint:
     "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
@@ -325,7 +325,7 @@ export const WORKSHOP_OFFER: PublicPricingOffer = {
     "Tot drie sessiedata in één vermelding",
     "Geen commissie per deelnemer",
   ],
-  href: "/register/creator",
+  href: "/register/creator?focus=workshopgever",
   ctaLabel: "Plaats je workshop",
   finePrint: "Lanceraanbod tot 1 oktober 2026.",
 };
@@ -347,7 +347,7 @@ export const HOBBYBEURZEN_OFFER: PublicPricingOffer = {
     "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
     "Updates voor bezoekers in de aanloop naar de dag zelf",
   ],
-  href: "/register/creator",
+  href: "/register/creator?focus=organizer",
   ctaLabel: "Bespreek een eventpagina",
   finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
 };
@@ -369,7 +369,7 @@ export const MAKERS_MARKET_OFFER: PublicPricingOffer = {
     "Praktische informatie: parkeren, toegangsprijs, bereikbaarheid",
     "Updates voor bezoekers in de aanloop naar de dag zelf",
   ],
-  href: "/register/creator",
+  href: "/register/creator?focus=organizer",
   ctaLabel: "Bespreek een eventpagina",
   finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
 };
@@ -438,7 +438,7 @@ export const CONTENT_PAGE = {
   /** Short hero line (viewport budget) */
   heroSubheadline:
     "Gratis tutorials en patronen voor hobbyisten die gericht zoeken naar wat jij uitlegt.",
-  primaryCta: { label: "Word contentmaker", href: "/register/creator" },
+  primaryCta: { label: "Word contentmaker", href: "/register/creator?focus=maker" },
   secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
   intro:
     "Publiceer tutorials, patronen en praktische gidsen onder je eigen makersprofiel, gratis, vanaf vandaag. Je schrijft voor een community van ruim 40.000 hobbyisten die gericht op zoek zijn naar wat jij uitlegt.",

@@ -15,22 +15,16 @@ import {
 import { turnstileErrorMessage } from "@/lib/auth/turnstile";
 import { createPlatformClient } from "@/lib/platform/client";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
-import { creatorTypesRequiringApproval } from "@/lib/auth/role-request-status";
-import {
-  ROLE_REQUEST_PENDING_MESSAGE,
-} from "@/lib/platform/queries/role-requests";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
+  inferCountryFromPostalCode,
   parseRegistrationOfferRoles,
   resolveOfferOnboardingPath,
   type RegistrationInterestType,
 } from "@/lib/auth/registration-options";
-import { provisionCreatorSeller } from "@/lib/commerce/medusa/creator-registration";
 import { completeMerchantOnboarding } from "@/lib/commerce/medusa/merchant-onboarding";
-import { persistCreatorRegistrationProfile } from "@/lib/platform/queries/creator-registration";
 import {
   getUserRegistrationContext,
-  linkUserToSeller,
   persistUserRegistrationProfile,
   runRegistrationCompatibilityMigration,
 } from "@/lib/platform/queries/user-registration";
@@ -55,13 +49,6 @@ export type AuthActionState = {
 const ALLOWED_REGISTRATION_INTEREST_TYPES = new Set<string>(
   REGISTRATION_ALLOWED_INTEREST_TYPES
 );
-const ALLOWED_CREATOR_TYPES = new Set<string>([
-  "maker",
-  "workshopgever",
-  "supplier",
-  "content_creator",
-  "organizer",
-]);
 
 function readCaptchaToken(
   formData: FormData
@@ -164,7 +151,9 @@ export async function registerAction(
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
   const password = formData.get("password")?.toString() ?? "";
   const postalCode = formData.get("postal_code")?.toString() ?? null;
-  const countryCode = formData.get("country_code")?.toString() ?? null;
+  const countryCode =
+    formData.get("country_code")?.toString() ||
+    inferCountryFromPostalCode(postalCode);
   const interestTypes = parseInterestTypes(formData);
   const preferredDomainIds = (formData.getAll("preferred_domain_ids") ?? [])
     .map((value) => value.toString().trim())
@@ -298,171 +287,6 @@ export async function registerAction(
       message: profilePersisted
         ? `Controleer je e-mail en bevestig je account voordat je inlogt.${offerHint}`
         : `Controleer je e-mail en bevestig je account. Je voorkeuren kun je daarna in je profiel aanvullen.${offerHint}`,
-    };
-  }
-
-  return {
-    success: false,
-    message: "Registratie mislukt.",
-  };
-}
-
-export async function registerCreatorAction(
-  _prevState: AuthActionState,
-  formData: FormData
-): Promise<AuthActionState> {
-  const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
-  const password = formData.get("password")?.toString() ?? "";
-  const displayName = formData.get("display_name")?.toString().trim() ?? "";
-  const businessName = formData.get("business_name")?.toString() ?? null;
-  const preferredSlug = formData.get("slug")?.toString() ?? null;
-  const city = formData.get("city")?.toString() ?? null;
-  const postalCode = formData.get("postal_code")?.toString() ?? null;
-  const countryCode = formData.get("country_code")?.toString() ?? null;
-  const creatorTypes = (formData.getAll("creator_types") ?? [])
-    .map((value) => value.toString().trim().toLowerCase())
-    .filter((value) => ALLOWED_CREATOR_TYPES.has(value));
-  const interestTypes = parseInterestTypes(formData);
-  const requestedNextPath = formData.get("next")?.toString() ?? null;
-
-  if (!displayName) {
-    return {
-      success: false,
-      message: "Naam is verplicht.",
-    };
-  }
-
-  if (!email || !password) {
-    return {
-      success: false,
-      message: "E-mail en wachtwoord zijn verplicht.",
-    };
-  }
-
-  if (password.length < 8) {
-    return {
-      success: false,
-      message: "Wachtwoord moet minimaal 8 karakters bevatten.",
-    };
-  }
-
-  const captcha = readCaptchaToken(formData);
-  if (!captcha.ok) {
-    return { success: false, message: captcha.message };
-  }
-
-  const { session, user, error } = await registerEmailUser(
-    email,
-    password,
-    requestedNextPath,
-    {
-      account_type: "creator",
-      display_name: displayName,
-      business_name: businessName,
-      preferred_slug: preferredSlug,
-      city,
-      postal_code: postalCode,
-      country_code: countryCode,
-      interest_types: interestTypes,
-      creator_types: creatorTypes,
-    },
-    captcha.token
-  );
-
-  if (error) {
-    if (error.toLowerCase().startsWith("captcha")) {
-      return {
-        success: false,
-        message: turnstileErrorMessage(error),
-      };
-    }
-    return {
-      success: false,
-      message:
-        captchaFailedMessage(error) ??
-        "Registratie mislukt. Gebruik een ander e-mailadres.",
-    };
-  }
-
-  let profilePersisted = true;
-  let creatorProvisioned = false;
-  const registrationUserId = user?.id ?? session?.user?.id ?? null;
-
-  if (registrationUserId) {
-    const profileResult = await persistCreatorRegistrationProfile({
-      userId: registrationUserId,
-      displayName,
-      businessName,
-      preferredSlug,
-      city,
-      postalCode,
-      countryCode,
-      interestTypes,
-      creatorTypes,
-    });
-
-    if (!profileResult.ok) {
-      profilePersisted = false;
-      console.error("Failed to persist creator registration profile", {
-        userId: registrationUserId,
-        errors: profileResult.errors,
-      });
-    }
-
-    const creatorResult = await provisionCreatorSeller({
-      displayName,
-      businessName: businessName?.trim() || displayName,
-      contactName: displayName,
-      email,
-      city,
-      postalCode,
-      countryCode,
-    });
-
-    if (!creatorResult.ok || !creatorResult.sellerId) {
-      console.error("Failed to provision creator seller", {
-        userId: registrationUserId,
-        error: creatorResult.error,
-      });
-    } else {
-      creatorProvisioned = true;
-      const sellerLinkResult = await linkUserToSeller(
-        registrationUserId,
-        creatorResult.sellerId,
-        "creator"
-      );
-
-      if (!sellerLinkResult.ok) {
-        creatorProvisioned = false;
-        console.error("Failed to link user to creator seller", {
-          userId: registrationUserId,
-          sellerId: creatorResult.sellerId,
-          errors: sellerLinkResult.errors,
-        });
-      }
-    }
-  }
-
-  if (session) {
-    const redirectPath = await resolvePostAuthRedirectPath({
-      userId: registrationUserId ?? session.user?.id ?? null,
-      requestedNextPath,
-      defaultPath: "/profile",
-    });
-    await persistAuthSession(session);
-    redirect(redirectPath);
-  }
-
-  if (user) {
-    const needsApproval = creatorTypesRequiringApproval(creatorTypes).length > 0;
-    const approvalNote = needsApproval
-      ? ` ${ROLE_REQUEST_PENDING_MESSAGE}`
-      : "";
-    return {
-      success: true,
-      message: profilePersisted && creatorProvisioned
-        ? `Controleer je e-mail en bevestig je creator-account voordat je inlogt.${approvalNote}`
-        : `Controleer je e-mail en bevestig je account. Daarna kun je je makerprofiel verder instellen.${approvalNote}`,
     };
   }
 
