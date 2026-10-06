@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -10,9 +11,10 @@ import vm from 'node:vm';
 const root = new URL('../../', import.meta.url);
 const configPath = new URL('apps/backend/medusa-config.ts', root);
 const helperPath = new URL('apps/backend/src/utils/signing-secrets.ts', root);
-const jwt = 'J8zP4qW9rT6xK3vN5mL2sD7fH0aB1cE4';
-const cookie = 'C7yR3pV8sU5wM2nQ4kL9tF6gH1bD0aE3';
-const valid = { NODE_ENV: 'production', JWT_SECRET: jwt, COOKIE_SECRET: cookie };
+// Ephemeral offline signing fixtures: never read host credentials or deploy these values.
+const jwt = randomBytes(32).toString('hex');
+const cookie = randomBytes(32).toString('hex');
+const valid = { NODE_ENV: 'production', JWT_SECRET: jwt, COOKIE_SECRET: cookie, REDIS_URL: 'redis://127.0.0.1:6379' };
 const originalEnv = { ...process.env };
 const source = (path) => stripTypeScriptTypes(readFileSync(path, 'utf8'), { mode: 'strip' });
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -34,7 +36,12 @@ async function loadConfig(env, loaded = {}) {
     process: { env: isolatedEnv, cwd: () => '/offline/backend' },
     module: exported,
   });
-  const framework = new vm.SyntheticModule(['defineConfig', 'loadEnv'], function () {
+  const framework = new vm.SyntheticModule(['defineConfig', 'loadEnv', 'Modules'], function () {
+    // Match native module keys: overrides must not silently use undefined keys.
+    this.setExport('Modules', {
+      PAYMENT: 'payment', ORDER: 'order', NOTIFICATION: 'notification',
+      EVENT_BUS: 'event_bus', WORKFLOW_ENGINE: 'workflows',
+    });
     this.setExport('loadEnv', (mode, cwd) => {
       calls.push(['loadEnv', mode, cwd]);
       Object.assign(isolatedEnv, loaded);
@@ -130,10 +137,14 @@ test('actual config accepts independent production keys unchanged', async () => 
   assert.equal(config.projectConfig.http.cookieSecret, cookie);
   assert.deepEqual(calls, [['loadEnv', 'production', '/offline/backend'], ['defineConfig']]);
   assert.deepEqual(env, valid);
+  assert.equal(config.modules.find(module => module.key === 'payment')?.resolve,
+    './src/modules/payment-capture-recovery');
+  assert.equal(config.modules.find(module => module.key === 'order')?.resolve,
+    './src/modules/order-commerce-serialization');
 });
 
 test('actual config reads keys added by loadEnv before validation', async () => {
-  const { config } = await loadConfig({ NODE_ENV: 'production' }, { JWT_SECRET: jwt, COOKIE_SECRET: cookie });
+  const { config } = await loadConfig({ NODE_ENV: 'production' }, { JWT_SECRET: jwt, COOKIE_SECRET: cookie, REDIS_URL: 'redis://127.0.0.1:6379' });
   assert.equal(config.projectConfig.http.jwtSecret, jwt);
   assert.equal(config.projectConfig.http.cookieSecret, cookie);
 });

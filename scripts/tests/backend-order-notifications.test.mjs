@@ -21,8 +21,10 @@ function resolveDependency(specifier, overrideName) {
 const ts = require(resolveDependency("typescript", "NOTIFICATION_TEST_TYPESCRIPT"));
 const nativePath = resolveDependency(
   "@medusajs/notification/dist/services/notification-module-service.js", "NOTIFICATION_TEST_NATIVE");
-const templateNames = { buyer: "BuyerNewOrderEmailTemplate", seller: "SellerNewOrderEmailTemplate" };
-const templateKeys = { buyer: "buyerNewOrderEmailTemplate", seller: "sellerNewOrderEmailTemplate" };
+const templateNames = { buyer: "BuyerNewOrderEmailTemplate", seller: "SellerNewOrderEmailTemplate",
+  "buyer-cancel": "BuyerCancelOrderEmailTemplate", "seller-cancel": "SellerCanceledOrderEmailTemplate" };
+const templateKeys = { buyer: "buyerNewOrderEmailTemplate", seller: "sellerNewOrderEmailTemplate",
+  "buyer-cancel": "buyerCancelOrderEmailTemplate", "seller-cancel": "sellerCanceledOrderEmailTemplate" };
 
 function order(id = "order-1", overrides = {}) {
   return { id, display_id: 12, email: "buyer@example.invalid", currency_code: "eur",
@@ -35,7 +37,9 @@ function order(id = "order-1", overrides = {}) {
     ...overrides };
 }
 function template(role) {
-  const fileName = role === "payout" ? "seller-payout-summary" : `${role}-new-order`;
+  const fileName = role === "payout" ? "seller-payout-summary" :
+    role === "buyer-cancel" ? "buyer-cancel-order" :
+    role === "seller-cancel" ? "seller-canceled-order" : `${role}-new-order`;
   const file = new URL(`${base}providers/resend/email-templates/${fileName}.tsx`, root);
   const js = ts.transpileModule(readFileSync(file, "utf8"), {
     fileName: file.pathname,
@@ -82,17 +86,20 @@ for (const [label, date, expected, serialized] of [
 }
 async function harness(role, options = {}) {
   const calls = [], logs = [], queried = [];
+  const cancellation = role.endsWith("-cancel");
   const render = template(role);
   const context = vm.createContext({ console: { error: (...args) => logs.push(args) } });
   const dependencies = {
     "@medusajs/framework": { SubscriberArgs: undefined, SubscriberConfig: undefined },
     "@medusajs/framework/utils": { Modules: { NOTIFICATION: "notification" }, ContainerRegistrationKeys: { QUERY: "query" }, OrderWorkflowEvents: { PLACED: "order.placed" } },
-    "../providers/resend": { ResendNotificationTemplates: { BUYER_NEW_ORDER: templateKeys.buyer, SELLER_NEW_ORDER: templateKeys.seller } },
-    "@mercurjs/framework": { Hosts: { STOREFRONT: "storefront" },
-      buildHostAddress: (_, path) => new URL(path, "https://store.example.invalid"),
+    "../providers/resend": { ResendNotificationTemplates: { BUYER_NEW_ORDER: templateKeys.buyer, SELLER_NEW_ORDER: templateKeys.seller,
+      BUYER_CANCELED_ORDER: templateKeys["buyer-cancel"], SELLER_CANCELED_ORDER: templateKeys["seller-cancel"] } },
+    "@mercurjs/framework": { Hosts: { STOREFRONT: "storefront", VENDOR_PANEL: "vendor" },
+      buildHostAddress: (host, path) => new URL(path, host === "vendor" ? "https://vendor.example.invalid" : "https://store.example.invalid"),
       fetchStoreData: async () => { if (options.storeFailure) throw options.storeFailure; return { store_name: "Test shop", storefront_url: "https://store.example.invalid" }; } },
   };
-  const source = stripTypeScriptTypes(readFileSync(new URL(`${base}subscribers/notification-${role}-new-order.ts`, root), "utf8"));
+  const subscriber = cancellation ? `${role.replace("-cancel", "")}-cancel-order` : `${role}-new-order`;
+  const source = stripTypeScriptTypes(readFileSync(new URL(`${base}subscribers/notification-${subscriber}.ts`, root), "utf8"));
   const module = new vm.SourceTextModule(source, { context });
   await module.link((specifier) => {
     assert.ok(Object.hasOwn(dependencies, specifier), `Unexpected dependency: ${specifier}`);
@@ -113,13 +120,14 @@ async function harness(role, options = {}) {
     return { createNotifications: async (input) => {
       for (const notification of Array.isArray(input) ? input : [input]) {
         calls.push(notification);
-        if (options.dispatchFailure === notification.data.data.order_id) throw new Error("dispatch unavailable");
+        if (options.dispatchFailure === (notification.data.data.order_id ?? notification.data.data.order.id)) throw new Error("dispatch unavailable");
         // Notification payloads cross a serialization boundary before rendering.
         render(JSON.parse(JSON.stringify(notification.data)));
       }
     } };
   } };
-  return { calls, logs, queried, run: (ids = ["order-1"]) => module.namespace.default({ event: { data: { order_ids: ids } }, container }), config: module.namespace.config };
+  return { calls, logs, queried, run: (ids = ["order-1"], eventId) => module.namespace.default({
+    event: { id: eventId, data: cancellation ? { id: ids[0] } : { order_ids: ids } }, container }), config: module.namespace.config };
 }
 for (const role of ["buyer", "seller"]) {
   test(`${role}: graph failure reaches subscriber caller after remaining orders`, async () => {
@@ -172,7 +180,7 @@ test("seller: missing seller email is retryable", async () => {
 
 // Execute the installed 2.11.3 notification algorithm with repository/provider
 // stubs, rather than inventing idempotency semantics. No real DB or provider.
-function nativeNotificationService(role) {
+function nativeNotificationService(role, options = {}) {
   const path = nativePath;
   const exports = {};
   let serial = 0, fail = true;
@@ -196,26 +204,111 @@ function nativeNotificationService(role) {
     notificationService: {
       list: async ({ idempotency_key }) => records.filter((r) => idempotency_key.includes(r.idempotency_key)),
       create: async (rows) => { records.push(...rows.map((r) => ({ ...r, status: "pending" }))); return rows; },
-      update: async (rows) => rows.map((r) => { const existing = records.find((e) => e.id === r.id); if (existing) Object.assign(existing, r); return r; }),
+      update: async (rows) => rows.map((r) => {
+        const existing = records.find((e) => e.id === r.id);
+        if (!existing) throw new Error(`NOT_FOUND: notification ${r.id}`);
+        Object.assign(existing, r);
+        return existing;
+      }),
     },
     notificationProviderService: {
       getProviderForChannels: async () => [provider],
       send: async (_, notification) => {
-        sends.push(notification.data.data.order_id);
-        if (fail && notification.data.data.order_id === "order-2") { fail = false; throw new Error("offline dispatch failure"); }
+        const orderId = notification.data.data.order_id ?? notification.data.data.order.id;
+        sends.push(orderId);
+        if (fail && orderId === (options.failOrder ?? "order-2")) { fail = false; throw new Error("offline dispatch failure"); }
         render(JSON.parse(JSON.stringify(notification.data)));
         return { id: "offline-receipt" };
       },
     },
   }, {});
-  return { service, sends };
+  return { service, sends, records };
 }
 for (const role of ["buyer", "seller"]) {
-  test(`${role}: native idempotency skips successful order on same event retry`, async () => {
+  test(`${role}: unpatched native skips success but retry fails strict identity update`, async () => {
     const native = nativeNotificationService(role);
     const h = await harness(role, { notificationService: native.service });
     await assert.rejects(h.run(["order-1", "order-2"]));
-    await h.run(["order-1", "order-2"]);
+    await assert.rejects(h.run(["order-1", "order-2"]), (error) => {
+      // Subscribers preserve the native retry failure inside an aggregate.
+      const messages = (e) => [String(e?.message ?? e), ...(e?.errors ?? []).flatMap(messages)];
+      assert.ok(messages(error).some((message) => /NOT_FOUND/.test(message)), 'native identity failure must remain observable');
+      return true;
+    });
     assert.deepEqual(native.sends, ["order-1", "order-2", "order-2"]);
+    assert.deepEqual(native.records.map((record) => record.status), ["success", "failure"]);
   });
 }
+
+// Replay order.canceled with separate event envelopes, just as repeated HTTP
+// cancellation does. Reuse the existing native retry harness; no mail or DB.
+for (const role of ["buyer", "seller"]) {
+  const name = `${role}-cancel`;
+  test(`${role} cancellation: stable per-order key preserves payload and subscriber identity`, async () => {
+    const h = await harness(name);
+    await h.run(["order-1"], "event-first");
+    await h.run(["order-1"], "event-replay");
+    assert.equal(h.calls[0].idempotency_key, `${role}-cancel-order:order-1`);
+    assert.equal(h.calls[1].idempotency_key, h.calls[0].idempotency_key);
+    const { idempotency_key, ...payload } = h.calls[0];
+    assert.deepEqual(JSON.parse(JSON.stringify(payload)), {
+      to: `${role}@example.invalid`, channel: "email", template: templateKeys[name],
+      content: { subject: "Your order #12 has been canceled" },
+      data: { data: {
+        order: { id: "order-1", display_id: 12, item: order().items },
+        order_address: role === "buyer" ? "https://store.example.invalid/user/orders/set-1" : "https://vendor.example.invalid/orders/order-1",
+        store_name: "Test shop", storefront_url: "https://store.example.invalid",
+      } },
+    });
+    assert.equal(h.config.event, "order.canceled");
+    assert.equal(h.config.context.subscriberId, `notification-${role}-cancel-order-resend`);
+  });
+  test(`${role} cancellation: repeated events create one successful native notification`, async () => {
+    const native = nativeNotificationService(name);
+    const h = await harness(name, { notificationService: native.service });
+    await h.run(["order-1"], "event-first");
+    await h.run(["order-1"], "event-replay");
+    await h.run(["order-1"], "event-third");
+    assert.deepEqual(native.sends, ["order-1"]);
+    assert.equal(native.records.length, 1);
+    assert.equal(native.records[0].status, "success");
+    assert.equal(native.records[0].template, templateKeys[name]);
+  });
+  test(`${role} cancellation: different orders have different keys and both are delivered`, async () => {
+    const native = nativeNotificationService(name, { failOrder: "none" });
+    const h = await harness(name, { notificationService: native.service });
+    await h.run(["order-1"]);
+    await h.run(["order-2"]);
+    assert.deepEqual(native.sends, ["order-1", "order-2"]);
+    assert.equal(new Set(native.records.map((record) => record.idempotency_key)).size, 2);
+  });
+  test(`${role} cancellation: unpatched native retries send but cannot update failure identity`, async () => {
+    const native = nativeNotificationService(name, { failOrder: "order-1" });
+    const h = await harness(name, { notificationService: native.service });
+    await assert.rejects(h.run(["order-1"]));
+    assert.equal(native.records[0].status, "failure");
+    await assert.rejects(h.run(["order-1"]), /NOT_FOUND/);
+    assert.deepEqual(native.sends, ["order-1", "order-1"]);
+    assert.equal(native.records.length, 1, "native retry creates no replacement record");
+    assert.equal(native.records[0].status, "failure", "unpatched retry is not persisted success");
+  });
+  for (const options of [{ queryFailure: "order-1" }, { dispatchFailure: "order-1" }, { storeFailure: new Error("store unavailable") }]) {
+    test(`${role} cancellation: ${Object.keys(options)[0]} remains retryable`, async () => {
+      const h = await harness(name, options);
+      await assert.rejects(h.run(), /unavailable/);
+    });
+  }
+}
+test("cancellation: buyer and seller keys do not suppress each other for the same order", async () => {
+  const native = nativeNotificationService("buyer-cancel");
+  const buyer = await harness("buyer-cancel", { notificationService: native.service });
+  const seller = await harness("seller-cancel", { notificationService: native.service });
+  await buyer.run();
+  await seller.run();
+  await buyer.run();
+  await seller.run();
+  assert.equal(native.records.length, 2);
+  assert.equal(new Set(native.records.map((record) => record.idempotency_key)).size, 2);
+  assert.deepEqual(native.sends, ["order-1", "order-1"]);
+  assert.deepEqual(native.records.map((record) => record.template), [templateKeys["buyer-cancel"], templateKeys["seller-cancel"]]);
+});

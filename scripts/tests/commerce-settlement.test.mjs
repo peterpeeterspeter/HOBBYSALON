@@ -1,21 +1,85 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync, existsSync } from 'node:fs'
-import { stripTypeScriptTypes } from 'node:module'
+import { stripTypeScriptTypes, createRequire } from 'node:module'
 import { createHash } from 'node:crypto'
+import { EventEmitter } from 'node:events'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+import vm from 'node:vm'
 
 // Source-only execution of the actual helpers, no app/container/provider/DB startup.
 const root = new URL('../../', import.meta.url)
 const utils = 'packages/modules/b2c-core/src/utils/'
-async function load(name, replacements = []) {
-  const url = new URL(utils + name, root)
-  if (!existsSync(url)) return {}
-  let source = stripTypeScriptTypes(readFileSync(url, 'utf8'), { mode: 'strip' })
-  for (const [from, to] of replacements) source = source.replace(from, to)
-  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
+const require = createRequire(import.meta.url)
+const { transformSync } = require('@swc/core')
+const { ContainerRegistrationKeys } = require('@medusajs/framework/utils')
+const sourceModules = new Map()
+// Compile only syntax/module format. Relative imports recursively read current TS;
+// builtins (including ALS/crypto) and framework utils/MathBN are real installed modules.
+// One cache keeps private cart/intent ALS and SettlementError identity shared. Run in
+// this realm so strict assertions still compare ordinary source-returned objects.
+function loadSource(url) {
+  if (sourceModules.has(url.href)) return sourceModules.get(url.href).exports
+  const filename = fileURLToPath(url), module = { exports: {} }
+  sourceModules.set(url.href, module)
+  const nativeRequire = createRequire(url)
+  const sourceRequire = (specifier) => {
+    if (specifier.startsWith('.')) {
+      const dependency = new URL(specifier, url)
+      const candidates = [dependency, new URL(`${dependency.href}.ts`), new URL(`${dependency.href}/index.ts`)]
+      const actual = candidates.find(candidate => existsSync(candidate) && candidate.pathname.endsWith('.ts'))
+      if (actual) return loadSource(actual)
+    }
+    return nativeRequire(specifier)
+  }
+  try {
+    const { code } = transformSync(readFileSync(url, 'utf8'), {
+      filename, jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
+      module: { type: 'commonjs' },
+    })
+    const evaluate = vm.runInThisContext(`(function(exports, require, module, __filename, __dirname) {\n${code}\n})`, { filename })
+    evaluate(module.exports, sourceRequire, module, filename, dirname(filename))
+    return module.exports
+  } catch (error) { sourceModules.delete(url.href); throw error }
 }
-const engine = await load('refund-settlement.ts')
-const { executeSettlement } = engine
+const load = name => loadSource(new URL(utils + name, root))
+const engine = load('refund-settlement.ts')
+const cart = load('commerce-cart-lock.ts')
+
+// Synthetic session boundary only: every invocation gets a separate live owner.
+// Cart acquisition deliberately succeeds per session; existing memoryStore and SQL
+// harness locks remain responsible for testing same-scope exclusion below. This is
+// not a PostgreSQL/cart-concurrency integration gate, nor a replacement ALS guard.
+const cartSessions = new Set()
+const cartPg = {
+  client: {
+    async acquireConnection() { const session = new EventEmitter(); session.held = false; cartSessions.add(session); return session },
+    async releaseConnection(session) { assert.equal(session.held, false); assert(cartSessions.delete(session)) },
+    async destroyRawConnection(session) { session.held = false; session._ended = true },
+  },
+  raw(sql) { return { connection: async session => {
+    assert(cartSessions.has(session), 'Cart SQL must use its dedicated live session')
+    if (sql === 'SELECT pg_try_advisory_lock(?::bigint) AS locked') {
+      assert.equal(session.held, false); session.held = true; return { rows: [{ locked: true }] }
+    }
+    assert.equal(session.held, true)
+    if (sql === 'SET SESSION synchronous_commit = on') return { rows: [] }
+    if (sql === 'SELECT pg_advisory_unlock(?::bigint) AS unlocked') {
+      session.held = false; return { rows: [{ unlocked: true }] }
+    }
+    assert.fail(`Unexpected cart session SQL: ${sql}`)
+  } } },
+}
+const container = { resolve(key) { assert.equal(key, ContainerRegistrationKeys.PG_CONNECTION); return cartPg } }
+const executeSettlement = (...args) => {
+  // Preserve the engine's synchronous caller snapshot despite the added outer
+  // lock acquisition await (the existing caller-mutation regression relies on it).
+  const [store, request, effects] = args
+  const captured = [store, request && { ...request }, effects && { ...effects }]
+  return cart.withCommerceCartLock(container, 'cart-engine-test', () => engine.executeSettlement(...captured))
+}
+test.after(() => { assert.equal(cartSessions.size, 0, 'Every cart session must be released'); assert.throws(() => cart.assertCommerceFinancialLock()) })
 const clone = (value) => JSON.parse(JSON.stringify(value))
 const input = (overrides = {}) => ({ operation_id: 'return_a', order_id: 'order_a', scope_id: 'collection_a', fingerprint: 'request-v1:items:one', ...overrides })
 const plan = (request = input(), overrides = {}) => ({
@@ -104,6 +168,7 @@ test('completed replay never replans changed balances or redispatches either leg
 for (const changed of [{ fingerprint: 'changed' }, { order_id: 'order_b' }, { scope_id: 'collection_b' }]) {
   test(`existing operation rejects ${Object.keys(changed)[0]} conflict before any callback`, async () => {
     const store = memoryStore(); seed(store, 'completed')
+    seed(store, 'refund_started', input({ operation_id: 'other', scope_id: input(changed).scope_id }))
     const { calls, effects } = effectsFor(store, input(changed))
     await rejectsCode(executeSettlement(store, input(changed), effects), 'identity_conflict')
     assert.deepEqual(calls, [])
@@ -118,11 +183,39 @@ test('distinct completed operations with equal amounts remain distinct', async (
   assert.deepEqual(b.calls, ['plan', 'refund', 'reverse'])
 })
 for (const phase of ['pending', 'refund_started', 'refund_completed', 'reversal_started']) {
+  test(`old completed replay rejects other unfinished ${phase} before all callbacks`, async () => {
+    const store = memoryStore(); seed(store, 'completed')
+    seed(store, phase, input({ operation_id: 'other' }))
+    const before = clone([...store.rows]), { calls, effects } = effectsFor(store)
+    effects.recoverReversal = async () => { calls.push('recoverReversal'); return evidence() }
+    await rejectsCode(executeSettlement(store, input(), effects), 'scope_blocked')
+    assert.deepEqual(calls, []); assert.deepEqual(store.history, [])
+    assert.deepEqual([...store.rows], before)
+  })
   test(`other unfinished ${phase} operation blocks the scope before planning`, async () => {
     const store = memoryStore(); seed(store, phase)
     const request = input({ operation_id: 'return_b' }), { calls, effects } = effectsFor(store, request)
     await rejectsCode(executeSettlement(store, request, effects), 'scope_blocked')
     assert.deepEqual(calls, [])
+  })
+}
+test('completed replay fails closed when the unfinished-scope read fails', async () => {
+  const store = memoryStore(); seed(store, 'completed')
+  const wrapped = { withScopeLock: (scope, work) => store.withScopeLock(scope, session => work({
+    ...session, findUnfinished: async () => { throw new Error('private-read-error') },
+  })) }
+  const { calls, effects } = effectsFor(store)
+  await rejectsCode(executeSettlement(wrapped, input(), effects), 'storage_failure')
+  assert.deepEqual(calls, []); assert.deepEqual(store.history, [])
+})
+for (const other of [input({ operation_id: 'other' }), input({ operation_id: 'other', scope_id: 'collection_b' })]) {
+  test(`completed replay permits ${other.scope_id === input().scope_id ? 'other completed' : 'other-scope unfinished'} record without effects`, async () => {
+    const store = memoryStore(); seed(store, 'completed')
+    seed(store, other.scope_id === input().scope_id ? 'completed' : 'refund_started', other)
+    const { calls, effects } = effectsFor(store)
+    const replay = await executeSettlement(store, input(), effects)
+    assert.equal(replay.receipt.phase, 'completed'); assert.deepEqual(calls, [])
+    assert.deepEqual(store.history, [])
   })
 }
 for (const after of [false, true]) {
@@ -248,8 +341,7 @@ test('callbacks receive detached frozen snapshots and caller mutation while acqu
   assert.equal(result.plan.customerRefund, 20)
 })
 
-const engineUrl = `data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(readFileSync(new URL(utils + 'refund-settlement.ts', root), 'utf8'), { mode: 'strip' })).toString('base64')}`
-const { createPostgresSettlementStore } = await load('refund-settlement-store.ts', [[/(['"])\.\/refund-settlement\1/g, JSON.stringify(engineUrl)]])
+const { createPostgresSettlementStore } = load('refund-settlement-store.ts')
 
 // Narrow PostgreSQL protocol stand-in: actual adapter SQL + dedicated connections are exercised,
 // while PostgreSQL parsing/DDL execution/server restart durability remain separate integration gates.
@@ -332,6 +424,23 @@ test('SQL store: dedicated connection, session lock and autocommit durable ledge
   assert(firstConnection.some(s => /synchronous_commit/.test(s.sql)))
   assert(firstConnection.at(-1).sql.includes('pg_advisory_unlock'))
 })
+for (const phase of ['pending', 'refund_started', 'refund_completed', 'reversal_started']) {
+  test(`SQL old completed replay rejects other unfinished ${phase} on its owned connection`, async () => {
+    const h = sqlHarness(), { calls, effects } = sqlEffects(h)
+    await executeSettlement(createPostgresSettlementStore(h.knex), input(), effects)
+    const other = input({ operation_id: 'other' })
+    h.rows.set(other.operation_id, { ...other, plan: plan(other), phase, reversal_receipt_id: null })
+    calls.length = 0; h.statements.length = 0
+    const before = clone([...h.rows])
+    await rejectsCode(executeSettlement(createPostgresSettlementStore(h.knex), input(), effects), 'scope_blocked')
+    assert.deepEqual(calls, []); assert.deepEqual([...h.rows], before)
+    const reads = h.statements.filter(s => s.sql.trim().toLowerCase().startsWith('select') && !s.sql.includes('pg_'))
+    assert.equal(reads.length, 2); assert.match(reads[1].sql, /phase\s*<>/)
+    assert.deepEqual(reads[1].values, [input().scope_id, input().operation_id])
+    assert(reads.every(s => s.connection === h.connections.at(-1)))
+    assert.equal(h.locks.size, 0); assert.equal(h.released.length, 2)
+  })
+}
 for (const kind of ['acquire', 'lock', 'read', 'insert']) test(`SQL store ${kind} error fails closed without money effects and leaks no secrets`, async () => {
   const h = sqlHarness(); h.fail(kind)
   const { calls, effects } = sqlEffects(h)
