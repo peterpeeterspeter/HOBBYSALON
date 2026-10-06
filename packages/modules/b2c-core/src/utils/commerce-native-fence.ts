@@ -1,4 +1,5 @@
 type NativeObject = Record<PropertyKey, any>
+type NativeCallable = (...args: any[]) => any
 
 const writes = new Set(['create', 'update', 'delete', 'softDelete', 'restore', 'upsert', 'upsertWithReplace'])
 const repositoryContext: Record<string, number> = {
@@ -93,7 +94,7 @@ export function commerceNativeFence<T extends object>(service: T, check: () => v
     if (!target || (typeof target !== 'object' && typeof target !== 'function')) return target
     const cached = proxies.get(target)
     if (cached) return cached
-    const methods = new Map<PropertyKey, Function>()
+    const methods = new Map<PropertyKey, NativeCallable>()
     const proxy = new Proxy(target, {
       get(real: NativeObject, key: PropertyKey) {
         const method = Reflect.get(real, key, real)
@@ -175,7 +176,7 @@ export function commerceNativeFence<T extends object>(service: T, check: () => v
       },
       apply(real, thisArg, args) {
         check()
-        const result = Reflect.apply(real as unknown as Function, thisArg, args)
+        const result = Reflect.apply(real as unknown as NativeCallable, thisArg, args)
         check()
         return wrap(result)
       },

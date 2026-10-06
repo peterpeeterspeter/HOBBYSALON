@@ -37,7 +37,7 @@ export default class PaymentCaptureRecoveryService extends NativePaymentModule.s
     const reserve = runtime.refundPayment_
     Object.defineProperty(this, 'refundPayment_', {
       configurable: false, writable: false,
-      value: async function (this: PaymentCaptureRecoveryService, payment: InferEntityType<typeof Payment>, data: CreateRefundDTO, context: Context = {}) {
+      async value(this: PaymentCaptureRecoveryService, payment: InferEntityType<typeof Payment>, data: CreateRefundDTO, context: Context = {}) {
         try {
           assertCommerceFinancialLock()
           this.rejectOuterFinancialTransaction(context)
