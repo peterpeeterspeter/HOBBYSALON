@@ -27,6 +27,12 @@ import { resolveResumableSavedProjects } from "@/lib/profile/resumable-saved-pro
 import { getMaterialCupboardEntries } from "@/lib/profile/material-cupboard";
 import { listConfirmedNewsletterGuides } from "@/lib/platform/queries/confirmed-newsletter-guides";
 import { RoleUpgradeSection } from "@/components/auth/RoleUpgradeSection";
+import { InterestsPrompt } from "@/components/profile/InterestsPrompt";
+import {
+  INTERESTS_PROMPT_COOKIE,
+  shouldShowInterestsPrompt,
+} from "@/lib/profile/interests-prompt";
+import { cookies } from "next/headers";
 import {
   createConfirmationToken,
   normalizeNewsletterEmail,
@@ -216,6 +222,12 @@ export default async function ProfilePage({ searchParams }: Props) {
   const favoriteTypesWithCount = (Object.keys(FAVORITE_LABELS) as EntityType[]).filter(
     (type) => passport.favoritesSummary.byType[type] > 0
   );
+  const showInterestsPrompt = shouldShowInterestsPrompt({
+    interestCount: registrationContext.preference?.interestTypes.length ?? 0,
+    hasCreatorProfile: Boolean(creator),
+    hasOfferIntent: caps.hasOfferIntent,
+    dismissed: Boolean((await cookies()).get(INTERESTS_PROMPT_COOKIE)?.value),
+  });
 
   return (
     <PageLayout
@@ -256,6 +268,8 @@ export default async function ProfilePage({ searchParams }: Props) {
           </div>
         </CardShell>
       ) : null}
+
+      {showInterestsPrompt ? <InterestsPrompt error={error ?? null} /> : null}
 
       {/* 1. Compact passport strip */}
       <section
