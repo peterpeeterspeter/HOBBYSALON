@@ -8,6 +8,9 @@ export const PROTECTED_FINANCIAL_WORKFLOWS = new Set([
   // The coordinated wrappers are only callable through their scoped routes,
   // never via arbitrary generic inputs or asynchronous completion spoofing.
   "cancel-single-order",
+  // Private composer workflows are still registered in the native engine.
+  // Never let generic run/step callbacks enter beneath the lock-owning wrapper.
+  "cancel-single-order-under-lock",
   'refund-seller-order-for-return',
   'proceed-return-request',
   'update-order-return-request',
@@ -15,6 +18,12 @@ export const PROTECTED_FINANCIAL_WORKFLOWS = new Set([
   "refund-payments-workflow",
   "refund-captured-payments-workflow",
   "refund-payment-and-recreate-payment-session",
+  // Exact IDs from installed Medusa 2.11.3 createWorkflow registrations:
+  // payment-collection cancellation/deletion and refund ledger mutation.
+  // Refund-reason CRUD and nonfinancial cancellation workflows stay accessible.
+  "cancel-payment-collection",
+  "delete-payment-sessions",
+  "create-order-refund-credit-lines",
   "cancel-order",
   "partial-payment-refund",
   "refund-split-order-payment",

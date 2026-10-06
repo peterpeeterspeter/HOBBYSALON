@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { stripTypeScriptTypes } from 'node:module'
-import { createHash } from 'node:crypto'
+import { stripTypeScriptTypes, createRequire } from 'node:module'
+import { createHash, randomUUID } from 'node:crypto'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import { EventEmitter } from 'node:events'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import vm from 'node:vm'
@@ -10,17 +12,21 @@ import { loadMedusaNumeric } from './helpers/medusa-numeric.mjs'
 // Actual workflow, financial adapter, engine and allocator source. Only SDK,
 // query/service and persistence boundaries are replaced. NOT native scheduling,
 // PostgreSQL concurrency, provider or framework compensation acceptance.
+// Real cart/refund/quarantine ALS guards run unchanged; depth only records calls.
 const { MathBN, BigNumber, BigNumberJS } = loadMedusaNumeric()
 const root = new URL('../../packages/modules/b2c-core/src/', import.meta.url)
 const plain = (value) => JSON.parse(JSON.stringify(value))
 class MedusaError extends Error {
-  static Types = { NOT_ALLOWED: 'not_allowed', INVALID_DATA: 'invalid_data' }
+  static Types = { NOT_ALLOWED: 'not_allowed', INVALID_DATA: 'invalid_data', CONFLICT: 'conflict' }
   constructor(type, message) { super(message); this.type = type }
 }
 class StepResponse { constructor(value) { this.value = value } }
 class WorkflowResponse { constructor(value) { this.value = value } }
 const utils = { MathBN, MedusaError, OrderStatus: { CANCELED: 'canceled' },
-  OrderWorkflowEvents: { CANCELED: 'order.canceled' }, ContainerRegistrationKeys: { QUERY: 'query', PG_CONNECTION: 'pg' } }
+  OrderWorkflowEvents: { CANCELED: 'order.canceled' }, ContainerRegistrationKeys: { QUERY: 'query', PG_CONNECTION: 'pg' },
+  createMedusaContainer: createRequire(import.meta.url)('@medusajs/framework/utils').createMedusaContainer }
+const builtins = { 'node:async_hooks': { AsyncLocalStorage }, 'node:crypto': { createHash, randomUUID },
+  '@medusajs/framework/utils': utils }
 function load(url, collaborators = {}, cache = new Map()) {
   if (cache.has(url.href)) return cache.get(url.href)
   const exports = [], bindings = {}
@@ -28,7 +34,7 @@ function load(url, collaborators = {}, cache = new Map()) {
     /^import\s(type\s)?\{([^}]+)\}\sfrom\s['"]([^'"]+)['"];?\s*/gm,
     (_match, typeOnly, names, specifier) => {
       if (typeOnly) return ''
-      const dependency = collaborators[specifier] ?? (specifier.startsWith('.')
+      const dependency = collaborators[specifier] ?? builtins[specifier] ?? (specifier.startsWith('.')
         ? load(new URL(`${specifier}.ts`, url), collaborators, cache) : undefined)
       assert.ok(dependency, `Unstubbed dependency: ${specifier}`)
       for (const name of names.split(',').map((v) => v.trim()).filter(Boolean)) bindings[name] = dependency[name]
@@ -42,7 +48,7 @@ function load(url, collaborators = {}, cache = new Map()) {
   return module
 }
 const { allocateRefundAndReversal } = load(new URL('utils/refund-allocation.ts', root))
-const { executeSettlement } = load(new URL('utils/refund-settlement.ts', root))
+
 export function orderFixture(overrides = {}) {
   const order = { id: 'order-test', status: 'pending', currency_code: 'eur', fulfillments: [],
     items: [{ id: 'line-a', quantity: 4, total: 100 }],
@@ -50,6 +56,8 @@ export function orderFixture(overrides = {}) {
     payouts: [{ id: 'payout-test', amount: 45, reversals: [] }], ...overrides }
   if (order.split_order_payment) order.split_order_payment = { payment_collection_id: 'collection-test',
     currency_code: order.currency_code, ...order.split_order_payment }
+  // Unpaid marketplace orders also retain their native cart/collection link.
+  order.payment_collections ??= [{ id: 'collection-test', captured_amount: 0 }]
   order.payouts = (order.payouts ?? []).map((payout) => ({ currency_code: order.currency_code,
     data: { id: 'transfer-test' }, ...payout }))
   return order
@@ -61,35 +69,101 @@ export async function run(kind, options = {}) {
   const { order = orderFixture(), lines = [{ item_line_id: 'line-a', value: '10' }], input = {},
     effects = {}, ledger = newLedger() } = options
   Object.assign(effects, { queries: [], allocations: [], refunds: [], reversals: [], validations: [], other: [],
-    calls: [], ledgerWrites: [], settlements: [], recoveryReads: [], financialCompensations: [] })
+    calls: [], ledgerWrites: [], settlements: [], recoveryReads: [], financialCompensations: [],
+    commerceLocks: [], workflowRuns: [] })
+  const sourceCache = new Map()
+  const cartAuthority = load(new URL('utils/commerce-cart-lock.ts', root), {}, sourceCache)
+  const financialAuthority = load(new URL('utils/commerce-financial-lock.ts', root), {}, sourceCache)
+  const effectAuthority = load(new URL('utils/refund-effect-fence.ts', root), {}, sourceCache)
+  const { executeSettlement } = load(new URL('utils/refund-settlement.ts', root), {}, sourceCache)
+  // Observation only: authority comes from unchanged source and real ALS.
+  let commerceDepth = 0, commerceOrder
+  const { assertCommerceFinancialLock } = cartAuthority
+  const assertRefundEffectFence = () => {
+    assertCommerceFinancialLock()
+    effectAuthority.checkRefundEffectFence()
+  }
+
+  const withCommerceOrderLock = async (scope, orderId, work) => {
+    assert.equal(scope, container)
+    if (commerceDepth) assert.equal(orderId, commerceOrder, 'Nested commerce lock must target the same order')
+    else commerceOrder = orderId
+    commerceDepth++
+    effects.commerceLocks.push({ order_id: orderId, depth: commerceDepth, phase: 'enter' })
+    try {
+      if (options.onCommerceLock) await options.onCommerceLock(order, commerceDepth)
+      return await financialAuthority.withCommerceOrderLock(scope, orderId, work)
+    } finally {
+      effects.commerceLocks.push({ order_id: orderId, depth: commerceDepth, phase: 'exit' })
+      if (--commerceDepth === 0) commerceOrder = undefined
+    }
+  }
   const payments = options.payments ?? [paymentFixture({ currency_code: order.currency_code,
     captures: [{ amount: order.split_order_payment?.captured_amount ?? 0 }],
     refunds: [{ amount: order.split_order_payment?.refunded_amount ?? 0 }] })]
-  const pg = {}
+  const pg = {
+    client: {
+      acquireConnection: async () => new EventEmitter(),
+      releaseConnection: async () => {}, destroyRawConnection: async () => {},
+    },
+    raw(sql, bindings = []) {
+      const execute = async (connection) => {
+        const collectionId = order.split_order_payment?.payment_collection_id ?? order.payment_collections?.[0]?.id
+        if (sql.includes('pg_try_advisory_lock')) return { rows: [{ locked: true }] }
+        if (sql.includes('pg_advisory_unlock')) return { rows: [{ unlocked: true }] }
+        if (sql.startsWith('SET SESSION')) return { rows: [] }
+        if (sql.startsWith('SELECT s.cart_id')) return { rows: bindings[0] === order.id
+          ? [{ cart_id: 'cart-test', payment_collection_id: collectionId }] : [] }
+        assert.ok(connection, 'Financial SQL must use the fake cart owner session')
+        if (sql.startsWith('SELECT 1')) return { rows: bindings[0] === 'cart-test' && bindings[1] === collectionId ? [{ bound: 1 }] : [] }
+        if (sql.startsWith('SELECT c.cart_id,pc.id AS scope_id')) return { rows: bindings[0] === collectionId
+          ? [{ cart_id: 'cart-test', scope_id: collectionId, currency_code: order.currency_code }] : [] }
+        if (sql.startsWith('SELECT operation_id,scope_id,phase,plan,') && sql.includes('FROM refund_settlement')) return { rows:
+          [...ledger.records.values()].filter(r => r.input.scope_id === bindings[0] &&
+            (r.phase !== 'completed' || r.no_effect_receipt_id != null))
+            .map(r => ({ operation_id: r.input.operation_id, scope_id: r.input.scope_id,
+              phase: r.phase, plan: r.plan, no_effect_receipt_id: r.no_effect_receipt_id ?? null })) }
+        if (sql.startsWith('SELECT * FROM commerce_refund_dispatch')) return { rows: options.refundDispatches ?? [] }
+        assert.fail(`Unexpected native SQL: ${sql}`)
+      }
+      return { connection: execute, then: (yes, no) => execute(undefined).then(yes, no) }
+    },
+  }
   const store = {
     async withScopeLock(scope, work) {
+      assertCommerceFinancialLock()
       assert.equal(ledger.locked, false, 'Test store is serial only')
       ledger.locked = true
+      let active = true
+      const assertActive = () => {
+        assertCommerceFinancialLock()
+        assert.ok(active, 'Invocation-local refund scope must be active')
+        assert.equal(ledger.locked, true, 'Refund scope lock must be held')
+      }
       try {
         if (options.onLock) await options.onLock(order)
         return await work({
-          getOperation: async (id) => ledger.records.has(id) ? plain(ledger.records.get(id)) : null,
-          findUnfinished: async (id) => [...ledger.records.values()].find((r) => r.input.scope_id === scope && r.input.operation_id !== id && r.phase !== 'completed') ?? null,
+          assertActive,
+          getOperation: async (id) => { assertActive(); return ledger.records.has(id) ? plain(ledger.records.get(id)) : null },
+          findUnfinished: async (id) => { assertActive(); return [...ledger.records.values()].find((r) => r.input.scope_id === scope && r.input.operation_id !== id && r.phase !== 'completed') ?? null },
           create: async (record) => {
+            assertActive()
             assert.ok(!ledger.records.has(record.input.operation_id))
             ledger.records.set(record.input.operation_id, plain(record)); effects.ledgerWrites.push(plain(record)); effects.calls.push('persist-plan')
           },
           transition: async (id, expected, next, receipt = null) => {
+            assertActive()
             const record = ledger.records.get(id); assert.equal(record.phase, expected)
             if (options.failTransition === next) throw new Error('durability failure')
             record.phase = next; record.reversal_receipt_id = receipt; effects.calls.push(next)
           },
         })
-      } finally { ledger.locked = false }
+      } finally { active = false; ledger.locked = false }
     },
   }
   const query = { graph: async (queryInput) => {
-    const query = plain(queryInput); effects.queries.push({ ...query, locked: ledger.locked })
+    assertCommerceFinancialLock()
+    const query = plain(queryInput); effects.queries.push({ ...query, locked: ledger.locked, commerceLocked: commerceDepth > 0 })
     if (options.queryOverride) { const response = await options.queryOverride(query, ledger.locked); if (response !== undefined) return response }
     if (query.entity === 'orders') { effects.query = query; return { data: [plain(order)] } }
     if (query.entity === 'order_payout') return { data: plain(options.rawPayoutLinks ?? order.payouts.map(p => ({order_id: order.id, payout_id: p.id}))) }
@@ -102,12 +176,17 @@ export async function run(kind, options = {}) {
     return { data: plain(payments) }
   } }
   const payoutService = {
-    retrievePayout: async (id) => { effects.recoveryReads.push({ retrieve: id }); return plain(order.payouts.find((p) => p.id === id)) },
+    retrievePayout: async (id) => {
+      assertCommerceFinancialLock()
+      effects.recoveryReads.push({ retrieve: id }); return plain(order.payouts.find((p) => p.id === id))
+    },
     listPayoutReversals: async (filter, config) => {
+      assertCommerceFinancialLock()
       effects.recoveryReads.push({ filter, config })
       return plain((options.recoveryRows ?? []).slice(config.skip, config.skip + config.take))
     },
     createPayoutReversal: async (input) => {
+      assertRefundEffectFence()
       effects.reversals.push(plain(input)); effects.calls.push('reverse')
       if (options.reverseError) throw options.reverseError
       if (Object.hasOwn(options, 'reverseResult')) return options.reverseResult
@@ -123,7 +202,8 @@ export async function run(kind, options = {}) {
     if (key === 'payout') return payoutService
     throw new Error(`Unstubbed container key ${key}`)
   } }
-  const nodes = [], resolved = new Map()
+  let nodes = []
+  const resolved = new Map(), graphs = []
   class Node {
     constructor(name, input, body) {
       Object.assign(this, { name, input, body })
@@ -156,12 +236,38 @@ export async function run(kind, options = {}) {
     return value
   }
   const make = (name, body) => (input) => new Node(name, input, body)
+  const createWorkflow = (name, body) => (scope) => ({ run: async ({ input, throwOnError = false }) => {
+    assert.equal(scope, container)
+    const previous = nodes
+    let response, graph
+    try {
+      // Nested .run composes its own graph, never contaminating parent nodes.
+      nodes = []
+      response = body(input)
+      assert.ok(response instanceof WorkflowResponse)
+      const graphNodes = nodes
+      graph = { name, nodes: graphNodes, dependsOn, node: (name) => graphNodes.find((node) => node.name === name) }
+      graphs.push(graph)
+    } finally { nodes = previous }
+    effects.workflowRuns.push({ name, throwOnError, commerceLocked: commerceDepth > 0 })
+    options.inspectWorkflowGraph?.(graph)
+    if (name !== 'cancel-single-order') options.inspectGraph?.(graph)
+    try {
+      for (const node of [...graph.nodes].reverse()) await resolve(node)
+      return { result: await resolve(response.value), errors: [], transaction: { getState: () => 'done' } }
+    } catch (error) {
+      if (throwOnError) throw error
+      return { result: undefined, errors: [{ error }], thrownError: error, transaction: { getState: () => 'failed' } }
+    }
+  } })
   const record = (name) => make(name, (input) => {
+    assertCommerceFinancialLock()
     effects.other.push({ name, input: plain(input) }); if (options.failOther === name) throw new Error(`${name} failed`)
     if (name === 'cancel') order.status = 'canceled'
     return input
   })
   const refund = async ({ input, throwOnError }) => {
+    assertRefundEffectFence()
     effects.refunds.push(plain(input)); effects.calls.push('refund')
     effects.refundThrowOnError = throwOnError
     if (options.refundError) throw options.refundError
@@ -170,10 +276,10 @@ export async function run(kind, options = {}) {
   const refundWorkflow = () => ({ run: refund })
   refundWorkflow.runAsStep = ({ input }) => make('legacy-refund', (input) => refund({ input }))(input)
   const collaborators = {
-    'node:crypto': { createHash },
+    'node:crypto': { createHash, randomUUID },
     '@medusajs/framework/types': {}, '@medusajs/framework/utils': utils,
     '@medusajs/framework/workflows-sdk': {
-      createWorkflow: (_name, body) => body,
+      createWorkflow,
       createStep: (name, body, compensation) => { if (name === 'settle-order-refund') effects.financialCompensations.push(compensation); return make(name, (input) => body(input, { container })) },
       transform: (input, body) => new Node('transform', input, body),
       when: (input, predicate) => ({ then: (body) => { // Conditional graph nodes, including their dependency edges.
@@ -193,11 +299,14 @@ export async function run(kind, options = {}) {
     '../../payout/steps': { createPayoutReversalStep: make('legacy-reverse', (input) => input.amount ? payoutService.createPayoutReversal(input) : undefined) },
     '../../split-order-payment/workflows': { refundSplitOrderPaymentWorkflow: refundWorkflow },
     '../../split-order-payment/workflows/refund-split-order-payment': { refundSplitOrderPaymentWorkflow: refundWorkflow },
+    '../../../utils/commerce-financial-lock': { withCommerceOrderLock },
+
     // Scoped persistence boundary only: the actual refund step and its guard run unchanged.
     '../../../utils/payout-execution': { createPostgresPayoutExecutionStore: (connection) => {
       assert.equal(connection, pg)
       return {
         assertScopeResolved: async (scope) => {
+          assertCommerceFinancialLock()
           assert.equal(ledger.locked, true, 'Payout guard must run under settlement lock')
           effects.calls.push('payout-scope-guard')
           if ((options.payoutExecutions ?? []).some((row) => row.scope_id === scope && row.phase === 'started')) {
@@ -205,6 +314,7 @@ export async function run(kind, options = {}) {
           }
         },
         get: async (orderId) => {
+          assertCommerceFinancialLock()
           assert.equal(ledger.locked, true)
           return plain((options.payoutExecutions ?? []).find((row) => row.order_id === orderId) ?? null)
         },
@@ -217,15 +327,32 @@ export async function run(kind, options = {}) {
   }
   const [filename, exportName] = kind === 'return'
     ? ['refund-seller-order-for-return.ts', 'refundSellerOrderForReturnWorkflow'] : ['cancel-order.ts', 'cancelOrderWorkflow']
-  const workflow = load(new URL(`workflows/order/workflows/${filename}`, root), collaborators)[exportName]
-  const response = workflow({ order_id: order.id, operation_id: 'request-test', return_lines: [{ line_item_id: 'line-a', quantity: 1 }], ...input })
-  const harness = { nodes, dependsOn, node: (name) => nodes.find((node) => node.name === name) }
-  if (options.inspectGraph) options.inspectGraph(harness)
-  for (const node of [...nodes].reverse()) await resolve(node)
-  return { result: plain(await resolve(response.value)), effects, ledger, harness }
+  const workflow = load(new URL(`workflows/order/workflows/${filename}`, root), collaborators, sourceCache)[exportName]
+  let response
+  try {
+    response = await workflow(container).run({ input: { order_id: order.id, operation_id: 'request-test',
+      return_lines: [{ line_item_id: 'line-a', quantity: 1 }], ...input }, throwOnError: true })
+  } finally {
+    assert.equal(commerceDepth, 0, 'Commerce capability must be released after success or failure')
+    assert.throws(() => effectAuthority.checkRefundEffectFence(), /authority unavailable/)
+    assert.throws(assertCommerceFinancialLock, /lock.*not held/i)
+  }
+  const harness = { ...graphs.at(-1), graphs }
+  return { result: plain(response.result), effects, ledger, harness }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  for (const kind of ['return', 'cancel']) for (const replay of [false, true]) {
+    test(`${kind}: native dispatch quarantine blocks ${replay ? 'completed replay' : 'fresh planning'}`, async () => {
+      const ledger = newLedger(), effects = {}
+      if (replay) await run(kind, { ledger })
+      const before = plain([...ledger.records.values()])
+      await assert.rejects(run(kind, { ledger, effects, refundDispatches: [{ scope_id: 'collection-test', state: 'started' }] }), /Commerce refund quarantine/)
+      assert.deepEqual(effects.allocations, []); assert.deepEqual(effects.ledgerWrites, [])
+      assert.deepEqual(effects.refunds, []); assert.deepEqual(effects.reversals, []); assert.deepEqual(effects.other, [])
+      assert.deepEqual(plain([...ledger.records.values()]), before)
+    })
+  }
   for (const kind of ['return', 'cancel']) {
     test(`${kind}: persists fixed allocation under collection lock before either effect`, async () => {
       const { effects, ledger } = await run(kind)
@@ -239,6 +366,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       assert.ok(effects.calls.indexOf('persist-plan') < effects.calls.indexOf('refund'))
       assert.ok(effects.calls.indexOf('refund_completed') < effects.calls.indexOf('reverse'))
       assert.ok(effects.queries.filter((q) => q.entity === 'commission_line' || q.entity === 'payment').every((q) => q.locked))
+      assert.ok(effects.queries.every((q) => q.commerceLocked), 'All snapshots must be inside the commerce invocation')
+      assert.deepEqual(effects.commerceLocks.map(({ depth, phase }) => [depth, phase]), kind === 'cancel'
+        ? [[1, 'enter'], [2, 'enter'], [2, 'exit'], [1, 'exit']] : [[1, 'enter'], [1, 'exit']])
       assert.equal([...ledger.records.values()][0].phase, 'completed')
       assert.deepEqual(effects.financialCompensations, [undefined])
     })
@@ -332,7 +462,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   }
   test('cancellation financial/fulfillment/event ordering has actual SDK dependency edges', async () => {
-    const { effects } = await run('cancel', { inspectGraph: ({ node, dependsOn }) => {
+    const { effects, harness } = await run('cancel', { inspectGraph: ({ node, dependsOn }) => {
       const financial = node('settle-order-refund')
       assert.ok(financial, 'Missing financial settlement step')
       assert.ok(dependsOn(financial, node('cancel-validate-order')))
@@ -340,6 +470,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       assert.ok(dependsOn(node('event'), node('cancel')))
       assert.ok(dependsOn(node('event'), node('reservations')))
     } })
+    assert.deepEqual(harness.graphs.map(({ name }) => name), ['cancel-single-order', 'cancel-single-order-under-lock'])
+    assert.deepEqual(harness.graphs[0].nodes.map(({ name }) => name), ['cancel-with-commerce-lock'])
+    assert.equal(effects.workflowRuns[1].commerceLocked, true)
+    assert.equal(effects.workflowRuns[1].throwOnError, true)
     assert.ok(effects.calls.indexOf('completed') < effects.calls.indexOf('cancel'))
   })
   test('active fulfillment forbids any plan/refund/cancellation/event', async () => {
@@ -360,9 +494,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const bad = {}; await assert.rejects(run('return', { effects: bad, onLock: (order) => { order.split_order_payment.payment_collection_id = 'moved' } }))
     assert.deepEqual(bad.refunds, []); assert.deepEqual(bad.ledgerWrites, [])
   })
+  test('cancellation ignores stale scope_order and re-reads inside its nested commerce lock', async () => {
+    const { effects } = await run('cancel', { onCommerceLock: (order, depth) => {
+      if (depth === 2) order.split_order_payment.payment_collection_id = 'fresh-collection'
+    } })
+    assert.equal(effects.settlements[0].scope_id, 'fresh-collection')
+    const scopeReads = effects.queries.filter((q) => q.entity === 'orders' && !q.locked)
+    assert.equal(scopeReads.length, 2, 'Child preflight and fresh financial scope read must both remain')
+    assert.ok(scopeReads.every((q) => q.commerceLocked))
+  })
   test('unpaid cancellation completes without dereferencing missing split/payout', async () => {
     const { result, effects } = await run('cancel', { order: orderFixture({ split_order_payment: null, payouts: [] }) })
-    assert.equal(result, 'order-test'); assert.equal(effects.settlements[0].scope_id, 'order:order-test')
+    assert.equal(result, 'order-test'); assert.equal(effects.settlements[0].scope_id, 'collection-test')
     assert.deepEqual(effects.refunds, []); assert.deepEqual(effects.reversals, [])
     assert.equal(effects.other.length, 3)
   })
@@ -408,32 +551,34 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     assert.deepEqual(replay.result, first.result); assert.deepEqual(replay.effects.allocations, [])
     await assert.rejects(run('return', { ledger, order, lines, input: { return_lines: selected, requested_refund_amount: 35 } }), /identity_conflict/)
   })
-  test('refund-completed checkpoint resumes only fixed seller leg with changed balances', async () => {
+  test('refund-completed checkpoint is quarantined before changed-balance replay', async () => {
     const ledger = newLedger(), order = orderFixture()
     await assert.rejects(run('return', { ledger, order, failTransition: 'reversal_started' }))
     assert.equal(ledger.records.get('return:request-test').phase, 'refund_completed')
     order.items = []; order.split_order_payment.refunded_amount = 100
-    const { effects, result } = await run('return', { ledger, order })
-    assert.equal(result.customer_refund, 25); assert.equal(effects.reversals[0].amount, 22.5)
-    assert.deepEqual(effects.allocations, []); assert.deepEqual(effects.refunds, [])
+    const effects = {}
+    await assert.rejects(run('return', { ledger, order, effects }), /Commerce refund quarantine/)
+    assert.deepEqual(effects.allocations, []); assert.deepEqual(effects.refunds, []); assert.deepEqual(effects.reversals, [])
+    assert.equal(ledger.records.get('return:request-test').phase, 'refund_completed')
   })
   test('another uncertain operation blocks both sellers sharing one collection', async () => {
     const ledger = newLedger()
     await assert.rejects(run('return', { ledger, refundError: new Error('unknown') }))
     const effects = {}; await assert.rejects(run('return', { ledger, effects, order: orderFixture({ id: 'other-order' }),
-      input: { operation_id: 'another-request' } }), /scope_blocked/)
+      input: { operation_id: 'another-request' } }), /Commerce refund quarantine/)
     assert.deepEqual(effects.allocations, []); assert.deepEqual(effects.refunds, [])
   })
   const evidence = (overrides = {}) => ({ id: 'external-reversal', payout_id: 'payout-test', amount: 22.5, currency_code: 'eur',
     data: { id: 'external-reversal', amount: 2250, currency: 'eur', transfer: 'transfer-test',
       idempotency_key: 'payout-reversal:payout-test:return%3Arequest-test' }, ...overrides })
-  test('crashed reversal recovers only from paginated matching validated local evidence', async () => {
+  test('crashed reversal stays quarantined even with matching paginated local evidence', async () => {
     const ledger = newLedger(); await assert.rejects(run('return', { ledger, reverseError: new Error('unknown') }))
     const rows = Array.from({ length: 100 }, (_, i) => evidence({ id: `old-${i}`, data: {} })).concat(evidence())
-    const { result, effects } = await run('return', { ledger, recoveryRows: rows })
-    assert.equal(result.seller_reversal, 22.5); assert.deepEqual(effects.refunds, []); assert.deepEqual(effects.reversals, [])
-    assert.ok(effects.recoveryReads.some((r) => r.config?.skip === 100))
-    assert.equal(ledger.records.get('return:request-test').reversal_receipt_id, 'external-reversal')
+    const effects = {}
+    await assert.rejects(run('return', { ledger, effects, recoveryRows: rows }), /Commerce refund quarantine/)
+    assert.deepEqual(effects.refunds, []); assert.deepEqual(effects.reversals, []); assert.deepEqual(effects.recoveryReads, [])
+    assert.equal(ledger.records.get('return:request-test').phase, 'reversal_started')
+    assert.equal(ledger.records.get('return:request-test').reversal_receipt_id, null)
   })
   for (const [name, rows] of [['missing', []], ['wrong major amount', [evidence({ amount: 23 })]],
     ['wrong currency', [evidence({ currency_code: 'usd' })]], ['wrong external id', [evidence({ id: 'different' })]],

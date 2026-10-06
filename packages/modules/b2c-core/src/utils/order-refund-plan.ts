@@ -12,7 +12,7 @@ export type OrderRefundSnapshot = {
   id: string
   status?: string
   currency_code: string
-  items?: Parameters<typeof calculateReturnRefundAmount>[0]['items']
+  items?: { id: string; quantity: Amount; total?: Amount }[]
   fulfillments?: { canceled_at?: unknown }[]
   payment_collections?: { id: string; captured_amount?: Amount }[]
   split_order_payment?: {
@@ -96,6 +96,13 @@ export function nonnegativeRefundAmount(value: Amount | null | undefined): numbe
   return numeric
 }
 
+function nonnegativeRefundDecimal(value: Amount | null | undefined): string {
+  if (value == null) throw new Error('Missing financial amount')
+  const amount = MathBN.convert(value)
+  if (!amount.isFinite() || MathBN.lt(amount, 0)) throw new Error('Invalid financial amount')
+  return amount.toString()
+}
+
 /** Called only inside the settlement engine's plan callback, after requerying. */
 export function allocateOrderRefund(
   order: OrderRefundSnapshot, request: OrderRefundRequest,
@@ -133,7 +140,12 @@ export function allocateOrderRefund(
     (sum, line) => MathBN.add(sum, nonnegativeRefundAmount(line.value)), MathBN.convert(0)
   ).toString()) : 0
   const requested = request.kind === 'return' ? calculateReturnRefundAmount({
-    items: order.items ?? [], returnLines: request.return_lines!, currencyCode: currency_code,
+    // Native graph totals/quantities can be Medusa BigNumber objects. Normalize
+    // at this adapter boundary; never replace a missing paid total with price.
+    items: (order.items ?? []).filter(item => request.return_lines!.some(line => line.line_item_id === item.id))
+      .map(item => ({ id: item.id,
+        quantity: nonnegativeRefundDecimal(item.quantity), total: nonnegativeRefundDecimal(item.total),
+      })), returnLines: request.return_lines!, currencyCode: currency_code,
     requestedRefundAmount: request.requested_refund_amount,
   }) : Math.max(0, captured - alreadyRefunded)
   const tolerance = Math.min(1e-9, Number.EPSILON * Math.max(1, captured, alreadyRefunded) * 4)

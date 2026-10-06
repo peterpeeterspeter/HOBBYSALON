@@ -28,9 +28,16 @@ function positiveDecimal(value: unknown): [bigint, bigint] {
   ) {
     throw new Error('Return refund requires a positive paid line total or amount')
   }
-  const [mantissa, exponent = '0'] = Number(value).toString().split('e')
+  const decimal = typeof value === 'number' ? value.toString() : value
+  // Preserve provider/native decimal strings; Number(value) can move a value
+  // across a half-cent boundary before the proportional refund is rounded.
+  const [mantissa, exponent = '0'] = decimal.split(/e/i)
   const [whole, fraction = ''] = mantissa.split('.')
   const shift = Number(exponent) - fraction.length
+  // Bound bigint work on inputs without silently rounding accepted amounts.
+  if (decimal.length > 4096 || !Number.isSafeInteger(shift) || Math.abs(shift) > 4096) {
+    throw new Error('Return refund decimal precision exceeds safe bounds')
+  }
   const coefficient = BigInt(whole + fraction)
   return shift >= 0
     ? [coefficient * 10n ** BigInt(shift), 1n]
@@ -79,6 +86,10 @@ export function calculateReturnRefundAmount(input: ReturnRefundAmountInput): num
       !Number.isSafeInteger(purchasedQuantity) || purchasedQuantity <= 0 ||
       line.quantity > purchasedQuantity
     ) {
+      throw new Error('Invalid or excessive return quantity')
+    }
+    const [quantityNumerator, quantityDenominator] = positiveDecimal(item.quantity)
+    if (quantityNumerator !== BigInt(purchasedQuantity) * quantityDenominator) {
       throw new Error('Invalid or excessive return quantity')
     }
     const [paidNumerator, paidDenominator] = positiveDecimal(item.total)

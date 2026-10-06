@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from '@medusajs/framework/utils'
+import { defineConfig, loadEnv, Modules } from '@medusajs/framework/utils'
 import type { InputConfig, InputConfigModules } from '@medusajs/types'
 import { resolveSigningSecrets } from './src/utils/signing-secrets'
 
@@ -6,6 +6,10 @@ loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 // Fail closed before constructing config/providers; validate the loaded environment.
 const signingSecrets = resolveSigningSecrets(process.env)
+const redisUrl = process.env.REDIS_URL?.trim() || undefined
+if (process.env.NODE_ENV === 'production' && !redisUrl) {
+  throw new Error('REDIS_URL must be configured in production for the Redis event bus and workflow engine.')
+}
 
 const shouldEnableAlgolia =
   process.env.CI !== 'true' &&
@@ -59,9 +63,28 @@ const fileModule = process.env.S3_ACCESS_KEY_ID
     }
 
 const modules: InputConfigModules = [
+    // projectConfig.redisUrl alone does not replace Medusa's in-memory defaults.
+    // These option shapes are read by the installed Medusa 2.11.3 loaders.
+    // Local development/test without Redis deliberately retain those defaults.
+    ...(redisUrl
+      ? [
+          {
+            key: Modules.EVENT_BUS,
+            resolve: '@medusajs/event-bus-redis',
+            options: { redisUrl }
+          },
+          {
+            key: Modules.WORKFLOW_ENGINE,
+            resolve: '@medusajs/workflow-engine-redis',
+            options: { redis: { url: redisUrl } }
+          }
+        ]
+      : []),
+    // Messaging/workflow Redis is not a replacement for the commerce PG lock.
     fileModule,
     {
-      resolve: '@medusajs/medusa/payment',
+      key: Modules.PAYMENT,
+      resolve: './src/modules/payment-capture-recovery',
       options: {
         providers: [
           {
@@ -79,7 +102,12 @@ const modules: InputConfigModules = [
       }
     },
     {
-      resolve: '@medusajs/medusa/notification',
+      key: Modules.ORDER,
+      resolve: './src/modules/order-commerce-serialization'
+    },
+    {
+      key: Modules.NOTIFICATION,
+      resolve: './src/modules/notification-retry-identity',
       options: {
         providers: [
           {
@@ -112,7 +140,7 @@ module.exports = defineConfig({
   },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
-    redisUrl: process.env.REDIS_URL,
+    redisUrl,
     workerMode:
       (process.env.WORKER_MODE as "shared" | "server" | "worker" | undefined) ??
       "shared",
