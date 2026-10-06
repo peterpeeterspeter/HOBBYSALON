@@ -26,9 +26,7 @@ import { getSavedProjectSource, isStartableFavoriteType } from "@/lib/profile/sa
 import { resolveResumableSavedProjects } from "@/lib/profile/resumable-saved-project-service";
 import { getMaterialCupboardEntries } from "@/lib/profile/material-cupboard";
 import { listConfirmedNewsletterGuides } from "@/lib/platform/queries/confirmed-newsletter-guides";
-import { CreatorMakerSection } from "@/components/profile/CreatorMakerSection";
 import { RoleUpgradeSection } from "@/components/auth/RoleUpgradeSection";
-import { loadCreatorMakerData } from "@/lib/profile/load-creator-maker-data";
 import {
   createConfirmationToken,
   normalizeNewsletterEmail,
@@ -92,6 +90,13 @@ export default async function ProfilePage({ searchParams }: Props) {
   }
 
   const { success, error, tab } = await searchParams;
+  // Maker tabs moved to /dashboard/pagina; keep old links (e-mails, bookmarks) working.
+  if (tab) {
+    const params = new URLSearchParams({ tab });
+    if (success) params.set("success", success);
+    if (error) params.set("error", error);
+    redirect(`/dashboard/pagina?${params.toString()}`);
+  }
   const locationPreference = await getLocationPreferenceFromCookies();
   const supabase = createPlatformClient();
   const normalizedEmail = user.email ? normalizeNewsletterEmail(user.email) : null;
@@ -152,7 +157,6 @@ export default async function ProfilePage({ searchParams }: Props) {
     hasOfferIntent: caps.hasOfferIntent,
     hasMerchantAccess: caps.canViewVendorPortalNav,
   });
-  const makerData = showMakerSection ? await loadCreatorMakerData(user, tab) : null;
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
   const guidesWithDownloads = confirmedGuides.map((guide) => ({
     ...guide,
@@ -247,7 +251,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           </p>
           <div className="mt-5">
             <Button asChild>
-              <Link href="/dashboard/products#aanvragen">Open aanvragen</Link>
+              <Link href="/dashboard">Open aanvragen</Link>
             </Button>
           </div>
         </CardShell>
@@ -288,7 +292,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       <ProfileQuickLinks
-        showMakerLink={Boolean(makerData)}
+        showMakerLink={showMakerSection}
         hasLocation={locationPreference.hasPreference && localEvents.length > 0}
         hasCreatorProfile={Boolean(creator)}
         hasOfferIntent={caps.hasOfferIntent}
@@ -524,8 +528,16 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       {/* 7. Maker (collapsed when complete) */}
-      {makerData ? (
-        <CreatorMakerSection data={makerData} success={success} error={error} />
+      {showMakerSection ? (
+        <section className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+          <h2 className="text-2xl font-semibold text-[var(--foreground)]">Je maker-pagina</h2>
+          <p className="mt-2 text-lg text-[var(--muted)]">
+            Je maker-pagina, artikels en portfolio beheer je in je dashboard, onder Mijn pagina.
+          </p>
+          <Button asChild size="lg" className="mt-4">
+            <Link href="/dashboard/pagina">Naar mijn pagina</Link>
+          </Button>
+        </section>
       ) : null}
 
       {/* 8. Passport depth: badges first, then domains, then activity */}

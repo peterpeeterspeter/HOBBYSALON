@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getAuthUser } from "@/lib/auth/session";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
 import { requireDashboardCapability } from "@/lib/auth/require-dashboard-capability";
@@ -142,9 +143,12 @@ export default async function DashboardOrdersPage({ searchParams }: Props) {
                 </form>
                 <form action={cancelCreatorOrderAction}>
                   <input type="hidden" name="order_id" value={order.id} />
-                  <Button type="submit" variant="danger" size="sm">
-                    Annuleer order
-                  </Button>
+                  <ConfirmSubmitButton
+                    variant="danger"
+                    message="Deze bestelling annuleren? De klant krijgt hiervan bericht."
+                  >
+                    Bestelling annuleren
+                  </ConfirmSubmitButton>
                 </form>
               </div>
             </CardShell>

@@ -201,7 +201,7 @@ function formatDate(value: string) {
 export default async function DashboardMaterialsPage({ searchParams }: Props) {
   const user = await getAuthUser();
   if (!user) {
-    redirect("/login?next=/dashboard/materials");
+    redirect("/login?next=/beheer/materialen");
   }
 
   // Platform admin tooling: never expose all shops to merchants.
@@ -562,7 +562,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button asChild variant="ghost" size="sm">
                             <a
-                              href={`/dashboard/materials?merchant_q=${encodeURIComponent(
+                              href={`/beheer/materialen?merchant_q=${encodeURIComponent(
                                 merchantQ ?? ""
                               )}&seller_id=${encodeURIComponent(merchant.seller_id)}`}
                             >
@@ -691,7 +691,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                       </span>
                       <Button asChild type="button" size="sm" variant="ghost">
                         <a
-                          href={`/dashboard/materials?merchant_q=${encodeURIComponent(
+                          href={`/beheer/materialen?merchant_q=${encodeURIComponent(
                             merchantQ ?? ""
                           )}&seller_id=${encodeURIComponent(
                             merchantDetail.merchant.seller_id
@@ -862,7 +862,7 @@ export default async function DashboardMaterialsPage({ searchParams }: Props) {
                           </Button>
                           <Button asChild type="button" size="sm" variant="ghost">
                             <a
-                              href={`/dashboard/materials?merchant_q=${encodeURIComponent(
+                              href={`/beheer/materialen?merchant_q=${encodeURIComponent(
                                 merchantQ ?? ""
                               )}&seller_id=${encodeURIComponent(
                                 merchantDetail.merchant.seller_id

@@ -102,11 +102,15 @@ const useCoreRoutes = (): Omit<INavItem, 'pathname'>[] => {
   const { t } = useTranslation();
 
   const unreadMessages = useUnreads();
+  const unreadCount = unreadMessages?.length ?? 0;
 
+  // Hobbysalon keeps the menu short for a 55+ audience. Advanced pages
+  // (price lists, customer groups, campaigns, reservations, collection and
+  // category requests) stay reachable by URL but are not listed here.
   return [
     {
       icon: <Component />,
-      label: 'Dashboard',
+      label: t('app.nav.main.dashboard', { defaultValue: 'Overzicht' }),
       to: '/dashboard'
     },
     {
@@ -114,70 +118,26 @@ const useCoreRoutes = (): Omit<INavItem, 'pathname'>[] => {
       label: t('orders.domain'),
       to: '/orders',
       items: [
-        // TODO: Enable when domin is introduced
-        // {
-        //   label: t("draftOrders.domain"),
-        //   to: "/draft-orders",
-        // },
+        {
+          label: t('app.nav.main.returns', { defaultValue: 'Retouraanvragen' }),
+          to: '/requests/orders'
+        }
       ]
     },
     {
       icon: <Tag />,
       label: t('products.domain'),
-      to: '/products',
-      items: [
-        {
-          label: t('collections.domain'),
-          to: '/collections'
-        },
-        {
-          label: t('categories.domain'),
-          to: '/categories'
-        }
-        // TODO: Enable when domin is introduced
-        // {
-        //   label: t("giftCards.domain"),
-        //   to: "/gift-cards",
-        // },
-      ]
+      to: '/products'
     },
     {
       icon: <Buildings />,
       label: t('inventory.domain'),
-      to: '/inventory',
-      items: [
-        {
-          label: t('reservations.domain'),
-          to: '/reservations'
-        }
-      ]
-    },
-    {
-      icon: <Users />,
-      label: t('customers.domain'),
-      to: '/customers',
-      items: [
-        {
-          label: t('customerGroups.domain'),
-          to: '/customer-groups'
-        }
-      ]
+      to: '/inventory'
     },
     {
       icon: <ReceiptPercent />,
       label: t('promotions.domain'),
-      to: '/promotions',
-      items: [
-        {
-          label: t('campaigns.domain'),
-          to: '/campaigns'
-        }
-      ]
-    },
-    {
-      icon: <CurrencyDollar />,
-      label: t('priceLists.domain'),
-      to: '/price-lists'
+      to: '/promotions'
     },
     {
       icon: <Star />,
@@ -186,31 +146,13 @@ const useCoreRoutes = (): Omit<INavItem, 'pathname'>[] => {
     },
     {
       icon: <ChatBubbleLeftRight />,
-      label: `Messages ${unreadMessages?.length && unreadMessages?.length > 0 ? `(${unreadMessages?.length})` : ''}`,
+      label: `${t('app.nav.main.messages', { defaultValue: 'Berichten' })}${unreadCount > 0 ? ` (${unreadCount})` : ''}`,
       to: '/messages'
     },
     {
-      icon: <ListCheckbox />,
-      label: 'Requests',
-      to: '/requests',
-      items: [
-        {
-          label: 'Collections',
-          to: '/requests/collections'
-        },
-        {
-          label: 'Categories',
-          to: '/requests/categories'
-        },
-        {
-          label: 'Reviews',
-          to: '/requests/reviews'
-        },
-        {
-          label: 'Orders returns',
-          to: '/requests/orders'
-        }
-      ]
+      icon: <Users />,
+      label: t('customers.domain'),
+      to: '/customers'
     }
   ];
 };

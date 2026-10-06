@@ -14,6 +14,7 @@ import uk from "./uk.json"
 import ro from "./ro.json"
 import mk from "./mk.json"
 import mn from "./mn.json"
+import nl from "./nl.json"
 import ar from "./ar.json"
 import zhCN from "./zhCN.json"
 import fa from "./fa.json"
@@ -68,6 +69,9 @@ export default {
   },
   mn: {
     translation: mn,
+  },
+  nl: {
+    translation: nl,
   },
   ar: {
     translation: ar,

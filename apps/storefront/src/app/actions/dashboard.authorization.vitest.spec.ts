@@ -192,7 +192,7 @@ describe.each(projectCases)("project authorization: $name", ({ action, fields, t
   it("rejects a foreign project even with a preexisting caller-created link", async () => {
     h.rows.projects[0].created_by_user_id = "foreign-user";
     const original = structuredClone(h.rows);
-    expect(await run(action, fields)).toContain("?error=Geen rechten op dit project.");
+    expect(await run(action, fields)).toMatch(/[?&]error=Geen\ rechten\ op\ dit\ project\./);
     expect(writes()).toEqual([]);
     expect(h.rows).toEqual(original);
     expect(h.upload).not.toHaveBeenCalled();
@@ -201,7 +201,7 @@ describe.each(projectCases)("project authorization: $name", ({ action, fields, t
 
   it.each([true, false])("allows the actual owner (association exists: %s)", async (linked) => {
     if (!linked) h.rows.entity_links = [];
-    expect(await run(action, fields)).toContain("?success=");
+    expect(await run(action, fields)).toMatch(/[?&]success=/);
     expect(writes()).toEqual([expect.objectContaining({ table, operation })]);
     expect(h.queries).toContainEqual(expect.objectContaining({
       table: "projects", filters: expect.arrayContaining([["id", PROJECT], ["created_by_user_id", "user-owner"]]),
@@ -211,7 +211,7 @@ describe.each(projectCases)("project authorization: $name", ({ action, fields, t
 
   it.each([false, true])("fails closed on ownership lookup errors (data present: %s)", async (withData) => {
     h.failure = { table: "projects", operation: "select", withData };
-    expect(await run(action, fields)).toContain("?error=");
+    expect(await run(action, fields)).toMatch(/[?&]error=/);
     expect(writes()).toEqual([]);
     expect(h.upload).not.toHaveBeenCalled();
     expect(h.revalidate).not.toHaveBeenCalled();
@@ -219,7 +219,7 @@ describe.each(projectCases)("project authorization: $name", ({ action, fields, t
 
   it("rejects a nonexistent project", async () => {
     h.rows.projects = [];
-    expect(await run(action, fields)).toContain("?error=");
+    expect(await run(action, fields)).toMatch(/[?&]error=/);
     expect(writes()).toEqual([]);
   });
 
@@ -233,7 +233,7 @@ describe.each(projectCases)("project authorization: $name", ({ action, fields, t
   it("reports mutation errors without success or cache invalidation", async () => {
     h.failure = { table, operation };
     const original = structuredClone(h.rows);
-    expect(await run(action, fields)).toContain("?error=");
+    expect(await run(action, fields)).toMatch(/[?&]error=/);
     expect(h.rows).toEqual(original);
     expect(h.revalidate).not.toHaveBeenCalled();
   });
@@ -244,10 +244,10 @@ it("allows a public project association without granting gallery edit rights", a
   h.rows.entity_links = [];
   expect(await run(createCreatorEntityLinkAction, {
     target_entity_type: "project", target_entity_id: PROJECT, relation_type: "related",
-  })).toContain("?success=");
+  })).toMatch(/[?&]success=/);
   h.queries = [];
   h.revalidate.mockClear();
-  expect(await run(deleteProjectGalleryImageAction, { gallery_image_id: CHILD })).toContain("?error=Geen rechten op dit project.");
+  expect(await run(deleteProjectGalleryImageAction, { gallery_image_id: CHILD })).toMatch(/[?&]error=Geen\ rechten\ op\ dit\ project\./);
   expect(writes()).toEqual([]);
   expect(h.rows.project_gallery_images).toHaveLength(1);
 });
@@ -259,7 +259,7 @@ describe("article recommendation authorization", () => {
     if (scenario === "missing article") h.rows.articles = [];
     if (scenario === "zero-row owner update") h.zeroArticleUpdate = true;
     const original = structuredClone(h.rows);
-    expect(await run(updateArticleAction, articleFields)).toContain("?error=Bijwerken van artikel mislukt.");
+    expect(await run(updateArticleAction, articleFields)).toMatch(/[?&]error=Bijwerken\ van\ artikel\ mislukt\./);
     expect(h.rows).toEqual(original);
     expect(h.queries.filter(item => item.table !== "articles")).toEqual([]);
     expect(h.rpc).not.toHaveBeenCalled();
@@ -269,7 +269,7 @@ describe("article recommendation authorization", () => {
   it.each(["returned error", "error with data", "thrown error"])("does not touch recommendations after an article DB %s", async (mode) => {
     h.failure = { table: "articles", operation: "update", withData: mode === "error with data", throws: mode === "thrown error" };
     const original = structuredClone(h.rows);
-    expect(await run(updateArticleAction, articleFields)).toContain("?error=");
+    expect(await run(updateArticleAction, articleFields)).toMatch(/[?&]error=/);
     expect(h.rows).toEqual(original);
     expect(h.queries.filter(item => item.table !== "articles")).toEqual([]);
     expect(h.rpc).not.toHaveBeenCalled();
@@ -282,7 +282,7 @@ describe("article recommendation authorization", () => {
     // but must be suppressed rather than deleted, relabelled or renominated.
     h.rows.products.push(...["old-product", "approved-product"].map(id => ({ ...h.rows.products[0], id })));
     const location = new URL(await run(updateArticleAction, articleFields), "https://fixture.invalid");
-    expect(location.pathname).toBe("/profile");
+    expect(location.pathname).toBe("/dashboard/pagina");
     expect(location.searchParams.get("tab")).toBe("profiel");
     expect(location.searchParams.get("success")).toBe("Artikel bijgewerkt. Suggesties vernieuwd.");
     expect(location.searchParams.has("error")).toBe(false);

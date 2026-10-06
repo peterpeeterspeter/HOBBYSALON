@@ -60,7 +60,7 @@ export function EventStandhouderRsvpCard({
             bevestigen.
           </p>
           <Button asChild variant="secondary">
-            <Link href="/profile?tab=profiel#maker-pagina">Makerprofiel aanmaken</Link>
+            <Link href="/dashboard/pagina">Makerprofiel aanmaken</Link>
           </Button>
         </div>
       ) : !isEligible ? (
@@ -70,7 +70,7 @@ export function EventStandhouderRsvpCard({
             rollen aan onder Account.
           </p>
           <Button asChild variant="secondary">
-            <Link href="/dashboard#account">Rollen bekijken</Link>
+            <Link href="/dashboard/instellingen#aanbieden">Rollen bekijken</Link>
           </Button>
         </div>
       ) : hasRsvped ? (

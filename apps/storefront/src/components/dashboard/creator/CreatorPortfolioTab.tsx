@@ -6,6 +6,7 @@ import {
   deleteProjectProductLinkAction,
   deleteProjectSoughtMaterialAction,
 } from "@/app/actions/dashboard";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -153,9 +154,9 @@ export function CreatorPortfolioTab({
                           </a>
                           <form action={deleteProjectGalleryImageAction}>
                             <input type="hidden" name="gallery_image_id" value={image.id} />
-                            <Button type="submit" size="sm" variant="ghost">
+                            <ConfirmSubmitButton size="sm" variant="ghost" message="Deze foto verwijderen? Dit kan je niet ongedaan maken.">
                               Verwijderen
-                            </Button>
+                            </ConfirmSubmitButton>
                           </form>
                         </div>
                       ))}
@@ -188,9 +189,9 @@ export function CreatorPortfolioTab({
                                 name="project_product_link_id"
                                 value={link.id}
                               />
-                              <Button type="submit" size="sm" variant="ghost">
+                              <ConfirmSubmitButton size="sm" variant="ghost" message="Deze koppeling met een product verwijderen?">
                                 Verwijderen
-                              </Button>
+                              </ConfirmSubmitButton>
                             </form>
                           </div>
                         ))}
@@ -218,9 +219,9 @@ export function CreatorPortfolioTab({
                             </p>
                             <form action={deleteProjectSoughtMaterialAction}>
                               <input type="hidden" name="sought_material_id" value={m.id} />
-                              <Button type="submit" size="sm" variant="ghost">
+                              <ConfirmSubmitButton size="sm" variant="ghost" message="Dit gezochte materiaal verwijderen?">
                                 Verwijderen
-                              </Button>
+                              </ConfirmSubmitButton>
                             </form>
                           </div>
                         ))}

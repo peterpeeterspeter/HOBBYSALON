@@ -21,6 +21,8 @@ export type DashboardCapabilities = {
   canViewSoughtMaterials: boolean;
   /** Public maker page, artikels, portfolio. */
   canViewCreatorPage: boolean;
+  /** May open "Mijn pagina": has a page, or said they want to offer something. */
+  canEditCreatorPage: boolean;
   canManageProducts: boolean;
   /** Create/edit workshop drafts (profile + host role, type, or pending request). */
   canDraftWorkshops: boolean;
@@ -166,6 +168,10 @@ export function resolveDashboardCapabilities(input: {
   // Analytics stays out of the Pro menu for now (page remains gated off).
   const canViewAnalytics = false;
 
+  const canEditCreatorPage =
+    canViewCreatorPage ||
+    (hasOfferIntent && !(hasMerchantRole && creatorTypes.length === 0 && !hasCreatorProfile));
+
   const isHobbyistOnly =
     !hasMerchantRole &&
     !hasCreatorRole &&
@@ -182,6 +188,7 @@ export function resolveDashboardCapabilities(input: {
     canViewVendorPortalNav,
     canViewSoughtMaterials,
     canViewCreatorPage,
+    canEditCreatorPage,
     canManageProducts,
     canDraftWorkshops,
     canPublishWorkshops,
@@ -205,58 +212,76 @@ export function buildRoleAwareDashboardNav(
     newEventVendorInquiryCount?: number;
   }
 ): DashboardNavItemDef[] {
+  const newRequests =
+    (options?.newProductInquiryCount ?? 0) +
+    (options?.newWorkshopBookingCount ?? 0) +
+    (options?.newEventVendorInquiryCount ?? 0);
+
   const items: DashboardNavItemDef[] = [
-    { href: "/dashboard", label: "Overzicht" },
+    {
+      href: "/dashboard",
+      label: "Vandaag",
+      badge: newRequests > 0 ? newRequests : undefined,
+    },
   ];
 
-  if (caps.canManageProducts) {
-    items.push({
-      href: "/dashboard/products",
-      label: "Maker shop",
-      badge:
-        options?.newProductInquiryCount && options.newProductInquiryCount > 0
-          ? options.newProductInquiryCount
-          : undefined,
-    });
+  if (caps.canManageProducts || caps.canDraftWorkshops || caps.canDraftEvents) {
+    items.push({ href: "/dashboard/aanbod", label: "Mijn aanbod" });
   }
 
-  if (caps.canDraftWorkshops) {
-    items.push({
-      href: "/dashboard/workshops",
-      label: "Workshops",
-      badge:
-        options?.newWorkshopBookingCount && options.newWorkshopBookingCount > 0
-          ? options.newWorkshopBookingCount
-          : undefined,
-    });
-  }
-
-  if (caps.canDraftEvents) {
-    items.push({
-      href: "/dashboard/events",
-      label: "Events",
-      badge:
-        options?.newEventVendorInquiryCount && options.newEventVendorInquiryCount > 0
-          ? options.newEventVendorInquiryCount
-          : undefined,
-    });
-  }
-
-  if (caps.canManageOrders) {
-    items.push({ href: "/dashboard/orders", label: "Bestellingen" });
+  if (caps.canEditCreatorPage) {
+    items.push({ href: "/dashboard/pagina", label: "Mijn pagina" });
   }
 
   if (caps.canViewVendorPortalNav) {
-    items.push({ href: "/dashboard/verkoper", label: "Verkopersportaal" });
+    items.push({ href: "/dashboard/winkel", label: "Winkel" });
   }
 
+  items.push({ href: "/dashboard/instellingen", label: "Instellingen" });
+
   if (options?.userIsModerator) {
-    items.push(
-      { href: "/dashboard/materials", label: "Materials Ops" },
-      { href: "/dashboard/moderatie/community", label: "Moderatie" },
-      { href: "/dashboard/moderatie/roles", label: "Rolaanvragen" }
-    );
+    items.push({ href: "/beheer", label: "Beheer" });
   }
 
   return items;
+}
+
+/** Offer sections shown inside "Mijn aanbod", in display order. */
+export function resolveOfferSections(caps: DashboardCapabilities) {
+  return [
+    caps.canManageProducts
+      ? { key: "creaties" as const, href: "/dashboard/products", label: "Creaties" }
+      : null,
+    caps.canDraftWorkshops
+      ? { key: "workshops" as const, href: "/dashboard/workshops", label: "Workshops" }
+      : null,
+    caps.canDraftEvents
+      ? { key: "events" as const, href: "/dashboard/events", label: "Events" }
+      : null,
+  ].filter((section): section is NonNullable<typeof section> => section !== null);
+}
+
+/** Which top-level nav item owns a given dashboard path (for active state). */
+export function resolveActiveNavHref(pathname: string): string {
+  if (pathname === "/dashboard") return "/dashboard";
+  if (
+    pathname.startsWith("/dashboard/aanbod") ||
+    pathname.startsWith("/dashboard/products") ||
+    pathname.startsWith("/dashboard/workshops") ||
+    pathname.startsWith("/dashboard/events")
+  ) {
+    return "/dashboard/aanbod";
+  }
+  if (pathname.startsWith("/dashboard/pagina")) return "/dashboard/pagina";
+  if (
+    pathname.startsWith("/dashboard/winkel") ||
+    pathname.startsWith("/dashboard/verkoper") ||
+    pathname.startsWith("/dashboard/orders") ||
+    pathname.startsWith("/dashboard/sought-materials")
+  ) {
+    return "/dashboard/winkel";
+  }
+  if (pathname.startsWith("/dashboard/instellingen")) return "/dashboard/instellingen";
+  if (pathname.startsWith("/beheer")) return "/beheer";
+  return pathname;
 }

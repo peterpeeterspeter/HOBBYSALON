@@ -14,6 +14,7 @@ import {
   ro,
   mk,
   mn,
+  nl,
   ar,
   zhCN,
   faIR,
@@ -29,6 +30,12 @@ export const languages: Language[] = [
     display_name: "Български",
     ltr: true,
     date_locale: bg,
+  },
+  {
+    code: "nl",
+    display_name: "Nederlands",
+    ltr: true,
+    date_locale: nl,
   },
   {
     code: "en",
