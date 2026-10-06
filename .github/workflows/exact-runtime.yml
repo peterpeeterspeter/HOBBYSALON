@@ -1,0 +1,384 @@
+name: Exact frozen image isolated runtime only
+
+on:
+  push:
+    branches:
+      - ops/exact-runtime-20261006-etn8vk
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: exact-runtime-20261006-etn8vk
+  cancel-in-progress: false
+
+jobs:
+  runtime:
+    if: >-
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/ops/exact-runtime-20261006-etn8vk' &&
+      github.event.created == true && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      DOCKER_HOST: unix:///tmp/hs-runtime/docker.sock
+      DOCKER_CONFIG: /tmp/hs-runtime/client
+    steps:
+      - name: Checkout minimal harness only
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+
+      - name: Create new exclusive runtime and evidence directories
+        id: prepare
+        shell: bash
+        env:
+          HS_RUNTIME_EVIDENCE: ${{ runner.temp }}/hs-runtime/evidence
+          HS_RUNTIME_PRIVATE: ${{ runner.temp }}/hs-runtime/private
+        run: |
+          set -euo pipefail
+          umask 077
+          test ! -e "$RUNNER_TEMP/hs-runtime"
+          test ! -L "$RUNNER_TEMP/hs-runtime"
+          mkdir -m 0700 "$RUNNER_TEMP/hs-runtime"
+          mkdir -m 0700 "$HS_RUNTIME_EVIDENCE" "$HS_RUNTIME_PRIVATE"
+          printf '%s\n' 'Temporary synthetic runtime only. No rebuild, deployment, provider traffic, or production acceptance.' > "$HS_RUNTIME_EVIDENCE/SCOPE.txt"
+
+      - name: Acquire and verify exact artifact read-only
+        id: acquisition
+        timeout-minutes: 3
+        shell: bash
+        env:
+          HS_RUNTIME_EVIDENCE: ${{ runner.temp }}/hs-runtime/evidence
+          HS_RUNTIME_PRIVATE: ${{ runner.temp }}/hs-runtime/private
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          timeout --signal=TERM --kill-after=5s 175s python3 runtime/acquire.py \
+            --workdir "$HS_RUNTIME_PRIVATE/acquired" \
+            --manifest "$HS_RUNTIME_PRIVATE/image-manifest.json" \
+            --receipt runtime/acquisition.json \
+            | tee "$HS_RUNTIME_EVIDENCE/acquisition.log"
+          cp --no-clobber runtime/acquisition.json "$HS_RUNTIME_EVIDENCE/acquisition.json"
+
+      - name: Create hard six GiB filesystem and dedicated private daemon
+        id: daemon
+        timeout-minutes: 2
+        shell: bash
+        env:
+          HS_RUNTIME_EVIDENCE: ${{ runner.temp }}/hs-runtime/evidence
+          HS_RUNTIME_PRIVATE: ${{ runner.temp }}/hs-runtime/private
+        run: |
+          set -euo pipefail
+          umask 077
+          test ! -e /tmp/hs-runtime && test ! -L /tmp/hs-runtime
+          test ! -e /mnt/hs-runtime && test ! -L /mnt/hs-runtime
+          mkdir -m 0700 /tmp/hs-runtime
+          mkdir -m 0700 /tmp/hs-runtime/client
+          printf '%s\n' '{}' > /tmp/hs-runtime/daemon.json
+          python3 - <<'PY'
+          import json, os, stat
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'hs-runtime'
+          image = root / 'runtime.ext4'
+          fd = os.open(image, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+          s = os.fstat(fd)
+          assert stat.S_ISREG(s.st_mode) and s.st_nlink == 1 and s.st_size == 0
+          os.close(fd)
+          owner = {'image': str(image), 'device': s.st_dev, 'inode': s.st_ino,
+                   'mount': '/mnt/hs-runtime', 'private': '/tmp/hs-runtime',
+                   'private_device': os.stat('/tmp/hs-runtime').st_dev,
+                   'private_inode': os.stat('/tmp/hs-runtime').st_ino}
+          (root / 'ownership.json').write_text(json.dumps(owner))
+          PY
+          image="$RUNNER_TEMP/hs-runtime/runtime.ext4"
+          truncate --size=6G -- "$image"
+          python3 - <<'PY'
+          import json, os, stat
+          from pathlib import Path
+          o=json.loads((Path(os.environ['RUNNER_TEMP'])/'hs-runtime/ownership.json').read_text())
+          s=os.lstat(o['image'])
+          assert stat.S_ISREG(s.st_mode) and s.st_nlink==1 and (s.st_dev,s.st_ino)==(o['device'],o['inode'])
+          assert s.st_size==6*1024**3 and not Path(o['mount']).exists() and not Path(o['mount']).is_symlink()
+          PY
+          # Only the just-created explicit regular file is formatted, never a device.
+          sudo mkfs.ext4 -F -q -- "$image"
+          sudo mkdir -m 0700 /mnt/hs-runtime
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'hs-runtime/ownership.json'
+          o=json.loads(p.read_text()); s=os.stat('/mnt/hs-runtime')
+          o.update(mount_device=s.st_dev, mount_inode=s.st_ino)
+          p.write_text(json.dumps(o))
+          PY
+          sudo mount -t ext4 -o loop,nodev,nosuid -- "$image" /mnt/hs-runtime
+          sudo chown "$(id -u):$(id -g)" /mnt/hs-runtime
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'hs-runtime/ownership.json'; o=json.loads(p.read_text())
+          m=json.loads(subprocess.check_output(['findmnt','--json','--mountpoint','/mnt/hs-runtime','--output','SOURCE,TARGET,FSTYPE,OPTIONS']))['filesystems']
+          assert len(m)==1 and m[0]['target']=='/mnt/hs-runtime' and m[0]['fstype']=='ext4'
+          assert {'nodev','nosuid'}.issubset(set(m[0]['options'].split(',')))
+          loop=m[0]['source']; assert loop.startswith('/dev/loop')
+          backing=subprocess.check_output(['sudo','losetup','--noheadings','--output','BACK-FILE',loop],text=True).strip()
+          assert backing==o['image']
+          o['loop']=loop; p.write_text(json.dumps(o))
+          Path(os.environ['HS_RUNTIME_EVIDENCE'],'storage.json').write_text(json.dumps({'status':'PASS','hard_storage_bytes':6*1024**3,'filesystem':'ext4','nodev':True,'nosuid':True,'private_daemon':True}))
+          PY
+          mkdir -m 0700 /mnt/hs-runtime/docker /mnt/hs-runtime/containerd /tmp/hs-runtime/exec /tmp/hs-runtime/containerd-state
+          printf '%s\n' 'version = 2' 'disabled_plugins = ["io.containerd.grpc.v1.cri"]' > /tmp/hs-runtime/containerd.toml
+          sudo sh -c 'umask 077; printf "%s\n" "$$" > /tmp/hs-runtime/containerd.pid; exec containerd \
+            --config /tmp/hs-runtime/containerd.toml \
+            --root /mnt/hs-runtime/containerd --state /tmp/hs-runtime/containerd-state \
+            --address /tmp/hs-runtime/containerd.sock' > /mnt/hs-runtime/containerd.stdout.log 2>&1 &
+          for attempt in {1..30}; do
+            if sudo ctr --address /tmp/hs-runtime/containerd.sock version >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          sudo ctr --address /tmp/hs-runtime/containerd.sock version
+          sudo python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          # Read the ownership path passed through a fixed user-owned location.
+          pid=int(Path('/tmp/hs-runtime/containerd.pid').read_text())
+          c=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')
+          assert b'/mnt/hs-runtime/containerd' in c and b'/tmp/hs-runtime/containerd.sock' in c
+          Path('/tmp/hs-runtime/containerd-identity.json').write_text(json.dumps({'pid':pid,'pid_start':Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]}))
+          PY
+          sudo sh -c 'umask 077; printf "%s\n" "$$" > /tmp/hs-runtime/launch.pid; exec dockerd \
+            --config-file=/tmp/hs-runtime/daemon.json \
+            --host=unix:///tmp/hs-runtime/docker.sock \
+            --data-root=/mnt/hs-runtime/docker \
+            --exec-root=/tmp/hs-runtime/exec \
+            --pidfile=/tmp/hs-runtime/dockerd.pid \
+            --storage-driver=overlay2 \
+            --bridge=none --iptables=false --ip6tables=false \
+            --ip-forward=false --ip-masq=false --userland-proxy=false \
+            --live-restore=false --group="'"$(id -gn)"'" \
+            --containerd=/tmp/hs-runtime/containerd.sock \
+            --containerd-namespace=hs-runtime --containerd-plugins-namespace=hs-runtime-plugins' \
+            > /mnt/hs-runtime/dockerd.stdout.log 2>&1 &
+          for attempt in {1..50}; do
+            if sudo test -s /tmp/hs-runtime/dockerd.pid; then
+              pid="$(sudo readlink -f /tmp/hs-runtime/dockerd.pid)"
+              test "$pid" = /tmp/hs-runtime/dockerd.pid
+              daemon_pid="$(sudo python3 -c 'from pathlib import Path; print(Path("/tmp/hs-runtime/dockerd.pid").read_text().strip())')"
+              sudo kill -0 "$daemon_pid"
+              if docker --host="$DOCKER_HOST" info --format '{{.DockerRootDir}}' > "$HS_RUNTIME_PRIVATE/daemon-root.txt" 2>/dev/null; then
+                test "$(< "$HS_RUNTIME_PRIVATE/daemon-root.txt")" = /mnt/hs-runtime/docker
+                python3 - "$daemon_pid" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          pid=int(sys.argv[1]); cmd=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')
+          assert b'--pidfile=/tmp/hs-runtime/dockerd.pid' in cmd and b'--data-root=/mnt/hs-runtime/docker' in cmd
+          p=Path(os.environ['RUNNER_TEMP'])/'hs-runtime/ownership.json'; o=json.loads(p.read_text())
+          o.update(pid=pid, pid_start=Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19])
+          p.write_text(json.dumps(o))
+          PY
+                break
+              fi
+            fi
+            sleep 1
+          done
+          test -s "$HS_RUNTIME_PRIVATE/daemon-root.txt"
+          test "$(< "$HS_RUNTIME_PRIVATE/daemon-root.txt")" = /mnt/hs-runtime/docker
+
+      - name: Execute synthetic runtime against the exact existing image
+        id: trial
+        timeout-minutes: 17
+        continue-on-error: true
+        shell: bash
+        env:
+          HS_RUNTIME_EVIDENCE: ${{ runner.temp }}/hs-runtime/evidence
+          HS_RUNTIME_PRIVATE: ${{ runner.temp }}/hs-runtime/private
+        run: |
+          set -uo pipefail
+          umask 077
+          # No GH_TOKEN, secrets, repository vars, or inherited Docker credentials here.
+          test -z "${GH_TOKEN:-}" || exit 2
+          timeout --signal=TERM --kill-after=20s 960s python3 runtime/runner.py \
+            --archive "$HS_RUNTIME_PRIVATE/acquired/backend-image.tar.gz" \
+            --manifest "$HS_RUNTIME_PRIVATE/image-manifest.json" \
+            --pins runtime/pins.json \
+            2>&1 | tee "$HS_RUNTIME_EVIDENCE/runner.log"
+          result=${PIPESTATUS[0]}
+          printf '%s\n' "$result" > "$HS_RUNTIME_PRIVATE/runner-exit-code"
+          exit "$result"
+
+      - name: Always stop only owned daemon and unmount only owned loop filesystem
+        id: cleanup
+        if: always()
+        timeout-minutes: 2
+        continue-on-error: true
+        shell: bash
+        env:
+          HS_RUNTIME_EVIDENCE: ${{ runner.temp }}/hs-runtime/evidence
+          HS_RUNTIME_PRIVATE: ${{ runner.temp }}/hs-runtime/private
+          TRIAL_OUTCOME: ${{ steps.trial.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json, os, signal, subprocess, time
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'hs-runtime'
+          evidence=Path(os.environ['HS_RUNTIME_EVIDENCE'])
+          # If directory initialization failed, preserve fail-only evidence in a fresh path.
+          evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
+          failures=[]; stopped=False; unmounted=False; ownership=False
+          def cmd(args, timeout=10):
+              return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
+          try:
+              o=json.loads((root/'ownership.json').read_text())
+              s=os.lstat(o['image'])
+              assert (s.st_dev,s.st_ino)==(o['device'],o['inode']) and not Path(o['image']).is_symlink()
+              s=os.lstat('/tmp/hs-runtime')
+              assert (s.st_dev,s.st_ino)==(o['private_device'],o['private_inode'])
+              ownership=True
+              # A daemon that failed before readiness is still owned only if its command
+              # line has all private paths. Never discover or stop the default daemon.
+              pid=o.get('pid')
+              if pid is None:
+                  for pidfile in ('/tmp/hs-runtime/dockerd.pid','/tmp/hs-runtime/launch.pid'):
+                      if not Path(pidfile).exists(): continue
+                      assert not Path(pidfile).is_symlink()
+                      raw=cmd(['sudo','python3','-c','from pathlib import Path; import sys; print(Path(sys.argv[1]).read_text().strip())',pidfile])
+                      assert raw.returncode==0
+                      pid=int(raw.stdout.decode().strip())
+                      break
+              if pid:
+                  proc=Path(f'/proc/{pid}')
+                  if proc.exists():
+                      c=(proc/'cmdline').read_bytes().split(b'\0')
+                      assert b'--data-root=/mnt/hs-runtime/docker' in c and b'--exec-root=/tmp/hs-runtime/exec' in c and b'--pidfile=/tmp/hs-runtime/dockerd.pid' in c
+                      start=(proc/'stat').read_text().rsplit(')',1)[1].split()[19]
+                      assert o.get('pid_start',start)==start
+                      assert cmd(['sudo','kill','-TERM',str(pid)]).returncode==0
+                      deadline=time.monotonic()+35
+                      while proc.exists() and time.monotonic()<deadline:
+                          if (proc/'stat').read_text().rsplit(')',1)[1].split()[0]=='Z': break
+                          time.sleep(.25)
+                      if proc.exists() and (proc/'stat').read_text().rsplit(')',1)[1].split()[0]!='Z':
+                          failures.append('daemon-did-not-stop-gracefully')
+                          # Recheck PID identity before killing this one private daemon.
+                          assert (proc/'stat').read_text().rsplit(')',1)[1].split()[19]==start
+                          cmd(['sudo','kill','-KILL',str(pid)])
+                          time.sleep(.25)
+                      stopped=not proc.exists() or (proc/'stat').read_text().rsplit(')',1)[1].split()[0]=='Z'
+                  else: stopped=True
+              else: stopped=True
+              # Stop ONLY the explicitly private containerd, never the system daemon.
+              cp=cmd(['sudo','python3','-c','from pathlib import Path; print(Path("/tmp/hs-runtime/containerd.pid").read_text().strip())'])
+              assert cp.returncode==0, 'private-containerd-pid-missing'
+              cpid=int(cp.stdout.decode().strip()); proc=Path(f'/proc/{cpid}')
+              if proc.exists():
+                  c=(proc/'cmdline').read_bytes().split(b'\0')
+                  assert b'/mnt/hs-runtime/containerd' in c and b'/tmp/hs-runtime/containerd.sock' in c and b'/tmp/hs-runtime/containerd-state' in c
+                  start=(proc/'stat').read_text().rsplit(')',1)[1].split()[19]
+                  raw=cmd(['sudo','python3','-c','from pathlib import Path; print(Path("/tmp/hs-runtime/containerd-identity.json").read_text())'])
+                  if raw.returncode==0:
+                      ci=json.loads(raw.stdout); assert ci['pid']==cpid and ci['pid_start']==start
+                  assert cmd(['sudo','kill','-TERM',str(cpid)]).returncode==0
+                  end=time.monotonic()+15
+                  while proc.exists() and time.monotonic()<end:
+                      if (proc/'stat').read_text().rsplit(')',1)[1].split()[0]=='Z': break
+                      time.sleep(.2)
+                  assert not proc.exists() or (proc/'stat').read_text().rsplit(')',1)[1].split()[0]=='Z', 'private-containerd-still-live'
+              for logname in ('dockerd','containerd'):
+                  log=Path('/mnt/hs-runtime')/(logname+'.stdout.log')
+                  if log.is_file() and not log.is_symlink():
+                      assert log.stat().st_size <= 16*1024**2, 'daemon-log-bound'
+                      raw=log.read_bytes()
+                      with (evidence/(logname+'.stdout.log')).open('xb') as f:
+                          f.write(raw); f.flush(); os.fsync(f.fileno())
+              m=cmd(['findmnt','--json','--mountpoint','/mnt/hs-runtime','--output','SOURCE,TARGET,FSTYPE'])
+              if m.returncode==0:
+                  fs=json.loads(m.stdout)['filesystems']; assert len(fs)==1 and fs[0]['target']=='/mnt/hs-runtime' and fs[0]['fstype']=='ext4'
+                  loop=fs[0]['source']; assert loop.startswith('/dev/loop') and o.get('loop',loop)==loop
+                  assert cmd(['sudo','losetup','--noheadings','--output','BACK-FILE',loop]).stdout.decode().strip()==o['image']
+                  assert stopped, 'daemon-still-live'
+                  # Never lazy/forced unmount; a busy filesystem is a failing gate.
+                  assert cmd(['sudo','umount','--','/mnt/hs-runtime'],30).returncode==0
+                  unmounted=cmd(['findmnt','--mountpoint','/mnt/hs-runtime']).returncode!=0
+              elif m.returncode==1:
+                  # Fresh mountpoint never mounted, or own mount already cleanly gone.
+                  unmounted=True
+              else: raise RuntimeError('mount-observation-failed')
+          except Exception:
+              failures.append('ownership-or-cleanup-check-failed')
+          # Missing ownership receipt can never support PASS, including preparation errors.
+          ok=ownership and stopped and unmounted and not failures
+          cleanup={'schema':1,'status':'PASS' if ok else 'FAIL','ownership_verified':ownership,
+                   'private_daemon_stopped':stopped,'owned_filesystem_unmounted':unmounted,
+                   'failures':failures,'daemon_stdout_retained':(evidence/'dockerd.stdout.log').is_file()}
+          (evidence/'cleanup.json').write_text(json.dumps(cleanup,indent=2,sort_keys=True)+'\n')
+          try: code=int((root/'private/runner-exit-code').read_text().strip())
+          except Exception: code=None
+          trial=os.environ.get('TRIAL_OUTCOME')=='success' and code==0
+          try:
+              runtime=json.loads((evidence/'runtime-result.json').read_text()); facts=runtime['facts']
+              receipt_ok=(runtime['status']=='PASS' and not runtime.get('reason') and not runtime.get('preservation_cleanup_errors')
+                  and runtime.get('business_acceptance') is False and runtime.get('rollback_acceptance') is False
+                  and facts.get('exact_image')=='sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca'
+                  and facts.get('migration')=='verified' and facts.get('health_boot')==200 and facts.get('health_restart')==200
+                  and facts.get('complete_logs_traces') is True and facts.get('cleanup_verified') is True
+                  and bool(facts.get('final_snapshot')))
+          except Exception: receipt_ok=False
+          gate={'schema':1,'status':'PASS' if ok and trial and receipt_ok else 'FAIL','runtime_exit_code':code,
+                'runtime_step_outcome':os.environ.get('TRIAL_OUTCOME','unknown'),
+                'cleanup_ok':ok,'runtime_receipt_verified':receipt_ok,'deployment':False,'production_acceptance':False}
+          (evidence/'final-gate.json').write_text(json.dumps(gate,indent=2,sort_keys=True)+'\n')
+          raise SystemExit(0 if ok else 2)
+          PY
+
+      - name: Retain synthetic evidence and failure logs only for seven days
+        id: evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-runtime-20261006-etn8vk-evidence
+          path: |
+            ${{ runner.temp }}/hs-runtime/evidence/
+            !${{ runner.temp }}/hs-runtime/evidence/**/*.env
+            !${{ runner.temp }}/hs-runtime/evidence/**/.env*
+            !${{ runner.temp }}/hs-runtime/evidence/**/private/**
+            !${{ runner.temp }}/hs-runtime/evidence/**/*.tar*
+            !${{ runner.temp }}/hs-runtime/evidence/**/*.zip
+          retention-days: 7
+          compression-level: 0
+          include-hidden-files: false
+          if-no-files-found: error
+
+      - name: Final verdict preserves runtime, cleanup, and evidence failures
+        if: always()
+        shell: bash
+        env:
+          HS_RUNTIME_EVIDENCE: ${{ runner.temp }}/hs-runtime/evidence
+          CLEANUP_OUTCOME: ${{ steps.cleanup.outcome }}
+          EVIDENCE_OUTCOME: ${{ steps.evidence.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['HS_RUNTIME_EVIDENCE'])/'final-gate.json'
+          try: gate=json.loads(p.read_text())
+          except Exception: gate={'status':'FAIL','reason':'missing-final-gate'}
+          ok=(gate.get('status')=='PASS' and gate.get('runtime_exit_code')==0
+              and gate.get('cleanup_ok') is True
+              and gate.get('runtime_receipt_verified') is True
+              and os.environ.get('CLEANUP_OUTCOME')=='success'
+              and os.environ.get('EVIDENCE_OUTCOME')=='success')
+          print(json.dumps({'status':'PASS' if ok else 'FAIL','scope':'synthetic-runtime-only',
+                            'runtime_exit_code':gate.get('runtime_exit_code'),
+                            'cleanup_ok':gate.get('cleanup_ok',False),
+                            'evidence_uploaded':os.environ.get('EVIDENCE_OUTCOME')=='success',
+                            'deployment':False},sort_keys=True))
+          raise SystemExit(0 if ok else 2)
+          PY
