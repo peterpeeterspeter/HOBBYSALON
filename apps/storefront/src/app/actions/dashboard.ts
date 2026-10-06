@@ -430,7 +430,7 @@ async function getRequiredCreator() {
     if (!ensured.ok || !ensured.sellerId) {
       throw new Error(
         ensured.error ??
-          "Creator seller ontbreekt. Herregistreer via /register/creator."
+          "Creator seller ontbreekt. Neem contact op met Hobbysalon."
       );
     }
 

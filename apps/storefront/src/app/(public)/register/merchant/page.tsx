@@ -15,9 +15,9 @@ import { getUserRegistrationContext } from "@/lib/platform/queries/user-registra
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Merchant Registreren | Hobbysalon",
+  title: "Je winkel aanmelden",
   description:
-    "Registreer als hobbymaterialenverkoper en start met je merchant onboarding op Hobbysalon.",
+    "Meld je winkel of materialen aan op Hobbysalon en bereik een gericht creatief publiek.",
 };
 
 type Props = {
@@ -40,8 +40,8 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
   return (
     <div className="bg-[var(--section-alt)]">
       <PageLayout
-        title="Merchant registreren"
-        description="Voor winkels en handelaars met materiaalcatalogi. Na registratie kan je direct je import en mapping setup starten."
+        title="Je winkel aanmelden"
+        description="Voor winkels en handelaars met hobbymaterialen. Na je aanmelding stel je je winkel en productimport in."
         size="narrow"
       >
         <CardShell
@@ -66,24 +66,29 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
         </CardShell>
 
         {user ? (
-          <p className="mt-4 text-sm text-[var(--muted)]">
-            Je bent aangemeld als <strong>{user.email ?? "account"}</strong>. Activeer hierboven je
-            merchant-profiel op deze account.
+          <p className="mt-4 text-base text-[var(--muted)]">
+            Je bent aangemeld als <strong>{user.email ?? "account"}</strong>. Activeer
+            hierboven je winkel op dit account.
           </p>
         ) : (
           <>
-            <p className="mt-4 text-sm text-[var(--muted)]">
+            <p className="mt-4 text-base text-[var(--muted)]">
               Al een account?{" "}
               <Link
                 href={`/login?next=${encodeURIComponent(nextPath)}`}
-                className="text-[var(--accent)] underline"
+                className="font-semibold text-[var(--accent)] underline underline-offset-4"
               >
                 Meld je aan
               </Link>
               .
             </p>
 
-            <AccountChoiceCards nextPath={nextPath} current="merchant" />
+            {/* Raw next only: the /dashboard fallback would skip /onboarding for other roles. */}
+            <AccountChoiceCards
+              nextPath={getSafeInternalPath(next, "")}
+              current="merchant"
+              title="Liever iets anders aanbieden?"
+            />
           </>
         )}
       </PageLayout>

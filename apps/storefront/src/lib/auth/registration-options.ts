@@ -110,6 +110,16 @@ export const REGISTRATION_COUNTRY_OPTIONS: Array<{
 
 const OFFER_ROLE_SET = new Set<string>(REGISTRATION_OFFER_ROLES);
 
+/** Dutch postcodes carry two letters (1012 AB); everything else defaults to BE. */
+export function inferCountryFromPostalCode(
+  value: string | null | undefined
+): string {
+  const cleaned = value?.trim().toUpperCase().replace(/\s+/g, "") ?? "";
+  return /^[1-9][0-9]{3}[A-Z]{2}$/.test(cleaned)
+    ? "NL"
+    : REGISTRATION_DEFAULT_COUNTRY;
+}
+
 export function parseRegistrationOfferRoles(
   values: Array<string | null | undefined>
 ): RegistrationOfferRole[] {
