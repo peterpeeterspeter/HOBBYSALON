@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 export default async function CommunityModerationPage() {
   const user = await getAuthUser();
-  if (!user) redirect("/login?next=/dashboard/moderatie/community");
+  if (!user) redirect("/login?next=/beheer/community");
   if (!(await isModerator(user.id))) redirect("/dashboard");
   const supabase = createPlatformClient();
   const { data } = await supabase.from("article_project_showcase_submissions").select("id, article_id, project_id, created_at, projects(title, slug, featured_image_url), articles(title, slug)").eq("status", "pending").order("created_at", { ascending: true });

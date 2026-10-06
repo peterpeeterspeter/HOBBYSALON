@@ -775,6 +775,7 @@ export async function updateAccountPreferencesAction(
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/onboarding");
   revalidatePath("/profile");
+  revalidatePath("/dashboard/pagina");
 
   return {
     success: true,

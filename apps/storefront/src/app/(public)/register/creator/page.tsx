@@ -74,7 +74,7 @@ export default async function RegisterCreatorPage({ searchParams }: Props) {
   const user = await getAuthUser();
   const { next, focus } = await searchParams;
   // Hash-free: this path is also used in login?next= and auth confirm redirects.
-  const nextPath = getSafeInternalPath(next, "/profile?tab=profiel");
+  const nextPath = getSafeInternalPath(next, "/dashboard/pagina");
   const resolved = resolveFocus(focus);
 
   if (user) {

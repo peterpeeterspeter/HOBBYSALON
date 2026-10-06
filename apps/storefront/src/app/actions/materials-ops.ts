@@ -7,7 +7,7 @@ import { getAuthUser } from "@/lib/auth/session";
 import { getMedusaAdminBackendConfig } from "@/lib/commerce/medusa/medusa-admin-auth";
 import { isModerator } from "@/lib/platform/queries/community-showcase";
 
-const DEFAULT_REDIRECT_PATH = "/dashboard/materials";
+const DEFAULT_REDIRECT_PATH = "/beheer/materialen";
 const DRY_RUN_COOKIE_PREFIX = "hs_materials_dry_run_";
 const FEED_MAPPING_PRESETS: Record<string, Record<string, string>> = {
   custom_csv_basic: {
@@ -95,7 +95,7 @@ async function persistDryRunSnapshot(snapshot: DryRunSnapshot) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/dashboard/materials",
+    path: "/beheer/materialen",
     maxAge: 60 * 30,
   });
 }
@@ -106,7 +106,7 @@ async function clearDryRunSnapshot(sellerId: string) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/dashboard/materials",
+    path: "/beheer/materialen",
     maxAge: 0,
   });
 }

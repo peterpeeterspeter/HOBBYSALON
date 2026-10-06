@@ -1,6 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  resolveReturnPath,
+  successPathAfterCreate,
+  successPathAfterDelete,
+  withFlash,
+} from "@/lib/dashboard/return-path";
 import { redirect } from "next/navigation";
 import {
   createPlatformClient,
@@ -464,11 +470,11 @@ async function ensureUniqueSlug(
 }
 
 function fail(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  redirect(withFlash(path, "error", message));
 }
 
 function ok(path: string, message: string): never {
-  redirect(`${path}?success=${encodeURIComponent(message)}`);
+  redirect(withFlash(path, "success", message));
 }
 
 function sanitizeCreatorTypes(values: string[]): string[] {
@@ -687,6 +693,7 @@ async function refreshSavedArticleSuggestions(input: Parameters<typeof generateA
     failed = true;
   }
   revalidatePath("/profile");
+  revalidatePath("/dashboard/pagina");
   if (failed) {
     redirect(creatorMakerProfileUrl({
       tab: "profiel", success: "Artikel opgeslagen.",
@@ -837,6 +844,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
+    revalidatePath("/dashboard/pagina");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
     ok(CREATOR_MAKER_PATH, "Creator-profiel opgeslagen.");
@@ -853,13 +861,13 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
   try {
     const user = await getAuthUser();
     if (!user) {
-      fail("/login?next=/dashboard", "Meld je eerst aan.");
+      fail("/login?next=/dashboard/instellingen", "Meld je eerst aan.");
     }
 
     const creator = await getCreatorByUserId(user.id);
     if (!creator) {
       fail(
-        "/dashboard#account",
+        "/dashboard/instellingen",
         "Start eerst als aanbieder voordat je rollen kiest."
       );
     }
@@ -878,7 +886,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
       .eq("user_id", user.id);
 
     if (error) {
-      fail("/dashboard", "Rollen opslaan mislukt.");
+      fail("/dashboard/instellingen", "Rollen opslaan mislukt.");
     }
 
     const roleSyncError = await syncCreatorAccountRoles(
@@ -887,7 +895,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
       supabase
     );
     if (roleSyncError) {
-      fail("/dashboard", "Accountrollen konden niet worden bijgewerkt.");
+      fail("/dashboard/instellingen", "Accountrollen konden niet worden bijgewerkt.");
     }
 
     const { creatorTypesToOfferRoles } = await import("@/lib/auth/role-upgrades");
@@ -911,16 +919,18 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/instellingen");
     revalidatePath("/profile");
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     ok(
-      "/dashboard",
+      "/dashboard/instellingen",
       "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard",
+      "/dashboard/instellingen",
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -984,6 +994,8 @@ export async function createCreatorEntityLinkAction(formData: FormData): Promise
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     ok(CREATOR_MAKER_PATH, "Entity link toegevoegd.");
   } catch (error) {
@@ -1012,6 +1024,8 @@ export async function deleteCreatorEntityLinkAction(formData: FormData): Promise
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     ok(CREATOR_MAKER_PATH, "Entity link verwijderd.");
   } catch (error) {
@@ -1054,6 +1068,8 @@ export async function createProjectGalleryImageAction(formData: FormData): Promi
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Galerijafbeelding toegevoegd.");
@@ -1095,6 +1111,8 @@ export async function deleteProjectGalleryImageAction(formData: FormData): Promi
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Galerijafbeelding verwijderd.");
@@ -1154,6 +1172,8 @@ export async function createProjectProductLinkAction(formData: FormData): Promis
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Product gekoppeld aan project.");
@@ -1195,6 +1215,8 @@ export async function deleteProjectProductLinkAction(formData: FormData): Promis
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Project-productlink verwijderd.");
@@ -1234,6 +1256,8 @@ export async function createProjectSoughtMaterialAction(formData: FormData): Pro
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Materiaal gezocht toegevoegd.");
@@ -1273,6 +1297,8 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath(`/creator/${creator.slug}`);
     revalidatePath(`/project/${ownedProject.slug}`);
     ok(CREATOR_MAKER_PATH, "Gezocht materiaal verwijderd.");
@@ -1439,6 +1465,8 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     ok(CREATOR_MAKER_PATH, "Suggestie bevestigd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1490,6 +1518,8 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     ok(CREATOR_MAKER_PATH, "Suggestie verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -1501,6 +1531,7 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
 }
 
 export async function createProductAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/products");
   try {
     // Makers create platform listings only (contact/lead). No Medusa checkout.
     const { creator } = await getRequiredCreatorProfile("/dashboard/products");
@@ -1521,26 +1552,26 @@ export async function createProductAction(formData: FormData): Promise<void> {
       await assertProductCategoryMatchesDomain(categoryId, domainId);
     } catch (error) {
       fail(
-        "/dashboard/products",
+        returnPath,
         error instanceof Error ? error.message : "Ongeldige categorie."
       );
     }
 
     if (!PRODUCT_TYPES.has(productType)) {
-      fail("/dashboard/products", "Ongeldig producttype.");
+      fail(returnPath, "Ongeldig producttype.");
     }
 
     if (productType !== "handmade" && productType !== "destash") {
       fail(
-        "/dashboard/products",
+        returnPath,
         "Voor maker-plaatsingen is enkel type 'handmade' of 'destash' toegestaan."
       );
     }
     if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
-      fail("/dashboard/products", "Ongeldige conditie.");
+      fail(returnPath, "Ongeldige conditie.");
     }
     if (priceCents === null) {
-      fail("/dashboard/products", "Richtprijs is verplicht.");
+      fail(returnPath, "Richtprijs is verplicht.");
     }
 
     const isActive = !!formData.get("is_active");
@@ -1552,7 +1583,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       productType as "handmade" | "destash"
     );
     if (!creditCheck.ok) {
-      fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
+      fail(returnPath, creditCheck.error ?? "Publiceren mislukt.");
     }
 
     const slug = await ensureUniqueSlug("products", title);
@@ -1590,7 +1621,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
     if (error || !createdProduct) {
       fail(
-        "/dashboard/products",
+        returnPath,
         `Plaatsing aanmaken mislukt. ${error?.message ?? ""}`.trim()
       );
     }
@@ -1613,7 +1644,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
     ok(
-      "/dashboard/products",
+      successPathAfterCreate(returnPath, "/dashboard/products", createdProduct.id),
       isActive
         ? "Plaatsing online. Bezoekers kunnen je contacteren via de productpagina."
         : "Plaatsing opgeslagen als concept. Zet ze op actief om te publiceren."
@@ -1621,13 +1652,14 @@ export async function createProductAction(formData: FormData): Promise<void> {
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/products",
+      returnPath,
       error instanceof Error ? error.message : "Plaatsing aanmaken mislukt."
     );
   }
 }
 
 export async function updateProductAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/products");
   try {
     const { creator } = await getRequiredCreatorProfile("/dashboard/products");
     const productId = parseRequiredString(formData, "id");
@@ -1660,16 +1692,16 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       await assertProductCategoryMatchesDomain(categoryId, domainId);
     } catch (error) {
       fail(
-        "/dashboard/products",
+        returnPath,
         error instanceof Error ? error.message : "Ongeldige categorie."
       );
     }
 
     if (!PRODUCT_TYPES.has(productType)) {
-      fail("/dashboard/products", "Ongeldig producttype.");
+      fail(returnPath, "Ongeldig producttype.");
     }
     if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
-      fail("/dashboard/products", "Ongeldige conditie.");
+      fail(returnPath, "Ongeldige conditie.");
     }
 
     const supabase = createPlatformClient();
@@ -1685,7 +1717,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       .maybeSingle();
 
     if (existingError || !existingProduct) {
-      fail("/dashboard/products", "Product niet gevonden.");
+      fail(returnPath, "Product niet gevonden.");
     }
 
     const medusaProductId =
@@ -1701,14 +1733,14 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         productType === "destash" ? "destash" : "handmade"
       );
       if (!creditCheck.ok) {
-        fail("/dashboard/products", creditCheck.error ?? "Publiceren mislukt.");
+        fail(returnPath, creditCheck.error ?? "Publiceren mislukt.");
       }
     }
 
     if (medusaProductId) {
       if (productType !== "handmade") {
         fail(
-          "/dashboard/products",
+          returnPath,
           "Medusa creator-producten ondersteunen momenteel enkel type 'handmade'."
         );
       }
@@ -1750,7 +1782,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
       if (!result.ok) {
         fail(
-          "/dashboard/products",
+          returnPath,
           result.error ?? "Product bijwerken via Medusa mislukt."
         );
       }
@@ -1758,7 +1790,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       revalidatePath("/dashboard/products");
       revalidatePath(`/creator/${creator.slug}`);
       ok(
-        "/dashboard/products",
+        returnPath,
         "Product bijgewerkt. Het kan enkele seconden duren voor wijzigingen zichtbaar zijn."
       );
     }
@@ -1794,7 +1826,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/products", "Plaatsing bijwerken mislukt.");
+      fail(returnPath, "Plaatsing bijwerken mislukt.");
     }
 
     if (galleryUrls.length > 0) {
@@ -1824,17 +1856,18 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/products", "Plaatsing bijgewerkt.");
+    ok(returnPath, "Plaatsing bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/products",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function unpublishProductAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/products");
   try {
     const { creator } = await getRequiredCreatorProfile();
     const productId = parseRequiredString(formData, "id");
@@ -1851,7 +1884,7 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
       });
       if (!result.ok) {
         fail(
-          "/dashboard/products",
+          returnPath,
           result.error ?? "Product depubliceren via Medusa mislukt."
         );
       }
@@ -1867,22 +1900,23 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/products", "Plaatsing depubliceren mislukt.");
+      fail(returnPath, "Plaatsing depubliceren mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/products", "Plaatsing gedeactiveerd.");
+    ok(returnPath, "Plaatsing gedeactiveerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/products",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function deleteProductAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/products");
   try {
     const { creator } = await getRequiredCreatorProfile();
     const productId = parseRequiredString(formData, "id");
@@ -1897,7 +1931,7 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
       });
       if (!result.ok) {
         fail(
-          "/dashboard/products",
+          returnPath,
           result.error ?? "Product verwijderen via Medusa mislukt."
         );
       }
@@ -1910,16 +1944,16 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/products", "Product verwijderen mislukt.");
+      fail(returnPath, "Product verwijderen mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok("/dashboard/products", "Product verwijderd.");
+    ok(successPathAfterDelete(returnPath, "/dashboard/products"), "Creatie verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/products",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -1966,6 +2000,7 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
 }
 
 export async function createWorkshopAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator, canPublish } = await getRequiredDraftCreator("workshop_host");
     const title = parseRequiredString(formData, "title");
@@ -1978,23 +2013,23 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     const sessionEndsAt = parseRequiredDateTimeLocal(formData, "session_ends_at");
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
-      fail("/dashboard/workshops", "Ongeldige workshopvorm.");
+      fail(returnPath, "Ongeldige workshopvorm.");
     }
     if (!WORKSHOP_DIFFICULTY.has(difficultyLevel)) {
-      fail("/dashboard/workshops", "Ongeldig niveau.");
+      fail(returnPath, "Ongeldig niveau.");
     }
     if (new Date(sessionEndsAt).getTime() <= new Date(sessionStartsAt).getTime()) {
-      fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
+      fail(returnPath, "Eindtijd moet na de starttijd liggen.");
     }
 
     const wantsActive = !!formData.get("is_active");
-    await assertCanPublishListing(canPublish, wantsActive, "/dashboard/workshops");
+    await assertCanPublishListing(canPublish, wantsActive, returnPath);
     const fee = await resolveWorkshopListingFeeOnSave({
       creatorId: creator.id,
       wantsActive,
     });
     if (wantsActive && !fee.canActivate) {
-      fail("/dashboard/workshops", fee.error ?? "Publiceren niet mogelijk zonder betaling.");
+      fail(returnPath, fee.error ?? "Publiceren niet mogelijk zonder betaling.");
     }
     const isActive = wantsActive && fee.canActivate;
     const capacity = parseOptionalInt(formData, "capacity");
@@ -2009,7 +2044,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       }
     );
     if (enforced.error) {
-      fail("/dashboard/workshops", enforced.error);
+      fail(returnPath, enforced.error);
     }
 
     const slug = await ensureUniqueSlug("workshops", title);
@@ -2055,7 +2090,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
       .single();
 
     if (error || !createdWorkshop) {
-      fail("/dashboard/workshops", "Workshop aanmaken mislukt.");
+      fail(returnPath, "Workshop aanmaken mislukt.");
     }
 
     const { error: sessionError } = await supabase.from("workshop_sessions").insert({
@@ -2071,7 +2106,7 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     if (sessionError) {
       console.error("Workshop session insert failed:", sessionError);
       fail(
-        "/dashboard/workshops",
+        returnPath,
         "Workshop aangemaakt, maar de datum kon niet worden opgeslagen. Voeg een datum toe via bewerken."
       );
     }
@@ -2122,17 +2157,21 @@ export async function createWorkshopAction(formData: FormData): Promise<void> {
     if (onboardingNext?.startsWith("/") && !onboardingNext.startsWith("//")) {
       ok(onboardingNext, "Workshop opgeslagen als concept.");
     }
-    ok("/dashboard/workshops", isActive ? "Workshop aangemaakt." : "Workshop opgeslagen als concept.");
+    ok(
+      successPathAfterCreate(returnPath, "/dashboard/workshops", createdWorkshop.id),
+      isActive ? "Workshop aangemaakt." : "Workshop opgeslagen als concept."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function updateWorkshopAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator, canPublish } = await getRequiredDraftCreator("workshop_host");
     const workshopId = parseRequiredString(formData, "id");
@@ -2143,14 +2182,14 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
     const taxonomy = await parseWorkshopTaxonomyFields(formData, domainId);
 
     if (!WORKSHOP_FORMATS.has(formatType)) {
-      fail("/dashboard/workshops", "Ongeldige workshopvorm.");
+      fail(returnPath, "Ongeldige workshopvorm.");
     }
     if (!WORKSHOP_DIFFICULTY.has(difficultyLevel)) {
-      fail("/dashboard/workshops", "Ongeldig niveau.");
+      fail(returnPath, "Ongeldig niveau.");
     }
 
     const wantsActive = !!formData.get("is_active");
-    await assertCanPublishListing(canPublish, wantsActive, "/dashboard/workshops");
+    await assertCanPublishListing(canPublish, wantsActive, returnPath);
 
     const supabase = createPlatformClient();
     const { data: existingWorkshop, error: existingError } = await supabase
@@ -2161,7 +2200,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       .maybeSingle();
 
     if (existingError || !existingWorkshop) {
-      fail("/dashboard/workshops", "Workshop niet gevonden.");
+      fail(returnPath, "Workshop niet gevonden.");
     }
 
     const fee = await resolveWorkshopListingFeeOnSave({
@@ -2172,7 +2211,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       existingExpiresAt: existingWorkshop.listing_expires_at,
     });
     if (wantsActive && !fee.canActivate) {
-      fail("/dashboard/workshops", fee.error ?? "Publiceren niet mogelijk zonder betaling.");
+      fail(returnPath, fee.error ?? "Publiceren niet mogelijk zonder betaling.");
     }
     const isActive = wantsActive && fee.canActivate;
 
@@ -2187,7 +2226,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       }
     );
     if (enforced.error) {
-      fail("/dashboard/workshops", enforced.error);
+      fail(returnPath, enforced.error);
     }
 
     const featuredImageUrl = await resolveProductImageUrl(formData, {
@@ -2238,7 +2277,7 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
       .eq("id", workshopId)
       .eq("creator_id", creator.id);
     if (error) {
-      fail("/dashboard/workshops", "Workshop bijwerken mislukt.");
+      fail(returnPath, "Workshop bijwerken mislukt.");
     }
 
     if (galleryUrls.length > 0) {
@@ -2253,17 +2292,18 @@ export async function updateWorkshopAction(formData: FormData): Promise<void> {
 
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${existingWorkshop.slug}`);
-    ok("/dashboard/workshops", "Workshop bijgewerkt.");
+    ok(returnPath, "Workshop bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function deleteWorkshopAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredDraftCreator("workshop_host");
     const workshopId = parseRequiredUuid(formData, "id");
@@ -2277,7 +2317,7 @@ export async function deleteWorkshopAction(formData: FormData): Promise<void> {
       .maybeSingle();
 
     if (workshopError || !workshop) {
-      fail("/dashboard/workshops", "Workshop niet gevonden.");
+      fail(returnPath, "Workshop niet gevonden.");
     }
 
     const { count: confirmedBookings } = await supabase
@@ -2288,7 +2328,7 @@ export async function deleteWorkshopAction(formData: FormData): Promise<void> {
 
     if ((confirmedBookings ?? 0) > 0) {
       fail(
-        "/dashboard/workshops",
+        returnPath,
         "Deze workshop heeft bevestigde aanvragen. Annuleer die eerst of neem contact op met Hobbysalon."
       );
     }
@@ -2302,19 +2342,19 @@ export async function deleteWorkshopAction(formData: FormData): Promise<void> {
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/workshops", "Workshop verwijderen mislukt.");
+      fail(returnPath, "Workshop verwijderen mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${workshop.slug}`);
     ok(
-      "/dashboard/workshops",
+      successPathAfterDelete(returnPath, "/dashboard/workshops"),
       workshop.is_active ? "Workshop verwijderd." : "Concept verwijderd."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -2323,6 +2363,7 @@ export async function deleteWorkshopAction(formData: FormData): Promise<void> {
 export async function createWorkshopSessionAction(
   formData: FormData
 ): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredDraftCreator("workshop_host");
     const workshopId = parseRequiredUuid(formData, "workshop_id");
@@ -2336,7 +2377,7 @@ export async function createWorkshopSessionAction(
     );
 
     if (new Date(sessionEndsAt).getTime() <= new Date(sessionStartsAt).getTime()) {
-      fail("/dashboard/workshops", "Eindtijd moet na de starttijd liggen.");
+      fail(returnPath, "Eindtijd moet na de starttijd liggen.");
     }
 
     const supabase = createPlatformClient();
@@ -2348,7 +2389,7 @@ export async function createWorkshopSessionAction(
       .maybeSingle();
 
     if (workshopError || !workshop) {
-      fail("/dashboard/workshops", "Workshop niet gevonden.");
+      fail(returnPath, "Workshop niet gevonden.");
     }
 
     const capacity =
@@ -2365,16 +2406,16 @@ export async function createWorkshopSessionAction(
     });
 
     if (error) {
-      fail("/dashboard/workshops", "Datum toevoegen mislukt.");
+      fail(returnPath, "Datum toevoegen mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${workshop.slug}`);
-    ok("/dashboard/workshops", "Datum toegevoegd.");
+    ok(returnPath, "Datum toegevoegd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -2383,6 +2424,7 @@ export async function createWorkshopSessionAction(
 export async function cancelWorkshopSessionAction(
   formData: FormData
 ): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredDraftCreator("workshop_host");
     const sessionId = parseRequiredUuid(formData, "session_id");
@@ -2402,7 +2444,7 @@ export async function cancelWorkshopSessionAction(
     const workshopMeta = Array.isArray(workshop) ? workshop[0] : workshop;
 
     if (!row || workshopMeta?.creator_id !== creator.id) {
-      fail("/dashboard/workshops", "Sessie niet gevonden.");
+      fail(returnPath, "Sessie niet gevonden.");
     }
 
     const { error } = await supabase
@@ -2414,18 +2456,18 @@ export async function cancelWorkshopSessionAction(
       .eq("id", sessionId);
 
     if (error) {
-      fail("/dashboard/workshops", "Datum annuleren mislukt.");
+      fail(returnPath, "Datum annuleren mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
     if (workshopMeta?.slug) {
       revalidatePath(`/workshop/${workshopMeta.slug}`);
     }
-    ok("/dashboard/workshops", "Datum geannuleerd.");
+    ok(returnPath, "Datum geannuleerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -2434,6 +2476,7 @@ export async function cancelWorkshopSessionAction(
 export async function deleteWorkshopGalleryImageAction(
   formData: FormData
 ): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredDraftCreator("workshop_host");
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
@@ -2446,7 +2489,7 @@ export async function deleteWorkshopGalleryImageAction(
       .maybeSingle();
 
     if (loadError || !row) {
-      fail("/dashboard/workshops", "Foto niet gevonden.");
+      fail(returnPath, "Foto niet gevonden.");
     }
 
     const { data: workshop } = await supabase
@@ -2456,7 +2499,7 @@ export async function deleteWorkshopGalleryImageAction(
       .maybeSingle();
 
     if (!workshop || workshop.creator_id !== creator.id) {
-      fail("/dashboard/workshops", "Foto niet gevonden.");
+      fail(returnPath, "Foto niet gevonden.");
     }
 
     const { error } = await supabase
@@ -2465,18 +2508,18 @@ export async function deleteWorkshopGalleryImageAction(
       .eq("id", galleryImageId);
 
     if (error) {
-      fail("/dashboard/workshops", "Foto verwijderen mislukt.");
+      fail(returnPath, "Foto verwijderen mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
     if (workshop.slug) {
       revalidatePath(`/workshop/${workshop.slug}`);
     }
-    ok("/dashboard/workshops", "Foto verwijderd.");
+    ok(returnPath, "Foto verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -2485,6 +2528,7 @@ export async function deleteWorkshopGalleryImageAction(
 export async function deleteProductGalleryImageAction(
   formData: FormData
 ): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/products");
   try {
     const { creator } = await getRequiredCreatorProfile();
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
@@ -2504,7 +2548,7 @@ export async function deleteProductGalleryImageAction(
     const productMeta = Array.isArray(product) ? product[0] : product;
 
     if (!row || productMeta?.creator_id !== creator.id) {
-      fail("/dashboard/products", "Foto niet gevonden.");
+      fail(returnPath, "Foto niet gevonden.");
     }
 
     const { error } = await supabase
@@ -2513,7 +2557,7 @@ export async function deleteProductGalleryImageAction(
       .eq("id", galleryImageId);
 
     if (error) {
-      fail("/dashboard/products", "Foto verwijderen mislukt.");
+      fail(returnPath, "Foto verwijderen mislukt.");
     }
 
     revalidatePath("/dashboard/products");
@@ -2521,17 +2565,18 @@ export async function deleteProductGalleryImageAction(
       revalidatePath(`/product/${productMeta.slug}`);
       revalidatePath(`/creator/${creator.slug}`);
     }
-    ok("/dashboard/products", "Foto verwijderd.");
+    ok(returnPath, "Foto verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/products",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function createEventAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/events");
   try {
     const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const title = parseRequiredString(formData, "title");
@@ -2541,14 +2586,14 @@ export async function createEventAction(formData: FormData): Promise<void> {
     const ticketingMode = parseRequiredString(formData, "ticketing_mode");
 
     if (!EVENT_TYPES.has(eventType)) {
-      fail("/dashboard/events", "Ongeldig event type.");
+      fail(returnPath, "Ongeldig event type.");
     }
     if (!EVENT_TICKETING_MODES.has(ticketingMode)) {
-      fail("/dashboard/events", "Ongeldige ticketmodus.");
+      fail(returnPath, "Ongeldige ticketmodus.");
     }
 
     const isActive = !!formData.get("is_active");
-    await assertCanPublishListing(canPublish, isActive, "/dashboard/events");
+    await assertCanPublishListing(canPublish, isActive, returnPath);
     const creditCheck = await enforceEventPublishCredits(
       creator.id,
       eventType,
@@ -2556,7 +2601,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       false
     );
     if (!creditCheck.ok) {
-      fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
+      fail(returnPath, creditCheck.error ?? "Publiceren mislukt.");
     }
 
     const enforcedTicketing = await enforceEventTicketingFields(
@@ -2605,7 +2650,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
       .single();
 
     if (error || !createdEvent?.id) {
-      fail("/dashboard/events", "Event aanmaken mislukt.");
+      fail(returnPath, "Event aanmaken mislukt.");
     }
 
     await attachDefaultEventPlan(createdEvent.id as string);
@@ -2635,19 +2680,20 @@ export async function createEventAction(formData: FormData): Promise<void> {
       ok(onboardingNext, "Evenement opgeslagen als concept.");
     }
     ok(
-      "/dashboard/events",
+      successPathAfterCreate(returnPath, "/dashboard/events", createdEvent.id as string),
       isActive ? "Event aangemaakt." : "Event opgeslagen als concept."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/events",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function updateEventAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/events");
   try {
     const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const eventId = parseRequiredString(formData, "id");
@@ -2658,10 +2704,10 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     const ticketingMode = parseRequiredString(formData, "ticketing_mode");
 
     if (!EVENT_TYPES.has(eventType)) {
-      fail("/dashboard/events", "Ongeldig event type.");
+      fail(returnPath, "Ongeldig event type.");
     }
     if (!EVENT_TICKETING_MODES.has(ticketingMode)) {
-      fail("/dashboard/events", "Ongeldige ticketmodus.");
+      fail(returnPath, "Ongeldige ticketmodus.");
     }
 
     const { getEventCommercialEntitlements } = await import(
@@ -2687,14 +2733,14 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       .maybeSingle();
 
     if (existingError || !existingEvent) {
-      fail("/dashboard/events", "Event niet gevonden.");
+      fail(returnPath, "Event niet gevonden.");
     }
 
     // Charge on the draft -> active transition, mirroring
     // updateProductAction. Without this, publishing via "create as draft,
     // then edit to active" would bypass the event publish fee entirely.
     const isActive = !!formData.get("is_active");
-    await assertCanPublishListing(canPublish, isActive, "/dashboard/events");
+    await assertCanPublishListing(canPublish, isActive, returnPath);
     if (isActive && !existingEvent.is_active) {
       const creditCheck = await enforceEventPublishCredits(
         creator.id,
@@ -2703,7 +2749,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
         false
       );
       if (!creditCheck.ok) {
-        fail("/dashboard/events", creditCheck.error ?? "Publiceren mislukt.");
+        fail(returnPath, creditCheck.error ?? "Publiceren mislukt.");
       }
     }
 
@@ -2749,7 +2795,7 @@ export async function updateEventAction(formData: FormData): Promise<void> {
       .eq("organizer_creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/events", "Event bijwerken mislukt.");
+      fail(returnPath, "Event bijwerken mislukt.");
     }
 
     if (galleryUrls.length > 0) {
@@ -2765,17 +2811,18 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     revalidatePath("/dashboard/events");
     revalidatePath(`/agenda/${existingEvent.slug}`);
     revalidatePath(`/event/${existingEvent.slug}`);
-    ok("/dashboard/events", "Event bijgewerkt.");
+    ok(returnPath, "Event bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/events",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function deleteEventAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/events");
   try {
     const { creator } = await getRequiredDraftCreator("organizer");
     const eventId = parseRequiredUuid(formData, "id");
@@ -2789,7 +2836,7 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
       .maybeSingle();
 
     if (eventError || !event) {
-      fail("/dashboard/events", "Evenement niet gevonden.");
+      fail(returnPath, "Evenement niet gevonden.");
     }
 
     await deleteListingGraphRows("event", eventId);
@@ -2801,20 +2848,20 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
       .eq("organizer_creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/events", "Evenement verwijderen mislukt.");
+      fail(returnPath, "Evenement verwijderen mislukt.");
     }
 
     revalidatePath("/dashboard/events");
     revalidatePath(`/agenda/${event.slug}`);
     revalidatePath(`/event/${event.slug}`);
     ok(
-      "/dashboard/events",
+      successPathAfterDelete(returnPath, "/dashboard/events"),
       event.is_active ? "Evenement verwijderd." : "Concept verwijderd."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/events",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -2823,6 +2870,7 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
 export async function deleteEventGalleryImageAction(
   formData: FormData
 ): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/events");
   try {
     const { creator } = await getRequiredDraftCreator("organizer");
     const galleryImageId = parseRequiredUuid(formData, "gallery_image_id");
@@ -2835,7 +2883,7 @@ export async function deleteEventGalleryImageAction(
       .maybeSingle();
 
     if (loadError || !row) {
-      fail("/dashboard/events", "Foto niet gevonden.");
+      fail(returnPath, "Foto niet gevonden.");
     }
 
     const { data: event } = await supabase
@@ -2845,7 +2893,7 @@ export async function deleteEventGalleryImageAction(
       .maybeSingle();
 
     if (!event || event.organizer_creator_id !== creator.id) {
-      fail("/dashboard/events", "Foto niet gevonden.");
+      fail(returnPath, "Foto niet gevonden.");
     }
 
     const { error } = await supabase
@@ -2854,7 +2902,7 @@ export async function deleteEventGalleryImageAction(
       .eq("id", galleryImageId);
 
     if (error) {
-      fail("/dashboard/events", "Foto verwijderen mislukt.");
+      fail(returnPath, "Foto verwijderen mislukt.");
     }
 
     revalidatePath("/dashboard/events");
@@ -2862,11 +2910,11 @@ export async function deleteEventGalleryImageAction(
       revalidatePath(`/agenda/${event.slug}`);
       revalidatePath(`/event/${event.slug}`);
     }
-    ok("/dashboard/events", "Foto verwijderd.");
+    ok(returnPath, "Foto verwijderd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/events",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -2875,13 +2923,14 @@ export async function deleteEventGalleryImageAction(
 export async function updateBookingRequestStatusAction(
   formData: FormData
 ): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredCreatorProfile();
     const requestId = parseRequiredString(formData, "id");
     const status = parseRequiredString(formData, "status");
 
     if (!BOOKING_REQUEST_STATUSES.has(status)) {
-      fail("/dashboard/workshops", "Ongeldige status.");
+      fail(returnPath, "Ongeldige status.");
     }
 
     const supabase = createPlatformClient();
@@ -2892,28 +2941,29 @@ export async function updateBookingRequestStatusAction(
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail("/dashboard/workshops", "Status update mislukt.");
+      fail(returnPath, "Status update mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
-    ok("/dashboard/workshops", "Booking status bijgewerkt.");
+    ok(returnPath, "Booking status bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function linkWorkshopProductAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
     const productId = parseOptionalUuid(formData, "product_id");
     if (!productId) {
       fail(
-        "/dashboard/workshops",
+        returnPath,
         "Kies een materiaal om te koppelen, of sla deze stap over."
       );
     }
@@ -2929,7 +2979,7 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
       .maybeSingle();
 
     if (!workshop) {
-      fail("/dashboard/workshops", "Workshop niet gevonden.");
+      fail(returnPath, "Workshop niet gevonden.");
     }
 
     const { data: productRow } = await supabase
@@ -2945,7 +2995,7 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
 
     if (!ownsProduct && !isMaterialProduct) {
       fail(
-        "/dashboard/workshops",
+        returnPath,
         "Je kan alleen je eigen producten of materialen (supply/workshop_kit) koppelen."
       );
     }
@@ -2961,22 +3011,23 @@ export async function linkWorkshopProductAction(formData: FormData): Promise<voi
     );
 
     if (error) {
-      fail("/dashboard/workshops", "Materiaal koppelen mislukt.");
+      fail(returnPath, "Materiaal koppelen mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${workshop.slug}`);
-    ok("/dashboard/workshops", "Materiaal gekoppeld aan workshop.");
+    ok(returnPath, "Materiaal gekoppeld aan workshop.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
 }
 
 export async function unlinkWorkshopProductAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/workshops");
   try {
     const { creator } = await getRequiredCreatorProfile();
     const workshopId = parseRequiredUuid(formData, "workshop_id");
@@ -2991,7 +3042,7 @@ export async function unlinkWorkshopProductAction(formData: FormData): Promise<v
       .maybeSingle();
 
     if (!workshop) {
-      fail("/dashboard/workshops", "Workshop niet gevonden.");
+      fail(returnPath, "Workshop niet gevonden.");
     }
 
     const { error } = await supabase
@@ -3001,16 +3052,16 @@ export async function unlinkWorkshopProductAction(formData: FormData): Promise<v
       .eq("product_id", productId);
 
     if (error) {
-      fail("/dashboard/workshops", "Materiaal ontkoppelen mislukt.");
+      fail(returnPath, "Materiaal ontkoppelen mislukt.");
     }
 
     revalidatePath("/dashboard/workshops");
     revalidatePath(`/workshop/${workshop.slug}`);
-    ok("/dashboard/workshops", "Materiaal ontkoppeld.");
+    ok(returnPath, "Materiaal ontkoppeld.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
-      "/dashboard/workshops",
+      returnPath,
       error instanceof Error ? error.message : "Onbekende fout."
     );
   }
@@ -3044,6 +3095,8 @@ export async function purchaseSpotlightBoostFormAction(
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     ok(CREATOR_MAKER_PATH, "Spotlight geactiveerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;

@@ -26,7 +26,7 @@ export async function sendRoleRequestAdminEmail(input: {
   const roleLabel = ROLE_LABELS[input.role];
   const displayName = input.payload.displayName?.trim() || "Onbekend";
   const userEmail = input.payload.email?.trim() || "—";
-  const dashboardUrl = "https://www.hobbysalon.be/dashboard/moderatie/roles";
+  const dashboardUrl = "https://www.hobbysalon.be/beheer/rollen";
 
   return sendNewsletterEmail({
     to: adminEmail,

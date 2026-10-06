@@ -8,11 +8,11 @@ export type AccountRegistrationType =
 
 const DEFAULT_DESTINATIONS: Record<AccountRegistrationType, string | null> = {
   member: null,
-  creator: "/profile?tab=profiel",
-  maker: "/profile?tab=profiel",
+  creator: "/dashboard/pagina",
+  maker: "/dashboard/pagina",
   merchant: "/dashboard",
-  workshopgever: "/profile?tab=profiel",
-  organizer: "/profile?tab=profiel",
+  workshopgever: "/dashboard/pagina",
+  organizer: "/dashboard/pagina",
 };
 
 const REGISTRATION_PATHS: Record<AccountRegistrationType, string> = {

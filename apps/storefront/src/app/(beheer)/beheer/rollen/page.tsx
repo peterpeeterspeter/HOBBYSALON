@@ -13,7 +13,7 @@ type Props = {
 
 export default async function RoleModerationPage({ searchParams }: Props) {
   const user = await getAuthUser();
-  if (!user) redirect("/login?next=/dashboard/moderatie/roles");
+  if (!user) redirect("/login?next=/beheer/rollen");
   if (!(await isModerator(user.id))) redirect("/dashboard");
 
   const { success, error } = await searchParams;

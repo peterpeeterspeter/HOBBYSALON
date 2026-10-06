@@ -11,9 +11,16 @@ type CreatorMakerSectionProps = {
   data: CreatorMakerData;
   success?: string;
   error?: string;
+  /** Rendered as its own dashboard page: no outer card, never folded. */
+  embedded?: boolean;
 };
 
-export function CreatorMakerSection({ data, success, error }: CreatorMakerSectionProps) {
+export function CreatorMakerSection({
+  data,
+  success,
+  error,
+  embedded = false,
+}: CreatorMakerSectionProps) {
   const {
     creator,
     registrationContext,
@@ -69,7 +76,7 @@ export function CreatorMakerSection({ data, success, error }: CreatorMakerSectio
       <CreatorDashboardTabs
         activeTab={activeTab}
         preserveQuery={{ success, error }}
-        basePath="/profile"
+        basePath="/dashboard/pagina"
       >
         {activeTab === "profiel" && (
           <CreatorProfileTab
@@ -121,6 +128,21 @@ export function CreatorMakerSection({ data, success, error }: CreatorMakerSectio
       </CreatorDashboardTabs>
     </>
   );
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        <CreatorDashboardHeader
+          creatorSlug={creator?.slug ?? null}
+          progressSteps={progressSteps}
+          compact
+          title={copy.title}
+          lead={copy.lead}
+        />
+        {editor}
+      </div>
+    );
+  }
 
   return (
     <section id="maker-pagina" className="mt-10 scroll-mt-24" aria-labelledby="maker-pagina-heading">

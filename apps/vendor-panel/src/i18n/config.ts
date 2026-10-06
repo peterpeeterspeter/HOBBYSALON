@@ -5,12 +5,13 @@ import translations from "./translations"
 export const defaultI18nOptions: InitOptions = {
   debug: process.env.NODE_ENV === "development",
   detection: {
-    caches: ["cookie", "localStorage", "header"],
+    caches: ["cookie", "localStorage"],
     lookupCookie: "lng",
     lookupLocalStorage: "lng",
-    order: ["cookie", "localStorage", "header"],
+    // Hobbysalon is Dutch-first: ignore the browser header, default to nl.
+    order: ["cookie", "localStorage"],
   },
-  fallbackLng: "en",
+  fallbackLng: "nl",
   interpolation: {
     escapeValue: false,
   },

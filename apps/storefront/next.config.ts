@@ -641,6 +641,15 @@ const nextConfig: NextConfig = {
         destination: "/over-ons",
         permanent: true,
       },
+      // Dashboard restructure: moderator tools live under /beheer.
+      { source: "/dashboard/moderatie/roles", destination: "/beheer/rollen", permanent: true },
+      {
+        source: "/dashboard/moderatie/community",
+        destination: "/beheer/community",
+        permanent: true,
+      },
+      { source: "/dashboard/materials", destination: "/beheer/materialen", permanent: true },
+      { source: "/dashboard/account", destination: "/dashboard/instellingen", permanent: true },
       ...legacyArticleSlugs.map((slug) => ({
         source: `/${slug}`,
         destination: `/artikel/${slug}`,
