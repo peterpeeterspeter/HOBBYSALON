@@ -1,7 +1,1 @@
-{
-  "framework": "vite",
-  "buildCommand": "yarn build:preview",
-  "installCommand": "yarn install",
-  "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
-}
+{"git":{"deploymentEnabled":false}}

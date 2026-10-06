@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "repository": "peterpeeterspeter/HOBBYSALON",
+  "branch": "ops/backend-ack-build-20261006",
+  "base_commit": "93fc39ef94a20584922b22ca385e8d5648c9e103",
+  "archive_sha256": "36a2741385a4da96e6e26edce50422ca05d9e3267a1e3f1f5face63cd3e447b6",
+  "manifest_sha256": "c4cc4183fa6ec3f4e787501dc476fe84297ac5bf0974569075498f3a32610bb1",
+  "accepted_patch_sha256": "09db55b7e24f08180e9006501f3fd7431b93a53e651286d0c34e0e13fb50e967",
+  "accepted_file_sha256": {
+    "deploy/release/migrate-native.cjs": "a6e1cc381f00bbdeb7bcc17addbd7767c421a08a623e341755c46756b0b318da",
+    "deploy/release/migration-plan.cjs": "f5b696ccf76e3a86388b5f5e62b5d8d143cb02b61e8eef4810a0780ca2507bcd",
+    "scripts/reconciliation/evidence.py": "22dc8b7c57597f7e094db978dcb29b8776ef39b7b5449b65d1c1c936cfb1f854",
+    "scripts/tests/release-migration-plan.test.cjs": "17bc39393b348f333f5a8fe5de8be31177083d3e81926cf8f116086024af9675",
+    "scripts/tests/test_reconciliation_evidence.py": "b06ea8bc4964cf09e938f52aa5f0e163c4995601ba757488f461e0ead769f05e"
+  },
+  "authorization": "owner-approved input publication and one hosted build only; draft subject to independent review before the single push",
+  "build_only": true,
+  "production_release": false,
+  "runtime_acceptance": false,
+  "maximum_hosted_builds": 1,
+  "max_build_minutes": 40,
+  "artifact_retention_days": 7,
+  "image": "hobbysalon-release-candidate:ack-20261006",
+  "dockerfile": "apps/backend/Dockerfile",
+  "prohibited": ["pull request", "main merge", "workflow dispatch", "rerun", "deploy", "registry push", "database", "provider calls", "live acceptance"]
+}

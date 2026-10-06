@@ -1,0 +1,92 @@
+name: Frozen ACK backend build only
+on:
+  push:
+    branches:
+      - ops/backend-ack-build-20261006
+permissions:
+  contents: read
+concurrency:
+  group: frozen-ack-backend-build-20261006
+  cancel-in-progress: false
+jobs:
+  build:
+    if: >-
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/ops/backend-ack-build-20261006' &&
+      github.event.created == true && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      IMAGE: hobbysalon-release-candidate:ack-20261006
+    steps:
+      - name: Checkout minimal input tree
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Prepare private worker directories and verify exact input
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir "$RUNNER_TEMP/ack-20261006" "$RUNNER_TEMP/ack-20261006/receipts"
+          printf '%s\n' 'No production or runtime acceptance. Build and inspection may fail.' > "$RUNNER_TEMP/ack-20261006/receipts/SCOPE.txt"
+          python3 release-input/verify-source.py \
+            --archive release-input/source.full.tar.xz \
+            --manifest release-input/source.full.manifest.jsonl \
+            --approval release-input/approval.json \
+            --dest "$RUNNER_TEMP/ack-20261006/context" \
+            | tee "$RUNNER_TEMP/ack-20261006/receipts/source-verification.json"
+          { df -h; free -m; du -sh "$RUNNER_TEMP/ack-20261006/context"; } > "$RUNNER_TEMP/ack-20261006/receipts/resources.log"
+      - name: Offline recipe preflight on frozen source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh "$RUNNER_TEMP/ack-20261006/context/deploy/release/recipe.sh" verify
+      - name: Set up isolated buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+      - name: Build exact Dockerfile once, load locally, never publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx build --pull --load --progress=plain \
+            --tag "$IMAGE" \
+            --label org.opencontainers.image.revision=93fc39ef94a20584922b22ca385e8d5648c9e103 \
+            --label io.hobbysalon.source.archive.sha256=36a2741385a4da96e6e26edce50422ca05d9e3267a1e3f1f5face63cd3e447b6 \
+            --label io.hobbysalon.source.manifest.sha256=c4cc4183fa6ec3f4e787501dc476fe84297ac5bf0974569075498f3a32610bb1 \
+            --file "$RUNNER_TEMP/ack-20261006/context/apps/backend/Dockerfile" \
+            "$RUNNER_TEMP/ack-20261006/context" \
+            2>&1 | tee "$RUNNER_TEMP/ack-20261006/receipts/build.log"
+      - name: Verify actual image bytes without starting application
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 0644 release-input/inspect-compiled.cjs
+          python3 release-input/verify-image.py \
+            --manifest release-input/source.full.manifest.jsonl \
+            --inspector release-input/inspect-compiled.cjs \
+            --out "$RUNNER_TEMP/ack-20261006/receipts" \
+            | tee "$RUNNER_TEMP/ack-20261006/receipts/inspection.log"
+      - name: Save actual image after successful inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker image save "$IMAGE" | gzip -1 > "$RUNNER_TEMP/ack-20261006/receipts/backend-image.tar.gz"
+          sha256sum "$RUNNER_TEMP/ack-20261006/receipts/backend-image.tar.gz" > "$RUNNER_TEMP/ack-20261006/receipts/backend-image.sha256"
+      - name: Retain image or available failure evidence for seven days
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: backend-ack-build-20261006
+          path: ${{ runner.temp }}/ack-20261006/receipts/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: warn
