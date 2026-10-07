@@ -216,10 +216,10 @@ server.listen({host,port:0},async()=>{
         h=r.Harness.__new__(r.Harness);h.evidence={};queries=[]
         def sql(q):
             queries.append(q)
-            if q.startswith('BEGIN'):return 'financial full row\nack full row\n'
+            if q.startswith('BEGIN'):return 'marketplace_stripe_event_receipt\tfinancial full row\nmarketplace_capture_consumer_ack\tack full row\n'
             if q.startswith('SELECT table_name'):return '\n'.join(['ci_acceptance_sentinel','marketplace_stripe_event_receipt','marketplace_capture_consumer_ack','reconciliation_repair_audit'])
             return '{}'
-        h.sql=sql;self.assertEqual(len(h.snapshot()),64)
+        h.sql=sql;self.assertEqual(len(h.snapshot()['all_public_tables_sha256']),64)
         self.assertIn('REPEATABLE READ READ ONLY',queries[0]);self.assertIn('SELECT * FROM %I.%I',queries[0]);self.assertIn('\\gexec',queries[0])
     def test_ownership_refuses_removal(self):
         h=r.Harness.__new__(r.Harness);h.prefix='own'
@@ -482,5 +482,150 @@ vm.runInNewContext(source,{require:req,module:mockedModule,process,console,setTi
             with self.subTest(output=output,changed=changed),self.assertRaises(RuntimeError):h.owner_audit_controls()
         h,_=self.owner_adapter();h.sql=lambda *a,**k:(_ for _ in ()).throw(RuntimeError('SQL_FAILED'))
         with self.assertRaisesRegex(RuntimeError,'SQL_FAILED'):h.owner_audit_controls()
+
+class PreservationTests(unittest.TestCase):
+    """Bounded offline controls only; no hosted run, image build or fixture changes."""
+    def baseline(self):
+        return {'all_public_tables_sha256':'a'*64,'table_sha256':{
+            'marketplace_capture_consumer_ack':'b'*64,'reconciliation_repair_audit':'c'*64}}
+    def adapter(self,tmp,snapshot=None,schema=None,static=None):
+        h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);calls=[]
+        h.evidence={'status':'FAIL','phases':[],'diagnostic_phase':'offline-control'}
+        def capture(name,value):
+            calls.append(name)
+            if isinstance(value,Exception):raise value
+            return value
+        h.snapshot=lambda:capture('snapshot',self.baseline() if snapshot is None else snapshot)
+        h.schema=lambda:capture('schema','d'*64 if schema is None else schema)
+        h.static_hash=lambda:capture('static','e'*64 if static is None else static)
+        return h,calls
+    def comparison(self,tmp):
+        paths=list(Path(tmp).glob('preservation-comparison-*.json'))
+        self.assertEqual(len(paths),1)
+        self.assertEqual(paths[0].stat().st_mode & 0o777,0o600)
+        return json.loads(paths[0].read_text())
+    def check_changed(self,component):
+        import copy
+        with tempfile.TemporaryDirectory() as tmp:
+            changed=copy.deepcopy(self.baseline())
+            changed['all_public_tables_sha256']='f'*64
+            changed['table_sha256']['marketplace_capture_consumer_ack']='f'*64
+            kwargs={component:changed if component=='snapshot' else 'f'*64}
+            h,calls=self.adapter(tmp,**kwargs)
+            with self.assertRaisesRegex(RuntimeError,'^FINANCIAL_ACK_SCHEMA_STATIC_CHANGED$'):
+                h.preservation(self.baseline(),'d'*64,'e'*64)
+            self.assertEqual(calls,['snapshot','schema','static'])
+            record=self.comparison(tmp);self.assertFalse(record['strict_preserved'])
+            key={'snapshot':'snapshot','schema':'schema_sha256','static':'static_sha256'}[component]
+            self.assertEqual(record['matches'],{k:k!=key for k in ('snapshot','schema_sha256','static_sha256')})
+            self.assertEqual(record['post'][key],kwargs[component]);self.assertEqual(h.evidence['status'],'FAIL')
+            self.assertEqual(h.evidence['phases'],[])
+            return record
+    def test_preservation_rowhash_change_fails_strict(self):
+        record=self.check_changed('snapshot')
+        self.assertIn({'kind':'table-rowhash-changed','table':'marketplace_capture_consumer_ack',
+            'before_sha256':'b'*64,'post_sha256':'f'*64},record['differences'])
+    def test_preservation_schema_change_fails_strict(self):
+        record=self.check_changed('schema');self.assertEqual(record['differences'][0]['kind'],'schema-changed')
+    def test_preservation_static_change_fails_strict(self):
+        record=self.check_changed('static');self.assertEqual(record['differences'][0]['kind'],'static-changed')
+    def test_preservation_unchanged_passes_check_without_granting_acceptance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,calls=self.adapter(tmp);self.assertIsNone(h.preservation(self.baseline(),'d'*64,'e'*64))
+            record=self.comparison(tmp);self.assertTrue(record['strict_preserved'])
+            self.assertEqual(record['before'],record['post']);self.assertEqual(record['differences'],[])
+            self.assertEqual(calls,['snapshot','schema','static']);self.assertEqual(h.evidence['status'],'FAIL')
+            self.assertEqual(h.evidence['phases'],[])
+    def test_preservation_combined_changes_attributed_including_added_removed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            changed={'all_public_tables_sha256':'f'*64,'table_sha256':{
+                'marketplace_capture_consumer_ack':'f'*64,'ci_new_table':'a'*64}}
+            h,calls=self.adapter(tmp,changed,'f'*64,'f'*64)
+            with self.assertRaisesRegex(RuntimeError,'^FINANCIAL_ACK_SCHEMA_STATIC_CHANGED$'):
+                h.preservation(self.baseline(),'d'*64,'e'*64)
+            record=self.comparison(tmp);self.assertEqual(calls,['snapshot','schema','static'])
+            self.assertFalse(any(record['matches'].values()))
+            table_diffs={x['table']:x for x in record['differences'] if 'table' in x}
+            self.assertEqual(table_diffs['ci_new_table']['kind'],'table-added')
+            self.assertIsNone(table_diffs['ci_new_table']['before_sha256'])
+            self.assertEqual(table_diffs['reconciliation_repair_audit']['kind'],'table-removed')
+            self.assertIsNone(table_diffs['reconciliation_repair_audit']['post_sha256'])
+            self.assertEqual(table_diffs['marketplace_capture_consumer_ack']['before_sha256'],'b'*64)
+            self.assertEqual({x['kind'] for x in record['differences']},{'table-added','table-removed',
+                'table-rowhash-changed','all-public-rows-changed','schema-changed','static-changed'})
+    def test_preservation_capture_errors_do_not_shortcircuit_or_leak(self):
+        import contextlib,io
+        for component,key in [('snapshot','snapshot'),('schema','schema_sha256'),('static','static_sha256')]:
+            with self.subTest(component=component),tempfile.TemporaryDirectory() as tmp:
+                h,calls=self.adapter(tmp,**{component:RuntimeError('private-error-canary')});console=io.StringIO()
+                with contextlib.redirect_stdout(console),contextlib.redirect_stderr(console):
+                    with self.assertRaisesRegex(RuntimeError,'^FINANCIAL_ACK_SCHEMA_STATIC_CHANGED$'):
+                        h.preservation(self.baseline(),'d'*64,'e'*64)
+                self.assertEqual(console.getvalue(),'');self.assertEqual(calls,['snapshot','schema','static'])
+                record=self.comparison(tmp);self.assertEqual(record['capture_errors'],{key:'RuntimeError'})
+                self.assertFalse(record['strict_preserved']);self.assertNotIn('private-error-canary',json.dumps(record))
+    def test_snapshot_hash_only_attribution_empty_tables_and_original_binding(self):
+        import hashlib
+        h=r.Harness.__new__(r.Harness);h.evidence={}
+        tables=['ci_acceptance_sentinel','marketplace_stripe_event_receipt','marketplace_capture_consumer_ack','reconciliation_repair_audit']
+        rows='marketplace_capture_consumer_ack\t{"private-row-canary":1}\n'
+        h.sql=lambda q:rows if q.startswith('BEGIN') else '\n'.join(tables) if q.startswith('SELECT table_name') else '{}'
+        snapshot=h.snapshot()
+        self.assertEqual(snapshot['all_public_tables_sha256'],hashlib.sha256(rows.encode()).hexdigest())
+        self.assertEqual(set(snapshot['table_sha256']),set(tables))
+        self.assertEqual(snapshot['table_sha256']['marketplace_capture_consumer_ack'],hashlib.sha256(b'{"private-row-canary":1}\n').hexdigest())
+        self.assertEqual(snapshot['table_sha256']['reconciliation_repair_audit'],hashlib.sha256(b'').hexdigest())
+        self.assertNotIn('private-row-canary',json.dumps(snapshot))
+        self.assertTrue(all(__import__('re').fullmatch('[a-f0-9]{64}',x) for x in snapshot['table_sha256'].values()))
+    def test_healthy_receipts_private_before_strict_failure_in_boot_and_restart(self):
+        import copy
+        for failing_phase in ['boot','restart']:
+            with self.subTest(failing_phase=failing_phase),tempfile.TemporaryDirectory() as tmp:
+                h,calls=self.adapter(tmp);baseline=self.baseline();changed=copy.deepcopy(baseline)
+                changed['table_sha256']['marketplace_capture_consumer_ack']='f'*64
+                snapshots=iter([changed] if failing_phase=='boot' else [baseline,changed]);h.snapshot=lambda:next(snapshots)
+                h.a=SimpleNamespace(candidate='candidate',previous='previous');h.app='offline';h.previous_starts=set()
+                h.app_start=lambda *args:'2026-10-07T00:00:00Z';h.envfile=lambda *args:Path(tmp)/'unused.env'
+                h.healthy=lambda *args:{'started_at':args[1],'native_continuous_healthy_seconds':300,
+                    'native_probes':[args[0]+'-private-probe-canary']}
+                h.docker=lambda *args:None;h.inspect=lambda *args:{'State':{'StartedAt':'2026-10-07T00:10:00Z'}}
+                h.capture_logs=lambda *args:('',{})
+                with self.assertRaisesRegex(RuntimeError,'^FINANCIAL_ACK_SCHEMA_STATIC_CHANGED$'):
+                    h.phase('candidate','offline',baseline,'d'*64)
+                healthy_paths=list(Path(tmp).glob('healthy-before-preservation-*.json'))
+                self.assertEqual(len(healthy_paths),1 if failing_phase=='boot' else 2)
+                for path in healthy_paths:
+                    self.assertEqual(path.stat().st_mode & 0o777,0o600)
+                    record=json.loads(path.read_text());self.assertEqual(record['acceptance'],'pending-strict-preservation')
+                    self.assertEqual(record['receipt']['native_continuous_healthy_seconds'],300)
+                self.assertEqual(len(h.evidence['phases']),0 if failing_phase=='boot' else 1)
+                self.assertEqual(h.evidence['status'],'FAIL')
+                failed_name='offline' if failing_phase=='boot' else 'offline-restart'
+                self.assertNotIn(failed_name+'-private-probe-canary',json.dumps(h.evidence))
+    def test_private_diagnostics_owned_sibling_and_no_hosted_guard_bypass(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            h=r.Harness(SimpleNamespace(out=Path(tmp)/'public-runtime-output'))
+            try:
+                self.assertEqual(h.private_dir.parent,Path(tmp)/'runtime-diagnosis')
+                self.assertTrue(h.private_dir.name.startswith(h.prefix+'-'))
+                self.assertEqual(h.private_dir.stat().st_mode & 0o777,0o700)
+                h.private_record('preservation-baseline',{'snapshot':self.baseline(),'schema_sha256':'d'*64,'static_sha256':'e'*64})
+                self.assertEqual(list(h.a.out.iterdir()),[])
+                with patch.dict(r.os.environ,{},clear=True),patch.object(r.subprocess,'run',side_effect=AssertionError('MUST_NOT_LAUNCH')):
+                    with self.assertRaisesRegex(RuntimeError,'^ONLY_GITHUB_HOSTED_RUNNER$'):h.execute()
+                self.assertEqual(h.evidence['status'],'FAIL');self.assertEqual(h.evidence['phases'],[])
+            finally:shutil.rmtree(h.secret_dir)
+    def test_baseline_record_once_before_phases_and_strict_public_append_order(self):
+        import inspect
+        execute=inspect.getsource(r.Harness.execute);phase=inspect.getsource(r.Harness.phase)
+        self.assertEqual(execute.count("self.private_record('preservation-baseline'"),1)
+        baseline_at=execute.index("self.private_record('preservation-baseline'")
+        self.assertLess(execute.index('baseline=self.snapshot();schema=self.schema()'),baseline_at)
+        self.assertLess(baseline_at,execute.index('for image,phase in'))
+        self.assertIn('self.static_hash(offline=True)',execute[baseline_at:execute.index('for image,phase in')])
+        self.assertEqual(phase.count("self.private_record('healthy-before-preservation'"),2)
+        for block in phase.split("self.private_record('healthy-before-preservation'")[1:]:
+            self.assertLess(block.index('self.preservation('),block.index("self.evidence['phases'].append(receipt)"))
 
 if __name__=='__main__':unittest.main(verbosity=2)

@@ -215,7 +215,17 @@ COMMIT;"""
         if not required.issubset(tables): raise RuntimeError('NATIVE_FINANCIAL_ACK_SCHEMA_MISSING')
         counts=json.loads(self.sql("SELECT json_object_agg(name,n) FROM (SELECT table_name AS name,(xpath('/row/n/text()',query_to_xml(format('SELECT count(*) AS n FROM public.%I',table_name),false,true,'')))[1]::text::bigint AS n FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE') t;").strip())
         self.evidence['snapshot_tables']=counts
-        return hashlib.sha256(data.encode()).hexdigest()
+        # Keep the original whole-snapshot binding, plus hashes for exact table
+        # attribution (including empty tables). Never persist physical row data.
+        row_hashes={table:hashlib.sha256() for table in tables}
+        for line in data.split('\n'):
+            if not line: continue
+            table,separator,row=line.partition('\t')
+            if not separator or table not in row_hashes:
+                raise RuntimeError('SNAPSHOT_ROW_FORMAT_INVALID')
+            row_hashes[table].update((row+'\n').encode())
+        return {'all_public_tables_sha256':hashlib.sha256(data.encode()).hexdigest(),
+            'table_sha256':{table:digest.hexdigest() for table,digest in row_hashes.items()}}
     def schema(self):
         raw=self.docker('exec',self.pg,'pg_dump','-U','postgres','-d','acceptance','--schema-only','--no-owner','--no-privileges')
         stable='\n'.join(line for line in raw.splitlines() if not line.startswith(('\\restrict ', '\\unrestrict ')))
@@ -278,7 +288,7 @@ ROLLBACK;""",user='postgres').strip()
     def static_hash(self,offline=False):
         command="const f=require('fs'),p=require('path'),h=require('crypto').createHash('sha256');function walk(d){for(const n of f.readdirSync(d).sort()){const a=p.join(d,n),s=f.lstatSync(a);h.update(a+':'+s.mode+':'+s.uid+':'+s.gid+'\\n');if(s.isDirectory())walk(a);else if(s.isFile())h.update(f.readFileSync(a));else throw Error('STATIC_SPECIAL_FILE')}}walk('/app/apps/backend/static');process.stdout.write(h.digest('hex'))"
         if offline:
-            return self.owned_run(self.prefix+'-negative-static',self.a.candidate,['--network','none','--read-only','--user','1001:1001','--cap-drop','ALL','--entrypoint','node','--mount',f'type=volume,src={self.volumes[1]},dst={STATIC},readonly'],['-e',command]).strip()
+            return self.owned_run(self.prefix+'-static-snapshot-'+secrets.token_hex(5),self.a.candidate,['--network','none','--read-only','--user','1001:1001','--cap-drop','ALL','--entrypoint','node','--mount',f'type=volume,src={self.volumes[1]},dst={STATIC},readonly'],['-e',command]).strip()
         return self.docker('exec',self.app,'node','-e',command).strip()
     def healthy(self,phase,started,expected_kind):
         start=time.monotonic(); good=None; probes={}; markers=[]
@@ -318,7 +328,34 @@ ROLLBACK;""",user='postgres').strip()
             time.sleep(1)
         raise RuntimeError(phase+':NATIVE_HEALTH_300S_NOT_REACHED')
     def preservation(self,baseline,schema,static):
-        if self.snapshot()!=baseline or self.schema()!=schema or self.static_hash()!=static: raise RuntimeError('FINANCIAL_ACK_SCHEMA_STATIC_CHANGED')
+        # Capture all three independently: a row mismatch or failed read must not
+        # hide simultaneous schema/static changes. Diagnostics never grant PASS.
+        before={'snapshot':baseline,'schema_sha256':schema,'static_sha256':static}
+        post={};errors={}
+        for component,capture in [('snapshot',self.snapshot),('schema_sha256',self.schema),('static_sha256',self.static_hash)]:
+            try: post[component]=capture()
+            except Exception as error:
+                post[component]=None;errors[component]=type(error).__name__
+        matches={component:component not in errors and post[component]==value for component,value in before.items()}
+        differences=[]
+        if isinstance(baseline,dict) and isinstance(post['snapshot'],dict):
+            old=baseline['table_sha256'];new=post['snapshot']['table_sha256']
+            for table in sorted(set(old)|set(new)):
+                if old.get(table)!=new.get(table):
+                    differences.append({'kind':'table-added' if table not in old else 'table-removed' if table not in new else 'table-rowhash-changed',
+                        'table':table,'before_sha256':old.get(table),'post_sha256':new.get(table)})
+            if baseline['all_public_tables_sha256']!=post['snapshot']['all_public_tables_sha256']:
+                differences.append({'kind':'all-public-rows-changed','before_sha256':baseline['all_public_tables_sha256'],
+                    'post_sha256':post['snapshot']['all_public_tables_sha256']})
+        for component,kind in [('schema_sha256','schema-changed'),('static_sha256','static-changed')]:
+            if not matches[component]:
+                differences.append({'kind':'capture-failed' if component in errors else kind,
+                    'component':component,'before_sha256':before[component],'post_sha256':post[component]})
+        if 'snapshot' in errors: differences.append({'kind':'capture-failed','component':'snapshot'})
+        self.private_record('preservation-comparison',{'phase':self.evidence.get('diagnostic_phase'),
+            'before':before,'post':post,'matches':matches,'differences':differences,'capture_errors':errors,
+            'strict_preserved':all(matches.values())})
+        if not all(matches.values()): raise RuntimeError('FINANCIAL_ACK_SCHEMA_STATIC_CHANGED')
     def phase(self,image,name,baseline,schema):
         self.evidence.update(diagnostic_stage='RUNTIME_PHASE',diagnostic_phase=name)
         started=self.app_start(image,self.envfile('runtime.env','app'))
@@ -328,8 +365,11 @@ ROLLBACK;""",user='postgres').strip()
         if getattr(self,'static_baseline',static)!=static: raise RuntimeError('STATIC_CHANGED_BETWEEN_IMAGES')
         self.static_baseline=static
         kind='native' if image==self.a.previous else 'readonly'
-        receipt=self.healthy(name,started,kind);self.preservation(baseline,schema,static)
-        receipt.update(phase=name,image=image,all_public_tables_sha256=baseline,schema_sha256=schema,static_sha256=static)
+        receipt=self.healthy(name,started,kind)
+        self.private_record('healthy-before-preservation',{'phase':name,'image':image,
+            'acceptance':'pending-strict-preservation','receipt':receipt})
+        self.preservation(baseline,schema,static)
+        receipt.update(phase=name,image=image,all_public_tables_sha256=baseline['all_public_tables_sha256'],schema_sha256=schema,static_sha256=static)
         self.evidence['phases'].append(receipt)
         logs,receipt['logs']=self.capture_logs(name)
         if ERRORS.search(logs): raise RuntimeError('PRE_RESTART_LOG_ERROR')
@@ -338,8 +378,11 @@ ROLLBACK;""",user='postgres').strip()
         if stamp(restarted)<=stamp(started) or restarted in self.previous_starts: raise RuntimeError('FRESH_RESTART_REQUIRED')
         self.previous_starts.add(restarted)
         self.evidence['diagnostic_phase']=name+'-restart'
-        receipt=self.healthy(name+'-restart',restarted,kind);self.preservation(baseline,schema,static)
-        receipt.update(phase=name+'-restart',image=image,all_public_tables_sha256=baseline,schema_sha256=schema,static_sha256=static)
+        receipt=self.healthy(name+'-restart',restarted,kind)
+        self.private_record('healthy-before-preservation',{'phase':name+'-restart','image':image,
+            'acceptance':'pending-strict-preservation','receipt':receipt})
+        self.preservation(baseline,schema,static)
+        receipt.update(phase=name+'-restart',image=image,all_public_tables_sha256=baseline['all_public_tables_sha256'],schema_sha256=schema,static_sha256=static)
         self.evidence['phases'].append(receipt)
         self.docker('stop','-t','8',self.app)
         logs,receipt['logs']=self.capture_logs(name+'-restart')
@@ -432,6 +475,8 @@ ROLLBACK;""",user='postgres').strip()
         self.owned_run(self.prefix+'-static-init',self.a.candidate,['--network','none','--read-only','--user','0:0','--cap-drop','ALL','--cap-add','CHOWN','--entrypoint','node','--mount',f'type=volume,src={self.volumes[1]},dst=/fixture'],['-e',"const f=require('fs');f.writeFileSync('/fixture/ci-sentinel','ci-fixture-no-loss');f.chownSync('/fixture',1001,1001);f.chownSync('/fixture/ci-sentinel',1001,1001)"])
         self.evidence['diagnostic_stage']='RUNTIME_BASELINE'
         baseline=self.snapshot();schema=self.schema()
+        self.private_record('preservation-baseline',{'snapshot':baseline,'schema_sha256':schema,
+            'static_sha256':self.static_hash(offline=True)})
         for image,phase in [(self.a.candidate,'candidate'),(self.a.previous,'previous'),(self.a.candidate,'candidate-restored')]: self.phase(image,phase,baseline,schema)
         self.negative(baseline,schema)
         if self.evidence['audit_native'].get('owner_truncate_guard')!='PASS' or self.evidence['audit_native'].get('owner_rows_schema_unchanged') is not True:
