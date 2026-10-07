@@ -1128,4 +1128,86 @@ workflow_execution
             self.assertEqual(h.evidence['status'],'PASS') # Double branch only; NOT runtime acceptance.
             print('TESTONLY_EXACT_EXECUTE_SEQUENCE_REACHABLE: actual execute/firstboot/phase/negative; firstboot -> stopped-confirmed -> baseline -> six strict phases -> credential-negative; IO/health doubles ONLY; NO_RUNTIME_PASS')
 
+class RestartFailureTimingTests(unittest.TestCase):
+    """Offline diagnostics controls; not actual Docker timing or runtime acceptance."""
+    def observe(self,tmp,mode):
+        import datetime,contextlib,io
+        clock=[0.0]
+        started='2026-10-07T00:10:00Z'
+        def at(offset):
+            return (datetime.datetime(2026,10,7,0,10,tzinfo=datetime.timezone.utc)+
+                datetime.timedelta(seconds=offset)).isoformat().replace('+00:00','Z')
+        marker={'marker':'CI_INDEX_INIT_COMPLETE','kind':'readonly','pid':1,'at':at(1)}
+        old=dict(marker,at=at(-60))
+        logs=at(-60)+' '+json.dumps(old)+'\n'+at(1)+' '+json.dumps(marker)+'\n'+at(1)+' '+json.dumps({'message':'Server is ready on port: 9000'})
+        h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.app='offline'
+        h.a=SimpleNamespace(candidate='candidate',previous='previous')
+        h.evidence={'status':'FAIL','phases':[]}
+        if mode=='io-error':
+            h.private_record=lambda *args: (_ for _ in ()).throw(OSError('private-canary'))
+        def inspect(_):
+            offsets=[] if mode=='timeout' else ([2] if clock[0]>=2 else [])
+            if clock[0]>=282 and mode in ('short','io-error'): offsets.append(282)
+            if clock[0]>=302 and mode=='success': offsets.append(302)
+            native=[{'Start':at(x),'End':at(x),'ExitCode':0,'Output':''} for x in offsets]
+            # Old-epoch native probes must not enter the diagnostic buffer.
+            native.insert(0,{'Start':at(-90),'End':at(-90),'ExitCode':0,'Output':''})
+            return {'Image':'candidate','RestartCount':0,'State':{'Status':'running',
+                'Running':True,'StartedAt':started,'Health':{
+                    'Status':'starting' if mode=='timeout' else 'healthy','Log':native}}}
+        h.inspect=inspect
+        h.capture_logs=lambda _: (logs,{'file':'offline.complete.log','complete':True,'sha256':'a'*64})
+        def sleep(seconds):
+            clock[0]+=seconds
+            self.assertLessEqual(clock[0],390,'Existing ceiling must remain bounded')
+        console=io.StringIO();receipt=None;error=None
+        with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]),patch.object(r.time,'sleep',side_effect=sleep),contextlib.redirect_stdout(console),contextlib.redirect_stderr(console):
+            try: receipt=h.healthy('candidate-restart',started,'readonly')
+            except RuntimeError as exc: error=str(exc)
+        self.assertEqual(console.getvalue(),'')
+        self.assertEqual(h.evidence,{'status':'FAIL','phases':[]})
+        return h,receipt,error,clock[0]
+    def test_short_chronology_records_actual_buffer_without_relaxation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _,receipt,error,elapsed=self.observe(tmp,'short')
+            self.assertIsNone(receipt);self.assertEqual(error,'PROBE_CHRONOLOGY_TOO_SHORT')
+            self.assertEqual(elapsed,302)
+            files=list(Path(tmp).glob('health-failure-*.json'));self.assertEqual(len(files),1)
+            self.assertEqual(files[0].stat().st_mode & 0o777,0o600)
+            row=json.loads(files[0].read_text())
+            self.assertEqual(row['acceptance'],'failed-not-a-receipt')
+            self.assertEqual(row['steady_elapsed_seconds'],300)
+            self.assertEqual(row['loop_elapsed_seconds'],302)
+            self.assertEqual(row['good_start_monotonic'],2)
+            self.assertEqual(row['observation_monotonic'],302)
+            self.assertEqual(row['native_probe_span_nanoseconds'],280*10**9)
+            self.assertEqual(len(row['native_probes']),2)
+            self.assertTrue(all(r.stamp(x['Start'])>=r.stamp(row['started_at']) for x in row['native_probes']))
+            self.assertEqual(len(row['initialization_markers']),1)
+            self.assertEqual(row['native_status'],'healthy')
+            self.assertTrue(row['inspected_state']['Running'])
+    def test_timeout_diagnostic_retains_390_ceiling_and_original_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _,receipt,error,elapsed=self.observe(tmp,'timeout')
+            self.assertIsNone(receipt)
+            self.assertEqual(error,'candidate-restart:NATIVE_HEALTH_300S_NOT_REACHED')
+            self.assertEqual(elapsed,390)
+            files=list(Path(tmp).glob('health-failure-*.json'));self.assertEqual(len(files),1)
+            row=json.loads(files[0].read_text());self.assertIsNone(row['good_start_monotonic'])
+            self.assertIsNone(row['steady_elapsed_seconds']);self.assertEqual(row['native_probes'],[])
+    def test_success_has_no_failure_record_and_original_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _,receipt,error,elapsed=self.observe(tmp,'success')
+            self.assertIsNone(error);self.assertEqual(elapsed,302)
+            assert receipt is not None
+            self.assertEqual(receipt['native_continuous_healthy_seconds'],300)
+            self.assertEqual(len(receipt['native_probes']),2)
+            self.assertEqual(list(Path(tmp).glob('health-failure-*.json')),[])
+    def test_private_io_failure_cannot_mask_original_chronology_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _,receipt,error,elapsed=self.observe(tmp,'io-error')
+            self.assertIsNone(receipt);self.assertEqual(error,'PROBE_CHRONOLOGY_TOO_SHORT')
+            self.assertEqual(elapsed,302)
+            self.assertEqual(list(Path(tmp).glob('health-failure-*.json')),[])
+
 if __name__=='__main__':unittest.main(verbosity=2)

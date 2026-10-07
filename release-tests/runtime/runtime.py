@@ -601,6 +601,25 @@ ROLLBACK;""",user='postgres').strip()
         return self.docker('exec',self.app,'node','-e',command).strip()
     def healthy(self,phase,started,expected_kind):
         start=time.monotonic(); good=None; probes={}; markers=[]
+        state={}; status=None; ready=False; ready_at=stamp(started)
+        def failure_timings(code):
+            # TESTONLY private observation, never a receipt or an acceptance change.
+            # Preserve the original failure even if private diagnostic I/O fails.
+            try:
+                now=time.monotonic()
+                span=(max(stamp(p['End']) for p in probes.values())-
+                      min(stamp(p['Start']) for p in probes.values())) if probes else None
+                self.private_record('health-failure',{'phase':phase,'error':code,
+                    'acceptance':'failed-not-a-receipt','started_at':started,
+                    'loop_start_monotonic':start,'good_start_monotonic':good,
+                    'observation_monotonic':now,'loop_elapsed_seconds':now-start,
+                    'steady_elapsed_seconds':None if good is None else now-good,
+                    'ready':ready,'ready_at_nanoseconds':ready_at,
+                    'initialization_markers':markers,'native_probes':list(probes.values()),
+                    'native_probe_span_nanoseconds':span,'native_status':status,
+                    'inspected_state':{k:state.get(k) for k in
+                        ('Status','Running','StartedAt','FinishedAt','Health')}})
+            except Exception: pass
         while time.monotonic()-start<390:
             c=self.inspect(self.app); state=c['State']
             if not state.get('Running') or c.get('RestartCount',0)!=0 or state['StartedAt']!=started or c['Image'] not in [self.a.candidate,self.a.previous]: raise RuntimeError(phase+':NATIVE_STATE_CHANGED')
@@ -631,10 +650,13 @@ ROLLBACK;""",user='postgres').strip()
             if status=='healthy' and ready and probes:
                 if good is None: good=time.monotonic()
                 if time.monotonic()-good>=300:
-                    if len(probes)<2 or (max(stamp(p['End']) for p in probes.values())-min(stamp(p['Start']) for p in probes.values()))<290*10**9: raise RuntimeError('PROBE_CHRONOLOGY_TOO_SHORT')
+                    if len(probes)<2 or (max(stamp(p['End']) for p in probes.values())-min(stamp(p['Start']) for p in probes.values()))<290*10**9:
+                        failure_timings('PROBE_CHRONOLOGY_TOO_SHORT')
+                        raise RuntimeError('PROBE_CHRONOLOGY_TOO_SHORT')
                     return {'started_at':started,'native_continuous_healthy_seconds':300,'initialization_markers':markers,'native_probes':list(probes.values()),'logs':receipt}
             elif good is not None: raise RuntimeError(phase+':HEALTH_REGRESSION')
             time.sleep(1)
+        failure_timings(phase+':NATIVE_HEALTH_300S_NOT_REACHED')
         raise RuntimeError(phase+':NATIVE_HEALTH_300S_NOT_REACHED')
     def preservation(self,baseline,schema,static):
         # Capture all three independently: a row mismatch or failed read must not
