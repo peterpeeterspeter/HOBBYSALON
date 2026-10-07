@@ -634,33 +634,301 @@ class FirstbootTests(unittest.TestCase):
         'index_sync','notification_provider','payment_provider','price_preference','region_country',
         'sales_channel','store','store_currency','tax_provider')
     IMAGE='sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5'
+    # Independent real names, not invented count-filling fixture tables.
+    # Extracted from attempt13 baseline hashes; matched to attempt14 before/counts.
+    INVENTORY=tuple('''
+account_holder
+api_key
+application_method_buy_rules
+application_method_target_rules
+attribute
+attribute_possible_value
+attribute_value
+auth_identity
+capture
+cart
+cart_address
+cart_line_item
+cart_line_item_adjustment
+cart_line_item_tax_line
+cart_payment_collection
+cart_promotion
+cart_shipping_method
+cart_shipping_method_adjustment
+cart_shipping_method_tax_line
+cat_linkproductsaleschannel
+cat_linkproductvariantpriceset
+cat_pivot_linkproductsaleschannelsaleschannel
+cat_pivot_linkproductvariantpricesetpriceset
+cat_pivot_pricesetprice
+cat_pivot_productlinkproductsaleschannel
+cat_pivot_productproductvariant
+cat_pivot_productvariantlinkproductvariantpriceset
+cat_price
+cat_priceset
+cat_product
+cat_productvariant
+cat_saleschannel
+category_category_detail
+ci_acceptance_sentinel
+collection_collection_detail
+collection_detail
+collection_media
+commerce_refund_dispatch
+commission_line
+commission_rate
+commission_rule
+configuration_rule
+credit_line
+currency
+customer
+customer_account_holder
+customer_address
+customer_customer_review_review
+customer_customer_wishlist_wishlist
+customer_group
+customer_group_customer
+fulfillment
+fulfillment_address
+fulfillment_item
+fulfillment_label
+fulfillment_provider
+fulfillment_set
+geo_zone
+image
+index_data
+index_metadata
+index_relation
+index_sync
+inventory_item
+inventory_level
+invite
+link_module_migrations
+location_fulfillment_provider
+location_fulfillment_set
+marketplace_capture_consumer_ack
+marketplace_capture_tail
+marketplace_order_set_order_order
+marketplace_stripe_event_receipt
+marketplace_webhook_admission
+marketplace_webhook_commit
+marketplace_webhook_consumer_ack
+marketplace_webhook_consumer_attempt
+marketplace_webhook_outbox
+marketplace_webhook_replay_attempt
+member
+member_invite
+merchant_category_mapping
+merchant_feed_pull_run
+merchant_feed_source
+mikro_orm_migrations
+native_return_execution
+notification
+notification_provider
+onboarding
+order
+order_address
+order_cart
+order_change
+order_change_action
+order_claim
+order_claim_item
+order_claim_item_image
+order_credit_line
+order_exchange
+order_exchange_item
+order_fulfillment
+order_item
+order_line_item
+order_line_item_adjustment
+order_line_item_tax_line
+order_order_review_review
+order_order_split_order_payment_split_order_payment
+order_payment_collection
+order_payout
+order_promotion
+order_return_order_return_request_order_order
+order_return_request
+order_return_request_line_item
+order_set
+order_shipping
+order_shipping_method
+order_shipping_method_adjustment
+order_shipping_method_tax_line
+order_summary
+order_transaction
+payment
+payment_collection
+payment_collection_payment_providers
+payment_provider
+payment_session
+payout
+payout_account
+payout_execution
+payout_reversal
+price
+price_list
+price_list_rule
+price_preference
+price_rule
+price_set
+product
+product_category
+product_category_product
+product_collection
+product_import_job
+product_option
+product_option_value
+product_product_attribute_attribute_value
+product_product_category_attribute_attribute
+product_product_category_taxcode_tax_code
+product_product_review_review
+product_product_secondary_category_secondary_category
+product_sales_channel
+product_shipping_profile
+product_sync_job
+product_tag
+product_tags
+product_type
+product_variant
+product_variant_inventory_item
+product_variant_option
+product_variant_price_set
+product_variant_product_image
+promotion
+promotion_application_method
+promotion_campaign
+promotion_campaign_budget
+promotion_campaign_budget_usage
+promotion_promotion_rule
+promotion_rule
+promotion_rule_value
+provider_identity
+publishable_api_key_sales_channel
+reconciliation_repair_audit
+refund
+refund_no_effect_closure
+refund_reason
+refund_settlement
+region
+region_country
+region_payment_provider
+request
+reservation_item
+return
+return_fulfillment
+return_item
+return_reason
+review
+sales_channel
+sales_channel_stock_location
+secondary_category
+seller
+seller_onboarding
+seller_seller_customer_customer_group
+seller_seller_fulfillment_fulfillment_set
+seller_seller_fulfillment_service_zone
+seller_seller_fulfillment_shipping_option
+seller_seller_fulfillment_shipping_profile
+seller_seller_inventory_inventory_item
+seller_seller_order_order
+seller_seller_order_return
+seller_seller_order_return_order_return_request
+seller_seller_payout_payout_account
+seller_seller_pricing_price_list
+seller_seller_product_product
+seller_seller_promotion_campaign
+seller_seller_promotion_promotion
+seller_seller_requests_request
+seller_seller_review_review
+seller_seller_stock_location_stock_location
+service_zone
+shipping_option
+shipping_option_price_set
+shipping_option_rule
+shipping_option_type
+shipping_profile
+split_order_payment
+stock_location
+stock_location_address
+store
+store_currency
+tax_code
+tax_provider
+tax_rate
+tax_rate_rule
+tax_region
+user
+user_preference
+view_configuration
+wishlist
+wishlist_wishlist_product_product
+workflow_execution
+'''.split())
+    REQUIRED=('ci_acceptance_sentinel','marketplace_capture_consumer_ack',
+        'marketplace_stripe_event_receipt','reconciliation_repair_audit')
+    NONEMPTY_COUNTS={'ci_acceptance_sentinel':2,'marketplace_stripe_event_receipt':1,
+        'reconciliation_repair_audit':3,'link_module_migrations':50,
+        'mikro_orm_migrations':200,'refund_reason':3}
     def state(self,populated=False):
         import hashlib
         empty=hashlib.sha256(b'').hexdigest()
-        protected=['ci_acceptance_sentinel','marketplace_stripe_event_receipt',
-            'marketplace_capture_consumer_ack','reconciliation_repair_audit']
-        names=list(self.TABLES)+protected+['fixture_protected_%03d'%i for i in range(223)]
-        counts=dict.fromkeys(names,0);hashes=dict.fromkeys(names,empty)
-        for name in ['ci_acceptance_sentinel','reconciliation_repair_audit']:
-            counts[name]=3;hashes[name]='a'*64
+        counts:dict[str,int]=dict.fromkeys(self.INVENTORY,0)
+        hashes:dict[str,str]=dict.fromkeys(self.INVENTORY,empty)
+        # Actual before-firstboot counts; row hashes below are explicit offline doubles.
+        for name,count in self.NONEMPTY_COUNTS.items():
+            counts[name]=count;hashes[name]='a'*64
         if populated:
             for name in self.TABLES:counts[name]=1;hashes[name]='b'*64
         return {'snapshot':{'all_public_tables_sha256':('c' if populated else 'd')*64,
             'table_sha256':hashes},'table_counts':counts,'schema_sha256':'e'*64,'static_sha256':'f'*64}
     def test_firstboot_exact_bounded_contract(self):
+        self.assertEqual(r.FIRSTBOOT_INVENTORY,self.INVENTORY)
+        self.assertEqual(self.INVENTORY,tuple(sorted(set(self.INVENTORY))))
+        self.assertEqual(len(self.INVENTORY),227)
+        self.assertEqual(set(r.FIRSTBOOT_REQUIRED),set(self.REQUIRED))
+        self.assertTrue((set(self.TABLES)|set(self.REQUIRED)).issubset(self.INVENTORY))
         self.assertEqual(set(r.FIRSTBOOT_TABLES),set(self.TABLES));self.assertEqual(r.FIRSTBOOT_IMAGE,self.IMAGE)
         result=r.firstboot_contract(self.state(),self.state(True))
-        self.assertEqual(len(result['protected_tables']),227);self.assertEqual(set(result['allowed_changes']),set(self.TABLES))
+        self.assertEqual(len(result['protected_tables']),213);self.assertEqual(set(result['allowed_changes']),set(self.TABLES))
+        self.assertEqual(result['protected_tables'],sorted(set(self.INVENTORY)-set(self.TABLES)))
         self.assertEqual(result['ack_fixture'],'empty-no-populated-preservation-claim')
         self.assertEqual(r.firstboot_contract(self.state(),self.state())['allowed_changes'],[])
     def test_firstboot_every_protected_table_empty_or_populated_mutation_rejected(self):
         import copy
-        before=self.state();protected=set(before['table_counts'])-set(self.TABLES)
-        for table in protected:
-            with self.subTest(table=table):
-                post=copy.deepcopy(self.state(True));post['table_counts'][table]+=1
-                post['snapshot']['table_sha256'][table]='1'*64
-                with self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):r.firstboot_contract(before,post)
+        protected=sorted(set(self.INVENTORY)-set(self.TABLES));self.assertEqual(len(protected),213)
+        for empty_required in (False,True):
+            before=self.state();base_post=self.state(True)
+            if empty_required:
+                for table in self.REQUIRED:
+                    for state in (before,base_post):
+                        state['table_counts'][table]=0
+                        state['snapshot']['table_sha256'][table]=r.EMPTY_TABLE_SHA256
+            self.assertEqual(len(r.firstboot_contract(before,base_post)['protected_tables']),213)
+            for table in protected:
+                for mutation in ('count','hash','both'):
+                    with self.subTest(table=table,mutation=mutation,empty_required=empty_required):
+                        post=copy.deepcopy(base_post)
+                        if mutation in ('count','both'):post['table_counts'][table]+=1
+                        if mutation in ('hash','both'):post['snapshot']['table_sha256'][table]='1'*64
+                        with self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):r.firstboot_contract(before,post)
+    def test_firstboot_exact_inventory_rejects_same_size_substitution_before_start(self):
+        import copy
+        for table in self.INVENTORY:
+            for mutation in ('added','removed','substituted'):
+                bad=self.state()
+                if mutation in ('removed','substituted'):
+                    bad['table_counts'].pop(table);bad['snapshot']['table_sha256'].pop(table)
+                if mutation in ('added','substituted'):
+                    bad['table_counts']['unexpected_table']=0
+                    bad['snapshot']['table_sha256']['unexpected_table']=r.EMPTY_TABLE_SHA256
+                for before,post in ((bad,copy.deepcopy(bad)),(self.state(),bad),(bad,self.state())):
+                    with self.subTest(table=table,mutation=mutation),self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):
+                        r.firstboot_contract(before,post)
+        reordered=self.state()
+        for mapping in (reordered['table_counts'],reordered['snapshot']['table_sha256']):
+            items=list(mapping.items())[::-1];mapping.clear();mapping.update(items)
+        self.assertEqual(r.firstboot_contract(reordered,self.state())['allowed_changes'],[])
     def test_firstboot_nonempty_bootstrap_forbidden_even_if_unchanged(self):
         import copy
         for table in self.TABLES:

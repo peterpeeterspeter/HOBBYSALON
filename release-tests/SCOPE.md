@@ -68,10 +68,23 @@ each required to be initially empty by both rowcount and empty-table hash:
 `price_preference`, `region_country`, `sales_channel`, `store`, `store_currency`,
 `tax_provider`. Classification is the explicit attempt13/user-authorized fixture
 contract, not a broad financial-name heuristic or a claim about arbitrary writers.
-All other 227 of the 241 public tables remain protected, including every nonempty
+All other 213 of the 227 public tables remain protected, including every nonempty
 table and empty financial/audit/ACK/sentinel tables. Inventory additions/removals,
 schema changes, static changes or protected rowhash/count changes fail closed.
 The financial ACK fixture is currently EMPTY: no populated-ACK preservation claim.
+
+Inventory correction (attempt14 run 37631451944): attempt13's original private
+preservation-baseline `snapshot.table_sha256` contains 227 TOTAL names, not 227
+protected plus 14. Its baseline has no `table_counts`; names are extracted from
+the hashes. The exact sorted names match attempt14's before-firstboot hashes,
+counts and `runtime.snapshot_tables`. The contract pins those names, not merely
+a count; arbitrary same-size substitutions fail closed. The earlier 241 total /
+227 protected statement was a fixture error. Original reports are not rewritten.
+Attempt14 remains FAIL before application start, with no lifecycle phases:
+`FIRSTBOOT_PROTECTED_CONTRACT_FAILED` at the before/before inventory check.
+Its separate limited PostgreSQL 17-case gate and native audit/owner controls
+passed; runtime cleanup and credential revocation were verified. This offline
+inventory repair is not a hosted firstboot, startup or runtime PASS.
 
 Firstboot uses the unchanged real native 300-second health/marker/probe/log
 checks. Its separate receipt is NEVER appended to lifecycle `phases[]`; no absent
