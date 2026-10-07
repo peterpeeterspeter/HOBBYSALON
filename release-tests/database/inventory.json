@@ -1,0 +1,260 @@
+{
+  "cases": [
+    "actual_native_and_candidate_migrations",
+    "durable_admission_distinct_from_commit_and_collision",
+    "physical_transaction_context_and_atomic_rollback",
+    "committed_parent_fixture_duplicate_no_reapply",
+    "admission_commit_ack_composite_binding",
+    "actual_consumer_durable_ack_and_immutable_duplicate",
+    "missing_commit_and_changed_payload_fail_closed",
+    "ack_commit_failure_rolls_back_insert",
+    "native_connection_url_equivalence_and_physical_identity",
+    "native_connection_ambiguity_rejected_before_sql",
+    "cross_process_same_cart_contention_other_cart_progress",
+    "consumer_attempt_skip_locked",
+    "replay_failure_cursor_survives_consumer_rollback",
+    "crash_after_admission_before_business_commit",
+    "crash_after_replay_claim_before_ack_then_fresh_process_replay",
+    "crash_after_ack_commit_duplicate_replay_unchanged",
+    "append_only_admission_commit_ack_and_down_refusal"
+  ],
+  "candidate_files": [
+    "apps/backend/src/utils/marketplace-webhook-transaction.ts",
+    "apps/backend/src/utils/marketplace-webhook-admission.ts",
+    "packages/modules/b2c-core/src/utils/marketplace-webhook-consumer-ack.ts",
+    "packages/modules/b2c-core/src/utils/marketplace-webhook-consumer-replay.ts",
+    "packages/modules/b2c-core/src/utils/commerce-cart-lock.ts",
+    "packages/modules/b2c-core/src/utils/commerce-refund-quarantine.ts",
+    "packages/modules/b2c-core/src/utils/completed-cart-order-set.ts",
+    "packages/modules/b2c-core/src/utils/expected-cart-payment.ts",
+    "packages/modules/b2c-core/src/workflows/cart/utils/complete-cart-fields.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20250516075429.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261002152627.ts",
+    "packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261005190000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261005193000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006100000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006110000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006170301.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006190000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006220000.ts"
+  ],
+  "candidate_migrations": [
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20250516075429.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261002152627.ts",
+    "packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261005190000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261005193000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006100000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006110000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006170301.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006190000.ts",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006220000.ts"
+  ],
+  "candidate_sha256": {
+    "apps/backend/src/utils/marketplace-webhook-transaction.ts": "acd84bb07f310b3a5389118557c3994e945203343cbbb66e51d28e8eab278807",
+    "apps/backend/src/utils/marketplace-webhook-admission.ts": "122307dc1a8aa7f7ac8b96512942eab1206fd130f8cd3352e82e8957cd0d21c1",
+    "packages/modules/b2c-core/src/utils/marketplace-webhook-consumer-ack.ts": "0be2b8305115a80bac42ec0d6d4d9d60036976ff6b7a3cd9c9a79634d9041bee",
+    "packages/modules/b2c-core/src/utils/marketplace-webhook-consumer-replay.ts": "f736c398b80f827cf3e1a82b03c008bcde7b45b5fcc5176d0435db74373a80a5",
+    "packages/modules/b2c-core/src/utils/commerce-cart-lock.ts": "8f7abff4f50ffe3c3e3431aba6c142c3649ff3b5b2f2ce42bb3a364c3befc8d5",
+    "packages/modules/b2c-core/src/utils/commerce-refund-quarantine.ts": "645e2ffe28aaea53e5f0d11f1425b4f550f83a20fb4ef257edab9a1c88e425de",
+    "packages/modules/b2c-core/src/utils/completed-cart-order-set.ts": "af4f97309e6174e994da2188d91fd92404f9dbfe26675c3c97d098c1f757f462",
+    "packages/modules/b2c-core/src/utils/expected-cart-payment.ts": "be8589511d43fbaeb367c11d18e7c21f035519acadb1e1be208c24429a852de7",
+    "packages/modules/b2c-core/src/workflows/cart/utils/complete-cart-fields.ts": "9da51866ad33529dfbafc7a0634874227843903aff510f1f9ac3e24f1df8a72d",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20250516075429.ts": "daddc845867c88204341285c7b84bc5c33c9f7d2e6fbb269c562d1d355cd2db8",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261002152627.ts": "0f80d48df9dd6fd2440be722b630a41cf16178d808ba12ee293b915725321a19",
+    "packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261005190000.ts": "a8509f193bc64fe3864c8241269d687d0d21aa1dcfa601d65f49012cb9f29b0d",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261005193000.ts": "12436a8b83562d8d6195a635223d7595a95f2905e47f325a6ce6b7bab67346ce",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006100000.ts": "6919322062f5f3f6d1931239b816cfbf041da7daafa3696da30f64c677ae8205",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006110000.ts": "c0ee9b53af78b1feeaa497cd5a6d4bc7083fd2f99d7d392dfae6710fa5e06273",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006170301.ts": "0ad7e109b8b38ce1944ee76ea9fff034b09f3ccc84e3c23eb38e8617b6fa8325",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006190000.ts": "54862bcb4580f52d33d6597a2bde016f18bac8b0851f4ecb4ea6bb853bddbfda",
+    "packages/modules/b2c-core/src/modules/split-order-payment/migrations/Migration20261006220000.ts": "ae64a580bc58db4569a47915ba42d9584fca68f072d520414cda07e4f0b425c1"
+  },
+  "expected_versions": {
+    "@medusajs/framework": "2.11.3",
+    "@medusajs/deps": "2.11.3",
+    "@medusajs/payment": "2.11.3",
+    "@medusajs/order": "2.11.3",
+    "@medusajs/link-modules": "2.11.3",
+    "@mikro-orm/core": "6.4.16",
+    "@mikro-orm/knex": "6.4.16",
+    "@mikro-orm/postgresql": "6.4.16",
+    "@mikro-orm/migrations": "6.4.16",
+    "@swc/core": "1.5.7",
+    "knex": "3.1.0",
+    "pg": "8.17.1",
+    "pg-connection-string": "2.10.0"
+  },
+  "native_migrations": [
+    {
+      "module": "payment",
+      "name": "Migration20240225134525.js",
+      "sha256": "bafb039b9a9da5ee8055419893269fd2d9ff99e85d79a2e8ff64b5b2c0a9dc44"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20240806072619.js",
+      "sha256": "acce20cdd6b772ea6291120e7a5852d5793ddd9421e12964e770fd89a2caf212"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20241211151053.js",
+      "sha256": "cbd501c032b7c0663645a72cbac13e2d43ebfd2e35a2a39518ea4741637d47be"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250115160517.js",
+      "sha256": "7a8b7573a415babe6898a7ecbf46afe4547af57db11ea081e2915a376422023e"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250120110552.js",
+      "sha256": "d81ede03456853b19c69dd8e12e647b542e0e29652cdfdb939ac0f94adb97e12"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250123122334.js",
+      "sha256": "b0eac9117fcdea108dab4dc6a0e805480795c29f0d65ae884af1c5b1388d7688"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250206105639.js",
+      "sha256": "bc732ca595a8dcbee7169e611bb48ffb9997ec5505dfd060169af5ce1e50ad9a"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250207132723.js",
+      "sha256": "f226e3f0525b6c33bbcfcaf3bf0c759cb529aadcea78dbdf7086f88fe83dff01"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250625084134.js",
+      "sha256": "62efe88b49bd0257c7f4ca4f6b29b57c2161cc474044bdcc5a3e63fc1639089b"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250924135437.js",
+      "sha256": "9ac0323d1b9c613d2b16b02d88a5060f5872faf58069ce247d80bcc2eb0b9ba6"
+    },
+    {
+      "module": "payment",
+      "name": "Migration20250929124701.js",
+      "sha256": "ed54dbcfac81da79c9a92a452669dd4d081ad5924c3cef54c190198fd6b0b6e6"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240219102530.js",
+      "sha256": "15450a1541ed7e5acfb2d84647640b451e95cca21bed10f49732169360a831fd"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240604100512.js",
+      "sha256": "4fa04d1e8a91d3e9dbd8293b6ac04616e85eb519dad808e9888d9c8a9868a76e"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240715102100.js",
+      "sha256": "4bcc7ada2220739bb238c362fcc0b8b7b62a4b370728904a144c91bb5f8c437b"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240715174100.js",
+      "sha256": "0e3c873771c51d205ac4e99be783710c515b0029cca071fc648b0a00695eb409"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240716081800.js",
+      "sha256": "99b5039b6963900e6b045ee33f603535e0723776203f65fa6f9c5e5f45231a86"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240801085921.js",
+      "sha256": "90808ccf889e42652206a1802c0a293b0c98fe8a87d6b1c406d5c2bf4a3e3343"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240821164505.js",
+      "sha256": "876fd6b8d4be5eb5d0dd86121a2e2445aec0c90feafaf764da35c6a67ce4161a"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240821170920.js",
+      "sha256": "dfbd124e22563442e000267101ea2ea90d081a814f4e1b5399c2b4f4bcb9b68b"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240827133639.js",
+      "sha256": "7806f2df6a6cf0fba4ac5eed9bff2ef481e48847a94349e539588c8c7d34e8df"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240902195921.js",
+      "sha256": "b3a5a3c346e8b051fd72cf6a84b67b3b49912109f5a43b045347239543ff0878"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240913092514.js",
+      "sha256": "e90086f641be4ef3b50d2813746ff4116a5c5180f97d9a8dfaefc58bd9f409dd"
+    },
+    {
+      "module": "order",
+      "name": "Migration20240930122627.js",
+      "sha256": "6e6d57f46dbec9ccd68ce84bf7d1c566fb0894423a318ceb19869db15df50274"
+    },
+    {
+      "module": "order",
+      "name": "Migration20241014142943.js",
+      "sha256": "e446dea116c0e3fa49b3dffb164334c76895c9b028019f3577ac6608d442702f"
+    },
+    {
+      "module": "order",
+      "name": "Migration20241106085223.js",
+      "sha256": "6a8e943a7ac859a419b4219836ba3c7c6f30f27cd499e70797d55e7aeea0b4be"
+    },
+    {
+      "module": "order",
+      "name": "Migration20241129124827.js",
+      "sha256": "ac3f0722086a50ab6dde9ffaf1197891d5e260673bbb63a067195fb87c56ffdd"
+    },
+    {
+      "module": "order",
+      "name": "Migration20241217162224.js",
+      "sha256": "551c89c826c1d33bb920c7fcc4ec602a1effb922b25b31dee9eacc4fc5ad5d9b"
+    },
+    {
+      "module": "order",
+      "name": "Migration20250326151554.js",
+      "sha256": "115c8d4f8f632888abc2683458df29485f25876fc28c7e648aa324a1092d6e36"
+    },
+    {
+      "module": "order",
+      "name": "Migration20250522181137.js",
+      "sha256": "dc978e5a85037d365f10ee17deee6a342643efb8d831ecda18d331e51bbcc87a"
+    },
+    {
+      "module": "order",
+      "name": "Migration20250702095353.js",
+      "sha256": "b3d718853523342044f8054d506a764760d9c6ba381baa5b1be064c15f6b8b45"
+    },
+    {
+      "module": "order",
+      "name": "Migration20250704120229.js",
+      "sha256": "aafcaa684056fb464f139bd92d4756c7b1119b24a78bd264f9f4c00554120206"
+    },
+    {
+      "module": "order",
+      "name": "Migration20250910130000.js",
+      "sha256": "41e7b5a497d289b2928e83fece999d26df2fa8a2d20309313b7855c5fdfac38e"
+    },
+    {
+      "module": "order",
+      "name": "Migration20251016182939.js",
+      "sha256": "d14d41f0ba26c51bb3579ccfa320fdb814f56a784ccc48b85ace13ec32e37b06"
+    },
+    {
+      "module": "order",
+      "name": "Migration20251017155709.js",
+      "sha256": "5febea64395e748cf8ca0995ab61094414bb71884d90f8d781c07ff6b461066f"
+    }
+  ],
+  "native_migrations_sha256": "57d561d86d39ce2db173a370dddef35eaad70e4243c87d2384fc353ba140e567"
+}

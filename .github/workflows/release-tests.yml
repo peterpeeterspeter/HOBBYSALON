@@ -1,0 +1,179 @@
+name: Scoped exact candidate hosted tests (no deploy)
+on:
+  push:
+    branches:
+      - ops/release-validation-20261007
+    paths:
+      - 'release-tests/**'
+      - '.github/workflows/release-tests.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: release-scoped-tests-20261007
+  cancel-in-progress: false
+jobs:
+  postgres:
+    if: >-
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/ops/release-validation-20261007' &&
+      github.event.created == false && github.event.deleted == false &&
+      github.event.forced == false && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        id: checkout
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Hosted-only guard and frozen source approval
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          umask 077
+          mkdir "$RUNNER_TEMP/scoped-tests" "$RUNNER_TEMP/scoped-tests/public"
+          cp release-tests/SCOPE.md "$RUNNER_TEMP/scoped-tests/public/SCOPE.md"
+          openssl pkeyutl -verify -rawin -pubin -inkey release-input/source-attestation-public.pem -in release-input/source-attestation.json -sigfile release-input/source-attestation.sig
+          python3 release-input/verify-source.py --archive release-input/source.full.tar.xz --manifest release-input/source.full.manifest.jsonl --approval release-input/approval.json --dest "$RUNNER_TEMP/scoped-tests/context"
+          chmod 0644 release-input/inspect-compiled.cjs release-tests/database/*
+      - name: Require exact successful candidate build
+        id: binding
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 release-tests/verify-candidate.py --binding-only
+      - name: Download only the pinned candidate run artifact
+        id: download
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-candidate-20261007
+          run-id: 37591870825
+          repository: peterpeeterspeter/HOBBYSALON
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/scoped-tests/candidate
+      - name: Verify archive, loaded config ID, and exact source receipt
+        id: verification
+        run: python3 release-tests/verify-candidate.py --artifact "$RUNNER_TEMP/scoped-tests/candidate" --out "$RUNNER_TEMP/scoped-tests/verified"
+      - name: Pull only pinned disposable PostgreSQL fixture
+        id: fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull --platform linux/amd64 postgres@sha256:129fbfd388241accda7b15e38ada14b11c70698e01e5c8072265b0eaa03af010 > "$RUNNER_TEMP/scoped-tests/postgres-pull.private.log" 2>&1
+          test "$(docker image inspect --format '{{.Id}}' postgres@sha256:129fbfd388241accda7b15e38ada14b11c70698e01e5c8072265b0eaa03af010)" = sha256:87e04d274d186c7331d0e13c7c90c8b9f63b0d7ae94476c98a229a94d62c9745
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' postgres@sha256:129fbfd388241accda7b15e38ada14b11c70698e01e5c8072265b0eaa03af010)" = linux/amd64
+      - name: Offline PostgreSQL harness controls
+        id: controls
+        run: python3 release-tests/database/run-postgres.py --self-test --candidate-root "$RUNNER_TEMP/scoped-tests/context"
+      - name: Limited actual PG acceptance
+        id: harness
+        run: python3 release-tests/database/run-postgres.py --run --backend-image "$CANDIDATE_ID" --candidate-root "$RUNNER_TEMP/scoped-tests/context" --output-dir "$GITHUB_WORKSPACE/release-tests/database/evidence"
+      - name: Project only nonsecret evidence (never raw logs or runner temp)
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          DIAGNOSTIC_STAGE: ${{ steps.checkout.outcome != 'success' && 'CHECKOUT' || steps.source.outcome != 'success' && 'SOURCE_APPROVAL' || steps.binding.outcome != 'success' && 'BUILD_BINDING' || steps.download.outcome != 'success' && 'CANDIDATE_DOWNLOAD' || steps.verification.outcome != 'success' && 'CANDIDATE_VERIFY' || steps.fixture.outcome != 'success' && 'PG_FIXTURE_PULL' || steps.controls.outcome != 'success' && 'PG_CONTROLS' || steps.harness.outcome != 'success' && 'PG_HARNESS' || 'COMPLETE' }}
+        run: python3 release-tests/public-evidence.py --kind postgres --report release-tests/database/evidence/ack-postgres.json --out "$RUNNER_TEMP/scoped-tests/public/summary.json"
+      - name: Retain scrubbed scoped evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scoped-postgres-evidence-20261007
+          path: |
+            ${{ runner.temp }}/scoped-tests/public/summary.json
+            ${{ runner.temp }}/scoped-tests/public/SCOPE.md
+          retention-days: 7
+          if-no-files-found: warn
+  runtime:
+    if: >-
+      ${{ !cancelled() &&
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/ops/release-validation-20261007' &&
+      github.event.created == false && github.event.deleted == false &&
+      github.event.forced == false && github.run_attempt == 1 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        id: checkout
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Fresh hosted worker and exact source approval
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          umask 077
+          mkdir "$RUNNER_TEMP/scoped-tests" "$RUNNER_TEMP/scoped-tests/public"
+          cp release-tests/SCOPE.md "$RUNNER_TEMP/scoped-tests/public/SCOPE.md"
+          openssl pkeyutl -verify -rawin -pubin -inkey release-input/source-attestation-public.pem -in release-input/source-attestation.json -sigfile release-input/source-attestation.sig
+          python3 release-input/verify-source.py --archive release-input/source.full.tar.xz --manifest release-input/source.full.manifest.jsonl --approval release-input/approval.json --dest "$RUNNER_TEMP/scoped-tests/context"
+          chmod 0644 release-input/inspect-compiled.cjs release-tests/runtime/*.cjs
+      - name: Offline runtime controls
+        id: controls
+        run: |
+          set -euo pipefail
+          python3 release-tests/runtime/selftest.py
+          node release-tests/runtime/selftest.cjs
+      - name: Require exact successful candidate build
+        id: binding
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 release-tests/verify-candidate.py --binding-only
+      - name: Download pinned candidate artifact
+        id: download
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-candidate-20261007
+          run-id: 37591870825
+          repository: peterpeeterspeter/HOBBYSALON
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/scoped-tests/candidate
+      - name: Verify candidate archive, loaded config ID and exact source
+        id: verification
+        run: python3 release-tests/verify-candidate.py --artifact "$RUNNER_TEMP/scoped-tests/candidate" --out "$RUNNER_TEMP/scoped-tests/verified"
+      - name: Safely acquire pinned previous saved image without registry
+        id: acquisition
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 release-tests/runtime/acquire.py --workdir "$RUNNER_TEMP/scoped-tests/previous" --manifest "$RUNNER_TEMP/scoped-tests/previous-manifest.json" --receipt "$RUNNER_TEMP/scoped-tests/acquisition.private.json"
+      - name: Load and verify previous archive
+        id: previous
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker load --input "$RUNNER_TEMP/scoped-tests/previous/backend-image.tar.gz" > "$RUNNER_TEMP/scoped-tests/previous-load.private.log" 2>&1
+          test "$(docker image inspect --format '{{.Id}}' sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca)" = sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca
+      - name: Run exact disposable runtime gate
+        id: runtime
+        run: python3 release-tests/runtime/runtime.py --candidate "$CANDIDATE_ID" --previous-manifest "$RUNNER_TEMP/scoped-tests/previous-manifest.json" --out "$RUNNER_TEMP/scoped-tests/runtime"
+      - name: Project only scrubbed scoped evidence
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          DIAGNOSTIC_STAGE: ${{ steps.checkout.outcome != 'success' && 'CHECKOUT' || steps.source.outcome != 'success' && 'SOURCE_APPROVAL' || steps.controls.outcome != 'success' && 'RUNTIME_CONTROLS' || steps.binding.outcome != 'success' && 'BUILD_BINDING' || steps.download.outcome != 'success' && 'CANDIDATE_DOWNLOAD' || steps.verification.outcome != 'success' && 'CANDIDATE_VERIFY' || steps.acquisition.outcome != 'success' && 'PREVIOUS_ACQUISITION' || steps.previous.outcome != 'success' && 'PREVIOUS_LOAD' || steps.runtime.outcome != 'success' && 'RUNTIME_HARNESS' || 'COMPLETE' }}
+        run: python3 release-tests/public-evidence.py --kind runtime --report "$RUNNER_TEMP/scoped-tests/runtime/runtime.json" --out "$RUNNER_TEMP/scoped-tests/public/summary.json"
+      - name: Retain scrubbed evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scoped-runtime-evidence-20261007
+          path: |
+            ${{ runner.temp }}/scoped-tests/public/summary.json
+            ${{ runner.temp }}/scoped-tests/public/SCOPE.md
+          retention-days: 7
+          if-no-files-found: warn

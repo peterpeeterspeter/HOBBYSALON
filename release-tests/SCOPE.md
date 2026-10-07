@@ -1,0 +1,37 @@
+# Scoped hosted tests — no deployment
+
+The owner approved disposable hosted tests separately from the original build-only
+approval. The frozen `release-input/approval.json` continues to describe the build
+and source authorization; it is not rewritten or broadened. The dispatch requires
+`scoped-tests-no-deploy` on `ops/release-validation-20261007` after independent
+publication review. No merge, production deployment, provider calls or package
+registry publication is authorized. Main is read-only.
+
+Candidate: successful first attempt of build run 37589026194, commit
+456790e26bd3ef0792d51628223479f386978883, artifact
+`release-candidate-20261007`. Config ID, archive SHA, frozen source and actual
+baked/compiled source must agree before tests. Previous image is acquired only
+from pinned artifact 11408703641, run 37455485280 with read-only GitHub token.
+
+PostgreSQL exercises limited admission/kernel/financial consumer/replay and
+native migrations using seeded parent financial state and explicit DB-backed
+graph/domain fixture adapters. It is NOT native checkout, all-recipient delivery,
+Redis/provider or host-power-loss acceptance. The PostgreSQL repository digest
+was obtained from local read-only image inspection; hosted pull must reproduce
+the expected immutable config ID or fail closed.
+
+Runtime exercises isolated native startup, restart, previous-image rollback and
+candidate restoration with minimum physical DB seeds, full public-table snapshot
+hashes, restricted runtime role and a deliberately invalid DB credential control.
+Full-table snapshots do not make the seeded data representative of full-native
+commerce. No full-native commerce or provider acceptance claim is made.
+
+Jobs use separate fresh GitHub-hosted workers, sequentially, at most 50 minutes
+per job. Application images are loaded from verified archives, never registries.
+Only pinned disposable PostgreSQL/Redis fixtures may be pulled. Local preparation
+performs syntax, mocked self-tests and credential scans only; no container launch,
+install, push or dispatch. Parent owns publication and the real hosted execution.
+
+Public evidence uploads only an allowlisted summary and this scope. Raw fixture
+reports/logs, previous build logs, downloaded image archives, secrets, environment
+and whole runner temporary directories are never test artifacts.
