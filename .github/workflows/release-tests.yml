@@ -113,7 +113,7 @@ jobs:
       github.event.created == false && github.event.deleted == false &&
       github.event.forced == false && github.run_attempt == 1 }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 60
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:

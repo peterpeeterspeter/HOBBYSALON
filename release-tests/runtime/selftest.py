@@ -621,11 +621,243 @@ class PreservationTests(unittest.TestCase):
         execute=inspect.getsource(r.Harness.execute);phase=inspect.getsource(r.Harness.phase)
         self.assertEqual(execute.count("self.private_record('preservation-baseline'"),1)
         baseline_at=execute.index("self.private_record('preservation-baseline'")
-        self.assertLess(execute.index('baseline=self.snapshot();schema=self.schema()'),baseline_at)
+        self.assertLess(execute.index('baseline,schema=self.firstboot()'),baseline_at)
         self.assertLess(baseline_at,execute.index('for image,phase in'))
-        self.assertIn('self.static_hash(offline=True)',execute[baseline_at:execute.index('for image,phase in')])
+        self.assertIn('self.static_baseline',execute[baseline_at:execute.index('for image,phase in')])
         self.assertEqual(phase.count("self.private_record('healthy-before-preservation'"),2)
         for block in phase.split("self.private_record('healthy-before-preservation'")[1:]:
             self.assertLess(block.index('self.preservation('),block.index("self.evidence['phases'].append(receipt)"))
+
+class FirstbootTests(unittest.TestCase):
+    """TESTONLY doubles and mutation controls; never a runtime/image PASS."""
+    TABLES=('cat_saleschannel','currency','fulfillment_provider','index_data','index_metadata',
+        'index_sync','notification_provider','payment_provider','price_preference','region_country',
+        'sales_channel','store','store_currency','tax_provider')
+    IMAGE='sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5'
+    def state(self,populated=False):
+        import hashlib
+        empty=hashlib.sha256(b'').hexdigest()
+        protected=['ci_acceptance_sentinel','marketplace_stripe_event_receipt',
+            'marketplace_capture_consumer_ack','reconciliation_repair_audit']
+        names=list(self.TABLES)+protected+['fixture_protected_%03d'%i for i in range(223)]
+        counts=dict.fromkeys(names,0);hashes=dict.fromkeys(names,empty)
+        for name in ['ci_acceptance_sentinel','reconciliation_repair_audit']:
+            counts[name]=3;hashes[name]='a'*64
+        if populated:
+            for name in self.TABLES:counts[name]=1;hashes[name]='b'*64
+        return {'snapshot':{'all_public_tables_sha256':('c' if populated else 'd')*64,
+            'table_sha256':hashes},'table_counts':counts,'schema_sha256':'e'*64,'static_sha256':'f'*64}
+    def test_firstboot_exact_bounded_contract(self):
+        self.assertEqual(set(r.FIRSTBOOT_TABLES),set(self.TABLES));self.assertEqual(r.FIRSTBOOT_IMAGE,self.IMAGE)
+        result=r.firstboot_contract(self.state(),self.state(True))
+        self.assertEqual(len(result['protected_tables']),227);self.assertEqual(set(result['allowed_changes']),set(self.TABLES))
+        self.assertEqual(result['ack_fixture'],'empty-no-populated-preservation-claim')
+        self.assertEqual(r.firstboot_contract(self.state(),self.state())['allowed_changes'],[])
+    def test_firstboot_every_protected_table_empty_or_populated_mutation_rejected(self):
+        import copy
+        before=self.state();protected=set(before['table_counts'])-set(self.TABLES)
+        for table in protected:
+            with self.subTest(table=table):
+                post=copy.deepcopy(self.state(True));post['table_counts'][table]+=1
+                post['snapshot']['table_sha256'][table]='1'*64
+                with self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):r.firstboot_contract(before,post)
+    def test_firstboot_nonempty_bootstrap_forbidden_even_if_unchanged(self):
+        import copy
+        for table in self.TABLES:
+            with self.subTest(table=table):
+                before=self.state();before['table_counts'][table]=1;before['snapshot']['table_sha256'][table]='1'*64
+                for post in [copy.deepcopy(before),self.state(True)]:
+                    with self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):r.firstboot_contract(before,post)
+    def test_firstboot_inventory_schema_static_and_malformed_state_rejected(self):
+        import copy
+        mutations=[lambda x:x['snapshot']['table_sha256'].pop('currency'),
+            lambda x:x['snapshot']['table_sha256'].update(extra='1'*64),
+            lambda x:x.update(schema_sha256='1'*64),lambda x:x.update(static_sha256='1'*64),
+            lambda x:x['table_counts'].update(currency=-1),lambda x:x['table_counts'].update(currency=True),
+            lambda x:x['table_counts'].pop('currency'),lambda x:x['snapshot']['table_sha256'].update(currency='bad'),
+            lambda x:x['table_counts'].update(currency=0)]
+        for mutation in mutations:
+            post=copy.deepcopy(self.state(True));mutation(post)
+            with self.subTest(mutation=mutation),self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):
+                r.firstboot_contract(self.state(),post)
+    def adapter(self,tmp,fail=None):
+        import copy
+        h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.secret_dir=Path(tmp)
+        h.a=SimpleNamespace(candidate=self.IMAGE,previous=r.PREVIOUS_ID,out=Path(tmp));h.app='double-app'
+        h.evidence={'status':'FAIL','phases':[]};h.previous_starts=set();events=[];started='2026-10-07T00:00:00Z'
+        snapshots=[self.state(),self.state(True),self.state(True)];index=[0];running=[False]
+        if fail=='protected':snapshots[1]['snapshot']['table_sha256']['marketplace_capture_consumer_ack']='1'*64;snapshots[1]['table_counts']['marketplace_capture_consumer_ack']=1
+        if fail=='stop-change':snapshots[2]['snapshot']['table_sha256']['currency']='2'*64
+        def snapshot():
+            events.append('snapshot');state=copy.deepcopy(snapshots[min(index[0],2)]);index[0]+=1
+            h.evidence['snapshot_tables']=state['table_counts'];return state['snapshot']
+        h.snapshot=snapshot;h.schema=lambda:'e'*64;h.static_hash=lambda offline=False:'f'*64
+        h.envfile=lambda *args:Path(tmp)/'unused.env'
+        def start(image,env):events.append('start');running[0]=True;return started
+        h.app_start=start
+        marker={'marker':'CI_INDEX_INIT_COMPLETE','kind':'readonly','pid':1,'at':started}
+        probes=[{'Start':'2026-10-07T00:00:01Z','End':'2026-10-07T00:00:02Z','ExitCode':0},
+            {'Start':'2026-10-07T00:05:01Z','End':'2026-10-07T00:05:02Z','ExitCode':0}]
+        def healthy(*args):
+            events.append('healthy')
+            if fail=='probe':raise RuntimeError('firstboot:NATIVE_PROBE_FAILED')
+            receipt={'started_at':started,'native_continuous_healthy_seconds':300,
+                'initialization_markers':[marker],'native_probes':copy.deepcopy(probes),
+                'logs':{'file':'firstboot.complete.log','sha256':'a'*64,'complete':True}}
+            if fail=='receipt':receipt['native_probes']=[]
+            return receipt
+        h.healthy=healthy
+        def docker(*args):
+            events.append(args[0])
+            if args[0]=='stop':running[0]=False
+            return ''
+        h.docker=docker;h.inspect=lambda *args:{'Image':self.IMAGE,'RestartCount':0,
+            'State':{'Running':running[0] or fail=='still-running','StartedAt':started}}
+        h.capture_logs=lambda *args:('error: stop failure' if fail=='logs' else '',
+            {'file':'firstboot.complete.log','sha256':'a'*64,'complete':True})
+        h.remove_container=lambda *args:events.append('remove-verified')
+        return h,events
+    def test_firstboot_receipt_separate_stopped_confirmed_before_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);baseline,schema=h.firstboot()
+            self.assertEqual(events,['snapshot','start','healthy','snapshot','stop','snapshot','remove-verified'])
+            self.assertEqual(h.evidence['phases'],[]);self.assertEqual(h.evidence['status'],'FAIL')
+            self.assertEqual(h.evidence['firstboot']['status'],'PASS');self.assertTrue(h.evidence['firstboot']['stable_confirmed'])
+            self.assertEqual(baseline,self.state(True)['snapshot']);self.assertEqual(schema,'e'*64)
+            records=[json.loads(x.read_text()) for x in Path(tmp).glob('firstboot-receipt-*.json')]
+            self.assertEqual(len(records),1);self.assertEqual(records[0]['image'],self.IMAGE)
+            self.assertEqual(records[0]['health']['native_continuous_healthy_seconds'],300)
+            self.assertEqual(records[0]['before']['table_counts']['marketplace_capture_consumer_ack'],0)
+            self.assertNotIn('table_counts',h.evidence['firstboot']);self.assertNotIn('native_probes',h.evidence['firstboot'])
+            self.assertTrue(all((x.stat().st_mode & 0o777)==0o600 for x in Path(tmp).glob('*.json')))
+    def test_firstboot_failures_never_select_baseline_or_accept_phase(self):
+        for fail in ['protected','stop-change','probe','receipt','logs','still-running']:
+            with self.subTest(fail=fail),tempfile.TemporaryDirectory() as tmp:
+                h,events=self.adapter(tmp,fail)
+                with self.assertRaises(RuntimeError):h.firstboot()
+                self.assertEqual(h.evidence['firstboot']['status'],'FAIL');self.assertEqual(h.evidence['phases'],[])
+                self.assertFalse(hasattr(h,'static_baseline'));self.assertNotIn('remove-verified',events)
+    def test_firstboot_wrong_image_and_capture_failure_fail_before_start(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);h.a.candidate='sha256:'+'1'*64
+            with self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):h.firstboot()
+            self.assertNotIn('start',events)
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);h.schema=lambda:(_ for _ in ()).throw(RuntimeError('private-capture-cause'))
+            with self.assertRaisesRegex(RuntimeError,'FIRSTBOOT'):h.firstboot()
+            self.assertNotIn('start',events)
+            self.assertTrue(any('private-capture-cause' in x.read_text() for x in Path(tmp).glob('*.json')))
+    def test_stable_preservation_never_applies_provisioning_allowance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);before=self.state();after=self.state(True)
+            h.snapshot=lambda:after['snapshot']
+            with self.assertRaisesRegex(RuntimeError,'^FINANCIAL_ACK_SCHEMA_STATIC_CHANGED$'):
+                h.preservation(before['snapshot'],'e'*64,'f'*64)
+    def test_firstboot_real_health_probe_control_and_floors_unchanged(self):
+        import inspect
+        healthy=inspect.getsource(r.Harness.healthy)
+        self.assertIn('time.monotonic()-good>=300',healthy);self.assertIn('290*10**9',healthy)
+        Tests('test_native_failure_probe_cannot_pass').test_native_failure_probe_cannot_pass()
+    def test_firstboot_receipt_mutations_and_outer_ceiling_not_floors(self):
+        import copy,inspect
+        self.assertEqual(r.RUNTIME_DEADLINE_SECONDS,2100+390)
+        self.assertEqual(r.RUNTIME_ALARM_SECONDS,2070+390)
+        self.assertGreater(r.RUNTIME_ALARM_SECONDS,7*300)
+        self.assertIn('signal.alarm(RUNTIME_ALARM_SECONDS)',inspect.getsource(r.main))
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);health=h.healthy('firstboot','2026-10-07T00:00:00Z','readonly')
+        mutations=[lambda x:x.update(native_continuous_healthy_seconds=299),
+            lambda x:x.update(initialization_markers=[]),lambda x:x['initialization_markers'][0].update(pid=2),
+            lambda x:x['initialization_markers'][0].update(kind='native'),
+            lambda x:x['native_probes'][0].update(ExitCode=1),lambda x:x['native_probes'][0].update(ExitCode=False),
+            lambda x:x['native_probes'][1].update(Start='2026-10-07T00:00:01Z',End='2026-10-07T00:00:02Z'),
+            lambda x:x['logs'].update(complete=False),lambda x:x['logs'].update(sha256='bad'),
+            lambda x:x.update(started_at='2026-10-07T00:00:01Z')]
+        for mutation in mutations:
+            bad=copy.deepcopy(health);mutation(bad)
+            with self.subTest(mutation=mutation),self.assertRaisesRegex(RuntimeError,'FIRSTBOOT_HEALTH_RECEIPT_REQUIRED'):
+                r.firstboot_health_receipt(bad,'2026-10-07T00:00:00Z')
+    def test_public_projection_fixed_codes_only_and_private_receipt_digest(self):
+        import importlib.util,hashlib
+        projector_spec=importlib.util.spec_from_file_location('public_evidence',Path(__file__).parent.parent/'public-evidence.py')
+        assert projector_spec is not None and projector_spec.loader is not None
+        projector=importlib.util.module_from_spec(projector_spec);projector_spec.loader.exec_module(projector)
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);h.firstboot()
+            receipt=json.loads(next(Path(tmp).glob('firstboot-receipt-*.json')).read_text())
+            expected=hashlib.sha256(json.dumps(receipt,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+            self.assertEqual(h.evidence['firstboot']['receipt_sha256'],expected)
+            projected=projector.project(h.evidence,'runtime','success','RUNTIME_HARNESS')
+            self.assertEqual(projected['phases'],[]);self.assertEqual(projected['status'],'FAIL')
+            self.assertEqual(projected['diagnostic_codes'],['FIRSTBOOT_REQUIRED','FIRSTBOOT_PROTECTED_PASS','FIRSTBOOT_STABLE_CONFIRMED'])
+            self.assertNotIn('firstboot',projected);self.assertNotIn('marketplace',json.dumps(projected))
+    def test_execute_exact_sequence_reachable_with_doubles_not_runtime_pass(self):
+        import copy
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);h.prefix='double';h.pg='double-pg';h.redis='double-redis';h.net='double-net'
+            h.volumes=['double-pgdata','double-static'];h.created_volumes=[];h.firewall=[];h.containers=[]
+            h.values=['a'*64]*8;h.network_created=False;h.pg_started=False
+            manifest={'image':r.PREVIOUS_ID,'image_id':r.PREVIOUS_ID,'source_hash':r.PREVIOUS_SOURCE,
+                'gzip_sha256':r.PREVIOUS_ARCHIVE,'gzip_bytes':273965027,'config_sha256_verified':True,
+                'ordered_layer_sha256_verified':True,'source_receipt_verified':True,'diff_ids':['sha256:'+'1'*64]*11}
+            h.a.previous_manifest=Path(tmp)/'previous.json';h.a.previous_manifest.write_text(json.dumps(manifest))
+            h.run=lambda *args,**kw:'';h.wait_pg_ready=lambda:None
+            def sql(q,user='postgres'):
+                if q.startswith('SELECT count(*) FROM information_schema'):return '0'
+                if q.startswith('SELECT EXISTS'):return 'f'
+                if q.startswith('SELECT has_function_privilege'):return 't'
+                return ''
+            h.sql=sql;h.owned_run=lambda name,image,args,command,**kw:'a'*64 if name.endswith('-source') else ''
+            good=AuditTests().good_receipt();h.sandbox=lambda name,*args,**kw:json.dumps(good) if name.endswith('-fixture') else ''
+            h.owner_audit_controls=lambda:{'owner_truncate_guard':'PASS','owner_rows_schema_unchanged':True,'status':'PASS'}
+            def envfile(name,role):
+                f=Path(tmp)/name;f.write_text('DOUBLE=only\n');return f
+            h.envfile=envfile;running=[False];number=[0];current=[''];image=['']
+            def app_start(im,env,verify_types=True):
+                image[0]=im;number[0]+=1;current[0]='2026-10-07T%02d:00:00Z'%number[0];running[0]=env.name!='negative.env'
+                if env.name=='negative.env':
+                    events.append('negative');self.assertEqual(len(h.evidence['phases']),6)
+                    self.assertFalse(verify_types)
+                events.append('app:'+im);return current[0]
+            h.app_start=app_start
+            def docker(*args,**kw):
+                if args[:2]==('image','inspect'):return json.dumps([{'Id':args[2],'RootFS':{'Layers':manifest['diff_ids']}}])
+                if args[:2]==('network','inspect'):return json.dumps([{'Internal':True,'EnableIPv6':False,'Id':'1234567890123456'}])
+                if args[0]=='restart':number[0]+=1;current[0]='2026-10-07T%02d:00:00Z'%number[0];events.append('restart')
+                if args[0]=='stop':running[0]=False;events.append('stop')
+                return '0' if args[0]=='exec' else ''
+            h.docker=docker;h.inspect=lambda *args:{'Image':image[0],'RestartCount':0,
+                'State':{'Running':running[0],'StartedAt':current[0],'ExitCode':1,'OOMKilled':False,'FinishedAt':current[0]}}
+            h.capture_logs=lambda name:('password authentication failed' if name=='startup-negative' else '',
+                {'file':name+'.complete.log','sha256':'a'*64,'complete':True})
+            def healthy(name,started,kind):
+                if name!='firstboot':
+                    self.assertEqual(h.evidence['firstboot']['status'],'PASS');self.assertIn('baseline-recorded',events)
+                events.append('health:'+name)
+                base=r.stamp(started)//10**9
+                def ts(sec):return r.datetime.datetime.fromtimestamp(sec,r.datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                return {'started_at':started,'native_continuous_healthy_seconds':300,
+                    'initialization_markers':[{'marker':'CI_INDEX_INIT_COMPLETE','kind':kind,'pid':1,'at':started}],
+                    'native_probes':[{'Start':ts(base+1),'End':ts(base+2),'ExitCode':0},
+                        {'Start':ts(base+301),'End':ts(base+302),'ExitCode':0}],
+                    'logs':{'file':name+'.complete.log','sha256':'a'*64,'complete':True}}
+            h.healthy=healthy
+            actual_record=h.private_record
+            def record(kind,data):
+                if kind=='preservation-baseline':events.append('baseline-recorded')
+                actual_record(kind,data)
+            h.private_record=record
+            # Run actual execute/firstboot/phase/negative methods, substituting
+            # ONLY external I/O/health. No container/DB/provider/image acceptance.
+            with patch.dict(r.os.environ,{'GITHUB_ACTIONS':'true','RUNNER_ENVIRONMENT':'github-hosted'}):h.execute()
+            self.assertEqual([x for x in events if x.startswith('health:')],['health:firstboot','health:candidate',
+                'health:candidate-restart','health:previous','health:previous-restart','health:candidate-restored','health:candidate-restored-restart'])
+            self.assertEqual([x['phase'] for x in h.evidence['phases']],['candidate','candidate-restart','previous','previous-restart','candidate-restored','candidate-restored-restart'])
+            self.assertEqual(events.count('baseline-recorded'),1)
+            self.assertEqual(h.evidence['startup_negative']['status'],'PASS')
+            self.assertTrue(h.evidence['startup_negative']['cleanup_verified'])
+            self.assertEqual(events[-2:],['snapshot','remove-verified'])
+            self.assertEqual(h.evidence['status'],'PASS') # Double branch only; NOT runtime acceptance.
+            print('TESTONLY_EXACT_EXECUTE_SEQUENCE_REACHABLE: actual execute/firstboot/phase/negative; firstboot -> stopped-confirmed -> baseline -> six strict phases -> credential-negative; IO/health doubles ONLY; NO_RUNTIME_PASS')
 
 if __name__=='__main__':unittest.main(verbosity=2)

@@ -25,6 +25,83 @@ DIAGNOSTIC_CODES.update({
     'INDEX_DIAG_INDEX_EXPRESSION_MISMATCH','INDEX_DIAG_INDEX_KEY_MISMATCH','INDEX_DIAG_SQL_QUERY_ERROR',
 })
 
+# User-authorized TESTONLY contract: EXACT attempt13 initially-empty provisioning
+# tables on the SAME fifth image. Every other table is protected, even when empty.
+# No financial-name heuristic; preservation() never uses this firstboot allowance.
+FIRSTBOOT_IMAGE='sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5'
+FIRSTBOOT_TABLES=frozenset(('cat_saleschannel','currency','fulfillment_provider',
+    'index_data','index_metadata','index_sync','notification_provider','payment_provider',
+    'price_preference','region_country','sales_channel','store','store_currency','tax_provider'))
+FIRSTBOOT_REQUIRED=frozenset(('ci_acceptance_sentinel','marketplace_stripe_event_receipt',
+    'marketplace_capture_consumer_ack','reconciliation_repair_audit'))
+EMPTY_TABLE_SHA256=hashlib.sha256(b'').hexdigest()
+# Add ONLY the firstboot runner's existing 390s ceiling to the original outer
+# budget. The old 2070s alarm cannot contain seven mandatory 300s health windows.
+# Six lifecycle floors/probe timing are unchanged; runtime job ceiling is 60min.
+RUNTIME_DEADLINE_SECONDS=2490
+RUNTIME_ALARM_SECONDS=2460
+DIAGNOSTIC_CODES.update({'FIRSTBOOT_REQUIRED','FIRSTBOOT_PROTECTED_PASS',
+    'FIRSTBOOT_STABLE_CONFIRMED','FIRSTBOOT_FAILED'})
+
+def firstboot_contract(before,post):
+    """Fail-closed bounded provisioning; no stable-phase exception or acceptance."""
+    try:
+        for state in (before,post):
+            hashes=state['snapshot']['table_sha256'];counts=state['table_counts']
+            if not isinstance(hashes,dict) or not isinstance(counts,dict) or set(hashes)!=set(counts):
+                raise ValueError('inventory/counts')
+            if len(hashes)!=241 or not (FIRSTBOOT_TABLES|FIRSTBOOT_REQUIRED).issubset(hashes):
+                raise ValueError('exact fixture inventory required')
+            if any(not isinstance(t,str) or not re.fullmatch('[a-z_][a-z0-9_]*',t) for t in hashes):
+                raise ValueError('table names')
+            values=[state['snapshot']['all_public_tables_sha256'],state['schema_sha256'],state['static_sha256'],*hashes.values()]
+            if any(not isinstance(v,str) or not re.fullmatch('[a-f0-9]{64}',v) for v in values):
+                raise ValueError('hashes')
+            if any(type(n) is not int or n<0 for n in counts.values()):raise ValueError('counts')
+            if any((counts[t]==0)!=(hashes[t]==EMPTY_TABLE_SHA256) for t in hashes):
+                raise ValueError('empty count/hash disagreement')
+        old=before['snapshot']['table_sha256'];new=post['snapshot']['table_sha256']
+        if set(old)!=set(new):raise ValueError('inventory added or removed')
+        if any(before[k]!=post[k] for k in ('schema_sha256','static_sha256')):
+            raise ValueError('schema/static changed')
+        if any(before['table_counts'][t]!=0 or old[t]!=EMPTY_TABLE_SHA256 for t in FIRSTBOOT_TABLES):
+            raise ValueError('provisioning table previously nonempty')
+        protected=set(old)-FIRSTBOOT_TABLES
+        if any(old[t]!=new[t] or before['table_counts'][t]!=post['table_counts'][t] for t in protected):
+            raise ValueError('protected table changed, including empty financial/audit/ACK/sentinel')
+        changed=sorted(t for t in FIRSTBOOT_TABLES if old[t]!=new[t])
+        if any(post['table_counts'][t]<=0 or new[t]==EMPTY_TABLE_SHA256 for t in changed):
+            raise ValueError('only additions to previously empty provisioning tables')
+        aggregate_changed=before['snapshot']['all_public_tables_sha256']!=post['snapshot']['all_public_tables_sha256']
+        if aggregate_changed!=bool(changed):raise ValueError('aggregate/table binding disagreement')
+        # This fixture's ACK table is EMPTY. Do not imply populated-ACK coverage.
+        if before['table_counts']['marketplace_capture_consumer_ack']!=0:
+            raise ValueError('expected empty ACK fixture')
+        return {'protected_tables':sorted(protected),'allowed_changes':changed,
+            'ack_fixture':'empty-no-populated-preservation-claim'}
+    except (ValueError,KeyError,TypeError,AttributeError) as error:
+        raise RuntimeError('FIRSTBOOT_PROTECTED_CONTRACT_FAILED') from error
+
+def firstboot_health_receipt(receipt,started):
+    """Missing/degraded receipts never count as provisioning skips or silent PASS."""
+    try:
+        if receipt['started_at']!=started or type(receipt['native_continuous_healthy_seconds']) is not int or receipt['native_continuous_healthy_seconds']!=300:
+            raise ValueError('300 seconds required')
+        markers=receipt['initialization_markers'];probes=receipt['native_probes'];logs=receipt['logs']
+        if not isinstance(markers,list) or not markers or any(m.get('marker')!='CI_INDEX_INIT_COMPLETE' or type(m.get('pid')) is not int or m['pid']!=1 or stamp(m['at'])<stamp(started) for m in markers):
+            raise ValueError('current native markers')
+        if not any(m.get('kind')=='readonly' for m in markers):raise ValueError('candidate readonly marker')
+        if not isinstance(probes,list) or len(probes)<2:raise ValueError('native probes required')
+        ready=max(stamp(m['at']) for m in markers)
+        if len({p['Start'] for p in probes})!=len(probes) or any(type(p['ExitCode']) is not int or p['ExitCode']!=0 or stamp(p['Start'])<ready or stamp(p['End'])<stamp(p['Start']) for p in probes):
+            raise ValueError('probe failure/chronology')
+        if max(stamp(p['End']) for p in probes)-min(stamp(p['Start']) for p in probes)<290*10**9:
+            raise ValueError('short probe chronology')
+        if logs['complete'] is not True or logs['file']!='firstboot.complete.log' or not re.fullmatch('[a-f0-9]{64}',logs['sha256']):
+            raise ValueError('complete log binding')
+    except (ValueError,KeyError,TypeError,AttributeError,RuntimeError) as error:
+        raise RuntimeError('FIRSTBOOT_HEALTH_RECEIPT_REQUIRED') from error
+
 def diagnostic_codes(text):
     result=[]
     for line in text.splitlines():
@@ -92,7 +169,7 @@ def init_markers(logs,started):
 
 class Harness:
     def __init__(self,a):
-        self.a=a; self.prefix='ci-four-'+secrets.token_hex(5); self.deadline=time.monotonic()+2100
+        self.a=a; self.prefix='ci-four-'+secrets.token_hex(5); self.deadline=time.monotonic()+RUNTIME_DEADLINE_SECONDS
         self.net=self.prefix; self.pg=self.prefix+'-pg'; self.redis=self.prefix+'-redis'; self.app=self.prefix+'-app'
         self.firewall=[]; self.volumes=[self.prefix+'-pgdata',self.prefix+'-static']; self.containers=[]
         self.network_created=False; self.created_volumes=[]; self.pg_started=False; self.previous_starts=set()
@@ -126,7 +203,7 @@ class Harness:
         finally: self.deadline=original
     def proc(self,*args,input=None,timeout=60):
         left=self.deadline-time.monotonic()
-        if left<=0: raise RuntimeError('RUNTIME_DEADLINE_2100S')
+        if left<=0: raise RuntimeError('RUNTIME_DEADLINE_2490S')
         return subprocess.run(args,input=input,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(timeout,left))
     def run(self,*args,input=None,timeout=60,check=True):
         try: p=self.proc(*args,input=input,timeout=timeout)
@@ -356,6 +433,68 @@ ROLLBACK;""",user='postgres').strip()
             'before':before,'post':post,'matches':matches,'differences':differences,'capture_errors':errors,
             'strict_preserved':all(matches.values())})
         if not all(matches.values()): raise RuntimeError('FINANCIAL_ACK_SCHEMA_STATIC_CHANGED')
+    def firstboot_state(self,stage,offline=False):
+        # Capture independently; original errors and full before/post/allowed
+        # changes stay private, under the existing encrypted diagnostics path.
+        state={};errors={}
+        for key,capture in [('snapshot',self.snapshot),('schema_sha256',self.schema),
+                ('static_sha256',lambda:self.static_hash(offline=offline))]:
+            try:
+                state[key]=capture()
+                if key=='snapshot':state['table_counts']=dict(self.evidence['snapshot_tables'])
+            except Exception:
+                state[key]=None;errors[key]=traceback.format_exc()
+        self.private_record('firstboot-state',{'stage':stage,'state':state,'capture_errors':errors})
+        if errors:raise RuntimeError('FIRSTBOOT_STATE_CAPTURE_FAILED')
+        return state
+    def firstboot(self):
+        self.evidence.update(diagnostic_stage='RUNTIME_BASELINE',diagnostic_phase='firstboot')
+        summary={'status':'FAIL','image':self.a.candidate,'stable_confirmed':False}
+        self.evidence['firstboot']=summary
+        self.evidence.setdefault('diagnostic_codes',[]).append('FIRSTBOOT_REQUIRED')
+        try:
+            if self.a.candidate!=FIRSTBOOT_IMAGE:raise RuntimeError('FIRSTBOOT_EXACT_FIFTH_IMAGE_REQUIRED')
+            before=self.firstboot_state('before',offline=True)
+            firstboot_contract(before,before) # Reject nonempty allowances BEFORE start.
+            started=self.app_start(self.a.candidate,self.envfile('firstboot.env','app'))
+            if started in self.previous_starts:raise RuntimeError('NEW_STARTED_AT_REQUIRED')
+            self.previous_starts.add(started)
+            health=self.healthy('firstboot',started,'readonly') # unchanged actual 300s runner
+            self.private_record('firstboot-health-pending',{'image':self.a.candidate,
+                'acceptance':'pending-protected-provisioning','health':health})
+            firstboot_health_receipt(health,started)
+            post=self.firstboot_state('post-healthy')
+            contract=firstboot_contract(before,post)
+            self.docker('stop','-t','8',self.app)
+            c=self.inspect(self.app)
+            if c['Image']!=self.a.candidate or c.get('RestartCount',0)!=0 or c['State'].get('Running') is not False or c['State']['StartedAt']!=started:
+                raise RuntimeError('FIRSTBOOT_STOP_UNVERIFIED')
+            logs,complete=self.capture_logs('firstboot')
+            health['logs']=complete;firstboot_health_receipt(health,started)
+            if ERRORS.search(logs):raise RuntimeError('FIRSTBOOT_COMPLETE_LOG_ERROR')
+            stable=self.firstboot_state('post-stop',offline=True)
+            # No second allowance at shutdown. Never choose a baseline after a
+            # failure: compare stopped state to accepted post-healthy state exactly.
+            if stable!=post:raise RuntimeError('FIRSTBOOT_STOP_DATA_SCHEMA_STATIC_CHANGED')
+            self.remove_container(self.app)
+            receipt={'status':'PASS','scope':'authorized TESTONLY bounded firstboot provisioning only; NOT lifecycle acceptance',
+                'image':self.a.candidate,'health':health,'before':before,'post':post,
+                'stopped_confirmed':stable,'contract':contract,'stable_confirmed':True}
+            self.private_record('firstboot-receipt',receipt)
+            digest=hashlib.sha256(json.dumps(receipt,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+            self.static_baseline=stable['static_sha256'] # assigned only after firstboot success
+            summary.update(status='PASS',stable_confirmed=True,receipt_sha256=digest,
+                protected_tables_count=len(contract['protected_tables']),provisioned_tables_count=len(contract['allowed_changes']),
+                native_continuous_healthy_seconds=300,ack_fixture=contract['ack_fixture'])
+            self.evidence['diagnostic_codes'].extend(['FIRSTBOOT_PROTECTED_PASS','FIRSTBOOT_STABLE_CONFIRMED'])
+            print(json.dumps({'marker':'CI_RUNTIME_FIRSTBOOT','status':'PASS','image':self.a.candidate,
+                'receipt_sha256':digest,'protected_tables_count':summary['protected_tables_count'],
+                'provisioned_tables_count':summary['provisioned_tables_count'],'native_continuous_healthy_seconds':300}),flush=True)
+            return stable['snapshot'],stable['schema_sha256']
+        except Exception:
+            self.evidence['diagnostic_codes'].append('FIRSTBOOT_FAILED')
+            self.private_record('firstboot-failure',{'summary':summary,'exception':traceback.format_exc()})
+            raise
     def phase(self,image,name,baseline,schema):
         self.evidence.update(diagnostic_stage='RUNTIME_PHASE',diagnostic_phase=name)
         started=self.app_start(image,self.envfile('runtime.env','app'))
@@ -473,10 +612,12 @@ ROLLBACK;""",user='postgres').strip()
         self.evidence['diagnostic_stage']='RUNTIME_AUDIT_OWNER_CONTROLS'
         self.evidence['audit_native'].update(self.owner_audit_controls())
         self.owned_run(self.prefix+'-static-init',self.a.candidate,['--network','none','--read-only','--user','0:0','--cap-drop','ALL','--cap-add','CHOWN','--entrypoint','node','--mount',f'type=volume,src={self.volumes[1]},dst=/fixture'],['-e',"const f=require('fs');f.writeFileSync('/fixture/ci-sentinel','ci-fixture-no-loss');f.chownSync('/fixture',1001,1001);f.chownSync('/fixture/ci-sentinel',1001,1001)"])
+        baseline,schema=self.firstboot()
         self.evidence['diagnostic_stage']='RUNTIME_BASELINE'
-        baseline=self.snapshot();schema=self.schema()
+        # Use ONLY accepted, stopped, independently confirmed firstboot state.
+        # No fresh snapshot/rebase after failure or during stable lifecycle.
         self.private_record('preservation-baseline',{'snapshot':baseline,'schema_sha256':schema,
-            'static_sha256':self.static_hash(offline=True)})
+            'static_sha256':self.static_baseline})
         for image,phase in [(self.a.candidate,'candidate'),(self.a.previous,'previous'),(self.a.candidate,'candidate-restored')]: self.phase(image,phase,baseline,schema)
         self.negative(baseline,schema)
         if self.evidence['audit_native'].get('owner_truncate_guard')!='PASS' or self.evidence['audit_native'].get('owner_rows_schema_unchanged') is not True:
@@ -540,8 +681,8 @@ ROLLBACK;""",user='postgres').strip()
 def main():
     p=argparse.ArgumentParser();p.add_argument('--candidate',required=True,help='already locally built exact config sha256 ID');p.add_argument('--previous',default=PREVIOUS_ID);p.add_argument('--previous-manifest',type=Path,required=True,help='parent-verified saved artifact acquisition manifest');p.add_argument('--out',type=Path,required=True);a=p.parse_args()
     h=Harness(a)
-    def expired(*_): raise RuntimeError('RUNTIME_DEADLINE_2100S')
-    signal.signal(signal.SIGALRM,expired);signal.alarm(2070)
+    def expired(*_): raise RuntimeError('RUNTIME_DEADLINE_2490S')
+    signal.signal(signal.SIGALRM,expired);signal.alarm(RUNTIME_ALARM_SECONDS)
     try: h.execute()
     except Exception as e:
         h.evidence['failure_stage']=h.evidence.get('diagnostic_stage')
