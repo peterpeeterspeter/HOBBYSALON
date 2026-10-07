@@ -1,0 +1,150 @@
+{
+  "apps/backend/medusa-config.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "apps/backend/medusa-config.ts",
+      "sha256": "e9597775b6d7af7b168abe53ee1d18aca7abb1023d86991ac97cf9f2af2a6878",
+      "size": 5702,
+      "type": "file"
+    },
+    "before": {
+      "git_mode": "100644",
+      "path": "apps/backend/medusa-config.ts",
+      "sha256": "4933d70fa86197902f051ff8791677f0a661b7dddedb96e4a3b5c3c626f5d8e6",
+      "size": 5681,
+      "type": "file"
+    }
+  },
+  "apps/backend/src/modules/index-runtime-readonly/catalog.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "apps/backend/src/modules/index-runtime-readonly/catalog.ts",
+      "sha256": "cc318a105ffb719cb4264b4706e30d3e2d07a053b8ba1f22f2463f2bdd145eaf",
+      "size": 6983,
+      "type": "file"
+    },
+    "before": null
+  },
+  "apps/backend/src/modules/index-runtime-readonly/index.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "apps/backend/src/modules/index-runtime-readonly/index.ts",
+      "sha256": "ed6b2dbb271420bae8090e916f4070cc683e702582d04f312f323e082b28657e",
+      "size": 2273,
+      "type": "file"
+    },
+    "before": null
+  },
+  "apps/backend/src/modules/index-runtime-readonly/loader.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "apps/backend/src/modules/index-runtime-readonly/loader.ts",
+      "sha256": "eb8d8210693f4e916bfca4601aac6428d96d0f0193571724d76b5bc1e93b98f5",
+      "size": 209,
+      "type": "file"
+    },
+    "before": null
+  },
+  "apps/backend/src/modules/index-runtime-readonly/provider.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "apps/backend/src/modules/index-runtime-readonly/provider.ts",
+      "sha256": "c3f005b2356b3ae6cb9efada23654acb543ff540265298775ca0fdc2ef8131ee",
+      "size": 2130,
+      "type": "file"
+    },
+    "before": null
+  },
+  "apps/backend/src/modules/index-runtime-readonly/service.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "apps/backend/src/modules/index-runtime-readonly/service.ts",
+      "sha256": "4906c33801b704720adbf8358b3500ed723460b04f2f528dd98842fae7ae7094",
+      "size": 3307,
+      "type": "file"
+    },
+    "before": null
+  },
+  "deploy/release/index-bootstrap.cjs": {
+    "after": {
+      "git_mode": "100644",
+      "path": "deploy/release/index-bootstrap.cjs",
+      "sha256": "fb57075bf3e04893a88fc850f6c6cc46225d03bfcc9e894fbcdba4693233249a",
+      "size": 7483,
+      "type": "file"
+    },
+    "before": null
+  },
+  "packages/modules/commission/src/workflows/commission/steps/calculate-commission-lines.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "packages/modules/commission/src/workflows/commission/steps/calculate-commission-lines.ts",
+      "sha256": "e188e597c37fbafd70e478c7c9a8444211b31139875153dfae328fd0b23236b1",
+      "size": 9648,
+      "type": "file"
+    },
+    "before": {
+      "git_mode": "100644",
+      "path": "packages/modules/commission/src/workflows/commission/steps/calculate-commission-lines.ts",
+      "sha256": "b5545552b810f9c31d4f937d86e5c956cc9dfe06f64ad308ae5062887a29a419",
+      "size": 5093,
+      "type": "file"
+    }
+  },
+  "packages/modules/commission/src/workflows/commission/steps/create-commission-lines.ts": {
+    "after": {
+      "git_mode": "100644",
+      "path": "packages/modules/commission/src/workflows/commission/steps/create-commission-lines.ts",
+      "sha256": "dee60aaeb8658bef324db21554821fd1bcb344842995a84ee9fab837078c6fd1",
+      "size": 1406,
+      "type": "file"
+    },
+    "before": {
+      "git_mode": "100644",
+      "path": "packages/modules/commission/src/workflows/commission/steps/create-commission-lines.ts",
+      "sha256": "4f0de782dc68bd3f11d03edf157b069cdee4c396f647c8fc2b6d7f53b502f3d4",
+      "size": 1161,
+      "type": "file"
+    }
+  },
+  "scripts/tests/commission-bridge-money.test.cjs": {
+    "after": {
+      "git_mode": "100644",
+      "path": "scripts/tests/commission-bridge-money.test.cjs",
+      "sha256": "b6d9b5d908053fd905218678a961747726672b476316b98fa2e3907d09fedcec",
+      "size": 12226,
+      "type": "file"
+    },
+    "before": null
+  },
+  "scripts/tests/index-runtime-catalog.test.cjs": {
+    "after": {
+      "git_mode": "100644",
+      "path": "scripts/tests/index-runtime-catalog.test.cjs",
+      "sha256": "52f6c31f75bcd956922f664253a9f4aa4ed2d507c954a27da28da80d8f4e3182",
+      "size": 13411,
+      "type": "file"
+    },
+    "before": null
+  },
+  "scripts/tests/index-runtime-readonly.test.cjs": {
+    "after": {
+      "git_mode": "100644",
+      "path": "scripts/tests/index-runtime-readonly.test.cjs",
+      "sha256": "1b0383561e3c60dd7ab4197d044c2bc97015d920d0392ffa5e6d44eedee3e35d",
+      "size": 13811,
+      "type": "file"
+    },
+    "before": null
+  },
+  "scripts/tests/index-runtime-sdk-init.test.cjs": {
+    "after": {
+      "git_mode": "100644",
+      "path": "scripts/tests/index-runtime-sdk-init.test.cjs",
+      "sha256": "118ad01333f1975cb0ad9b86a369863b90aa9fbb6066a1bcedfa1d0e6919847a",
+      "size": 13534,
+      "type": "file"
+    },
+    "before": null
+  }
+}

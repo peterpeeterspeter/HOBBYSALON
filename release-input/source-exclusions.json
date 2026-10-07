@@ -1,0 +1,8 @@
+{
+  "dockerignore_bytes_utf8": "# Dependencies\nnode_modules\n**/node_modules\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\n\n# Build outputs\ndist\n.turbo\n.next\nout\nbuild\n**/.medusa\n**/dist\n**/.turbo\n**/.next\n**/.cache\n**/*.tsbuildinfo\n\n# Development\n.git\n.gitignore\n.env*\n**/.env*\n\n# IDE\n.vscode\n.idea\n*.swp\n*.swo\n*~\n\n# OS\n.DS_Store\nThumbs.db\n\n# Testing\ncoverage\n.nyc_output\n\n# Private local reconciliation evidence and Python bytecode\naudit\ntoward-go\n**/__pycache__\n**/*.pyc\n**/*.pyo\n\n# Documentation\n*.md\n!README.md\ndocs\n\n# Docker\nDockerfile*\ndocker-compose*\n.dockerignore\n!apps/backend/Dockerfile\n\n",
+  "dockerignore_sha256": "c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782",
+  "policy": "Exact original Docker exclusions; original bound templates remain in full source manifest, excluded by unchanged Dockerignore during COPY",
+  "removed_original_records": [],
+  "schema": 1,
+  "source_scope": "full-original-manifest-plus-reviewed-deltas"
+}

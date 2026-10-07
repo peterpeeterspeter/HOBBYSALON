@@ -1,0 +1,103 @@
+name: "Rollback bridge: one normal build only"
+on:
+  push:
+    branches:
+      - ops/rollback-bridge-20261007
+permissions:
+  contents: read
+concurrency:
+  group: rollback-bridge-build-20261007
+  cancel-in-progress: false
+jobs:
+  build:
+    if: >-
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/ops/rollback-bridge-20261007' &&
+      github.event.created == true && github.event.deleted == false &&
+      github.event.forced == false && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      IMAGE: hobbysalon-release-candidate:rollback-bridge-20261007
+    steps:
+      - name: Checkout minimal input tree
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Prepare private worker directories and verify exact input
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 release-input/verify-run.py
+          umask 077
+          mkdir "$RUNNER_TEMP/rollback-bridge-20261007" "$RUNNER_TEMP/rollback-bridge-20261007/receipts"
+          printf '%s\n' 'No production or runtime acceptance. Build and inspection may fail.' > "$RUNNER_TEMP/rollback-bridge-20261007/receipts/SCOPE.txt"
+          python3 release-input/verify-signature.py release-input
+          python3 release-input/verify-source.py \
+            --archive release-input/source.full.tar.xz \
+            --manifest release-input/source.full.manifest.jsonl \
+            --approval release-input/approval.json \
+            --dest "$RUNNER_TEMP/rollback-bridge-20261007/context" \
+            | tee "$RUNNER_TEMP/rollback-bridge-20261007/receipts/source-verification.json"
+          { df -h; free -m; du -sh "$RUNNER_TEMP/rollback-bridge-20261007/context"; } > "$RUNNER_TEMP/rollback-bridge-20261007/receipts/resources.log"
+      - name: Offline recipe preflight on frozen source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh "$RUNNER_TEMP/rollback-bridge-20261007/context/deploy/release/recipe.sh" verify
+      - name: Set up isolated buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+      - name: Build exact Dockerfile once, load locally, never publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(python3 -c 'import json,shlex; a=json.load(open("release-input/approval.json")); print(";".join(k+"="+shlex.quote(a[v]) for k,v in [("SOURCE_BASE","base_commit"),("SOURCE_ARCHIVE","archive_sha256"),("SOURCE_MANIFEST","manifest_sha256")]))')"
+          docker buildx build --pull --load --progress=plain \
+            --metadata-file "$RUNNER_TEMP/rollback-bridge-20261007/build-metadata.json" \
+            --tag "$IMAGE" \
+            --label org.opencontainers.image.revision="$SOURCE_BASE" \
+            --label io.hobbysalon.source.archive.sha256="$SOURCE_ARCHIVE" \
+            --label io.hobbysalon.source.manifest.sha256="$SOURCE_MANIFEST" \
+            --label io.hobbysalon.bridge.publication.commit="$GITHUB_SHA" \
+            --label io.hobbysalon.bridge.branch=ops/rollback-bridge-20261007 \
+            --file "$RUNNER_TEMP/rollback-bridge-20261007/context/apps/backend/Dockerfile" \
+            "$RUNNER_TEMP/rollback-bridge-20261007/context" \
+            2>&1 | tee "$RUNNER_TEMP/rollback-bridge-20261007/receipts/build.log"
+      - name: Verify actual image bytes without starting application
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 0644 release-input/inspect-compiled.cjs
+          python3 release-input/verify-image.py \
+            --image "$IMAGE" --publication-head "$GITHUB_SHA" \
+            --manifest release-input/source.full.manifest.jsonl \
+            --inspector release-input/inspect-compiled.cjs \
+            --out "$RUNNER_TEMP/rollback-bridge-20261007/receipts" \
+            | tee "$RUNNER_TEMP/rollback-bridge-20261007/receipts/inspection.log"
+      - name: Save actual image after successful inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image_id"])' "$RUNNER_TEMP/rollback-bridge-20261007/receipts/image-receipt.json")
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("containerimage.config.digest")==sys.argv[2], "Build metadata/image ID mismatch"' "$RUNNER_TEMP/rollback-bridge-20261007/build-metadata.json" "$IMAGE_ID"
+          test "$IMAGE_ID" = "$(docker image inspect --format '{{.Id}}' "$IMAGE")"
+          docker image save "$IMAGE_ID" | gzip -1 > "$RUNNER_TEMP/rollback-bridge-20261007/receipts/backend-image.tar.gz"
+          sha256sum "$RUNNER_TEMP/rollback-bridge-20261007/receipts/backend-image.tar.gz" > "$RUNNER_TEMP/rollback-bridge-20261007/receipts/backend-image.sha256"
+      - name: Retain image or available failure evidence for seven days
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rollback-bridge-build-20261007
+          path: ${{ runner.temp }}/rollback-bridge-20261007/receipts/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: warn

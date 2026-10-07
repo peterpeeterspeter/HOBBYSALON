@@ -1,52 +1,7 @@
-# Dependencies
-node_modules
-.pnp
-.pnp.js
-
-# Yarn 2+
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-.pnp.*
-
-# Testing
-coverage
-
-**/build
-**/dist
-
-# Misc
-.DS_Store
-*.pem
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local env files
-**/.env
-**/.env.local
-**/.env.development.local
-**/.env.test.local
-**/.env.production.local
-
-# Turbo
-.turbo
-
-# vercel
-.vercel
-
-#from yarn build
-apps/backend/public
-# Supabase local temp state
-supabase/.temp/
-
-# Python bytecode and private local reconciliation execution evidence
-__pycache__/
-*.py[cod]
-/audit/
-/toward-go/
+*
+!.gitignore
+!.github/
+!.github/workflows/
+!.github/workflows/rollback-bridge-build.yml
+!release-input/
+!release-input/*
