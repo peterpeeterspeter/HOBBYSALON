@@ -7,8 +7,8 @@ and source authorization; it is not rewritten or broadened. The dispatch require
 publication review. No merge, production deployment, provider calls or package
 registry publication is authorized. Main is read-only.
 
-Candidate: successful first attempt of build run 37589026194, commit
-456790e26bd3ef0792d51628223479f386978883, artifact
+Candidate: successful first attempt of build run 37591870825, commit
+596466b55549e6140254ac7b81fc94edb6f9af47, artifact
 `release-candidate-20261007`. Config ID, archive SHA, frozen source and actual
 baked/compiled source must agree before tests. Previous image is acquired only
 from pinned artifact 11408703641, run 37455485280 with read-only GitHub token.
@@ -26,7 +26,7 @@ hashes, restricted runtime role and a deliberately invalid DB credential control
 Full-table snapshots do not make the seeded data representative of full-native
 commerce. No full-native commerce or provider acceptance claim is made.
 
-Jobs use separate fresh GitHub-hosted workers, sequentially, at most 50 minutes
+Jobs use separate fresh GitHub-hosted workers, in parallel, at most 50 minutes
 per job. Application images are loaded from verified archives, never registries.
 Only pinned disposable PostgreSQL/Redis fixtures may be pulled. Local preparation
 performs syntax, mocked self-tests and credential scans only; no container launch,

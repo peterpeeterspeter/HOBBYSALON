@@ -18,7 +18,21 @@ def project(data, kind, job_status, diagnostic_stage='UNKNOWN'):
     if isinstance(stage,str) and stage in HARNESS_STAGES: result['harness_stage']=stage
     phase=data.get('diagnostic_phase')
     if isinstance(phase,str) and phase in PHASES: result['diagnostic_phase']=phase
+    # Import only the fixed diagnostic allowlists, never raw command evidence.
+    import runpy
+    root = Path(__file__).resolve().parent
+    if kind=='runtime':
+        runtime = runpy.run_path(str(root/'runtime/runtime.py'))
+        codes = data.get('diagnostic_codes', [])
+        result['diagnostic_codes'] = [x for x in codes if isinstance(x,str) and x in runtime['DIAGNOSTIC_CODES']] if isinstance(codes,list) else []
     if kind=='postgres':
+        pg = runpy.run_path(str(root/'database/run-postgres.py'))
+        stage = data.get('node_diagnostic_stage')
+        if isinstance(stage,str) and stage in pg['NODE_STAGES']: result['node_diagnostic_stage'] = stage
+        diagnostics = data.get('node_diagnostics', {})
+        failures = diagnostics.get('failures', []) if isinstance(diagnostics,dict) else []
+        result['node_failure_codes'] = [x['code'] for x in failures if isinstance(x,dict) and isinstance(x.get('code'),str) and x['code'] in pg['NODE_CODES']] if isinstance(failures,list) else []
+        result['planned_tests'] = len(pg['EXPECTED'])
         results=data.get('results',[])
         result['observed_tests']=len(results) if isinstance(results,list) else 0
         result['passed_tests']=sum(isinstance(x,dict) and x.get('status')=='passed' for x in results) if isinstance(results,list) else 0

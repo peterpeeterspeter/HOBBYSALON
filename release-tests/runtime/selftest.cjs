@@ -2,6 +2,11 @@
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
+const { classify } = require('./index-diagnostics.cjs');
+assert.equal(classify({ message: 'INDEX_INVALID_PARTITION:cat_order' }), 'INDEX_DIAG_PARTITION_INVALID');
+assert.equal(classify({ code: '42501', message: 'secret-canary' }), 'INDEX_DIAG_SQL_PERMISSION');
+assert.equal(classify({ message: 'secret-canary', code: 'secret-canary' }), 'INDEX_DIAG_UNKNOWN_ERROR');
+assert.equal(classify({ message: 'INDEX_INVALID_PARTITION:secret-canary' }), 'INDEX_DIAG_UNKNOWN_ERROR');
 (async () => {
   for (const loggedError of [false, true]) {
     const messages = [];

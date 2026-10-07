@@ -92,6 +92,17 @@ class Tests(unittest.TestCase):
         self.assertEqual(out['diagnostic_stage'], 'UNKNOWN')
         self.assertNotIn(marker, json.dumps(out))
 
+    def test_projection_child_diagnostics_are_fixed_codes_only(self):
+        marker = 'PRIVATE-FIXTURE-STRING-DO-NOT-PUBLISH'
+        out = p.project({'diagnostic_codes':['INDEX_DIAG_CONFIG_IMPORTED',marker,None,{}]}, 'runtime', 'failure')
+        self.assertEqual(out['diagnostic_codes'], ['INDEX_DIAG_CONFIG_IMPORTED'])
+        data = {'node_diagnostic_stage':'PG_DEPENDENCY_IDENTITIES','node_diagnostics':{'failures':[{'code':'MODULE_NOT_FOUND','error':marker},{'code':marker},None]}}
+        out = p.project(data, 'postgres', 'failure')
+        self.assertEqual(out['node_diagnostic_stage'], 'PG_DEPENDENCY_IDENTITIES')
+        self.assertEqual(out['node_failure_codes'], ['MODULE_NOT_FOUND'])
+        self.assertEqual(out['planned_tests'],17)
+        self.assertNotIn(marker, json.dumps(out))
+
     def test_projection_missing_report_is_not_run(self):
         out = p.project({}, 'postgres', 'failure', 'BUILD_BINDING')
         self.assertEqual(out['status'], 'NOT_RUN')

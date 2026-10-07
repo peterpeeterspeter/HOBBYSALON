@@ -8,27 +8,27 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto')
 const { spawn } = require('node:child_process'), { createRequire } = require('node:module')
+const { specifier, identity, STAGES, errorCode } = require('./dependency-identity.cjs')
+const diagnosticRole = process.argv[2] === '--preflight' ? 'preflight' : process.argv[2]?.startsWith('--') ? 'worker' : 'main'
+let diagnosticStage, diagnosticSequence = 0
+function checkpoint(stage) {
+  assert(STAGES.includes(stage), 'unknown diagnostic stage')
+  diagnosticStage = stage
+  fs.writeSync(1, 'PG_CHECKPOINT ' + JSON.stringify({stage, role: diagnosticRole, sequence: ++diagnosticSequence}) + '\n')
+}
+function diagnosticFailure(error) {
+  fs.writeSync(1, 'PG_NODE_DIAGNOSTIC ' + JSON.stringify({stage: diagnosticStage, role: diagnosticRole, code: errorCode(error)}) + '\n')
+}
+process.on('uncaughtExceptionMonitor', diagnosticFailure)
+checkpoint('PG_DEPENDENCY_IDENTITIES')
 const dep = createRequire(process.env.ACK_DEPENDENCY_ANCHOR || '/app/apps/backend/package.json')
 const source = process.env.ACK_CANDIDATE_ROOT || '/candidate'
 const inventory = require('./inventory.json')
 const stable = v => JSON.stringify(v, (_k,x) => x && typeof x === 'object' && !Array.isArray(x) && !(x instanceof Date)
   ? Object.fromEntries(Object.keys(x).sort().map(k => [k,x[k]])) : x)
 const hash = s => crypto.createHash('sha256').update(s).digest('hex')
-const packageJson = n => {
-  let dir=path.dirname(fs.realpathSync(dep.resolve(n)))
-  while(dir!==path.dirname(dir)) {
-    const f=path.join(dir,'package.json')
-    if(fs.existsSync(f) && JSON.parse(fs.readFileSync(f)).name===n)return fs.realpathSync(f)
-    dir=path.dirname(dir)
-  }
-  throw Error('native package root unavailable: '+n)
-}
-const identities = Object.fromEntries(Object.entries(inventory.expected_versions).map(([n,version])=>{
-  const package_json=packageJson(n)
-  assert.equal(JSON.parse(fs.readFileSync(package_json)).version,version,'native package version: '+n)
-  const entry=fs.realpathSync(dep.resolve(n))
-  return [n,{version,package_json,package_sha256:hash(fs.readFileSync(package_json)),entry,entry_sha256:hash(fs.readFileSync(entry))}]
-}))
+const identities = Object.fromEntries(Object.entries(inventory.expected_versions).map(([n,version])=>[n,identity(dep,n,version)]))
+checkpoint('PG_NATIVE_INVENTORY')
 const nativeInventory = ['payment','order'].flatMap(module=>{
   const dir=path.join(path.dirname(identities['@medusajs/'+module].package_json),'dist/migrations')
   return fs.readdirSync(dir).filter(n=>/^Migration\d+\.js$/.test(n)).sort().map(name=>({module,name,sha256:hash(fs.readFileSync(path.join(dir,name)))}))
@@ -36,7 +36,8 @@ const nativeInventory = ['payment','order'].flatMap(module=>{
 assert.deepEqual(nativeInventory,inventory.native_migrations,'full native migration inventory')
 assert.equal(hash(stable(nativeInventory)),inventory.native_migrations_sha256)
 const identityEdges=[]
-const nativeAnchors=[dep.resolve('@medusajs/framework/utils'),dep.resolve('@medusajs/deps')]
+checkpoint('PG_IDENTITY_EDGES')
+const nativeAnchors=[dep.resolve('@medusajs/framework/utils'),identities['@medusajs/deps'].entry]
 for(const module of ['payment','order']) nativeAnchors.push(path.join(path.dirname(identities['@medusajs/'+module].package_json),'dist/migrations',nativeInventory.find(m=>m.module===module).name))
 nativeAnchors.push(path.join(path.dirname(identities['@medusajs/link-modules'].package_json),'dist/utils/generate-entity.js'))
 for(const anchor of nativeAnchors) for(const name of ['@mikro-orm/core','@mikro-orm/migrations','@mikro-orm/postgresql','@mikro-orm/knex']) {
@@ -45,6 +46,7 @@ for(const anchor of nativeAnchors) for(const name of ['@mikro-orm/core','@mikro-
   identityEdges.push({anchor:fs.realpathSync(anchor),package:name,resolved,expected:identities[name].entry})
 }
 const loadedTs=new Set(), helperIdentityEdges=[]
+checkpoint('PG_NATIVE_CONSTRUCTORS')
 const swc = dep('@swc/core'), knexFactory = dep('knex'), { Client } = dep('pg')
 const { MikroORM } = dep('@mikro-orm/postgresql')
 const { Migration, MigrationRunner } = dep('@mikro-orm/migrations')
@@ -62,7 +64,7 @@ require.extensions['.ts'] = (m, f) => {
   loadedTs.add(relative)
   m.paths = [...dependencyPaths, ...m.paths]
   for(const name of Object.keys(identities)) {
-    const resolved=fs.realpathSync(require.resolve(name,{paths:m.paths}))
+    const resolved=fs.realpathSync(require.resolve(specifier(name),{paths:m.paths}))
     assert.equal(resolved,identities[name].entry,'helper dependency realpath identity: '+relative+' -> '+name)
     helperIdentityEdges.push({source:relative,package:name,resolved,expected:identities[name].entry})
   }
@@ -71,6 +73,7 @@ require.extensions['.ts'] = (m, f) => {
     module:{type:'commonjs'} }).code, f)
 }
 const backend = source + '/apps/backend/src/utils/', utils = source + '/packages/modules/b2c-core/src/utils/'
+checkpoint('PG_CANDIDATE_HELPERS')
 const { persistMarketplaceWebhookAdmission: admit } = require(backend + 'marketplace-webhook-admission.ts')
 const { applyMarketplaceWebhookTransaction: apply, readCommittedMarketplaceWebhookReceipt: committed } = require(backend + 'marketplace-webhook-transaction.ts')
 const { consumeAtomicMarketplaceOrderSetPlaced: consume } = require(utils + 'marketplace-webhook-consumer-ack.ts')
@@ -215,6 +218,7 @@ async function crashed(w,phase){const result=await bounded(w.exited);assert.equa
 const cases=[];const test=(name,run)=>cases.push({name,run})
 let mainOrm, manager, base
 const nativeMigrations=[]
+checkpoint('PG_CANDIDATE_MIGRATIONS')
 for(const file of inventory.candidate_migrations)require(source+'/'+file)
 async function runMigration(file,orm) {
   const name=path.basename(file,path.extname(file)), C=(file.startsWith(source+'/')?require(file):dep(file))[name]
@@ -401,23 +405,30 @@ test('append_only_admission_commit_ack_and_down_refusal',async()=>{
   emit('MIGRATION_DOWN_REFUSED',{name:'Migration20261006220000',emitted_queries:0,preserved_ack_rows:(await sql('SELECT * FROM marketplace_webhook_consumer_ack')).length})
 })
 async function main(){
+  checkpoint('PG_CASE_INVENTORY')
   assert.equal(process.env.ACK_ISOLATED_FIXTURE,'1');assert.deepEqual(cases.map(c=>c.name),inventory.cases)
+  checkpoint('PG_OBSERVER_CONNECT')
   observer=new Client(connection);await observer.connect()
+  checkpoint('PG_RUNTIME_METADATA')
   emit('RUNTIME_METADATA',{node:process.version,postgres:(await sql('SELECT version() version'))[0].version,
     versions:Object.fromEntries(Object.entries(identities).map(([n,v])=>[n,v.version])),
     dependency_identities:identities,identity_edges:identityEdges,helper_identity_edges:helperIdentityEdges,native_migrations:nativeInventory,native_migrations_sha256:hash(stable(nativeInventory)),loaded_candidate_sources:[...loadedTs].sort(),
     source_hashes:hashes(),expected_tests:inventory.cases.length,boundary:'real candidate PG storage; seeded parent completed state and explicit DB-backed domain/graph fixture adapters; NOT native checkout/provider/broker/host-power-loss'})
   const results=[]
+  checkpoint('PG_TEST_EXECUTION')
   try{for(const c of cases){try{await c.run();results.push({name:c.name,status:'passed'})}catch(e){results.push({name:c.name,status:'failed',error:String(e.stack)});process.exitCode=1}emit('TEST_RESULT',results.at(-1))}}
   finally{
     for(const child of children)child.kill('SIGKILL')
     for(const p of pools)await p.destroy();if(mainOrm)await mainOrm.close(true);await observer.end()
   }
   emit('ACK_PG_RESULT',{expected:inventory.cases.length,passed:results.filter(r=>r.status==='passed').length,failed:results.filter(r=>r.status==='failed').length,skipped:0,results})
+  checkpoint('PG_NODE_COMPLETE')
 }
 if(process.argv[2]==='--preflight'){
+  checkpoint('PG_CASE_INVENTORY')
   assert.deepEqual(cases.map(c=>c.name),inventory.cases)
   for(const f of inventory.candidate_migrations){const C=require(source+'/'+f)[path.basename(f,'.ts')];assert(new C(undefined,undefined) instanceof Migration)}
   emit('NO_LAUNCH_PREFLIGHT',{status:'passed',candidate_hashes:hashes(),dependency_identities:identities,identity_edges:identityEdges,helper_identity_edges:helperIdentityEdges,native_migrations_sha256:hash(stable(nativeInventory)),cases:inventory.cases.length,imports:'real candidate helpers and real dependencies; no connect/up/test execution'})
-}else if(process.argv[2]?.startsWith('--'))workerMain(process.argv[2],process.argv[3]).catch(e=>{console.error(e.stack);process.exitCode=1;if(process.connected)process.disconnect()})
-else main().catch(e=>{emit('FATAL_ERROR',{error:String(e.stack)});process.exitCode=1})
+  checkpoint('PG_PREFLIGHT_COMPLETE')
+}else if(process.argv[2]?.startsWith('--'))workerMain(process.argv[2],process.argv[3]).catch(e=>{diagnosticFailure(e);console.error(e.stack);process.exitCode=1;if(process.connected)process.disconnect()})
+else main().catch(e=>{diagnosticFailure(e);emit('FATAL_ERROR',{error:String(e.stack)});process.exitCode=1})

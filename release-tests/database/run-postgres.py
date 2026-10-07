@@ -30,6 +30,37 @@ LABEL = 'local.audit.release-ack-pg.owner'
 MIB = 1024 * 1024
 LIMITS = {'pg': 256*MIB, 'node': 640*MIB}
 BOUNDARY = 'Real candidate admission/kernel/financial consumer/replay + native migrations/PG; seeded parent financial state and explicit DB-backed graph/domain fixture adapters. NOT native checkout, all-recipient delivery, Redis/provider or host-power-loss.'
+NODE_STAGES = {'PG_DEPENDENCY_IDENTITIES', 'PG_NATIVE_INVENTORY', 'PG_IDENTITY_EDGES', 'PG_NATIVE_CONSTRUCTORS',
+               'PG_CANDIDATE_HELPERS', 'PG_CANDIDATE_MIGRATIONS', 'PG_CASE_INVENTORY', 'PG_OBSERVER_CONNECT',
+               'PG_RUNTIME_METADATA', 'PG_TEST_EXECUTION', 'PG_PREFLIGHT_COMPLETE', 'PG_NODE_COMPLETE'}
+NODE_CODES = {'MODULE_NOT_FOUND', 'ERR_PACKAGE_PATH_NOT_EXPORTED', 'ERR_ASSERTION', 'ENOENT', 'EACCES',
+              'ECONNREFUSED', 'ETIMEDOUT', 'UNCLASSIFIED'}
+
+def private_open(path, exclusive=False):
+    flags = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | (os.O_EXCL if exclusive else os.O_TRUNC)
+    fd = os.open(path, flags, 0o600)
+    os.fchmod(fd, 0o600)
+    return os.fdopen(fd, 'w', buffering=1)
+
+def node_diagnostics(text):
+    # Never put arbitrary Node messages, paths or stack traces in coded diagnostics.
+    result = {'checkpoints': [], 'failures': []}
+    for line in text.splitlines():
+        tag, _, payload = line.partition(' ')
+        if tag not in ('PG_CHECKPOINT', 'PG_NODE_DIAGNOSTIC'):
+            continue
+        try:
+            item = json.loads(payload)
+            if not isinstance(item, dict) or item.get('stage') not in NODE_STAGES or item.get('role') not in ('main', 'worker', 'preflight'):
+                continue
+            safe = {'stage': item['stage'], 'role': item['role']}
+            if tag == 'PG_CHECKPOINT' and type(item.get('sequence')) is int and item['sequence'] > 0:
+                result['checkpoints'].append({**safe, 'sequence': item['sequence']})
+            elif tag == 'PG_NODE_DIAGNOSTIC' and item.get('code') in NODE_CODES:
+                result['failures'].append({**safe, 'code': item['code']})
+        except (ValueError, TypeError):
+            continue
+    return result
 
 class Blocked(RuntimeError):
     pass
@@ -48,7 +79,7 @@ def canonical_hash(value):
 
 def hashes():
     result = {f: hashlib.sha256((CANDIDATE / f).read_bytes()).hexdigest() for f in INVENTORY['candidate_files']}
-    result.update({'harness/' + f: hashlib.sha256((ROOT / f).read_bytes()).hexdigest() for f in ('acceptance.cjs', 'inventory.json', 'run-postgres.py')})
+    result.update({'harness/' + f: hashlib.sha256((ROOT / f).read_bytes()).hexdigest() for f in ('acceptance.cjs', 'dependency-identity.cjs', 'inventory.json', 'run-postgres.py')})
     return result
 
 def resources():
@@ -105,6 +136,7 @@ def validate(text, exit_code, before):
     for tag in ('PROCESS_CONCURRENCY', 'NATIVE_CONNECTION_IDENTITY', 'PHYSICAL_TRANSACTION', 'MIGRATION_DOWN_REFUSED'):
         require(len(tagged(text, tag)) == 1, tag + ' missing')
     require(not tagged(text, 'FATAL_ERROR') and not tagged(text, 'CLEANUP_ERROR'), 'helper fatal/cleanup error')
+    require(not node_diagnostics(text)['failures'], 'coded node failure')
     return summaries[0]
 
 def inspect_absent(name, returncode, output):
@@ -160,7 +192,7 @@ def run(output, backend, dependency_role):
     report = {'run_id': run_id, 'started_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'boundary': BOUNDARY,
               'backend_dependency_role': dependency_role, 'candidate_root': str(CANDIDATE), 'expected_tests': EXPECTED, 'status': 'running', 'cleanup': [], 'containers': {}, 'log': str(log_path), 'diagnostic_stage': 'PG_SOURCE_PINS'}
     owned = []
-    log = log_path.open('w', buffering=1)
+    log = private_open(log_path, exclusive=True)
     def command(args, timeout=30, check=True):
         log.write('COMMAND ' + json.dumps(args) + '\n')
         try:
@@ -239,6 +271,10 @@ def run(output, backend, dependency_role):
         report['node_exit_code'] = done.returncode
         report['results'] = tagged(done.stdout, 'TEST_RESULT')
         report['runtime'] = tagged(done.stdout, 'RUNTIME_METADATA')
+        report['node_diagnostics'] = node_diagnostics(done.stdout)
+        checkpoints = [x for x in report['node_diagnostics']['checkpoints'] if x['role'] == 'main']
+        failures = [x for x in report['node_diagnostics']['failures'] if x['role'] == 'main']
+        report['node_diagnostic_stage'] = (failures or checkpoints or [{'stage': 'PG_NODE_START'}])[-1]['stage']
         report['diagnostic_stage'] = 'PG_RECEIPT_VERIFY'
         report['summary'] = validate(done.stdout, done.returncode, before)
         # Real-positive receipt negative controls. These do not synthesize PG evidence.
@@ -297,8 +333,10 @@ def run(output, backend, dependency_role):
         log.close()
         report['log_sha256'] = hashlib.sha256(log_path.read_bytes()).hexdigest()
         text = json.dumps(report, indent=2)+'\n'
-        (output / f'ack-postgres.{run_id}.json').write_text(text)
-        (output / 'ack-postgres.json').write_text(text)
+        with private_open(output / f'ack-postgres.{run_id}.json', exclusive=True) as receipt:
+            receipt.write(text)
+        with private_open(output / 'ack-postgres.json') as receipt:
+            receipt.write(text)
         for s, handler in previous.items():
             signal.signal(s, handler)
         lock.close()

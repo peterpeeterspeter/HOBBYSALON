@@ -2,7 +2,7 @@
 """Hosted-only disposable runtime gate. Import and --help never invoke Docker.
 Parent builds candidate and verifies/loads saved previous artifact. No registry path.
 """
-import argparse, datetime, hashlib, json, os, re, secrets, shutil, signal, subprocess, tempfile, time
+import argparse, datetime, hashlib, json, os, re, secrets, shutil, signal, subprocess, tempfile, time, traceback
 from pathlib import Path
 PG='postgres@sha256:aa90e97ee862e558111d34cfb8b2c4bec768c2b039fb791341686928560263b3'
 REDIS='redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2'
@@ -16,6 +16,16 @@ LABEL='ci.release.runtime.owner'
 ROOT=Path(__file__).resolve().parent
 APP_COMMAND=['/app/node_modules/@medusajs/cli/dist/index.js','start','--types=false','--host','0.0.0.0','--port','9000']
 ERRORS=re.compile(r'CI_INDEX_INIT_FAILED|INDEX_STARTUP_(?:NOT_READY|QUERY_FAILED|TIMEOUT)|\b(?:EROFS|ENOENT|EACCES|UnhandledPromiseRejection|uncaughtException)\b|Error starting server|permission denied|password authentication failed|"level"\s*:\s*"error"|\berror:',re.I)
+DIAGNOSTIC_CODES={'INDEX_DIAG_ENTRY','INDEX_DIAG_CONFIG_IMPORTED','INDEX_DIAG_CATALOG_IMPORTED','INDEX_DIAG_SCHEMA_COMPLETE','INDEX_DIAG_PG_CONNECT_BEGIN','INDEX_DIAG_PG_CONNECT_COMPLETE','INDEX_DIAG_CATALOG_BEGIN','INDEX_DIAG_CATALOG_COMPLETE','INDEX_DIAG_OK','INDEX_DIAG_UNKNOWN_ERROR','INDEX_DIAG_MODULE_NOT_FOUND','INDEX_DIAG_EACCES','INDEX_DIAG_ENOENT','INDEX_DIAG_EROFS','INDEX_DIAG_EGRESS_DENIED','INDEX_DIAG_UNIX_SOCKET_DENIED','INDEX_DIAG_PLAN_UNSUPPORTED','INDEX_DIAG_SCHEMA_MISMATCH','INDEX_DIAG_PARTITION_INVALID','INDEX_DIAG_INDEX_INVALID','INDEX_DIAG_FUNCTION_INVALID','INDEX_DIAG_ROLE_MISMATCH','INDEX_DIAG_SQL_PERMISSION','INDEX_DIAG_SQL_AUTH','INDEX_DIAG_SQL_SYNTAX','INDEX_DIAG_SQL_UNDEFINED_TABLE'}
+
+def diagnostic_codes(text):
+    result=[]
+    for line in text.splitlines():
+        try: row=json.loads(line)
+        except (ValueError,TypeError): continue
+        if isinstance(row,dict) and set(row)=={'marker','code'} and row.get('marker')=='CI_RUNTIME_DIAGNOSTIC' and isinstance(row.get('code'),str) and row['code'] in DIAGNOSTIC_CODES:
+            result.append(row['code'])
+    return result
 
 def stamp(value):
     # Docker RFC3339 has nanoseconds: preserve ordering as integer nanoseconds.
@@ -53,13 +63,47 @@ class Harness:
         self.values=[secrets.token_hex(32) for _ in range(8)]
         self.evidence={'status':'FAIL','scope':'isolated native runtime/restart/rollback and physical DB fixtures; NOT provider/full checkout/production acceptance','phases':[],'cleanup':False,'diagnostic_stage':'RUNTIME_GUARD'}
         self.a.out.mkdir(parents=True,exist_ok=True)
+        # Sibling of --out, never in the workflow's public artifact allowlist.
+        base=self.a.out.parent/'runtime-diagnosis';base.mkdir(mode=0o700,exist_ok=True);base.chmod(0o700)
+        self.private_dir=Path(tempfile.mkdtemp(prefix=self.prefix+'-',dir=base));self.private_dir.chmod(0o700)
+    def private_record(self,kind,data):
+        fd=os.open(self.private_dir/(kind+'-'+secrets.token_hex(8)+'.json'),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        with os.fdopen(fd,'w') as f: json.dump(data,f,indent=2)
+    def capture_owned_failure(self):
+        # Raw state/logs contain env/credentials: private only, before any removal.
+        original=self.deadline;self.deadline=time.monotonic()+30
+        try:
+            for name in dict.fromkeys(self.containers):
+                if time.monotonic()>=self.deadline: break
+                try:
+                    p=self.proc('docker','inspect',name,timeout=5)
+                    if p.returncode: continue
+                    obj=json.loads(p.stdout)[0]
+                    if obj.get('Config',{}).get('Labels',{}).get(LABEL)!=self.prefix:
+                        self.private_record('ownership-refused',{'code':'CONTAINER_OWNERSHIP_MISMATCH'});continue
+                    self.private_record('owned-state',{'container':name,'inspect':obj})
+                    p=self.proc('docker','logs','--timestamps',name,timeout=5)
+                    self.private_record('owned-logs',{'container':name,'returncode':p.returncode,'stdout':p.stdout,'stderr':p.stderr})
+                except Exception:
+                    self.private_record('capture-failure',{'code':'PRIVATE_CAPTURE_FAILED'})
+        finally: self.deadline=original
     def proc(self,*args,input=None,timeout=60):
         left=self.deadline-time.monotonic()
         if left<=0: raise RuntimeError('RUNTIME_DEADLINE_2100S')
         return subprocess.run(args,input=input,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(timeout,left))
     def run(self,*args,input=None,timeout=60,check=True):
-        p=self.proc(*args,input=input,timeout=timeout)
-        if check and p.returncode: raise RuntimeError('COMMAND_FAILED:'+str(args[0])+':'+self.scrub(p.stderr[-1500:]))
+        try: p=self.proc(*args,input=input,timeout=timeout)
+        except subprocess.TimeoutExpired as e:
+            def text(v): return v.decode('utf8','replace') if isinstance(v,bytes) else (v or '')
+            self.private_record('command-timeout',{'argv':args,'stdout':text(e.stdout),'stderr':text(e.stderr),'code':'COMMAND_TIMEOUT'})
+            raise RuntimeError('COMMAND_TIMEOUT') from e
+        if p.returncode:
+            self.private_record('command-failure',{'argv':args,'returncode':p.returncode,'stdout':p.stdout,'stderr':p.stderr})
+        codes=diagnostic_codes(p.stdout)+diagnostic_codes(p.stderr)
+        if codes:
+            self.evidence.setdefault('diagnostic_codes',[]).extend(codes)
+            for code in codes: print(json.dumps({'marker':'CI_RUNTIME_DIAGNOSTIC','code':code}),flush=True)
+        if check and p.returncode: raise RuntimeError('COMMAND_FAILED')
         return p.stdout+p.stderr if args[:2]==('docker','logs') else p.stdout
     def docker(self,*args,**kw): return self.run('docker',*args,**kw)
     def scrub(self,text):
@@ -80,7 +124,7 @@ class Harness:
     def sandbox(self,name,image,env,command,extra=(),detach=False):
         args=['--network',self.net,'--read-only','--user','1001:1001','--cap-drop','ALL','--security-opt','no-new-privileges','--memory','3g','--memory-swap','3g','--log-driver','json-file','--cpus','2','--pids-limit','256','--restart','no','--tmpfs','/tmp:rw,nosuid,nodev,size=256m,uid=1001,gid=1001','--tmpfs',TYPES+':rw,nosuid,nodev,noexec,size=64m,uid=1001,gid=1001','--env-file',str(env),'--entrypoint','node']
         # No log rotation: complete container lifetime logs are captured each phase.
-        for namefile in ['egress-deny.cjs','fixture.cjs','init-observer.cjs']:
+        for namefile in ['egress-deny.cjs','fixture.cjs','init-observer.cjs','index-diagnostics.cjs']:
             args+=['--mount',f'type=bind,src={ROOT/namefile},dst=/ci/{namefile},readonly']
         args+=list(extra)
         if detach: args+=['-d']
@@ -261,7 +305,7 @@ COMMIT;"""
         self.sql('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO app;')
         indexenv=self.secret_dir/'index.env';indexenv.write_text(runtime.read_text()+f'RELEASE_INDEX_BOOTSTRAP_APPROVED=yes\nINDEX_MIGRATOR_ROLE=migrator\nMIGRATOR_DATABASE_URL=postgresql://migrator:{self.values[1]}@pg:5432/acceptance?sslmode=disable\n');indexenv.chmod(0o600)
         self.evidence['diagnostic_stage']='RUNTIME_INDEX_BOOTSTRAP'
-        self.sandbox(self.prefix+'-index',self.a.candidate,indexenv,['/app/deploy/release/index-bootstrap.cjs','/app/apps/backend/.medusa/server/medusa-config.js'])
+        self.sandbox(self.prefix+'-index',self.a.candidate,indexenv,['/ci/index-diagnostics.cjs','/app/apps/backend/.medusa/server/medusa-config.js'])
         self.sql('CREATE TABLE ci_acceptance_sentinel(id text PRIMARY KEY,payload jsonb NOT NULL);',user='migrator')
         self.sql('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO app; REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC,app; GRANT EXECUTE ON FUNCTION public.count_estimate(text) TO app; ALTER ROLE migrator NOLOGIN PASSWORD NULL;')
         self.evidence['diagnostic_stage']='RUNTIME_ROLE_RESTRICTIONS'
@@ -340,7 +384,9 @@ def main():
     signal.signal(signal.SIGALRM,expired);signal.alarm(2070)
     try: h.execute()
     except Exception as e:
-        h.evidence['error']=h.scrub(str(e))
+        h.private_record('harness-exception',{'exception':traceback.format_exc()})
+        h.evidence['error']='RUNTIME_FAILURE'
+        h.capture_owned_failure()
         try: _,h.evidence['failure_log']=h.capture_logs('failure')
         except Exception: pass
     finally:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Offline regression tests. No containers, imports of product code or network."""
-import importlib.util, json, unittest
+import importlib.util, json, unittest, tempfile, subprocess, os, time
 from pathlib import Path
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -8,6 +8,30 @@ spec=importlib.util.spec_from_file_location('runtime',Path(__file__).with_name('
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 class Tests(unittest.TestCase):
+    def test_private_stdout_stderr_and_safe_codes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.evidence={}
+            h.proc=lambda *a,**k:subprocess.CompletedProcess(a,1,'stdout-root-cause secret-canary','stderr-root-cause secret-canary')
+            with self.assertRaisesRegex(RuntimeError,'^COMMAND_FAILED$'):h.run('unused')
+            f=next(Path(tmp).iterdir());self.assertEqual(f.stat().st_mode & 0o777,0o600)
+            record=json.loads(f.read_text());self.assertIn('stdout-root-cause',record['stdout']);self.assertIn('stderr-root-cause',record['stderr'])
+            self.assertEqual(r.diagnostic_codes('secret-canary\n'+json.dumps({'marker':'CI_RUNTIME_DIAGNOSTIC','code':'secret-canary'})),[])
+            self.assertEqual(r.diagnostic_codes(json.dumps({'marker':'CI_RUNTIME_DIAGNOSTIC','code':'INDEX_DIAG_PLAN_UNSUPPORTED'})),['INDEX_DIAG_PLAN_UNSUPPORTED'])
+    def test_timeout_keeps_both_streams(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp)
+            h.proc=lambda *a,**k:(_ for _ in ()).throw(subprocess.TimeoutExpired(a,1,output=b'out',stderr=b'err'))
+            with self.assertRaisesRegex(RuntimeError,'^COMMAND_TIMEOUT$'):h.run('unused')
+            record=json.loads(next(Path(tmp).iterdir()).read_text());self.assertEqual((record['stdout'],record['stderr']),('out','err'))
+    def test_private_container_capture_refuses_foreign_owner(self):
+        h=r.Harness.__new__(r.Harness);h.containers=['owned','foreign'];h.prefix='owner';h.deadline=time.monotonic()+60;records=[];calls=[]
+        def proc(*args,**kw):
+            calls.append(args)
+            if args[1]=='logs':return subprocess.CompletedProcess(args,0,'owned stdout','owned stderr')
+            return subprocess.CompletedProcess(args,0,json.dumps([{'Config':{'Labels':{r.LABEL:'owner' if args[-1]=='owned' else 'other'}},'State':{'ExitCode':1}}]),'')
+        h.proc=proc;h.private_record=lambda kind,data:records.append((kind,data));h.capture_owned_failure()
+        self.assertTrue(any(k=='owned-state' for k,v in records));self.assertTrue(any(k=='owned-logs' for k,v in records))
+        self.assertTrue(any(k=='ownership-refused' for k,v in records));self.assertNotIn(('docker','logs','--timestamps','foreign'),calls)
     def test_local_identity_fail_closed(self):
         r.validate_images('sha256:'+'a'*64,r.PREVIOUS_ID)
         for candidate,previous in [('tag:latest',r.PREVIOUS_ID),(r.PREVIOUS_ID,r.PREVIOUS_ID),('sha256:'+'a'*64,'sha256:'+'e'*64)]:

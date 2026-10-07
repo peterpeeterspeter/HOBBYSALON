@@ -71,7 +71,7 @@ jobs:
           test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' postgres@sha256:129fbfd388241accda7b15e38ada14b11c70698e01e5c8072265b0eaa03af010)" = linux/amd64
       - name: Offline PostgreSQL harness controls
         id: controls
-        run: python3 release-tests/database/run-postgres.py --self-test --candidate-root "$RUNNER_TEMP/scoped-tests/context"
+        run: python3 release-tests/database/selftest.py --candidate-root "$RUNNER_TEMP/scoped-tests/context" --private-dir "$RUNNER_TEMP/scoped-tests/pg-selftests"
       - name: Limited actual PG acceptance
         id: harness
         run: python3 release-tests/database/run-postgres.py --run --backend-image "$CANDIDATE_ID" --candidate-root "$RUNNER_TEMP/scoped-tests/context" --output-dir "$GITHUB_WORKSPACE/release-tests/database/evidence"
