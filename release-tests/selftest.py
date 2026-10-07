@@ -12,8 +12,10 @@ import os
 import re
 import select
 import subprocess
+import sys
 import threading
 import time
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -198,12 +200,24 @@ assert.equal(process.exitCode, 1);
             os.close(write_fd)
 
     def test_source_build_pins(self):
-        self.assertEqual(v.RUN, 37591870825)
-        self.assertEqual(v.COMMIT, '596466b55549e6140254ac7b81fc94edb6f9af47')
+        self.assertEqual(v.RUN, 37608897772)
+        self.assertEqual(v.COMMIT, '1939c7b32bb1d83e642c4e9c5bf30260de2ca7c1')
+        self.assertIn(v.COMMIT, (ROOT.parent / '.github/workflows/release-tests.yml').read_text())
+        self.assertIn(str(v.RUN), (ROOT / 'SCOPE.md').read_text())
+        self.assertIn(v.COMMIT, (ROOT / 'SCOPE.md').read_text())
         for job in w['jobs'].values():
             downloads = [s for s in job['steps'] if 'download-artifact@' in s.get('uses', '')]
             self.assertEqual(len(downloads), 1)
             self.assertEqual(downloads[0]['with']['run-id'], str(v.RUN))
+            self.assertEqual(downloads[0]['uses'], 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093')
+            self.assertEqual(downloads[0]['with']['artifact-ids'], '${{ steps.binding.outputs.artifact_id }}')
+            self.assertEqual(downloads[0]['with']['merge-multiple'], 'true')
+            self.assertNotIn('name', downloads[0]['with'])
+            self.assertEqual(downloads[0]['with']['repository'], v.REPO)
+            self.assertEqual(downloads[0]['with']['github-token'], '${{ github.token }}')
+            binding = next(s for s in job['steps'] if s.get('id')=='binding')
+            self.assertEqual(binding['run'], 'python3 release-tests/verify-candidate.py --binding-only')
+            self.assertLess(job['steps'].index(binding), job['steps'].index(downloads[0]))
 
     def test_push_paths_and_guards(self):
         self.assertEqual(set(w['on']), {'push'})
@@ -211,16 +225,37 @@ assert.equal(process.exitCode, 1);
         self.assertEqual(w['on']['push']['paths'], ['release-tests/**', '.github/workflows/release-tests.yml'])
         for job in w['jobs'].values():
             guard = job['if']
-            for expected in ["github.event_name == 'push'", "github.ref == 'refs/heads/ops/release-validation-20261007'", 'github.event.created == false', 'github.event.deleted == false', 'github.event.forced == false', 'github.run_attempt == 1']:
+            for expected in ["github.repository == 'peterpeeterspeter/HOBBYSALON'", "github.event_name == 'push'", "github.ref == 'refs/heads/ops/release-validation-20261007'", 'github.event.created == false', 'github.event.deleted == false', 'github.event.forced == false', 'github.run_attempt == 1']:
                 self.assertIn(expected, guard)
         self.assertNotIn('needs', w['jobs']['runtime'])
         self.assertIn('!cancelled()', w['jobs']['runtime']['if'])
 
-    def binding(self, data):
-        response = io.BytesIO(json.dumps(data).encode())
-        with patch.dict(v.os.environ, {'GH_TOKEN': 'offline-test-placeholder'}, clear=True), patch.object(v.urllib.request, 'urlopen', return_value=response), contextlib.redirect_stdout(io.StringIO()):
-            v.binding()
-            self.assertNotIn('GH_TOKEN', v.os.environ)
+    def valid_artifacts(self):
+        # The binding constants were independently observed from the completed build;
+        # the response here is an offline API fixture, never fabricated production evidence.
+        return {'total_count':1, 'artifacts':[{'id':v.ARTIFACT_ID, 'name':v.ARTIFACT_NAME, 'expired':False, 'digest':v.ARTIFACT_DIGEST, 'size_in_bytes':v.ARTIFACT_SIZE, 'workflow_run':{'id':v.RUN, 'head_sha':v.COMMIT, 'head_branch':'ops/release-validation-20261007'}}]}
+
+    def binding(self, data, artifacts=None, expected_calls=2):
+        artifacts = self.valid_artifacts() if artifacts is None else artifacts
+        responses = [io.BytesIO(json.dumps(d).encode()) for d in (data, artifacts)]
+        token = 'offline-fixture-token'
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)/'output'
+            with patch.dict(v.os.environ, {'GH_TOKEN': token, 'GITHUB_OUTPUT':str(output)}, clear=True), patch.object(v.urllib.request, 'urlopen', side_effect=responses) as request, contextlib.redirect_stdout(io.StringIO()) as stdout:
+                try:
+                    result = v.binding()
+                    self.assertEqual(output.read_text(), 'artifact_id='+str(result['id'])+'\n')
+                finally:
+                    if request.call_count==expected_calls and not stdout.getvalue():
+                        self.assertFalse(output.exists(), 'failed binding must not emit a downloadable artifact ID')
+                    self.assertNotIn('GH_TOKEN', v.os.environ)
+                    self.assertNotIn(token, stdout.getvalue())
+                    self.assertEqual(request.call_count, expected_calls)
+                    urls = [call.args[0].full_url for call in request.call_args_list]
+                    endpoint = f'https://api.github.com/repos/{v.REPO}/actions/runs/{v.RUN}'
+                    self.assertEqual(urls, [endpoint, endpoint+'/artifacts?per_page=100'][:expected_calls])
+                    for call in request.call_args_list:
+                        self.assertEqual(call.kwargs, {'timeout':30})
 
     def valid_binding(self):
         return {'id': v.RUN, 'head_sha': v.COMMIT, 'status': 'completed', 'conclusion': 'success', 'run_attempt': 1, 'event': 'push', 'head_branch': 'ops/release-validation-20261007', 'repository': {'full_name': v.REPO}, 'path': '.github/workflows/backend-ack-build.yml'}
@@ -229,10 +264,50 @@ assert.equal(process.exitCode, 1);
         self.binding(self.valid_binding())
 
     def test_binding_refuses_in_progress_or_wrong_identity(self):
-        for key, value in [('id', 37589026194), ('head_sha', '0'*40), ('status', 'in_progress'), ('conclusion', 'failure'), ('run_attempt', 2), ('event', 'workflow_dispatch'), ('head_branch', 'main'), ('repository', {'full_name': 'wrong/repo'}), ('path', '.github/workflows/release-tests.yml')]:
+        for key, value in [('id', 37589026194), ('id', 37591870825), ('head_sha', '596466b55549e6140254ac7b81fc94edb6f9af47'), ('head_sha', '0'*40), ('status', 'in_progress'), ('status', 'queued'), ('conclusion', 'failure'), ('conclusion', None), ('conclusion', 'cancelled'), ('run_attempt', 2), ('event', 'workflow_dispatch'), ('head_branch', 'main'), ('repository', {'full_name': 'wrong/repo'}), ('path', '.github/workflows/release-tests.yml')]:
             data = self.valid_binding(); data[key] = value
             with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, 'EXACT_SUCCESSFUL_BUILD_REQUIRED'):
-                self.binding(data)
+                self.binding(data, expected_calls=1)
+
+    def test_artifact_metadata_mismatches(self):
+        changes = [('name','wrong-name'), ('id',0), ('id',True), ('expired',True), ('expired',None), ('digest',None), ('digest','sha256:'+'g'*64), ('digest','a'*64), ('size_in_bytes',0), ('size_in_bytes',-1), ('size_in_bytes',True), ('size_in_bytes','4096'), ('workflow_run',{'id':37591870825,'head_sha':v.COMMIT,'head_branch':'ops/release-validation-20261007'}), ('workflow_run',{'id':v.RUN,'head_sha':'596466b55549e6140254ac7b81fc94edb6f9af47','head_branch':'ops/release-validation-20261007'}), ('workflow_run',{'id':v.RUN,'head_sha':v.COMMIT,'head_branch':'main'}), ('workflow_run',None)]
+        for key, value in changes:
+            data = self.valid_artifacts(); data['artifacts'][0][key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(RuntimeError):
+                self.binding(self.valid_binding(), data)
+        for key in ['id','name','expired','digest','size_in_bytes','workflow_run']:
+            data = self.valid_artifacts(); del data['artifacts'][0][key]
+            with self.subTest(missing=key), self.assertRaises(RuntimeError):
+                self.binding(self.valid_binding(), data)
+        data = self.valid_artifacts()
+        duplicate = {'total_count':2, 'artifacts':data['artifacts']*2}
+        for bad in [{}, {'total_count':0,'artifacts':[]}, duplicate, {'total_count':101,'artifacts':data['artifacts']}, {'total_count':True,'artifacts':data['artifacts']}, {'total_count':1,'artifacts':[None]}, {'total_count':101,'artifacts':data['artifacts']*101}]:
+            with self.subTest(list=bad), self.assertRaises(RuntimeError):
+                self.binding(self.valid_binding(), bad)
+
+    def test_pinned_artifact_metadata_refuses_well_formed_substitution(self):
+        for key,value in [('id',v.ARTIFACT_ID+1),('digest','sha256:'+'0'*64),('size_in_bytes',v.ARTIFACT_SIZE+1)]:
+            data=self.valid_artifacts();data['artifacts'][0][key]=value
+            with self.subTest(key=key),self.assertRaisesRegex(RuntimeError,'PINNED_ARTIFACT_METADATA_REQUIRED'):
+                self.binding(self.valid_binding(),data)
+
+    def test_candidate_main_hosted_guard_fails_closed(self):
+        for env in [{}, {'GITHUB_ACTIONS':'true','RUNNER_ENVIRONMENT':'self-hosted'}, {'GITHUB_ACTIONS':'false','RUNNER_ENVIRONMENT':'github-hosted'}]:
+            done = subprocess.run([sys.executable, '-B', str(ROOT/'verify-candidate.py'), '--binding-only'], env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(done.returncode, 2)
+            self.assertEqual(done.stdout, '')
+            self.assertEqual(done.stderr, 'FAIL: exact candidate verification refused; diagnostics withheld\n')
+
+    def test_binding_api_size_bound_and_missing_token(self):
+        for oversized_artifacts in [False, True]:
+            replies = [io.BytesIO(b' '*(1024*1024+1))]
+            if oversized_artifacts:
+                replies.insert(0, io.BytesIO(json.dumps(self.valid_binding()).encode()))
+            with patch.dict(v.os.environ, {'GH_TOKEN':'offline-fixture-token'}, clear=True), patch.object(v.urllib.request, 'urlopen', side_effect=replies), self.assertRaisesRegex(RuntimeError, 'API_BOUND'):
+                v.binding()
+        with patch.dict(v.os.environ, {}, clear=True), patch.object(v.urllib.request, 'urlopen') as request, self.assertRaisesRegex(RuntimeError, 'SCOPED_READ_TOKEN_REQUIRED'):
+            v.binding()
+        request.assert_not_called()
 
     def test_postgres_manifest_config_separation(self):
         self.assertEqual(g.POSTGRES, 'sha256:87e04d274d186c7331d0e13c7c90c8b9f63b0d7ae94476c98a229a94d62c9745')
