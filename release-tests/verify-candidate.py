@@ -3,12 +3,12 @@
 import argparse, hashlib, json, os, re, subprocess, sys, urllib.request
 from pathlib import Path
 REPO = 'peterpeeterspeter/HOBBYSALON'
-RUN = 37613802325
-COMMIT = 'bc94cd59b3ba415e77c5691ed3ec6ce88cc82700'
+RUN = 37622607612
+COMMIT = '59efa5f84902380c30e7c0a25a890c57c925e98e'
 ARTIFACT_NAME = 'release-candidate-20261007'
-ARTIFACT_ID = 11478492446
-ARTIFACT_DIGEST = 'sha256:19711011efb7dec4dded8a9c36146fb61d9a22a8c32a57d639e9746dd65ce868'
-ARTIFACT_SIZE = 275581555
+ARTIFACT_ID = 11483101180
+ARTIFACT_DIGEST = 'sha256:c72759529e368a0977966ee0fc0fca555849115e70684d9ae3a7787e234c1fa6'
+ARTIFACT_SIZE = 275571663
 IMAGE = 'hobbysalon-release-candidate:20261007'
 ROOT = Path(__file__).resolve().parent.parent
 

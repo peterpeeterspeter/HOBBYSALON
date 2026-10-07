@@ -1,5 +1,5 @@
 name: Scoped exact candidate hosted tests (no deploy)
-# Exact candidate commit: bc94cd59b3ba415e77c5691ed3ec6ce88cc82700; completed/success attempt 1 required.
+# Exact candidate commit: 59efa5f84902380c30e7c0a25a890c57c925e98e; completed/success attempt 1 required.
 on:
   push:
     branches:
@@ -56,7 +56,7 @@ jobs:
         with:
           artifact-ids: ${{ steps.binding.outputs.artifact_id }}
           merge-multiple: true
-          run-id: 37613802325
+          run-id: 37622607612
           repository: peterpeeterspeter/HOBBYSALON
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/scoped-tests/candidate
@@ -153,7 +153,7 @@ jobs:
         with:
           artifact-ids: ${{ steps.binding.outputs.artifact_id }}
           merge-multiple: true
-          run-id: 37613802325
+          run-id: 37622607612
           repository: peterpeeterspeter/HOBBYSALON
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/scoped-tests/candidate
