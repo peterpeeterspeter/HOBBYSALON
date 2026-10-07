@@ -34,6 +34,36 @@ def diagnostic_codes(text):
             result.append(row['code'])
     return result
 
+AUDIT_ASSERTIONS=('native_catalog','distinct_observer_pid','before_commit_invisible',
+    'after_commit_visible','exact_eight_fields','rollback_barrier','rollback_invisible',
+    'composite_boundaries','native_constraints','schema_unchanged_after_failures',
+    'update_delete_immutable','runtime_ddl_replication_denied','runtime_truncate_privilege_denied')
+AUDIT_NEGATIVE_COUNTS={'uniqueness':2,'not_null':8,'plan_hash':3,'id_hash':1,
+    'lengths':4,'json_objects':9,'provider':15,'row_guards':3,'role_denials':5}
+
+def audit_receipt(raw):
+    # A successful process exit or old webhook-only PASS is not audit evidence.
+    try:
+        row=json.loads(raw)
+        audit=row['audit']; assertions=audit['assertions']; counts=audit['negative_cases']
+        if row['status']!='PASS' or row['duplicate'] is not True or row['atomic_rollback'] is not True:
+            raise ValueError('fixture')
+        if type(audit['version']) is not int or audit['version']!=1 or audit['status']!='PASS' or audit['synthetic_storage_only'] is not True:
+            raise ValueError('version')
+        if set(assertions)!=set(AUDIT_ASSERTIONS) or any(assertions[x] is not True for x in AUDIT_ASSERTIONS):
+            raise ValueError('assertions')
+        if counts!=AUDIT_NEGATIVE_COUNTS or any(type(x) is not int for x in counts.values()):
+            raise ValueError('counts')
+        if type(audit['committed_rows']) is not int or audit['committed_rows']!=3:
+            raise ValueError('rows')
+        if any(not isinstance(audit[x],str) or not re.fullmatch('[a-f0-9]{64}',audit[x]) for x in ['schema_sha256','rows_sha256']):
+            raise ValueError('hashes')
+        if audit['owner_truncate_guard']!='pending-harness' or audit['migration_down']!='not-executed':
+            raise ValueError('owner')
+        return audit
+    except (ValueError,KeyError,TypeError,AttributeError) as e:
+        raise RuntimeError('AUDIT_RECEIPT_REQUIRED') from e
+
 def stamp(value):
     # Docker RFC3339 has nanoseconds: preserve ordering as integer nanoseconds.
     m=re.fullmatch(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z',value or '')
@@ -190,6 +220,61 @@ COMMIT;"""
         raw=self.docker('exec',self.pg,'pg_dump','-U','postgres','-d','acceptance','--schema-only','--no-owner','--no-privileges')
         stable='\n'.join(line for line in raw.splitlines() if not line.startswith(('\\restrict ', '\\unrestrict ')))
         return hashlib.sha256(stable.encode()).hexdigest()
+    def owner_audit_controls(self):
+        # Disposable DB only, after app fixture and before baseline. No privileges
+        # widened, no native down/DDL executed, no alternate audit installation.
+        before=self.snapshot();schema=self.schema()
+        result=self.sql("""BEGIN;
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '5s';
+SET LOCAL idle_in_transaction_session_timeout = '10s';
+SET LOCAL ROLE migrator;
+DO $test$
+DECLARE message text; truncate_rejected boolean := false; down_rejected boolean := false;
+BEGIN
+  IF current_user <> 'migrator' OR NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relname='reconciliation_repair_audit'
+      AND pg_get_userbyid(c.relowner)=current_user
+  ) THEN RAISE EXCEPTION 'AUDIT_OWNER_REQUIRED'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.reconciliation_repair_audit) THEN
+    RAISE EXCEPTION 'AUDIT_POPULATED_FIXTURE_REQUIRED';
+  END IF;
+  BEGIN
+    TRUNCATE TABLE public.reconciliation_repair_audit;
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS message = MESSAGE_TEXT;
+    IF message <> 'reconciliation audit is immutable: update/delete/truncate forbidden' THEN
+      RAISE EXCEPTION 'AUDIT_TRUNCATE_WRONG_ERROR';
+    END IF;
+    truncate_rejected := true;
+  END;
+  IF NOT truncate_rejected THEN RAISE EXCEPTION 'AUDIT_TRUNCATE_GUARD_MISSING'; END IF;
+  -- Test only the inspected native down's population guard SQL, not its DDL,
+  -- migration runner, bookkeeping or empty-down removal. Always parent ROLLBACK.
+  LOCK TABLE public.reconciliation_repair_audit IN ACCESS EXCLUSIVE MODE;
+  BEGIN
+    EXECUTE $guard$DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM public.reconciliation_repair_audit) THEN
+        RAISE EXCEPTION 'refusing rollback with durable reconciliation audit evidence';
+      END IF;
+    END $$;$guard$;
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS message = MESSAGE_TEXT;
+    IF message <> 'refusing rollback with durable reconciliation audit evidence' THEN
+      RAISE EXCEPTION 'AUDIT_DOWN_GUARD_WRONG_ERROR';
+    END IF;
+    down_rejected := true;
+  END;
+  IF NOT down_rejected THEN RAISE EXCEPTION 'AUDIT_DOWN_GUARD_MISSING'; END IF;
+END $test$;
+SELECT 'AUDIT_OWNER_CONTROLS_P0001';
+ROLLBACK;""",user='postgres').strip()
+        if result!='AUDIT_OWNER_CONTROLS_P0001': raise RuntimeError('AUDIT_OWNER_RECEIPT_REQUIRED')
+        if self.snapshot()!=before or self.schema()!=schema: raise RuntimeError('AUDIT_OWNER_ROWS_OR_SCHEMA_CHANGED')
+        return {'status':'PASS','owner_truncate_guard':'PASS','owner_truncate_sqlstate':'P0001',
+            'owner_rows_schema_unchanged':True,'populated_down_guard_sql':True,
+            'migration_down':'not-executed','empty_down_removal':'untested'}
     def static_hash(self,offline=False):
         command="const f=require('fs'),p=require('path'),h=require('crypto').createHash('sha256');function walk(d){for(const n of f.readdirSync(d).sort()){const a=p.join(d,n),s=f.lstatSync(a);h.update(a+':'+s.mode+':'+s.uid+':'+s.gid+'\\n');if(s.isDirectory())walk(a);else if(s.isFile())h.update(f.readFileSync(a));else throw Error('STATIC_SPECIAL_FILE')}}walk('/app/apps/backend/static');process.stdout.write(h.digest('hex'))"
         if offline:
@@ -338,12 +423,19 @@ COMMIT;"""
         if audit!='f' or self.sql("SELECT has_function_privilege('app','public.count_estimate(text)','EXECUTE');").strip()!='t': raise RuntimeError('RUNTIME_ROLE_OR_FUNCTION_PRIVILEGES_INVALID')
         self.evidence['runtime_role_restricted']=True
         self.evidence['diagnostic_stage']='RUNTIME_PHYSICAL_FIXTURE'
-        self.evidence['physical_pg_fixture_receipt']=self.sandbox(self.prefix+'-fixture',self.a.candidate,runtime,['/ci/fixture.cjs']).strip()
+        raw_fixture=self.sandbox(self.prefix+'-fixture',self.a.candidate,runtime,['/ci/fixture.cjs']).strip()
+        self.evidence['physical_pg_fixture_receipt']=raw_fixture
+        self.evidence['audit_native']=audit_receipt(raw_fixture)
+        self.evidence['audit_native']['status']='PENDING_OWNER_CONTROLS'
+        self.evidence['diagnostic_stage']='RUNTIME_AUDIT_OWNER_CONTROLS'
+        self.evidence['audit_native'].update(self.owner_audit_controls())
         self.owned_run(self.prefix+'-static-init',self.a.candidate,['--network','none','--read-only','--user','0:0','--cap-drop','ALL','--cap-add','CHOWN','--entrypoint','node','--mount',f'type=volume,src={self.volumes[1]},dst=/fixture'],['-e',"const f=require('fs');f.writeFileSync('/fixture/ci-sentinel','ci-fixture-no-loss');f.chownSync('/fixture',1001,1001);f.chownSync('/fixture/ci-sentinel',1001,1001)"])
         self.evidence['diagnostic_stage']='RUNTIME_BASELINE'
         baseline=self.snapshot();schema=self.schema()
         for image,phase in [(self.a.candidate,'candidate'),(self.a.previous,'previous'),(self.a.candidate,'candidate-restored')]: self.phase(image,phase,baseline,schema)
         self.negative(baseline,schema)
+        if self.evidence['audit_native'].get('owner_truncate_guard')!='PASS' or self.evidence['audit_native'].get('owner_rows_schema_unchanged') is not True:
+            raise RuntimeError('AUDIT_OWNER_RECEIPT_REQUIRED')
         self.evidence['status']='PASS'
         self.evidence['diagnostic_stage']='COMPLETE'
     def remove_container(self,c):

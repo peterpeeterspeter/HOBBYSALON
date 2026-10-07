@@ -170,4 +170,138 @@ class Tests(unittest.TestCase):
         with patch.dict(r.os.environ,{},clear=True),patch.object(r.subprocess,'run',side_effect=AssertionError('MUST_NOT_LAUNCH')):
             with self.assertRaisesRegex(RuntimeError,'ONLY_GITHUB_HOSTED'):h.execute()
 
+class AuditTests(unittest.TestCase):
+    """Mocks exercise assertion logic only; never physical PostgreSQL evidence."""
+    def good_receipt(self):
+        return {'status':'PASS','duplicate':True,'atomic_rollback':True,'audit':{
+            'version':1,'status':'PASS','synthetic_storage_only':True,
+            'assertions':dict.fromkeys(r.AUDIT_ASSERTIONS,True),
+            'negative_cases':dict(r.AUDIT_NEGATIVE_COUNTS),'committed_rows':3,
+            'schema_sha256':'a'*64,'rows_sha256':'b'*64,
+            'owner_truncate_guard':'pending-harness','migration_down':'not-executed'}}
+    def test_audit_explicit_receipt_required(self):
+        old={'status':'PASS','duplicate':True,'atomic_rollback':True}
+        with self.assertRaisesRegex(RuntimeError,'AUDIT_RECEIPT_REQUIRED'):
+            r.audit_receipt(json.dumps(old))
+        good=self.good_receipt();self.assertEqual(r.audit_receipt(json.dumps(good)),good['audit'])
+    def test_audit_degraded_receipts_fail_closed(self):
+        import copy
+        good=self.good_receipt()
+        for label in r.AUDIT_ASSERTIONS:
+            for bad in [False,1,None,'PASS']:
+                row=copy.deepcopy(good);row['audit']['assertions'][label]=bad
+                with self.subTest(label=label,bad=bad),self.assertRaises(RuntimeError):r.audit_receipt(json.dumps(row))
+        for label in r.AUDIT_NEGATIVE_COUNTS:
+            row=copy.deepcopy(good);row['audit']['negative_cases'][label]=0
+            with self.subTest(count=label),self.assertRaises(RuntimeError):r.audit_receipt(json.dumps(row))
+        for field,bad in [('status','FAIL'),('version',True),('synthetic_storage_only',False),('committed_rows',0),('schema_sha256','bad'),('rows_sha256','bad'),('owner_truncate_guard','PASS')]:
+            row=copy.deepcopy(good);row['audit'][field]=bad
+            with self.subTest(field=field),self.assertRaises(RuntimeError):r.audit_receipt(json.dumps(row))
+        for raw in ['', 'not json', '[]', json.dumps(good)+'\n'+json.dumps(good)]:
+            with self.assertRaises(RuntimeError):r.audit_receipt(raw)
+    def test_audit_catalog_assertion_controls_offline_node(self):
+        # The JS builds this explicitly mocked catalog; no driver/DB is loaded.
+        js=r'''const f=require(process.argv[1]),a=require('node:assert/strict');
+// Independent agreed native contract: never derive this baseline from fixture exports.
+const columns=[['id','text'],['plan_hash','text'],['case_id','text'],['actor','text'],['evidence','jsonb'],['before_snapshot','jsonb'],['after_snapshot','jsonb'],['created_at','timestamp with time zone']];
+const checks=[
+ "CHECK (plan_hash ~ '^[a-f0-9]{64}$')",
+ 'CHECK (length(case_id) >= 1 AND length(case_id) <= 255)',
+ 'CHECK (length(actor) >= 1 AND length(actor) <= 255)',
+ "CHECK (jsonb_typeof(evidence) = 'object')",
+ "CHECK (jsonb_typeof(before_snapshot) = 'object')",
+ "CHECK (jsonb_typeof(after_snapshot) = 'object')",
+ "CHECK (id = 'recon_' || plan_hash)",
+ "CHECK ((evidence->'provider'->>'account_id' ~ '^acct_[A-Za-z0-9]{1,200}$' AND evidence->'provider'->>'provider_effect_id' ~ '^(ch|re)_[A-Za-z0-9]{1,200}$') IS TRUE)"
+];
+const assertContract=fixture=>{
+ a.deepEqual(fixture.AUDIT_COLUMNS,columns);
+ a.deepEqual(fixture.AUDIT_CHECKS,checks);
+};
+assertContract(f);
+const c={columns:columns.map(([name,type])=>({name,type,not_null:true})),
+ constraints:[{name:'pk',kind:'p',columns:['id'],validated:true,definition:'PRIMARY KEY (id)'},
+ ...checks.map((definition,i)=>({name:'check_'+i,kind:'c',validated:true,definition}))],
+ indexes:[{name:'reconciliation_repair_audit_effect_once',unique:true,valid:true,ready:true,key_count:2,attribute_count:2,predicate:null,keys:["((evidence -> 'provider'::text) ->> 'account_id'::text)","((evidence -> 'provider'::text) ->> 'provider_effect_id'::text)"]}],
+ triggers:[{name:'reconciliation_repair_audit_immutable',type:27,enabled:'A',when:null,function_schema:'public',function_name:'reconciliation_repair_audit_immutable'},
+ {name:'reconciliation_repair_audit_no_truncate',type:34,enabled:'A',when:null,function_schema:'public',function_name:'reconciliation_repair_audit_immutable'}],
+ functions:[{name:'reconciliation_repair_audit_immutable',schema:'public',security_definer:false,result:'trigger',language:'plpgsql',definition:"CREATE OR REPLACE FUNCTION public.reconciliation_repair_audit_immutable() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN RAISE EXCEPTION 'reconciliation audit is immutable: update/delete/truncate forbidden'; END $function$"}]};
+f.validateAuditCatalog(c);
+const mutate=[x=>x.columns.pop(),x=>x.columns[0].not_null=false,x=>x.constraints.shift(),x=>x.constraints.pop(),x=>x.constraints[1].validated=false,x=>x.constraints[1].definition='CHECK(true)',x=>x.constraints.at(-1).definition=x.constraints.at(-1).definition.replace('IS TRUE',''),x=>x.indexes[0].unique=false,x=>x.indexes[0].valid=false,x=>x.indexes[0].ready=false,x=>x.indexes[0].predicate='true',x=>x.indexes[0].keys.reverse(),x=>x.triggers.pop(),x=>x.triggers[0].enabled='O',x=>x.triggers[0].type=19,x=>x.triggers[0].when='true',x=>x.triggers[0].function_schema='other',x=>x.functions[0].security_definer=true,x=>x.functions[0].definition='RETURN NULL',x=>x.functions[0].definition=x.functions[0].definition.replace('BEGIN','BEGIN IF false THEN').replace('END $','END IF; END $')];
+for(const change of mutate){const x=structuredClone(c);change(x);a.throws(()=>f.validateAuditCatalog(x));}
+// Catalog drift must fail against the pinned contract, including regex bounds.
+for(const [from,to] of [['^acct_','^acctx_'],['^(ch|re)_','^(ch|pi)_'],['{1,200}','{1,201}']]){
+ const x=structuredClone(c);
+ x.constraints.at(-1).definition=x.constraints.at(-1).definition.replace(from,to);
+ a.throws(()=>f.validateAuditCatalog(x),{code:'ERR_ASSERTION'});
+}
+const wrongActor=structuredClone(c);wrongActor.columns[3].name='principal';
+a.throws(()=>f.validateAuditCatalog(wrongActor),{code:'ERR_ASSERTION'});
+// Reproduce the review's source-contract mutations in the same realm, in memory.
+// Both independent export checks and validation of the unchanged baseline reject them.
+const fs=require('node:fs'),Module=require('node:module');
+const filename=require.resolve(process.argv[1]),source=fs.readFileSync(filename,'utf8');
+for(const [label,from,to] of [
+ ['account','^acct_[A-Za-z0-9]{1,200}$','^acctx_[A-Za-z0-9]{1,200}$'],
+ ['effect','^(ch|re)_[A-Za-z0-9]{1,200}$','^(ch|pi)_[A-Za-z0-9]{1,200}$'],
+ ['actor',"['actor','text']","['principal','text']"]
+]){
+ a.equal(source.split(from).length,2,'mutation must replace exactly one contract literal: '+label);
+ const variant=new Module(filename,module);variant.filename=filename;variant.paths=module.paths;
+ variant._compile(source.replace(from,to),filename);
+ a.throws(()=>assertContract(variant.exports),{code:'ERR_ASSERTION'},label+' exports must fail the independent contract');
+ a.throws(()=>variant.exports.validateAuditCatalog(structuredClone(c)),{code:'ERR_ASSERTION'},label+' validator must reject the independent native baseline');
+}
+console.log('INDEPENDENT_CONTRACT_MUTATIONS_REJECTED: account,effect,actor');
+a.equal(f.pgFailure({code:'42501',message:f.IMMUTABLE_MESSAGE},'P0001',f.IMMUTABLE_MESSAGE),false);
+a.equal(f.pgFailure({code:'P0001',message:'permission denied'},'P0001',f.IMMUTABLE_MESSAGE),false);
+a.equal(f.pgFailure({originalError:{code:'P0001',message:'query - '+f.IMMUTABLE_MESSAGE}},'P0001',f.IMMUTABLE_MESSAGE),true);
+a.equal(f.pgFailure({code:'23505',constraint:'wrong'},'23505',null,'pk'),false);
+console.log('OFFLINE_ASSERTION_CONTROLS_PASS; NO_POSTGRES');'''
+        p=subprocess.run(['node','-e',js,str(Path(__file__).with_name('fixture.cjs'))],text=True,capture_output=True,timeout=10)
+        self.assertEqual(p.returncode,0,p.stderr);self.assertIn('NO_POSTGRES',p.stdout)
+    def test_audit_fixture_connection_and_scope_source_controls(self):
+        text=Path(__file__).with_name('fixture.cjs').read_text()
+        for fragment in ['observerConnection','acquireConnection()', '.connection(observerConnection)', 'useContext: false', 'pg_backend_pid()', 'auditRollbackBarrierReached', 'SET LOCAL statement_timeout', 'idle_in_transaction_session_timeout', 'validateAuditCatalog', 'UPDATE public.reconciliation_repair_audit SET actor=actor', 'DELETE FROM public.reconciliation_repair_audit', 'runtime_truncate_privilege_denied']:
+            self.assertIn(fragment,text)
+        self.assertNotRegex(text,r'CREATE\s+TABLE\s+(?:public\.)?reconciliation_repair_audit')
+        self.assertNotIn('GRANT ',text)
+        runtime=Path(__file__).with_name('runtime.py').read_text()
+        self.assertLess(runtime.index('self.owner_audit_controls()'),runtime.index("self.evidence['diagnostic_stage']='RUNTIME_BASELINE'"))
+        self.assertIn('self.evidence[\'audit_native\']',runtime)
+    def test_audit_existing_health_phases_and_role_restrictions_preserved(self):
+        import inspect
+        healthy=inspect.getsource(r.Harness.healthy);execute=inspect.getsource(r.Harness.execute)
+        phase=inspect.getsource(r.Harness.phase);snapshot=inspect.getsource(r.Harness.snapshot)
+        self.assertIn('time.monotonic()-good>=300',healthy)
+        self.assertIn("'native_continuous_healthy_seconds':300",healthy)
+        self.assertIn("[(self.a.candidate,'candidate'),(self.a.previous,'previous'),(self.a.candidate,'candidate-restored')]",execute)
+        self.assertIn("self.healthy(name+'-restart'",phase)
+        self.assertIn("self.negative(baseline,schema)",execute)
+        self.assertIn('EVERY public base table',snapshot);self.assertIn('SELECT * FROM %I.%I',snapshot)
+        self.assertIn('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO app',execute)
+        self.assertIn('REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC,app',execute)
+        self.assertIn('ALTER ROLE migrator NOLOGIN PASSWORD NULL',execute)
+        self.assertNotRegex(execute,r'GRANT[^;]*TRUNCATE')
+    def owner_adapter(self,outputs=None,changed=False):
+        h=r.Harness.__new__(r.Harness);h.evidence={};queries=[];snapshots=iter(['before','changed' if changed else 'before'])
+        h.snapshot=lambda:next(snapshots);h.schema=lambda:'schema'
+        def sql(q,user='postgres'):
+            queries.append((q,user));return 'AUDIT_OWNER_CONTROLS_P0001' if outputs is None else outputs
+        h.sql=sql;return h,queries
+    def test_audit_owner_control_transaction_is_bounded_and_nondestructive(self):
+        h,queries=self.owner_adapter();receipt=h.owner_audit_controls()
+        self.assertEqual(receipt['owner_truncate_guard'],'PASS');self.assertEqual(receipt['migration_down'],'not-executed')
+        self.assertTrue(receipt['populated_down_guard_sql']);self.assertEqual(len(queries),1)
+        q,user=queries[0];self.assertEqual(user,'postgres')
+        for fragment in ['BEGIN;', 'SET LOCAL ROLE migrator', "lock_timeout = '2s'", "statement_timeout = '5s'", "idle_in_transaction_session_timeout = '10s'", 'TRUNCATE TABLE public.reconciliation_repair_audit', "SQLSTATE 'P0001'", 'GET STACKED DIAGNOSTICS', 'ACCESS EXCLUSIVE MODE', 'ROLLBACK;', 'AUDIT_OWNER_CONTROLS_P0001']:
+            self.assertIn(fragment,q)
+        self.assertNotRegex(q,r'(?i)\b(?:DROP|GRANT|DISABLE)\b')
+    def test_audit_owner_degraded_controls_cannot_pass(self):
+        for output,changed in [('',False),('PASS',False),('AUDIT_OWNER_CONTROLS_P0001',True)]:
+            h,_=self.owner_adapter(output,changed)
+            with self.subTest(output=output,changed=changed),self.assertRaises(RuntimeError):h.owner_audit_controls()
+        h,_=self.owner_adapter();h.sql=lambda *a,**k:(_ for _ in ()).throw(RuntimeError('SQL_FAILED'))
+        with self.assertRaisesRegex(RuntimeError,'SQL_FAILED'):h.owner_audit_controls()
+
 if __name__=='__main__':unittest.main(verbosity=2)

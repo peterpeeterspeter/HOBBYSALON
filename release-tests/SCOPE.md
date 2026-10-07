@@ -8,7 +8,7 @@ publication review. No merge, production deployment, provider calls or package
 registry publication is authorized. Main is read-only.
 
 Candidate binding requires a completed/success first attempt of build run
-37608897772, commit 1939c7b32bb1d83e642c4e9c5bf30260de2ca7c1, artifact
+37613802325, commit bc94cd59b3ba415e77c5691ed3ec6ce88cc82700, artifact
 `release-candidate-20261007`. Config ID, archive SHA, frozen source and actual
 baked/compiled source must agree before tests. Previous image is acquired only
 from pinned artifact 11408703641, run 37455485280 with read-only GitHub token.
@@ -21,9 +21,9 @@ was obtained from local read-only image inspection; hosted pull must reproduce
 the expected immutable config ID or fail closed.
 
 Before publication, the parent independently confirmed completed/success build
-37608897772 and its actual artifact metadata: ID 11476995182, digest
-`sha256:47dc89796a091f947775888b3ce7641b742951e5320252e81d55c3ab7f244ffc`,
-size 275570627 bytes. The verifier pins all three actual values. After the exact
+37613802325 and its actual artifact metadata: ID 11478492446, digest
+`sha256:19711011efb7dec4dded8a9c36146fb61d9a22a8c32a57d639e9746dd65ce868`,
+size 275581555 bytes. The verifier pins all three actual values. After the exact
 successful-build guard, only this run's bounded GitHub metadata is read (at most
 100 entries and 1 MiB; no pagination or other-run search). Exactly one matching
 name/run/head/branch artifact must exist, expired=false, and ID/digest/size must
@@ -49,3 +49,4 @@ logs/receipts are encrypted in memory with the committed public certificate and
 AES-256-GCM CMS; only ciphertext is uploaded, retained one day. The private key
 remains on the parent machine outside publication. No previous build logs,
 downloaded image archives or whole runner directories are uploaded.
+Native audit coverage: the candidate marketplace native migration provisions the real audit schema; the test fixture does not create it. Physical checks exercise distinct-session commit visibility, rollback, eight fields, native constraints and provider-account/effect uniqueness. Synthetic storage rows are not authenticated provider evidence or approved financial repairs. App UPDATE/DELETE must raise the native immutable exception; app TRUNCATE denial is explicitly a privilege test. A separate bounded owner-role transaction tests the TRUNCATE trigger, rolls back, and verifies full data/schema preservation. Populated-down guard SQL is exercised without running down DDL; empty migration-down removal is not accepted here. Existing six startup/restart/previous-image/candidate-restoration phases, 300-second native health, all-public snapshots and invalid-password control remain mandatory.
