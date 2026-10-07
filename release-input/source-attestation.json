@@ -1,6 +1,6 @@
 {
-  "archive_sha256": "47ce7aaf7045bc7006e896845bae013b9368f04520b10b20ba05edbc1174b1c1",
-  "authorization": "Owner explicitly approved the native reconciliation-audit migration, one additional normal hosted build (fourth total; cumulative maximum four), and isolated DB/runtime gates. No further build or rerun, provider call, merge, deploy, registry push, or live acceptance. Phase A preparation does not execute a build or authorize commit/push.",
+  "archive_sha256": "c439c536c4caf9b70d0e551f350e525b88d05749b6eb0325bc8c8d3e5846476e",
+  "authorization": "Owner explicitly approved the reviewed index-runtime SDK initialization fix and its native SDK-init regression, plus one additional normal hosted build (fifth total; cumulative maximum five, including this one extra). No sixth build or rerun. Phase A refresh does not authorize or perform staging, commit, push, build, image regating, Phase B publication, container/application launch, provider call, merge, deploy, registry push or live acceptance. Independent parent review and a separately authorized source-publication commit must precede the fifth build. Existing isolated DB/runtime gates remain fail closed and are not executed here.",
   "candidate_readback": "exact scoped bytes and modes; tracked and untracked; complete declared exclusion partition",
   "credential_review": {
     "already_public_remote_base_verified": true,
@@ -27,10 +27,55 @@
   "dockerfile_sha256": "155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7",
   "dockerignore_sha256": "c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782",
   "exclusions_sha256": "f5af2bfcea1403c167210efd8fb78cdfef00db75a7681c73ea610865376ec9ac",
+  "expected_normal_build_output": {
+    "note": "Normal medusa build includes source under apps/backend/src automatically; no compile overlay, recipe change, private resolver or disabled type checking. Actual output is a later image evidence check, not a Phase A PASS.",
+    "path": "apps/backend/.medusa/server/src/modules/index-runtime-readonly/index.js",
+    "required_native_service_imports": [
+      "@medusajs/index/dist/services/data-synchronizer",
+      "@medusajs/index/dist/services/index-data",
+      "@medusajs/index/dist/services/index-metadata",
+      "@medusajs/index/dist/services/index-relation",
+      "@medusajs/index/dist/services/index-sync",
+      "@medusajs/index/dist/services/postgres-provider"
+    ],
+    "status": "EXPECTED_NOT_BUILT_OR_INSPECTED"
+  },
   "kind": "technical-scoped-source-attestation",
-  "manifest_sha256": "d9ec2c9fbc51d77808b72a0ddd24694c437f072126fcb7919487a5a40703de02",
-  "maximum_hosted_builds": 4,
+  "manifest_sha256": "4b4b4fa7fd5e81f9954c9aeb61595802d4f8847730ac3ff07e0b9151fad62fd6",
+  "maximum_hosted_builds": 5,
   "phase_a_manifest_delta": {
+    "added": [
+      {
+        "git_mode": "100644",
+        "path": "scripts/tests/index-runtime-sdk-init.test.cjs",
+        "sha256": "118ad01333f1975cb0ad9b86a369863b90aa9fbb6066a1bcedfa1d0e6919847a",
+        "size": 13534,
+        "type": "file"
+      }
+    ],
+    "modified": [
+      {
+        "after": {
+          "git_mode": "100644",
+          "path": "apps/backend/src/modules/index-runtime-readonly/index.ts",
+          "sha256": "ed6b2dbb271420bae8090e916f4070cc683e702582d04f312f323e082b28657e",
+          "size": 2273,
+          "type": "file"
+        },
+        "before": {
+          "git_mode": "100644",
+          "path": "apps/backend/src/modules/index-runtime-readonly/index.ts",
+          "sha256": "5015ed208c6277c28747e5260b3d92fa2d9526c8bd8b016c9c6dd61333b36785",
+          "size": 1319,
+          "type": "file"
+        }
+      }
+    ],
+    "previous_manifest_sha256": "d9ec2c9fbc51d77808b72a0ddd24694c437f072126fcb7919487a5a40703de02",
+    "removed": [],
+    "unchanged_members": 1331
+  },
+  "phase_a_previous_manifest_delta": {
     "added": [
       {
         "git_mode": "100644",
@@ -53,11 +98,13 @@
   "schema": 1,
   "scoped_product_edits": [
     "apps/backend/src/modules/index-runtime-readonly/catalog.ts",
-    "packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261007070000.ts"
+    "packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261007070000.ts",
+    "apps/backend/src/modules/index-runtime-readonly/index.ts",
+    "scripts/tests/index-runtime-sdk-init.test.cjs"
   ],
   "source_base_commit": "bb33a1c1a41e3ac47973badf9283d1330eb9525e",
-  "source_bytes": 3532368,
-  "source_files": 1332,
+  "source_bytes": 3546856,
+  "source_files": 1333,
   "source_scope": [
     ".dockerignore",
     "package.json",
@@ -65,6 +112,14 @@
     "turbo.json",
     "packages",
     "apps/backend",
-    "deploy/release"
-  ]
+    "deploy/release",
+    "scripts/tests/index-runtime-sdk-init.test.cjs"
+  ],
+  "supplemental_archive_source": {
+    "automatically_executed_in_build": false,
+    "exclusions_partition": "Existing source-exclusions.json applies unchanged to its original seven source roots. This one explicitly authorized supplemental file has no exclusions; no other scripts or private evidence are included.",
+    "normal_docker_copy": false,
+    "path": "scripts/tests/index-runtime-sdk-init.test.cjs",
+    "purpose": "Reviewed native SDK initialization regression, archive-only reproducibility evidence"
+  }
 }

@@ -28,7 +28,7 @@
 {"git_mode":"100644","path":"apps/backend/src/migration-scripts/ensure-category-detail-tables.ts","sha256":"9cceb31d9bc9ddc0d19f3a3b7983a09d5821ac39f7e4a7050a2f941e32c60dfe","size":4154,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/README.md","sha256":"2ec67ccfd20a15ac03a8c3a314ec5e09aef26ceb09bc74c3c5c4e73e6b2f98e0","size":2242,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/catalog.ts","sha256":"cc318a105ffb719cb4264b4706e30d3e2d07a053b8ba1f22f2463f2bdd145eaf","size":6983,"type":"file"}
-{"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/index.ts","sha256":"5015ed208c6277c28747e5260b3d92fa2d9526c8bd8b016c9c6dd61333b36785","size":1319,"type":"file"}
+{"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/index.ts","sha256":"ed6b2dbb271420bae8090e916f4070cc683e702582d04f312f323e082b28657e","size":2273,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/loader.ts","sha256":"eb8d8210693f4e916bfca4601aac6428d96d0f0193571724d76b5bc1e93b98f5","size":209,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/provider.ts","sha256":"c3f005b2356b3ae6cb9efada23654acb543ff540265298775ca0fdc2ef8131ee","size":2130,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/service.ts","sha256":"4906c33801b704720adbf8358b3500ed723460b04f2f528dd98842fae7ae7094","size":3307,"type":"file"}
@@ -1328,5 +1328,6 @@
 {"git_mode":"100644","path":"packages/modules/stripe-tax-provider/src/types/medusa-framework-types.ts","sha256":"105a511189b922352d72e0deb9f5d2d80c6951756f704600871950aae338ffb5","size":2767,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/stripe-tax-provider/src/workflows/README.md","sha256":"3e1360aaa842e4401697b7be7134522b69acca2a040ea097b3856c485e002e84","size":1533,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/stripe-tax-provider/tsconfig.json","sha256":"851989001d6517ada61003927eee4471cd97bf0fa54bccec4dded058d63473fb","size":761,"type":"file"}
+{"git_mode":"100644","path":"scripts/tests/index-runtime-sdk-init.test.cjs","sha256":"118ad01333f1975cb0ad9b86a369863b90aa9fbb6066a1bcedfa1d0e6919847a","size":13534,"type":"file"}
 {"git_mode":"100644","path":"turbo.json","sha256":"7b4600964e0ab5778a7e641b588fb195d3438585048d8ad9e11d009e7714178a","size":477,"type":"file"}
 {"git_mode":"100644","path":"yarn.lock","sha256":"fc0d51491548834c643a39416ce1461f9b61b3cca119c410f82e2bdfb3e77b98","size":662851,"type":"file"}
