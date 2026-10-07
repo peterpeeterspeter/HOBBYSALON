@@ -227,6 +227,27 @@ const c={columns:columns.map(([name,type])=>({name,type,not_null:true})),
  {name:'reconciliation_repair_audit_no_truncate',type:34,enabled:'A',when:null,function_schema:'public',function_name:'reconciliation_repair_audit_immutable'}],
  functions:[{name:'reconciliation_repair_audit_immutable',schema:'public',security_definer:false,result:'trigger',language:'plpgsql',definition:"CREATE OR REPLACE FUNCTION public.reconciliation_repair_audit_immutable() RETURNS trigger LANGUAGE plpgsql AS $function$ BEGIN RAISE EXCEPTION 'reconciliation audit is immutable: update/delete/truncate forbidden'; END $function$"}]};
 f.validateAuditCatalog(c);
+// REALattempt9 wire shape: retain exact string rejection, never parse PG array text.
+const raw=structuredClone(c);raw.constraints[0].columns='{id}';
+a.throws(()=>f.validateAuditCatalog(raw),error=>{
+ a.equal(error.code,'ERR_ASSERTION');a.equal(error.actual,'{id}');a.deepEqual(error.expected,['id']);return true;
+});
+console.log('RAW_PK_WIRE_REJECTED: actual={id}; expected=[id]');
+const jsonWire=structuredClone(c);
+jsonWire.constraints[0].columns=JSON.parse('["id"]');
+jsonWire.indexes[0].keys=JSON.parse(JSON.stringify(c.indexes[0].keys));
+a.strictEqual(f.validateAuditCatalog(jsonWire),jsonWire);
+for(const bad of [['other'],[1],['id','other'],[],null,{},'["id"]']){
+ const x=structuredClone(jsonWire);x.constraints[0].columns=bad;
+ a.throws(()=>f.validateAuditCatalog(x),{code:'ERR_ASSERTION'});
+}
+for(const bad of [["evidence->'provider'->>'wrong'",c.indexes[0].keys[1]],[],null,{},JSON.stringify(c.indexes[0].keys)]){
+ const x=structuredClone(jsonWire);x.indexes[0].keys=bad;
+ a.throws(()=>f.validateAuditCatalog(x));
+}
+const wrongColumnType=structuredClone(jsonWire);wrongColumnType.columns[0].type='name';
+a.throws(()=>f.validateAuditCatalog(wrongColumnType),{code:'ERR_ASSERTION'});
+console.log('JSON_WIRE_ACCEPTED; WRONG_ARRAY_NAMES_TYPES_REJECTED');
 const mutate=[x=>x.columns.pop(),x=>x.columns[0].not_null=false,x=>x.constraints.shift(),x=>x.constraints.pop(),x=>x.constraints[1].validated=false,x=>x.constraints[1].definition='CHECK(true)',x=>x.constraints.at(-1).definition=x.constraints.at(-1).definition.replace('IS TRUE',''),x=>x.indexes[0].unique=false,x=>x.indexes[0].valid=false,x=>x.indexes[0].ready=false,x=>x.indexes[0].predicate='true',x=>x.indexes[0].keys.reverse(),x=>x.triggers.pop(),x=>x.triggers[0].enabled='O',x=>x.triggers[0].type=19,x=>x.triggers[0].when='true',x=>x.triggers[0].function_schema='other',x=>x.functions[0].security_definer=true,x=>x.functions[0].definition='RETURN NULL',x=>x.functions[0].definition=x.functions[0].definition.replace('BEGIN','BEGIN IF false THEN').replace('END $','END IF; END $')];
 for(const change of mutate){const x=structuredClone(c);change(x);a.throws(()=>f.validateAuditCatalog(x));}
 // Catalog drift must fail against the pinned contract, including regex bounds.
@@ -257,9 +278,39 @@ a.equal(f.pgFailure({code:'42501',message:f.IMMUTABLE_MESSAGE},'P0001',f.IMMUTAB
 a.equal(f.pgFailure({code:'P0001',message:'permission denied'},'P0001',f.IMMUTABLE_MESSAGE),false);
 a.equal(f.pgFailure({originalError:{code:'P0001',message:'query - '+f.IMMUTABLE_MESSAGE}},'P0001',f.IMMUTABLE_MESSAGE),true);
 a.equal(f.pgFailure({code:'23505',constraint:'wrong'},'23505',null,'pk'),false);
-console.log('OFFLINE_ASSERTION_CONTROLS_PASS; NO_POSTGRES');'''
+// Expose only in this in-memory test module; production fixture exports stay unchanged.
+const offline=new Module(filename,module);offline.filename=filename;offline.paths=module.paths;
+offline._compile(source+'\nmodule.exports.offlineCatalog=catalog;',filename);
+(async()=>{
+ const seen=[];
+ const observed=await offline.exports.offlineCatalog(async sql=>{
+  seen.push(sql);
+  if(sql.includes('FROM pg_attribute a WHERE'))return structuredClone(c.columns);
+  if(sql.includes('FROM pg_constraint c')){
+   a.match(sql,/to_json\(ARRAY\(SELECT a\.attname .*ORDER BY k\.ord\)\) AS columns/);
+   const rows=structuredClone(c.constraints);
+   for(const row of rows)row.columns=JSON.parse(row.kind==='p'?'["id"]':'[]');
+   return rows;
+  }
+  if(sql.includes('FROM pg_index i')){
+   a.match(sql,/to_json\(ARRAY\(SELECT pg_get_indexdef\(i\.indexrelid,n,true\) FROM generate_series\(1,i\.indnkeyatts\) n\)\) AS keys/);
+   const rows=structuredClone(c.indexes);
+   for(const row of rows)row.keys=JSON.parse(JSON.stringify(row.keys));
+   return rows;
+  }
+  if(sql.includes('FROM pg_trigger t'))return structuredClone(c.triggers);
+  if(sql.includes('FROM pg_proc p'))return structuredClone(c.functions);
+  a.fail('unexpected catalog SQL');
+ });
+ a.equal(seen.length,5);a.deepEqual(observed.constraints[0].columns,['id']);
+ a.deepEqual(observed.indexes[0].keys,c.indexes[0].keys);
+ console.log('CATALOG_JSON_SQL_PROJECTIONS_PASS: columns,keys; OFFLINE_ONLY');
+ console.log('OFFLINE_ASSERTION_CONTROLS_PASS; NO_POSTGRES');
+})().catch(error=>{console.error(error);process.exitCode=1;});'''
         p=subprocess.run(['node','-e',js,str(Path(__file__).with_name('fixture.cjs'))],text=True,capture_output=True,timeout=10)
         self.assertEqual(p.returncode,0,p.stderr);self.assertIn('NO_POSTGRES',p.stdout)
+        for marker in ['RAW_PK_WIRE_REJECTED','JSON_WIRE_ACCEPTED','WRONG_ARRAY_NAMES_TYPES_REJECTED','CATALOG_JSON_SQL_PROJECTIONS_PASS']:
+            self.assertIn(marker,p.stdout)
     def fixture_failure_offline(self, mode):
         # Execute the real entrypoint/catch in an isolated VM; no DB/product imports.
         js = r"""const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
