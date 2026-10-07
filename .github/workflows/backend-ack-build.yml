@@ -1,0 +1,111 @@
+name: Exact release candidate build only
+on:
+  push:
+    branches:
+      - ops/release-validation-20261007
+permissions:
+  contents: read
+concurrency:
+  group: release-candidate-build-20261007
+  cancel-in-progress: false
+jobs:
+  build:
+    if: >-
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/ops/release-validation-20261007' &&
+      github.event.created == true && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      IMAGE: hobbysalon-release-candidate:20261007
+    steps:
+      - name: Checkout minimal input tree
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Prepare private worker directories and verify exact input
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir "$RUNNER_TEMP/candidate-20261007" "$RUNNER_TEMP/candidate-20261007/receipts"
+          printf '%s\n' 'No production or runtime acceptance. Build and inspection may fail.' > "$RUNNER_TEMP/candidate-20261007/receipts/SCOPE.txt"
+          openssl pkeyutl -verify -rawin -pubin \
+            -inkey release-input/source-attestation-public.pem \
+            -in release-input/source-attestation.json \
+            -sigfile release-input/source-attestation.sig
+          python3 release-input/verify-source.py \
+            --archive release-input/source.full.tar.xz \
+            --manifest release-input/source.full.manifest.jsonl \
+            --approval release-input/approval.json \
+            --dest "$RUNNER_TEMP/candidate-20261007/context" \
+            | tee "$RUNNER_TEMP/candidate-20261007/receipts/source-verification.json"
+          { df -h; free -m; du -sh "$RUNNER_TEMP/candidate-20261007/context"; } > "$RUNNER_TEMP/candidate-20261007/receipts/resources.log"
+      - name: Offline recipe preflight on frozen source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh "$RUNNER_TEMP/candidate-20261007/context/deploy/release/recipe.sh" verify
+      - name: Set up isolated buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+      - name: Build exact Dockerfile once, load locally, never publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx build --pull --load --progress=plain \
+            --metadata-file "$RUNNER_TEMP/candidate-20261007/build-metadata.raw.json" \
+            --tag "$IMAGE" \
+            --label org.opencontainers.image.revision=bb33a1c1a41e3ac47973badf9283d1330eb9525e \
+            --label io.hobbysalon.source.archive.sha256=596ef6d7a70f316b92b8dcc59b9e139b5b006867375de48f3998def810daf3f2 \
+            --label io.hobbysalon.source.manifest.sha256=72634b09f6c17ab57cde6004df3df3fe0e3ef62fbd15a862272ce637d0a3aa13 \
+            --file "$RUNNER_TEMP/candidate-20261007/context/apps/backend/Dockerfile" \
+            "$RUNNER_TEMP/candidate-20261007/context" \
+            2>&1 | tee "$RUNNER_TEMP/candidate-20261007/receipts/build.log"
+      - name: Verify actual image bytes without starting application
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 0644 release-input/inspect-compiled.cjs
+          python3 release-input/verify-image.py \
+            --manifest release-input/source.full.manifest.jsonl \
+            --inspector release-input/inspect-compiled.cjs \
+            --out "$RUNNER_TEMP/candidate-20261007/receipts" \
+            | tee "$RUNNER_TEMP/candidate-20261007/receipts/inspection.log"
+      - name: Save actual image after successful inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/candidate-20261007/build-metadata.raw.json" "$RUNNER_TEMP/candidate-20261007/receipts/build-metadata-projected.json" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          keep = {k: data[k] for k in ('containerimage.digest', 'containerimage.config.digest') if k in data}
+          open(sys.argv[2], 'w').write(json.dumps(keep, indent=2) + '\n')
+          PY
+          IMAGE_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image_id"])' "$RUNNER_TEMP/candidate-20261007/receipts/image-receipt.json")
+          python3 - "$RUNNER_TEMP/candidate-20261007/receipts/build-metadata-projected.json" "$IMAGE_ID" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          if data.get('containerimage.config.digest') != sys.argv[2]:
+              raise SystemExit('Build metadata config digest does not match inspected immutable image')
+          PY
+          test "$IMAGE_ID" = "$(docker image inspect --format '{{.Id}}' "$IMAGE")"
+          docker image save "$IMAGE_ID" | gzip -1 > "$RUNNER_TEMP/candidate-20261007/receipts/backend-image.tar.gz"
+          sha256sum "$RUNNER_TEMP/candidate-20261007/receipts/backend-image.tar.gz" > "$RUNNER_TEMP/candidate-20261007/receipts/backend-image.sha256"
+      - name: Retain image or available failure evidence for seven days
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-candidate-20261007
+          path: ${{ runner.temp }}/candidate-20261007/receipts/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: warn

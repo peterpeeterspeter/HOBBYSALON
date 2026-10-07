@@ -1,0 +1,50 @@
+{
+  "archive_sha256": "596ef6d7a70f316b92b8dcc59b9e139b5b006867375de48f3998def810daf3f2",
+  "candidate_readback": "exact scoped bytes and modes; tracked and untracked; complete declared exclusion partition",
+  "credential_review": {
+    "local_head_base_bytes_identical": true,
+    "production_credential_acceptance": false,
+    "public_demo_seed_path": "apps/backend/src/scripts/seed/seed-functions.ts",
+    "public_demo_seed_sha256": "59fd895f41a505df5e7bd361170264f8133bdfb7f6015541170325dcb445968e",
+    "remote_public_bytes_verified_by_this_task": false
+  },
+  "credential_scan": "Bounded fixed-pattern scan, value-redacted; pinned public-base seed demo credential classified separately, not ignored or claimed noncredential; independent remote byte verification remains pending; final local review records actual scan result.",
+  "credential_scan_rules": [
+    "private-key",
+    "aws-access-key",
+    "github-token",
+    "stripe-secret",
+    "stripe-webhook-secret",
+    "slack-token",
+    "jwt",
+    "credential-url",
+    "credential-assignment",
+    "npm-auth-token",
+    "google-api-key",
+    "sendgrid-token"
+  ],
+  "deterministic_archive": "sorted regular USTAR members; uid/gid/mtime=0; empty owner names; git executable modes; xz preset=6; regenerated twice byte-identically",
+  "dockerfile_sha256": "155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7",
+  "dockerignore_sha256": "c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782",
+  "exclusions_sha256": "f5af2bfcea1403c167210efd8fb78cdfef00db75a7681c73ea610865376ec9ac",
+  "kind": "technical-scoped-source-attestation",
+  "manifest_sha256": "72634b09f6c17ab57cde6004df3df3fe0e3ef62fbd15a862272ce637d0a3aa13",
+  "product_edits": false,
+  "production_release": false,
+  "publication_branch": "ops/release-validation-20261007",
+  "repository": "peterpeeterspeter/HOBBYSALON",
+  "runtime_acceptance": false,
+  "schema": 1,
+  "source_base_commit": "bb33a1c1a41e3ac47973badf9283d1330eb9525e",
+  "source_bytes": 3526021,
+  "source_files": 1331,
+  "source_scope": [
+    ".dockerignore",
+    "package.json",
+    "yarn.lock",
+    "turbo.json",
+    "packages",
+    "apps/backend",
+    "deploy/release"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "directory_names": [
+    ".cache",
+    ".git",
+    ".medusa",
+    ".mypy_cache",
+    ".next",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".turbo",
+    "__pycache__",
+    "build",
+    "cache",
+    "caches",
+    "coverage",
+    "dist",
+    "logs",
+    "node_modules",
+    "out",
+    "private-reports",
+    "reports"
+  ],
+  "exact_exclusions": [
+    {
+      "path": "apps/backend/.env.template",
+      "reason": "environment-file",
+      "type": "file"
+    }
+  ],
+  "file_rules": [
+    "basename starts .env",
+    "basename ends .env",
+    "suffix .log .pyc .pyo .tsbuildinfo"
+  ],
+  "partition_check": "complete filesystem scope inventory including root Docker context control file; no git-ignore filtering; excluded subtrees declared explicitly",
+  "schema": 1,
+  "source_scope": [
+    ".dockerignore",
+    "package.json",
+    "yarn.lock",
+    "turbo.json",
+    "packages",
+    "apps/backend",
+    "deploy/release"
+  ],
+  "undeclared_exclusions": 0
+}
