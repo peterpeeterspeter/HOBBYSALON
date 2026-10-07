@@ -260,10 +260,70 @@ a.equal(f.pgFailure({code:'23505',constraint:'wrong'},'23505',null,'pk'),false);
 console.log('OFFLINE_ASSERTION_CONTROLS_PASS; NO_POSTGRES');'''
         p=subprocess.run(['node','-e',js,str(Path(__file__).with_name('fixture.cjs'))],text=True,capture_output=True,timeout=10)
         self.assertEqual(p.returncode,0,p.stderr);self.assertIn('NO_POSTGRES',p.stdout)
+    def fixture_failure_offline(self, mode):
+        # Execute the real entrypoint/catch in an isolated VM; no DB/product imports.
+        js = r"""const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const filename=process.argv[1],mode=process.argv[2],source=fs.readFileSync(filename,'utf8');
+const mockedModule={exports:{}},quiet=[],knex={client:{async acquireConnection(){return {};},async releaseConnection(){} }};
+let calls=0;
+const cause=(()=>{try{assert.equal(1,2,'private_assertion_canary');}catch(error){return error;}})();
+const orm={em:{fork(){return {async execute(){return [];}};},getConnection(){return {getKnex(){return knex;}};}},async close(){}};
+const wrapped=Error('private_connection_canary postgres://user:password_canary@fixture/db',{cause});
+// Error text that resembles a public code must remain inside the private JSON string.
+wrapped.message+='\n'+JSON.stringify({marker:'CI_RUNTIME_DIAGNOSTIC',code:'INDEX_DIAG_SQL_PERMISSION',secret:'password_canary'});
+const req=n=>{
+ if(n==='/app/node_modules/@mikro-orm/postgresql')return {MikroORM:{async init(){calls++;if(mode==='cause')throw wrapped;return orm;}}};
+ if(n.startsWith('/app/apps/backend/'))return {};
+ return require(n);
+};req.main=mockedModule;
+vm.runInNewContext(source,{require:req,module:mockedModule,process,console,setTimeout,clearTimeout},{filename});"""
+        return subprocess.run(['node','-e',js,str(Path(__file__).with_name('fixture.cjs')),mode],
+                              text=True,capture_output=True,timeout=10)
+
+    def assert_fixture_failure_private(self, completed, stage):
+        self.assertNotEqual(completed.returncode,0)
+        self.assertEqual(completed.stdout,'','A failed fixture must never fabricate a stdout PASS receipt')
+        self.assertIn('FIXTURE_FAILED',completed.stderr)
+        rows=[json.loads(line) for line in completed.stderr.splitlines() if line.startswith('{')]
+        safe=[row for row in rows if row.get('marker')=='CI_FIXTURE_DIAGNOSTIC']
+        private=[row for row in rows if row.get('marker')=='CI_FIXTURE_PRIVATE_ERROR']
+        self.assertEqual(safe[-1],{'marker':'CI_FIXTURE_DIAGNOSTIC','stage':stage,'code':'FIXTURE_ASSERTION_FAILED'})
+        self.assertEqual(len(private),1)
+        self.assertIn('AssertionError',private[0]['error'])
+        self.assertIn('at ',private[0]['error'])
+        self.assertNotIn('canary',json.dumps(safe))
+        self.assertEqual(r.diagnostic_codes(completed.stderr),[])
+        with tempfile.TemporaryDirectory() as tmp:
+            h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.evidence={}
+            h.proc=lambda *args,**kw:completed
+            import contextlib,io
+            console=io.StringIO()
+            with contextlib.redirect_stdout(console),self.assertRaisesRegex(RuntimeError,'^COMMAND_FAILED$'):
+                h.run('offline-fixture')
+            self.assertEqual(console.getvalue(),'')
+            record_path=next(Path(tmp).iterdir())
+            self.assertEqual(record_path.stat().st_mode & 0o777,0o600)
+            record=json.loads(record_path.read_text())
+            self.assertEqual(record['stdout'],'')
+            self.assertEqual(record['stderr'],completed.stderr)
+        return private[0]['error']
+
     def test_audit_fixture_connection_and_scope_source_controls(self):
         text=Path(__file__).with_name('fixture.cjs').read_text()
         for fragment in ['observerConnection','acquireConnection()', '.connection(observerConnection)', 'useContext: false', 'pg_backend_pid()', 'auditRollbackBarrierReached', 'SET LOCAL statement_timeout', 'idle_in_transaction_session_timeout', 'validateAuditCatalog', 'UPDATE public.reconciliation_repair_audit SET actor=actor', 'DELETE FROM public.reconciliation_repair_audit', 'runtime_truncate_privilege_denied']:
             self.assertIn(fragment,text)
+        for mode,stage in [('assertion','FIXTURE_ROLE_DENIALS'),('cause','FIXTURE_PRIMARY_CONNECT')]:
+            with self.subTest(mode=mode):
+                raw=self.assert_fixture_failure_private(self.fixture_failure_offline(mode),stage)
+                if mode=='cause':
+                    self.assertIn('[cause]',raw)
+                    self.assertIn('private_connection_canary',raw)
+                    self.assertIn('private_assertion_canary',raw)
+                    self.assertIn('password_canary',raw) # Original private details, never console/projector.
+        stages=__import__('re').findall(r"checkpoint\('([^']+)'\)",text)
+        self.assertTrue(stages)
+        self.assertTrue(all(__import__('re').fullmatch(r'FIXTURE_[A-Z_]+',stage) for stage in stages))
+        self.assertEqual(text.count('checkpoint('),len(stages)+1,'No dynamic stage callers')
         self.assertNotRegex(text,r'CREATE\s+TABLE\s+(?:public\.)?reconciliation_repair_audit')
         self.assertNotIn('GRANT ',text)
         runtime=Path(__file__).with_name('runtime.py').read_text()
