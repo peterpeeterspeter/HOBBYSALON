@@ -1,0 +1,60 @@
+{
+  "artifact_name": "rollback-bridge-build-20261007",
+  "binding": {
+    "artifact_id": 11504828273,
+    "build_receipt_sha256": "0af141a634192e6cf2f6a4d42efb839cd34309d86d895c20b9407a7167db2cca",
+    "commit": "c134bfa470efba08a26eace08025c73f227ce94f",
+    "diff_ids": [
+      "sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711",
+      "sha256:7c732ed82ebdb575d2af70ebb84786b7421107ae929359e8e180c636040cbe88",
+      "sha256:6f3bd0caa7c25469ef663d37b3d333f7cda0b2887c78a1653af1f7bc6babef2d",
+      "sha256:a3b40bc0bbc6fc169200dd4069eac2195573e96112b64ad82c795d6ef3636719",
+      "sha256:333309665179dd324e6a3fea28121c8d024673a5b97eb051d3484e7f40abd2fc",
+      "sha256:ea7698b7f60afe82efcb3edc8541cd570505c6c0c80742089673598fe95a690f",
+      "sha256:7e553c7671cca4b0de7b5b7efa8fb02008bb3085904a6d91d047f8f24098a345",
+      "sha256:8a4a891475a4d423381cd083d4a1be15d8da2c1e8d77c3bb72f8ca5460153988",
+      "sha256:d5b5650004ff2cf202fbbf1732dfbfc7c4206a38e58a0c7d9e0a86bbe7898ec9",
+      "sha256:5fb1b527ccee36336cbf16bcbeea623952fff3c2f83283cf87dd87ff073c1330",
+      "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+    ],
+    "gzip_bytes": 273978152,
+    "gzip_sha256": "092310828bc2d4c1be5f33629471b6db93e6dc401daf50ed291bc2a96c0d764f",
+    "image": "sha256:afb6397899ff3a85d82a9598dbe8803ad0e192afa60a1f51bd12089b0392d09c",
+    "parent_commit": "93fc39ef94a20584922b22ca385e8d5648c9e103",
+    "parent_pins_sha256": "00288d400e58008fa45159c2190513836c02d13948699b8d528599ebeb3137dd",
+    "run_id": 37671453633,
+    "source_approval_sha256": "5bb3ea24cbd0dd83370daa900739bb7ff9bcac6877b4555414095b836884fbf7",
+    "source_archive_sha256": "18d78cfd620ac5bf0879672ee5bc2c305965ef06de4e9de01041a8d264611b50",
+    "source_attestation_sha256": "fb2fcb6750ceba0f4ec50707e78e37363d7151dc902494112a54405a1ac75a43",
+    "source_base_commit": "93fc39ef94a20584922b22ca385e8d5648c9e103",
+    "source_hash": "a3694bdcf2706e45745c2d40bf5db74de2e87a2d026ea8fe11ed4d5467314994",
+    "source_manifest_sha256": "d25e2d3568e5fb74396b868c208060b69b1fa088111afa8bd45244383fbefa2e",
+    "source_public_key_sha256": "86654d8ad3be456e7a8a96f4df66009ff7891169c565d6e821b3faa1007e55eb",
+    "source_signature_sha256": "f4aec2369ab43d4736ed83e6f9198bfeb81979fce2a3dfc06c807d0f761dae5c",
+    "source_workflow_sha256": "07ed8a381d2bf9f9f66b21be351bd2e90f54a632e09efe250f3b5642bc9ddb0d",
+    "workflow_path": ".github/workflows/rollback-bridge-build.yml",
+    "zip_bytes": 275483134,
+    "zip_sha256": "85f6a338de45e4ceaedc3765210db37ce6deaa9a526fea327b230f1f0d1c3522"
+  },
+  "branch": "ops/rollback-bridge-20261007",
+  "candidate": {
+    "commit": "59efa5f84902380c30e7c0a25a890c57c925e98e",
+    "image": "sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5",
+    "run_id": 37622607612
+  },
+  "deployment": false,
+  "historical_previous": {
+    "gzip_sha256": "9f3439e95cf28f8c1e456dfa6ec27dfa63d28afe7d80b46cf156d861ea5f6c36",
+    "image": "sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca",
+    "source_hash": "b538938f0fb21f06a44fea9272e3822eddd795c7ca372c4c8c42f0d4abc7a368",
+    "status": "HISTORICAL_NO_GO_NOT_PHASEB_PREVIOUS"
+  },
+  "kind": "distinct-rollback-bridge",
+  "ref": "refs/heads/ops/rollback-bridge-20261007",
+  "repository": "peterpeeterspeter/HOBBYSALON",
+  "run_attempt": 1,
+  "runtime_acceptance": false,
+  "schema": 1,
+  "source_file_count": 3892,
+  "status": "BOUND_BUILD_ONLY"
+}

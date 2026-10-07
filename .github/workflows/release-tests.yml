@@ -142,6 +142,7 @@ jobs:
           set -euo pipefail
           python3 release-tests/runtime/selftest.py
           node release-tests/runtime/selftest.cjs
+          python3 release-tests/runtime/bridge-selftest.py
       - name: Require exact successful candidate build
         id: binding
         env:
@@ -160,21 +161,23 @@ jobs:
       - name: Verify candidate archive, loaded config ID and exact source
         id: verification
         run: python3 release-tests/verify-candidate.py --artifact "$RUNNER_TEMP/scoped-tests/candidate" --out "$RUNNER_TEMP/scoped-tests/verified"
-      - name: Safely acquire pinned previous saved image without registry
+      - name: Safely acquire distinct pinned bridge saved image without registry
         id: acquisition
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 release-tests/runtime/acquire.py --workdir "$RUNNER_TEMP/scoped-tests/previous" --manifest "$RUNNER_TEMP/scoped-tests/previous-manifest.json" --receipt "$RUNNER_TEMP/scoped-tests/acquisition.private.json"
+        run: python3 release-tests/runtime/bridge-acquire.py --contract release-tests/runtime/bridge-contract.bound.json --source-export release-tests/runtime/bridge-source-export --workdir "$RUNNER_TEMP/scoped-tests/previous" --manifest "$RUNNER_TEMP/scoped-tests/previous-manifest.json" --receipt "$RUNNER_TEMP/scoped-tests/acquisition.private.json"
       - name: Load and verify previous archive
         id: previous
         shell: bash
         run: |
           set -euo pipefail
           docker load --input "$RUNNER_TEMP/scoped-tests/previous/backend-image.tar.gz" > "$RUNNER_TEMP/scoped-tests/previous-load.private.log" 2>&1
-          test "$(docker image inspect --format '{{.Id}}' sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca)" = sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca
+          BRIDGE_ID="$(python3 -c 'import json;print(json.load(open("release-tests/runtime/bridge-contract.bound.json"))["binding"]["image"])')"
+          test "$(docker image inspect --format '{{.Id}}' "$BRIDGE_ID")" = "$BRIDGE_ID"
+          printf "BRIDGE_ID=%s\n" "$BRIDGE_ID" >> "$GITHUB_ENV"
       - name: Run exact disposable runtime gate
         id: runtime
-        run: python3 release-tests/runtime/runtime.py --candidate "$CANDIDATE_ID" --previous-manifest "$RUNNER_TEMP/scoped-tests/previous-manifest.json" --out "$RUNNER_TEMP/scoped-tests/runtime"
+        run: python3 release-tests/runtime/runtime.py --bridge-contract release-tests/runtime/bridge-contract.bound.json --previous "$BRIDGE_ID" --candidate "$CANDIDATE_ID" --previous-manifest "$RUNNER_TEMP/scoped-tests/previous-manifest.json" --out "$RUNNER_TEMP/scoped-tests/runtime"
       - name: Project only scrubbed scoped evidence
         if: always()
         env:

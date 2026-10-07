@@ -1324,4 +1324,78 @@ class RestartProbeWaitTests(unittest.TestCase):
                 self.assertLess(elapsed,330);self.assertLess(elapsed,390)
                 self.assertEqual(trace[-1]['loop_seconds'],elapsed)
 
+class NegativeFailClosedTests(unittest.TestCase):
+    """Actual execute through all six phases, external I/O doubles only."""
+    def execute_control(self,fault):
+        original=r.Harness.execute;seen={};testname='test_execute_exact_sequence_reachable_with_doubles_not_runtime_pass'
+        base=next(cls for cls in globals().values() if isinstance(cls,type) and testname in cls.__dict__)
+        class FinishedControl(Exception):pass
+        def execute(h):
+            capture=h.capture_logs;negative=h.negative;remove=h.remove_container;count=[0];cleanups=[]
+            def capture_fault(name):
+                if name=='startup-negative':
+                    count[0]+=1
+                    if fault in ('initial-capture','combined') and count[0]==1:raise OSError('TESTONLY_INITIAL_CAPTURE_IO')
+                    if fault in ('final-capture','combined') and count[0]==2:raise OSError('TESTONLY_FINAL_CAPTURE_IO')
+                    logs,receipt=capture(name)
+                    if fault=='incomplete-logs':receipt=dict(receipt,complete=False)
+                    if fault=='wrong-final-logs' and count[0]==2:logs='unrelated exit'
+                    return logs,receipt
+                return capture(name)
+            h.capture_logs=capture_fault
+            def remove_fault(name):
+                cleanups.append(name)
+                if fault in ('cleanup','combined') and count[0]:raise OSError('TESTONLY_CLEANUP_IO')
+                return remove(name)
+            h.remove_container=remove_fault
+            def negative_fault(baseline,schema):
+                if fault=='env-io':h.envfile=lambda *a:(_ for _ in ()).throw(OSError('TESTONLY_ENV_IO'))
+                if fault=='snapshot-io':h.snapshot=lambda:(_ for _ in ()).throw(OSError('TESTONLY_SNAPSHOT_IO'))
+                if fault=='preservation':h.schema=lambda:'changed'
+                if fault=='assertion':h.inspect=lambda *a:{'State':{'Running':False,'ExitCode':0,'OOMKilled':False},'RestartCount':0}
+                negative(baseline,schema)
+                if fault.startswith('receipt-'):
+                    receipt=h.evidence['startup_negative']
+                    if fault=='receipt-status':receipt['status']='FAIL'
+                    elif fault=='receipt-exit':receipt['actual_app_exit_verified']=False
+                    elif fault=='receipt-cleanup':receipt['cleanup_verified']=False
+                    elif fault=='receipt-logs':receipt['logs']['complete']=False
+                    elif fault=='receipt-error':receipt['log_capture_failed']=True
+            h.negative=negative_fault
+            try:original(h)
+            except Exception as error:seen['error']=type(error).__name__
+            seen.update(evidence=h.evidence,cleanup_attempted=bool(count[0] and cleanups),
+                private_failures=[p.read_text() for p in h.private_dir.glob('startup-negative-failure-*.json')])
+            raise FinishedControl()
+        with patch.object(r.Harness,'execute',execute):
+            try:base(testname).__getattribute__(testname)()
+            except FinishedControl:pass
+        self.assertIn('evidence',seen)
+        return seen
+    def test_final_negative_capture_propagates_zero_accepted_all_gate(self):
+        seen=self.execute_control('final-capture');self.assertIn('error',seen)
+        self.assertNotEqual(seen['evidence']['status'],'PASS')
+        receipt=seen['evidence']['startup_negative']
+        self.assertEqual(receipt['status'],'FAIL');self.assertTrue(receipt['log_capture_failed'])
+        self.assertTrue(receipt['actual_app_exit_verified']);self.assertTrue(receipt['cleanup_verified'])
+        self.assertTrue(seen['cleanup_attempted'])
+        self.assertTrue(any('TESTONLY_FINAL_CAPTURE_IO' in row for row in seen['private_failures']))
+        self.assertEqual(sum([seen['evidence']['status']=='PASS']),0)
+    def test_negative_assertion_io_capture_and_cleanup_errors_all_fail_closed(self):
+        for fault in ['initial-capture','env-io','snapshot-io','preservation','assertion','incomplete-logs','wrong-final-logs','cleanup','combined']:
+            with self.subTest(fault=fault):
+                seen=self.execute_control(fault);self.assertIn('error',seen)
+                self.assertEqual(seen['evidence']['status'],'FAIL');receipt=seen['evidence']['startup_negative']
+                self.assertEqual(receipt['status'],'FAIL');self.assertTrue(seen['cleanup_attempted'])
+                if fault in ('cleanup','combined'):self.assertIn('cleanup_error',receipt);self.assertFalse(receipt['cleanup_verified'])
+                else:self.assertTrue(receipt['cleanup_verified'])
+                if fault=='combined':
+                    self.assertEqual(receipt['phase_error'],'OSError');self.assertEqual(receipt['final_capture_error'],'OSError')
+                self.assertTrue(seen['private_failures'])
+    def test_execute_rejects_incomplete_or_failed_negative_receipt_before_pass(self):
+        for fault in ['receipt-status','receipt-exit','receipt-cleanup','receipt-logs','receipt-error']:
+            with self.subTest(fault=fault):
+                seen=self.execute_control(fault);self.assertIn('error',seen)
+                self.assertEqual(seen['evidence']['status'],'FAIL');self.assertTrue(seen['cleanup_attempted'])
+
 if __name__=='__main__':unittest.main(verbosity=2)

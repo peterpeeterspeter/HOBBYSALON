@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "status": "PENDING_BUILD_BINDING",
+  "kind": "distinct-rollback-bridge",
+  "repository": "peterpeeterspeter/HOBBYSALON",
+  "branch": "ops/rollback-bridge-20261007",
+  "ref": "refs/heads/ops/rollback-bridge-20261007",
+  "artifact_name": "rollback-bridge-build-20261007",
+  "run_attempt": 1,
+  "source_file_count": 3892,
+  "binding": null,
+  "historical_previous": {
+    "image": "sha256:b593554ed71091d152a73b15995818e7460e69ea41f98c16b022af52a6e521ca",
+    "source_hash": "b538938f0fb21f06a44fea9272e3822eddd795c7ca372c4c8c42f0d4abc7a368",
+    "gzip_sha256": "9f3439e95cf28f8c1e456dfa6ec27dfa63d28afe7d80b46cf156d861ea5f6c36",
+    "status": "HISTORICAL_NO_GO_NOT_PHASEB_PREVIOUS"
+  },
+  "candidate": {
+    "run_id": 37622607612,
+    "commit": "59efa5f84902380c30e7c0a25a890c57c925e98e",
+    "image": "sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5"
+  },
+  "runtime_acceptance": false,
+  "deployment": false
+}

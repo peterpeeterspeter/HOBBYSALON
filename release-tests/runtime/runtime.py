@@ -760,7 +760,7 @@ ROLLBACK;""",user='postgres').strip()
         static=self.static_hash()
         if getattr(self,'static_baseline',static)!=static: raise RuntimeError('STATIC_CHANGED_BETWEEN_IMAGES')
         self.static_baseline=static
-        kind='native' if image==self.a.previous else 'readonly'
+        kind=getattr(self,'previous_kind','native') if image==self.a.previous else 'readonly'
         receipt=self.healthy(name,started,kind)
         self.private_record('healthy-before-preservation',{'phase':name,'image':image,
             'acceptance':'pending-strict-preservation','receipt':receipt})
@@ -787,36 +787,78 @@ ROLLBACK;""",user='postgres').strip()
     def negative(self,baseline,schema):
         self.evidence.update(diagnostic_stage='RUNTIME_STARTUP_NEGATIVE',diagnostic_phase='startup-negative')
         # Only credential differs, same DB/image/native command after successful boot.
-        env=self.envfile('negative.env','app')
-        env.write_text(env.read_text().replace(self.values[0],self.values[7]))
         receipt={'status':'FAIL','injection':'invalid DB password only','actual_app_exit_verified':False,'cleanup_verified':False}
         self.evidence['startup_negative']=receipt
+        self.evidence['status']='FAIL'
         try:
-            started=self.app_start(self.a.candidate,env,verify_types=False)
-            for _ in range(90):
-                c=self.inspect(self.app)
-                if not c['State']['Running']: break
-                time.sleep(1)
-            else: raise RuntimeError('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT')
-            state=c['State'];logs,logreceipt=self.capture_logs('startup-negative')
-            if state['ExitCode']==0 or state.get('OOMKilled') or not re.search('password authentication failed',logs,re.I): raise RuntimeError('NEGATIVE_WRONG_FAILURE')
-            if c['RestartCount']!=0 or state['StartedAt']!=started: raise RuntimeError('NEGATIVE_UNEXPECTED_RESTART')
-            receipt.update(actual_app_exit_verified=True,actual_app_exit_code=state['ExitCode'],started_at=started,finished_at=state['FinishedAt'],logs=logreceipt)
-            if self.snapshot()!=baseline or self.schema()!=schema or self.static_hash(offline=True)!=self.static_baseline: raise RuntimeError('NEGATIVE_DATA_SCHEMA_STATIC_CHANGED')
+            try:
+                env=self.envfile('negative.env','app')
+                env.write_text(env.read_text().replace(self.values[0],self.values[7]))
+                started=self.app_start(self.a.candidate,env,verify_types=False)
+                for _ in range(90):
+                    c=self.inspect(self.app)
+                    if not c['State']['Running']: break
+                    time.sleep(1)
+                else: raise RuntimeError('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT')
+                state=c['State'];logs,logreceipt=self.capture_logs('startup-negative')
+                receipt['logs']=logreceipt
+                if not isinstance(logreceipt,dict) or logreceipt.get('complete') is not True: raise RuntimeError('NEGATIVE_COMPLETE_LOGS_REQUIRED')
+                if state['ExitCode']==0 or state.get('OOMKilled') or not re.search('password authentication failed',logs,re.I): raise RuntimeError('NEGATIVE_WRONG_FAILURE')
+                if c['RestartCount']!=0 or state['StartedAt']!=started: raise RuntimeError('NEGATIVE_UNEXPECTED_RESTART')
+                receipt.update(actual_app_exit_verified=True,actual_app_exit_code=state['ExitCode'],started_at=started,finished_at=state['FinishedAt'])
+                if self.snapshot()!=baseline or self.schema()!=schema or self.static_hash(offline=True)!=self.static_baseline: raise RuntimeError('NEGATIVE_DATA_SCHEMA_STATIC_CHANGED')
+            except Exception as error:
+                receipt['phase_error']=type(error).__name__
+                raise
+            finally:
+                # Cleanup must still run if final capture or its assertions fail.
+                try:
+                    logs,logreceipt=self.capture_logs('startup-negative')
+                    if not isinstance(logreceipt,dict) or logreceipt.get('complete') is not True: raise RuntimeError('NEGATIVE_COMPLETE_LOGS_REQUIRED')
+                    if not re.search('password authentication failed',logs,re.I): raise RuntimeError('NEGATIVE_WRONG_FAILURE')
+                    receipt['logs']=logreceipt
+                except Exception as error:
+                    receipt.update(log_capture_failed=True,final_capture_error=type(error).__name__)
+                    raise
+                finally:
+                    try:
+                        self.remove_container(self.app)
+                        receipt['cleanup_verified']=True
+                    except Exception as error:
+                        receipt['cleanup_error']=type(error).__name__
+                        raise
             receipt['status']='PASS'
-        finally:
-            try: _,receipt['logs']=self.capture_logs('startup-negative')
-            except Exception: receipt['log_capture_failed']=True;receipt['status']='FAIL'
-            self.remove_container(self.app)
-            receipt['cleanup_verified']=True
+        except Exception:
+            receipt['status']='FAIL'
+            # Keep private traceback plus all phase/capture/cleanup error types.
+            # Evidence I/O failure cannot prevent the already attempted cleanup.
+            try:self.private_record('startup-negative-failure',{'receipt':receipt,'exception':traceback.format_exc()})
+            except Exception:receipt['failure_evidence_failed']=True
+            raise
+    def bind_bridge(self):
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('phaseb_bridge_contract',ROOT/'bridge-contract.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        pins=module.load(self.a.bridge_contract)
+        if self.a.candidate!=FIRSTBOOT_IMAGE or self.a.previous!=pins['image']:
+            raise RuntimeError('EXACT_FIFTH_CANDIDATE_AND_DISTINCT_BRIDGE_REQUIRED')
+        self.bridge_module=module;self.bridge_pins=dict(pins,contract_sha256=hashlib.sha256(self.a.bridge_contract.read_bytes()).hexdigest())
+        self.previous_kind='readonly'
+        self.evidence['previous_identity_kind']='distinct-rollback-bridge'
     def execute(self):
         if os.environ.get('GITHUB_ACTIONS')!='true' or os.environ.get('RUNNER_ENVIRONMENT')!='github-hosted': raise RuntimeError('ONLY_GITHUB_HOSTED_RUNNER')
-        validate_images(self.a.candidate,self.a.previous)
+        if getattr(self.a,'bridge_contract',None):
+            self.bind_bridge()
+        else:
+            validate_images(self.a.candidate,self.a.previous)
         self.evidence['diagnostic_stage']='RUNTIME_PREVIOUS_RECEIPT'
         manifest=json.loads(self.a.previous_manifest.read_text())
-        if any(manifest.get(k)!=v for k,v in {'image':PREVIOUS_ID,'image_id':PREVIOUS_ID,'source_hash':PREVIOUS_SOURCE,'gzip_sha256':PREVIOUS_ARCHIVE,'gzip_bytes':273965027}.items()) or not all(manifest.get(k) is True for k in ['config_sha256_verified','ordered_layer_sha256_verified','source_receipt_verified']): raise RuntimeError('PREVIOUS_SAVED_ARTIFACT_RECEIPT_REQUIRED')
-        layers=manifest.get('diff_ids')
-        if not isinstance(layers,list) or len(layers)!=11 or not all(IMAGE_ID.fullmatch(x) for x in layers): raise RuntimeError('PREVIOUS_LAYER_RECEIPT_INVALID')
+        if getattr(self,'bridge_pins',None):
+            layers=self.bridge_module.verify_manifest(manifest,self.bridge_pins)
+        else:
+            if any(manifest.get(k)!=v for k,v in {'image':PREVIOUS_ID,'image_id':PREVIOUS_ID,'source_hash':PREVIOUS_SOURCE,'gzip_sha256':PREVIOUS_ARCHIVE,'gzip_bytes':273965027}.items()) or not all(manifest.get(k) is True for k in ['config_sha256_verified','ordered_layer_sha256_verified','source_receipt_verified']): raise RuntimeError('PREVIOUS_SAVED_ARTIFACT_RECEIPT_REQUIRED')
+            layers=manifest.get('diff_ids')
+            if not isinstance(layers,list) or len(layers)!=11 or not all(IMAGE_ID.fullmatch(x) for x in layers): raise RuntimeError('PREVIOUS_LAYER_RECEIPT_INVALID')
         for image in [self.a.candidate,self.a.previous]:
             self.evidence['diagnostic_stage']='RUNTIME_IMAGE_PINS'
             c=json.loads(self.docker('image','inspect',image))[0]
@@ -877,6 +919,13 @@ ROLLBACK;""",user='postgres').strip()
             'static_sha256':self.static_baseline})
         for image,phase in [(self.a.candidate,'candidate'),(self.a.previous,'previous'),(self.a.candidate,'candidate-restored')]: self.phase(image,phase,baseline,schema)
         self.negative(baseline,schema)
+        negative=self.evidence.get('startup_negative',{})
+        if (negative.get('status')!='PASS' or negative.get('actual_app_exit_verified') is not True
+                or negative.get('cleanup_verified') is not True
+                or not isinstance(negative.get('logs'),dict) or negative['logs'].get('complete') is not True
+                or any(negative.get(key) for key in ['phase_error','log_capture_failed','final_capture_error','cleanup_error','failure_evidence_failed'])):
+            self.evidence['status']='FAIL'
+            raise RuntimeError('STARTUP_NEGATIVE_COMPLETE_PASS_REQUIRED')
         if self.evidence['audit_native'].get('owner_truncate_guard')!='PASS' or self.evidence['audit_native'].get('owner_rows_schema_unchanged') is not True:
             raise RuntimeError('AUDIT_OWNER_RECEIPT_REQUIRED')
         self.evidence['status']='PASS'
@@ -936,7 +985,15 @@ ROLLBACK;""",user='postgres').strip()
         (self.a.out/'runtime.json').write_text(self.scrub(json.dumps(self.evidence,indent=2))+'\n')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--candidate',required=True,help='already locally built exact config sha256 ID');p.add_argument('--previous',default=PREVIOUS_ID);p.add_argument('--previous-manifest',type=Path,required=True,help='parent-verified saved artifact acquisition manifest');p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--candidate',required=True,help='already locally built exact config sha256 ID');p.add_argument('--previous',default=None,help='defaults only to the bound distinct bridge, never historical previous');p.add_argument('--previous-manifest',type=Path,required=True,help='parent-verified saved artifact acquisition manifest');p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--bridge-contract',type=Path,required=True)
+    # Parse once after every required argument, before constructing resources.
+    a=p.parse_args()
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('phaseb_cli_contract',ROOT/'bridge-contract.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    pins=module.load(a.bridge_contract)
+    if a.previous is None:a.previous=pins['image']
+    if a.candidate!=FIRSTBOOT_IMAGE or a.previous!=pins['image']:raise RuntimeError('EXACT_FIFTH_CANDIDATE_AND_DISTINCT_BRIDGE_REQUIRED')
     h=Harness(a)
     def expired(*_): raise RuntimeError('RUNTIME_DEADLINE_2490S')
     signal.signal(signal.SIGALRM,expired);signal.alarm(RUNTIME_ALARM_SECONDS)

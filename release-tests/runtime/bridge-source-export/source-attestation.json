@@ -1,0 +1,20 @@
+{
+  "files": {
+    "approval.json": "5bb3ea24cbd0dd83370daa900739bb7ff9bcac6877b4555414095b836884fbf7",
+    "binding.json": "ab8368f356f97f45c9a502c352a3f0ca91746f2ec3f20ee34bfeb8912ce11dfb",
+    "inspect-compiled.cjs": "76de6fcc31722fbac3b8cb9b29c86af9b3478f9f21a2f9bfae04917cf393d2fd",
+    "source-attestation-public.pem": "86654d8ad3be456e7a8a96f4df66009ff7891169c565d6e821b3faa1007e55eb",
+    "source-deltas.json": "11b97cde88e5f4410361a9cb208c30a265db1f26bddcdd95a0d46e778c114131",
+    "source-exclusions.json": "43d7d557927a06bf2d7810105d74e2131f236e74494bbb9eb9405551897e59b6",
+    "source.full.manifest.jsonl": "d25e2d3568e5fb74396b868c208060b69b1fa088111afa8bd45244383fbefa2e",
+    "source.full.tar.xz": "18d78cfd620ac5bf0879672ee5bc2c305965ef06de4e9de01041a8d264611b50",
+    "verify-image.py": "d7475f923e3d11fc94b1f617da79c27bdd95eeefa74a7ca1cc7de10968f87f1a",
+    "verify-run.py": "19dab7751fb8e4685c57115c3423ab0aebc590dcd0628d67c523f456f3be3101",
+    "verify-signature.py": "a50a7181a5433825da6d173fec406b95a84d9f94386982cfea3b8cfba15f9909",
+    "verify-source.py": "8a5668123047f655a3bf29364af933633064267259c131f1a448aee14754aaa7"
+  },
+  "kind": "rollback-bridge-build-source",
+  "parent_seal_sha256": "c6e6251bcd75ce7c50ff728b230c73a68272e0313080a7fdff84da248b913bde",
+  "schema": 1,
+  "workflow_sha256": "07ed8a381d2bf9f9f66b21be351bd2e90f54a632e09efe250f3b5642bc9ddb0d"
+}

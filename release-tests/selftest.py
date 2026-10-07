@@ -229,6 +229,29 @@ assert.equal(process.exitCode, 1);
                 self.assertIn(expected, guard)
         self.assertNotIn('needs', w['jobs']['runtime'])
         self.assertIn('!cancelled()', w['jobs']['runtime']['if'])
+        self.assertEqual(w['jobs']['runtime']['timeout-minutes'], '60')
+        self.assertEqual(w['jobs']['postgres']['timeout-minutes'], '50')
+        runtime_steps = {s.get('id'): s for s in w['jobs']['runtime']['steps']}
+        contract = 'release-tests/runtime/bridge-contract.bound.json'
+        acquisition = runtime_steps['acquisition']['run']
+        runtime_command = runtime_steps['runtime']['run']
+        previous_command = runtime_steps['previous']['run']
+        # Publication must fail closed if the separate bound contract is absent.
+        expected = contract
+        self.assertIn('--contract ' + expected, acquisition)
+        self.assertIn('--source-export release-tests/runtime/bridge-source-export', acquisition)
+        self.assertIn('--bridge-contract ' + expected, runtime_command)
+        self.assertIn('open("' + expected + '")', previous_command)
+        self.assertEqual((ROOT.parent / '.github/workflows/release-tests.yml').read_text().count(expected), 3)
+        self.assertIn('--previous "$BRIDGE_ID"', runtime_command)
+        self.assertNotIn('release-tests/runtime/bridge-contract.json', acquisition + runtime_command + previous_command)
+        bridge = load('published_bridge_controls', ROOT / 'runtime/bridge-contract.py')
+        pins = bridge.load(ROOT / 'runtime/bridge-contract.bound.json')
+        self.assertEqual(pins['run_id'], 37671453633)
+        self.assertEqual(pins['artifact_id'], 11504828273)
+        self.assertEqual(pins['image'], 'sha256:afb6397899ff3a85d82a9598dbe8803ad0e192afa60a1f51bd12089b0392d09c')
+        with self.assertRaisesRegex(bridge.Blocked, 'PENDING'):
+            bridge.validate(bridge.SPEC)
 
     def valid_artifacts(self):
         # The binding constants were independently observed from the completed build;
