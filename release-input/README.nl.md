@@ -1,11 +1,13 @@
-# Exacte scoped kandidaat — derde normale build
+# Exacte scoped kandidaat — vierde normale build
 
-Eigenaar gaf expliciet toestemming voor één extra build, cumulatief maximaal drie. Alleen de native indexverificatiebron is gewijzigd; private regressietests zijn niet in het sourcearchive opgenomen. Geen vierde build, rerun, merge, deploy, registry push of provideractie toegestaan.
+Eigenaar keurde de native reconciliation-auditmigratie, één extra normale hosted build (vierde totaal; cumulatief maximaal vier) en geïsoleerde DB/runtimegates expliciet goed. Deze fase bereidt uitsluitend de publicatie-input voor: geen commit, push, build, installatie of applicatiestart. Geen vijfde build, rerun, provideractie, merge, deploy, registry push of live-acceptatie.
 
-Archive SHA-256: `c2b0bbf79487566e8e8288f10a18c66d6da780055f0917955d3344b599f476b9`
-Manifest SHA-256: `ca20704e73de126ecffd1c02956e4252141388a6d6d9cc54057036425800865e`
-Bestanden: 1331. Bronbytes: 3529172.
+Enige bronaddition in deze refresh: `packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261007070000.ts` (`100644`), SHA-256 `fa7a70a4fd15c56607cf44275d3382f17fcd42baeaebbc0e18e0eaf433b6d4e7`. Alle 1331 bestaande archiefleden, root `.dockerignore`, dependencylocks en Dockerrecipe blijven byte- en mode-identiek. Private regressietests en scripts buiten de bestaande allowlist zijn niet toegevoegd.
 
-Bron, dependencylock, Dockerfile en root .dockerignore zijn exact gebonden. Signature en source verifier verplicht vóór normale Dockerbuild. Build op bestaande scoped opsbranch via beperkte push paths; run_attempt=1. Geen private resolver, source overlay of uitgeschakelde backendtypecontrole.
+Archive SHA-256: `47ce7aaf7045bc7006e896845bae013b9368f04520b10b20ba05edbc1174b1c1`
+Manifest SHA-256: `d9ec2c9fbc51d77808b72a0ddd24694c437f072126fcb7919487a5a40703de02`
+Bestanden: 1332. Bronbytes: 3532368. Archiefbytes: 555748.
 
-Publicatie bevat alleen scoped source en technische attestatie, geen private logs of keys. Eerder openbare demo-seed is hash-identiek; dit is geen productiecredentialacceptatie. Tests worden pas afzonderlijk gebonden aan de werkelijk geslaagde nieuwe build; build-GREEN is geen runtime-, provider- of productie-GO.
+Signature en exactsourceverifier zijn verplicht vóór de normale Dockerbuild. De bestaande scoped opsbranch, pushpaths en run_attempt=1 blijven behouden. Geen source overlay, private resolver of uitgeschakelde backendtypecontrole. Historische rapporten zijn bewaard; private backups en nieuwe verificatiereceipts staan buiten de publicatie.
+
+De bestaande openbare demo-seed blijft hash-identiek; dit is geen productiecredentialacceptatie. Een begrensde tokenscan van uitsluitend de nieuwe migratie geeft geen treffers en toont geen waarden. Tests worden in een volgende fase afzonderlijk aan de werkelijk geslaagde nieuwe build gebonden. Build-GREEN is geen runtime-, provider- of productie-GO. Onafhankelijke parentreview volgt vóór iedere commit/push/build.

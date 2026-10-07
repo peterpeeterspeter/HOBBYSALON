@@ -646,6 +646,7 @@
 {"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20241207151814.ts","sha256":"d3648eba483b644b718ba48132bd8a1f2eb3ede3ce7a01238bc522ea89eae379","size":813,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261005190000.ts","sha256":"a8509f193bc64fe3864c8241269d687d0d21aa1dcfa601d65f49012cb9f29b0d","size":3931,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261006113000.ts","sha256":"2b523d99727b7326e9ee42bb850b72b77eb07e92c0ff30ecfb05447b2c2dce03","size":8831,"type":"file"}
+{"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/migrations/Migration20261007070000.ts","sha256":"fa7a70a4fd15c56607cf44275d3382f17fcd42baeaebbc0e18e0eaf433b6d4e7","size":3196,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/models/index.ts","sha256":"5d48b8c59c99bee1339dc90fb598e0e5f7219f873965534ff49bfb820b6d1274","size":28,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/models/order-set.ts","sha256":"cc52779b058c8562aa63375fdcb1d61f90c062e88c350e9cc542510b14858cb3","size":335,"type":"file"}
 {"git_mode":"100644","path":"packages/modules/b2c-core/src/modules/marketplace/service.ts","sha256":"269bf1a3821601192e6da3649c8f6218ccaf248efa54f1fe2e887f9ad01c14e6","size":209,"type":"file"}

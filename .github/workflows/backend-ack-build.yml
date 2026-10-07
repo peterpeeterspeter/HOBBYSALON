@@ -1,3 +1,4 @@
+# Authorization ceiling: maximum_hosted_builds=4; one fourth build only, no fifth build or rerun.
 name: Exact release candidate build only
 on:
   push:
@@ -70,8 +71,8 @@ jobs:
             --metadata-file "$RUNNER_TEMP/candidate-20261007/build-metadata.raw.json" \
             --tag "$IMAGE" \
             --label org.opencontainers.image.revision=bb33a1c1a41e3ac47973badf9283d1330eb9525e \
-            --label io.hobbysalon.source.archive.sha256=c2b0bbf79487566e8e8288f10a18c66d6da780055f0917955d3344b599f476b9 \
-            --label io.hobbysalon.source.manifest.sha256=ca20704e73de126ecffd1c02956e4252141388a6d6d9cc54057036425800865e \
+            --label io.hobbysalon.source.archive.sha256=47ce7aaf7045bc7006e896845bae013b9368f04520b10b20ba05edbc1174b1c1 \
+            --label io.hobbysalon.source.manifest.sha256=d9ec2c9fbc51d77808b72a0ddd24694c437f072126fcb7919487a5a40703de02 \
             --file "$RUNNER_TEMP/candidate-20261007/context/apps/backend/Dockerfile" \
             "$RUNNER_TEMP/candidate-20261007/context" \
             2>&1 | tee "$RUNNER_TEMP/candidate-20261007/receipts/build.log"
