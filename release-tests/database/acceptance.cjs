@@ -12,14 +12,52 @@ const { specifier, identity, STAGES, errorCode } = require('./dependency-identit
 const { failedCase } = require('./failed-case-diagnostics.cjs')
 const diagnosticRole = process.argv[2] === '--preflight' ? 'preflight' : process.argv[2]?.startsWith('--') ? 'worker' : 'main'
 let diagnosticStage, diagnosticSequence = 0
+// BEGIN PG STDOUT RECORD TRANSPORT
+// One synchronous owner for receipt and diagnostic records. Pipe writes may be
+// short or return EAGAIN: finish every UTF-8 byte before starting another record.
+// A stalled/broken transport permanently forbids further receipts and exit 0.
+const stdoutWait = new Int32Array(new SharedArrayBuffer(4))
+let stdoutFailure
+function writeStdoutRecord(tag, value) {
+  if (stdoutFailure) { process.exitCode = 1; throw stdoutFailure }
+  try {
+    const record = Buffer.from(tag + ' ' + JSON.stringify(value) + '\n', 'utf8')
+    const deadline = process.hrtime.bigint() + 30_000_000_000n
+    let offset = 0
+    while (offset < record.length) {
+      let written
+      try { written = fs.writeSync(1, record, offset, record.length - offset) }
+      catch (error) {
+        if (!['EINTR', 'EAGAIN', 'EWOULDBLOCK'].includes(error.code)) throw error
+        if (process.hrtime.bigint() >= deadline) {
+          throw Object.assign(new Error('stdout record transport stalled'), {code:'ETIMEDOUT'})
+        }
+        if (error.code !== 'EINTR') Atomics.wait(stdoutWait, 0, 0, 5)
+        continue
+      }
+      if (!Number.isInteger(written) || written <= 0 || written > record.length - offset) {
+        throw Object.assign(new Error('stdout record transport made invalid progress'), {code:'EIO'})
+      }
+      offset += written
+    }
+  } catch (error) {
+    stdoutFailure = error
+    process.exitCode = 1
+    throw error
+  }
+}
+const emit = (tag, value) => writeStdoutRecord(tag, value)
 function checkpoint(stage) {
   assert(STAGES.includes(stage), 'unknown diagnostic stage')
   diagnosticStage = stage
-  fs.writeSync(1, 'PG_CHECKPOINT ' + JSON.stringify({stage, role: diagnosticRole, sequence: ++diagnosticSequence}) + '\n')
+  writeStdoutRecord('PG_CHECKPOINT', {stage, role: diagnosticRole, sequence: ++diagnosticSequence})
 }
 function diagnosticFailure(error) {
-  fs.writeSync(1, 'PG_NODE_DIAGNOSTIC ' + JSON.stringify({stage: diagnosticStage, role: diagnosticRole, code: errorCode(error)}) + '\n')
+  // Never retry a failed receipt via the exception monitor or fatal handler.
+  if (stdoutFailure) { process.exitCode = 1; return }
+  writeStdoutRecord('PG_NODE_DIAGNOSTIC', {stage: diagnosticStage, role: diagnosticRole, code: errorCode(error)})
 }
+// END PG STDOUT RECORD TRANSPORT
 process.on('uncaughtExceptionMonitor', diagnosticFailure)
 checkpoint('PG_DEPENDENCY_IDENTITIES')
 const dep = createRequire(process.env.ACK_DEPENDENCY_ANCHOR || '/app/apps/backend/package.json')
@@ -80,7 +118,6 @@ const { applyMarketplaceWebhookTransaction: apply, readCommittedMarketplaceWebho
 const { consumeAtomicMarketplaceOrderSetPlaced: consume } = require(utils + 'marketplace-webhook-consumer-ack.ts')
 const { replayMarketplaceWebhookFinancialAck: replay } = require(utils + 'marketplace-webhook-consumer-replay.ts')
 const { commerceCartLockKey, withCommerceCartLock } = require(utils + 'commerce-cart-lock.ts')
-const emit = (tag, value) => console.log(tag + ' ' + JSON.stringify(value))
 const hashes = () => Object.fromEntries(inventory.candidate_files.map(f => [f,crypto.createHash('sha256').update(fs.readFileSync(source + '/' + f)).digest('hex')]))
 
 const connection = {host:'127.0.0.1',port:5432,user:'postgres',database:'webhook_ack_acceptance',connectionTimeoutMillis:4000,statement_timeout:6000}
@@ -193,7 +230,7 @@ function worker(mode,n) {
   const ready=new Promise((resolve,reject)=>{c.once('message',resolve);c.once('error',reject);c.once('close',()=>reject(Error('worker before barrier: '+errors)))})
   ready.catch(()=>{});return {child:c,ready,exited}
 }
-function die(point){fs.writeSync(1,'CRASH_POINT '+JSON.stringify(point)+'\n');process.kill(process.pid,'SIGKILL')}
+function die(point){writeStdoutRecord('CRASH_POINT',point);process.kill(process.pid,'SIGKILL')}
 async function workerMain(mode,n) {
   const f=fixture(n), e=await envFor(f,{beforeGraph:mode==='--crash-claim'?async()=>{
     const locks=(await e.pg.raw('SELECT pg_backend_pid() pid')).rows // second root connection, NOT lock-holder proof
