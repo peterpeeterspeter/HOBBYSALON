@@ -14,7 +14,7 @@ TYPES='/app/apps/backend/.medusa/server/.medusa/types'
 STATIC='/app/apps/backend/static'
 LABEL='ci.release.runtime.owner'
 ROOT=Path(__file__).resolve().parent
-APP_COMMAND=['/app/node_modules/@medusajs/cli/dist/index.js','start','--types=false','--host','0.0.0.0','--port','9000']
+APP_COMMAND=['/app/node_modules/@medusajs/cli/dist/index.js','start','--types=false','--host','127.0.0.1','--port','9000']
 ERRORS=re.compile(r'CI_INDEX_INIT_FAILED|INDEX_STARTUP_(?:NOT_READY|QUERY_FAILED|TIMEOUT)|\b(?:EROFS|ENOENT|EACCES|UnhandledPromiseRejection|uncaughtException)\b|Error starting server|permission denied|password authentication failed|"level"\s*:\s*"error"|\berror:',re.I)
 DIAGNOSTIC_CODES={'INDEX_DIAG_ENTRY','INDEX_DIAG_CONFIG_IMPORTED','INDEX_DIAG_CATALOG_IMPORTED','INDEX_DIAG_SCHEMA_COMPLETE','INDEX_DIAG_PG_CONNECT_BEGIN','INDEX_DIAG_PG_CONNECT_COMPLETE','INDEX_DIAG_CATALOG_BEGIN','INDEX_DIAG_CATALOG_COMPLETE','INDEX_DIAG_OK','INDEX_DIAG_UNKNOWN_ERROR','INDEX_DIAG_MODULE_NOT_FOUND','INDEX_DIAG_EACCES','INDEX_DIAG_ENOENT','INDEX_DIAG_EROFS','INDEX_DIAG_EGRESS_DENIED','INDEX_DIAG_UNIX_SOCKET_DENIED','INDEX_DIAG_PLAN_UNSUPPORTED','INDEX_DIAG_SCHEMA_MISMATCH','INDEX_DIAG_PARTITION_INVALID','INDEX_DIAG_INDEX_INVALID','INDEX_DIAG_FUNCTION_INVALID','INDEX_DIAG_ROLE_MISMATCH','INDEX_DIAG_SQL_PERMISSION','INDEX_DIAG_SQL_AUTH','INDEX_DIAG_SQL_SYNTAX','INDEX_DIAG_SQL_UNDEFINED_TABLE'}
 DIAGNOSTIC_CODES.update({

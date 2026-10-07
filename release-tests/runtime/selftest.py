@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline regression tests. No containers, imports of product code or network."""
+"""Offline regression tests. Loopback-only Node smoke; no containers, product imports or external network."""
 import importlib.util, json, unittest, tempfile, subprocess, os, time
 from pathlib import Path
 from unittest.mock import patch
@@ -8,6 +8,74 @@ spec=importlib.util.spec_from_file_location('runtime',Path(__file__).with_name('
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 class Tests(unittest.TestCase):
+    def test_app_loopback_command_shared_by_candidate_previous_and_negative(self):
+        self.assertEqual(r.APP_COMMAND,['/app/node_modules/@medusajs/cli/dist/index.js','start','--types=false','--host','127.0.0.1','--port','9000'])
+        with tempfile.TemporaryDirectory() as tmp:
+            h=r.Harness.__new__(r.Harness);h.secret_dir=Path(tmp);h.app='fixture-app'
+            h.net='fixture-network';h.volumes=['fixture-pgdata','fixture-static'];calls=[]
+            h.sandbox=lambda *args,**kwargs:calls.append((args,kwargs))
+            h.docker=lambda *args,**kwargs:self.fail('No Docker call allowed')
+            for image in ['sha256:'+'a'*64,r.PREVIOUS_ID]:
+                h.inspect=lambda name,image=image:{'Image':image,'HostConfig':{
+                    'PortBindings':{},'NetworkMode':h.net,'ReadonlyRootfs':True,
+                    'RestartPolicy':{'Name':'no'},'Tmpfs':{'/tmp':{},r.TYPES:{}}},
+                    'Config':{'User':'1001:1001','Healthcheck':{'Test':['CMD','native-health']}},
+                    'State':{'StartedAt':'2026-10-07T00:00:00Z'}}
+                h.app_start(image,Path(tmp)/'runtime.env',verify_types=False)
+                args,kwargs=calls[-1]
+                self.assertEqual(args[:2],(h.app,image));self.assertIs(args[3],r.APP_COMMAND)
+                self.assertTrue(kwargs['detach']);self.assertNotIn('--publish',kwargs['extra'])
+            self.assertEqual(len(calls),2)
+        import inspect
+        self.assertIn('self.app_start(image,',inspect.getsource(r.Harness.phase))
+        self.assertIn('self.app_start(self.a.candidate,env,verify_types=False)',inspect.getsource(r.Harness.negative))
+
+    def test_real_node_listener_red_wildcard_green_loopback_egress_unchanged(self):
+        import hashlib
+        guard=Path(__file__).with_name('egress-deny.cjs')
+        self.assertEqual(hashlib.sha256(guard.read_bytes()).hexdigest(),'960b3202ab94c98fe0400658588b92541a54362ed4f01a0b02d1552886f207f8')
+        script=r'''const assert=require('node:assert/strict'),net=require('node:net'),tls=require('node:tls'),dns=require('node:dns'),http=require('node:http'),https=require('node:https');
+const host=process.argv[1],denials=[];
+const server=http.createServer((req,res)=>{assert.equal(req.url,'/health');res.writeHead(200);res.end('OK')});
+server.on('error',e=>{console.error(e.stack);process.exitCode=1});
+server.listen({host,port:0},async()=>{
+  try {
+    assert.equal(server.address().address,'127.0.0.1');
+    const denied=(name,fn,message='CI_EGRESS_DENIED')=>{assert.throws(fn,e=>e.message===message);denials.push(name)};
+    denied('outbound-wildcard',()=>net.connect({host:'0.0.0.0',port:9}));
+    denied('outbound-wildcard-positional',()=>net.createConnection(9,'0.0.0.0'));
+    denied('socket-wildcard',()=>new net.Socket().connect({host:'0.0.0.0',port:9}));
+    denied('tls-wildcard',()=>tls.connect({host:'0.0.0.0',port:9}));
+    denied('outbound-external',()=>net.connect({host:'203.0.113.1',port:9}));
+    for(const [name,mod] of [['http',http],['https',https]])for(const key of ['get','request'])
+      denied(name+'-'+key,()=>mod[key](name+'://example.invalid/'));
+    for(const key of ['lookup','resolve','resolve4','resolve6']){
+      denied('dns-'+key,()=>dns[key]('example.invalid',()=>assert.fail('External DNS callback')));
+      await assert.rejects(dns.promises[key]('example.invalid'),e=>e.message==='CI_EGRESS_DENIED');denials.push('dns-promises-'+key);
+    }
+    denied('dns-wildcard',()=>dns.lookup('0.0.0.0',()=>assert.fail('Wildcard DNS callback')));
+    denied('unix-options',()=>net.connect({path:'/tmp/ci-listener-smoke-denied.sock'}),'CI_UNIX_SOCKET_DENIED');
+    denied('unix-positional',()=>net.connect('/tmp/ci-listener-smoke-denied.sock'),'CI_UNIX_SOCKET_DENIED');
+    if(globalThis.fetch)denied('fetch-external',()=>fetch('http://example.invalid/'));
+    const status=await new Promise((resolve,reject)=>{
+      const request=http.get({host:'127.0.0.1',port:server.address().port,path:'/health'},res=>{res.resume();res.on('end',()=>resolve(res.statusCode))});
+      request.on('error',reject);request.setTimeout(4000,()=>request.destroy(new Error('Loopback health timeout')));
+    });assert.equal(status,200);
+    console.log(JSON.stringify({status:'GREEN',listener:server.address().address,ephemeral_port:true,health_status:status,egress_denials:denials,scope:'real Node listener and guarded loopback HTTP only; no image or release acceptance'}));
+  }catch(e){console.error(e.stack);process.exitCode=1}finally{server.close()}
+});'''
+        def probe(host):
+            return subprocess.run(['node','--require',str(guard),'-e',script,host],
+                env={'PATH':os.environ.get('PATH','/usr/bin:/bin')},capture_output=True,text=True,timeout=10)
+        red=probe('0.0.0.0')
+        self.assertNotEqual(red.returncode,0);self.assertEqual(red.stdout,'')
+        self.assertIn('CI_EGRESS_DENIED',red.stderr);self.assertIn('lookup',red.stderr);self.assertIn('node:net',red.stderr)
+        green=probe(r.APP_COMMAND[r.APP_COMMAND.index('--host')+1])
+        self.assertEqual(green.returncode,0,green.stderr);self.assertEqual(green.stderr,'')
+        receipt=json.loads(green.stdout);self.assertEqual(receipt['status'],'GREEN')
+        self.assertEqual(receipt['listener'],'127.0.0.1');self.assertEqual(receipt['health_status'],200)
+        print(json.dumps({'node_listener_red':{'host':'0.0.0.0','exit_code':red.returncode,'stderr':red.stderr},'node_listener_green':receipt}))
+
     def readiness_adapter(self,probes,queries):
         h=r.Harness.__new__(r.Harness);h.pg='fixture-pg';h.values=['unused','password-canary'];calls=[]
         probes=iter(probes);queries=iter(queries)
