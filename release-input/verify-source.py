@@ -8,8 +8,8 @@ from pathlib import Path, PurePosixPath
 import stat
 import tarfile
 
-ARCHIVE = '550ad750e67fbc98429ef186acb555a7c03cb3c619e185af00d1fd4f6f3daa71'
-MANIFEST = 'd8af3e7bc175747649ffa441fe81b82b4e290e4edcfe0afdf53c8cc853e6feb4'
+ARCHIVE = 'c2b0bbf79487566e8e8288f10a18c66d6da780055f0917955d3344b599f476b9'
+MANIFEST = 'ca20704e73de126ecffd1c02956e4252141388a6d6d9cc54057036425800865e'
 BASE = 'bb33a1c1a41e3ac47973badf9283d1330eb9525e'
 PATCH = '892c33cd8b484a4ab906a0087ca27fcd8d5b7f26736a29cf0d08b4931bae85c8'
 PATCH_FILES = {'package.json': 'bf085e8c11b662f851b5202cd4448a5fc740290c00c06ca23964d2194d4dc599', 'yarn.lock': 'fc0d51491548834c643a39416ce1461f9b61b3cca119c410f82e2bdfb3e77b98', 'turbo.json': '7b4600964e0ab5778a7e641b588fb195d3438585048d8ad9e11d009e7714178a', 'apps/backend/Dockerfile': '155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7', 'apps/backend/entrypoint.sh': 'abc173a11ab7e0457ccaf11c9ce71ccebff0b8b01881ca41910a2c42ce9f462e', 'deploy/release/archive-runtime.cjs': '44c1669a48978c4353e9e49a605d05b904755e368b11f173dbaf6d782d69f3b4', 'deploy/release/audit-dependencies.cjs': '5369e834cbd7f038b3f4cff9183d506f791829d59fc3fb6324e7214875438ff0', 'deploy/release/index-bootstrap.cjs': 'fb57075bf3e04893a88fc850f6c6cc46225d03bfcc9e894fbcdba4693233249a', 'deploy/release/migrate-native.cjs': 'fd029c4ee405996f1a6836379c8612a374c859d5e3e731a3854c4534d515ef90', 'deploy/release/migration-plan.cjs': 'e449b9274e479651a7245bdf6d2e1bf69447846317ebb47bc3a05286a68019d6', 'deploy/release/recipe.sh': 'ebbb36171095076a98e9211414f53de42b011498bcac3c533613d0ea35e61f2e', 'deploy/release/verify-offline.cjs': 'd7fa9bfc51db45be35706571b9e0ab5078c951698a342039d876e16586cee063'}
@@ -45,7 +45,7 @@ def load_manifest(path):
             if type(d['size']) is not int or d['size'] < 0 or len(d['sha256']) != 64:
                 fail('Manifest size/hash invalid')
             records[name] = d
-    if len(records) != 1331 or sum(d['size'] for d in records.values()) != 3528308:
+    if len(records) != 1331 or sum(d['size'] for d in records.values()) != 3529172:
         fail('Manifest count/size mismatch')
     # Root Docker context control file is required, not a directory or an extra COPY root.
     if records.get('.dockerignore', {}).get('sha256') != 'c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782':
@@ -68,11 +68,11 @@ def main():
                 'accepted_patch_sha256': PATCH, 'accepted_file_sha256': PATCH_FILES,
                 'build_only': True, 'production_release': False, 'runtime_acceptance': False,
                 'branch': 'ops/release-validation-20261007', 'max_build_minutes': 40,
-                'artifact_retention_days': 7, 'maximum_hosted_builds': 2,
+                'artifact_retention_days': 7, 'maximum_hosted_builds': 3,
                 'image': 'hobbysalon-release-candidate:20261007', 'repository': 'peterpeeterspeter/HOBBYSALON',
                 'dockerfile': 'apps/backend/Dockerfile', 'schema': 1,
                 'source_scope': ['.dockerignore', 'package.json', 'yarn.lock', 'turbo.json', 'packages', 'apps/backend', 'deploy/release'],
-                'source_files': 1331, 'source_bytes': 3528308,
+                'source_files': 1331, 'source_bytes': 3529172,
                 'dockerignore_sha256': 'c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782',
                 'exclusions_sha256': 'f5af2bfcea1403c167210efd8fb78cdfef00db75a7681c73ea610865376ec9ac'}
     if any(a.get(k) != v or type(a.get(k)) is not type(v) for k, v in expected.items()):

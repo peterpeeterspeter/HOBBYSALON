@@ -27,7 +27,7 @@
 {"git_mode":"100644","path":"apps/backend/src/jobs/marketplace-webhook-replay.ts","sha256":"e40c9a52c859e75918e74b2d357ea13b086379b4ccb29702b6b37e12471f339b","size":1526,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/migration-scripts/ensure-category-detail-tables.ts","sha256":"9cceb31d9bc9ddc0d19f3a3b7983a09d5821ac39f7e4a7050a2f941e32c60dfe","size":4154,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/README.md","sha256":"2ec67ccfd20a15ac03a8c3a314ec5e09aef26ceb09bc74c3c5c4e73e6b2f98e0","size":2242,"type":"file"}
-{"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/catalog.ts","sha256":"72c3d76f13a526576e14d4d9d2f360f9a3f6b6ed07efd488ee0b22dbbc2d079b","size":6119,"type":"file"}
+{"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/catalog.ts","sha256":"cc318a105ffb719cb4264b4706e30d3e2d07a053b8ba1f22f2463f2bdd145eaf","size":6983,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/index.ts","sha256":"5015ed208c6277c28747e5260b3d92fa2d9526c8bd8b016c9c6dd61333b36785","size":1319,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/loader.ts","sha256":"eb8d8210693f4e916bfca4601aac6428d96d0f0193571724d76b5bc1e93b98f5","size":209,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/src/modules/index-runtime-readonly/provider.ts","sha256":"c3f005b2356b3ae6cb9efada23654acb543ff540265298775ca0fdc2ef8131ee","size":2130,"type":"file"}

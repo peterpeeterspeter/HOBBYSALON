@@ -1,5 +1,5 @@
 {
-  "archive_sha256": "550ad750e67fbc98429ef186acb555a7c03cb3c619e185af00d1fd4f6f3daa71",
+  "archive_sha256": "c2b0bbf79487566e8e8288f10a18c66d6da780055f0917955d3344b599f476b9",
   "candidate_readback": "exact scoped bytes and modes; tracked and untracked; complete declared exclusion partition",
   "credential_review": {
     "already_public_remote_base_verified": true,
@@ -27,15 +27,18 @@
   "dockerignore_sha256": "c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782",
   "exclusions_sha256": "f5af2bfcea1403c167210efd8fb78cdfef00db75a7681c73ea610865376ec9ac",
   "kind": "technical-scoped-source-attestation",
-  "manifest_sha256": "d8af3e7bc175747649ffa441fe81b82b4e290e4edcfe0afdf53c8cc853e6feb4",
-  "product_edits": false,
+  "manifest_sha256": "ca20704e73de126ecffd1c02956e4252141388a6d6d9cc54057036425800865e",
+  "product_edits": true,
   "production_release": false,
   "publication_branch": "ops/release-validation-20261007",
   "repository": "peterpeeterspeter/HOBBYSALON",
   "runtime_acceptance": false,
   "schema": 1,
+  "scoped_product_edits": [
+    "apps/backend/src/modules/index-runtime-readonly/catalog.ts"
+  ],
   "source_base_commit": "bb33a1c1a41e3ac47973badf9283d1330eb9525e",
-  "source_bytes": 3528308,
+  "source_bytes": 3529172,
   "source_files": 1331,
   "source_scope": [
     ".dockerignore",
