@@ -118,6 +118,27 @@ class Harness:
         return re.sub(r'(postgres(?:ql)?://)[^\s@]+@',r'\1[REDACTED]@',text)
     def sql(self,q,user='postgres'):
         return self.docker('exec','-i',self.pg,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U',user,'-d','acceptance',input=q)
+    def wait_pg_ready(self):
+        # The image's temporary initdb server accepts Unix sockets only. Require
+        # the final TCP server AND an authenticated query in the target database.
+        # Password travels only on exec stdin, never in argv or a shell literal.
+        command='IFS= read -r password; export PGPASSWORD="$password"; exec psql -X -qAt -w -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d acceptance'
+        for _ in range(30):
+            probe=self.proc('docker','exec',self.pg,'pg_isready','-h','127.0.0.1','-p','5432','-U','postgres','-d','acceptance','-t','1',timeout=5)
+            if probe.returncode==0:
+                query=self.proc('docker','exec','-i',self.pg,'sh','-c',command,input=self.values[1]+'\nSELECT 1;\n',timeout=5)
+                if query.returncode==0 and query.stdout.strip()=='1': return
+            time.sleep(1)
+        raise RuntimeError('EMPTY_PG_NOT_READY')
+    def revoke_db_credentials(self):
+        # Read existing fixed fixture roles, then execute only quoted ALTERs for
+        # those rows. Early failures before CREATE ROLE are valid cleanup cases.
+        self.sql(r"""SELECT format('ALTER ROLE %I NOLOGIN PASSWORD NULL;',rolname)
+FROM pg_roles WHERE rolname IN ('app','migrator') ORDER BY rolname
+\gexec
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename IN ('app','migrator') AND pid<>pg_backend_pid();""")
+        if self.sql("SELECT count(*) FROM pg_authid WHERE rolname IN ('app','migrator') AND (rolcanlogin OR rolpassword IS NOT NULL);").strip()!='0': raise RuntimeError('revocation')
+        self.evidence['db_credentials_revoked']=True
     def inspect(self,name): return json.loads(self.docker('inspect',name))[0]
     def envfile(self,name,role):
         p=self.secret_dir/name
@@ -293,11 +314,8 @@ COMMIT;"""
         self.owned_run(self.pg,PG,['-d','--network',self.net,'--network-alias','pg','--memory','1500m','--cpus','1','--pids-limit','128','--env-file',str(pg_env),'--mount',f'type=volume,src={self.volumes[0]},dst=/var/lib/postgresql/data'],[]);self.pg_started=True
         redis_conf=self.secret_dir/'redis.conf';redis_conf.write_text('bind 0.0.0.0\nprotected-mode yes\nrequirepass '+self.values[2]+'\nsave ""\nappendonly no\n');redis_conf.chmod(0o644)
         self.owned_run(self.redis,REDIS,['-d','--network',self.net,'--network-alias','redis','--memory','256m','--cpus','0.5','--pids-limit','64','--mount',f'type=bind,src={redis_conf},dst=/ci-redis.conf,readonly'],['redis-server','/ci-redis.conf'])
-        for _ in range(30):
-            self.evidence['diagnostic_stage']='RUNTIME_EMPTY_FIXTURES'
-            if self.docker('exec',self.pg,'pg_isready','-U','postgres',check=False).strip().endswith('accepting connections'): break
-            time.sleep(1)
-        else: raise RuntimeError('EMPTY_PG_NOT_READY')
+        self.evidence['diagnostic_stage']='RUNTIME_EMPTY_FIXTURES'
+        self.wait_pg_ready()
         if self.sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public';").strip()!='0': raise RuntimeError('DATABASE_NOT_EMPTY')
         if self.docker('exec','-i',self.redis,'sh','-c','IFS= read -r auth; export REDISCLI_AUTH="$auth"; redis-cli DBSIZE',input=self.values[2]+'\n').strip()!='0': raise RuntimeError('REDIS_NOT_EMPTY')
         self.evidence.update(empty_pg=True,empty_redis=True)
@@ -342,9 +360,7 @@ COMMIT;"""
             except Exception: errors.append('app_container_remove')
         if self.pg_started:
             try:
-                self.sql("ALTER ROLE app NOLOGIN PASSWORD NULL; ALTER ROLE migrator NOLOGIN PASSWORD NULL; SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename IN ('app','migrator') AND pid<>pg_backend_pid();")
-                if self.sql("SELECT count(*) FROM pg_authid WHERE rolname IN ('app','migrator') AND (rolcanlogin OR rolpassword IS NOT NULL);").strip()!='0': raise RuntimeError('revocation')
-                self.evidence['db_credentials_revoked']=True
+                self.revoke_db_credentials()
             except Exception: errors.append('revocation_unverified')
         for c in set(self.containers):
             try: self.remove_container(c)

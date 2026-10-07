@@ -261,18 +261,29 @@ test('durable_admission_distinct_from_commit_and_collision',async()=>{
 })
 test('physical_transaction_context_and_atomic_rollback',async()=>{
   const input=eventIdentity('rollback');await admit(manager,input);let expired
+  // Global EM reads follow MikroORM's ambient TransactionContext. Probe root state
+  // through a context-free fork; ambient routing is not shared-manager mutation.
+  const rootProbe=mainOrm.em.fork({clear:true,useContext:false})
+  const storedRootTransaction=()=>Object.getOwnPropertyDescriptor(mainOrm.em,'transactionContext')?.value
+  assert.equal(storedRootTransaction(),undefined)
+  assert.equal(rootProbe.getTransactionContext(),undefined);assert.equal(mainOrm.em.getTransactionContext(),undefined)
   await assert.rejects(apply(manager,input,async scope=>{
     expired=scope;const local=scope.context(mainOrm.em).transactionManager
+    assert.notEqual(local,mainOrm.em);assert.notEqual(local,rootProbe)
     const [{pid:ownerPid,txid:ownerTxid}]=await scope.execute('SELECT pg_backend_pid() pid,txid_current()::text txid')
     const [{pid:forkPid,txid:forkTxid}]=await local.execute('SELECT pg_backend_pid() pid,txid_current()::text txid')
     assert.equal(ownerPid,forkPid);assert.equal(ownerTxid,forkTxid);assert.notEqual(ownerPid,observer.processID)
-    const trx=local.getTransactionContext();assert(trx.isTransaction && !trx.isCompleted());assert.equal(mainOrm.em.getTransactionContext(),undefined)
+    const trx=local.getTransactionContext();assert(trx.isTransaction && !trx.isCompleted())
+    assert.equal(mainOrm.em.getTransactionContext(),trx);assert.equal(rootProbe.getTransactionContext(),undefined)
+    assert.equal(storedRootTransaction(),undefined,'shared root transaction state must remain untouched')
     await local.execute('INSERT INTO fixture_sentinel(id,payload) VALUES(?,?::jsonb)',['rollback','{}'])
     assert.equal((await sql('SELECT * FROM fixture_sentinel WHERE id=$1',['rollback'])).length,0)
-    const foreign=await ormFor('postgres');try{assert.throws(()=>scope.context(foreign.em),/database mismatch/)}finally{await foreign.close(true)}
+    const foreign=await ormFor('postgres');try{assert.throws(()=>scope.context(foreign.em.fork({clear:true,useContext:false,disableContextResolution:true})),/database mismatch/)}finally{await foreign.close(true)}
     emit('PHYSICAL_TRANSACTION',{owner_pid:ownerPid,fork_pid:forkPid,observer_pid:observer.processID,txid:ownerTxid})
     throw Error('intentional rollback')
   }),/intentional rollback/)
+  assert.equal(storedRootTransaction(),undefined)
+  assert.equal(mainOrm.em.getTransactionContext(),undefined);assert.equal(rootProbe.getTransactionContext(),undefined)
   assert.equal(await committed(manager,input),false);assert.equal((await sql('SELECT * FROM fixture_sentinel WHERE id=$1',['rollback'])).length,0)
   assert.equal((await sql('SELECT * FROM marketplace_webhook_admission WHERE event_id=$1',[input.event_id])).length,1)
   assert.throws(()=>expired.context(mainOrm.em),/authority expired/)

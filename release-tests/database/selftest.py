@@ -14,6 +14,79 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent
 
+def transaction_context_regression():
+    # Real Node assertions and AsyncLocalStorage; in-memory control adapters only.
+    # Context lookup mirrors the inspected pinned MikroORM 6.4.16 methods. This
+    # exercises the actual fixture callback, NOT candidate SQL or PG acceptance.
+    code = r"""const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const {AsyncLocalStorage}=require('node:async_hooks');
+const source=fs.readFileSync(process.argv[1],'utf8');
+const start=source.indexOf("test('physical_transaction_context_and_atomic_rollback',");
+const end=source.indexOf("test('committed_parent_fixture_duplicate_no_reapply',",start);
+assert(start>=0&&end>start);const fixture=source.slice(start,end);
+class TransactionContext {
+  static storage=new AsyncLocalStorage();
+  static create(em,next){return this.storage.run({em},next)}
+  static getEntityManager(name='default'){const context=this.storage.getStore();return context?.em.name===name?context.em:undefined}
+}
+class Manager {
+  constructor(db='acceptance',useContext=true){this.db=db;this.useContext=useContext;this.name='default';this.transactionContext=undefined}
+  getContext(validate=true){if(!this.useContext)return this;let em=TransactionContext.getEntityManager(this.name);if(em)return em;return this}
+  getTransactionContext(){return this.getContext(false).transactionContext}
+  fork(options={}){const em=options.disableContextResolution?this:this.getContext(false);return new Manager(em.db,options.useContext??false)}
+  setTransactionContext(trx){this.transactionContext=trx}
+}
+async function run(text,control='healthy'){
+  const state={admitted:false,receipt:false,sentinel:false,insert:false,foreign:false,intentional:false,emits:0};
+  const root=new Manager(),manager=root.fork(),observer={processID:99};let callback;
+  const sandbox={assert,mainOrm:{em:root},manager,observer,eventIdentity:()=>({}),
+    test:(_name,fn)=>{callback=fn},admit:async()=>{state.admitted=true},committed:async()=>state.receipt,
+    sql:async q=>q.includes('fixture_sentinel')?(state.sentinel?[{}]:[]):q.includes('marketplace_webhook_admission')?(state.admitted?[{}]:[]):[],
+    ormFor:async db=>({em:new Manager(db),close:async()=>{}}),emit:()=>{state.emits++},
+    apply:async(_manager,_input,work)=>{
+      const owner=manager.fork({useContext:false});let completed=false,active=true;
+      const trx={isTransaction:true,isCompleted:()=>completed};owner.setTransactionContext(trx);
+      const check=()=>{if(!active)throw Error('authority expired')};
+      const execute=async(q,local=false)=>{
+        check();if(q.includes('pg_backend_pid'))return [{pid:local&&control==='wrong_pid'?8:7,txid:local&&control==='wrong_txid'?'2':'1'}];
+        if(q.includes('INSERT INTO fixture_sentinel')){state.insert=true;if(control==='visible_write')state.sentinel=true;return []}
+        throw Error('unexpected regression query');
+      };
+      const scope={execute:q=>execute(q),context:em=>{
+        check();if(em.getContext().db!==owner.db){state.foreign=true;throw Error('database mismatch')}
+        const local=em.fork({useContext:false});local.setTransactionContext(trx);local.execute=q=>execute(q,true);return {transactionManager:local}
+      }};
+      try{return await TransactionContext.create(owner,async()=>{
+        if(control==='root_mutation')rootProbeMutation();
+        try{return await work(scope)}catch(e){state.intentional=e.message==='intentional rollback';throw e}
+      })}finally{
+        active=control==='live_authority';completed=true;
+        if(control==='leaked_receipt')state.receipt=true;
+        if(control==='lost_admission')state.admitted=false;
+      }
+      function rootProbeMutation(){root.setTransactionContext(trx)}
+    }};
+  vm.runInNewContext(text,sandbox,{filename:'acceptance.cjs'});
+  try{await callback()}catch(e){e.regressionState=state;throw e}return state;
+}
+(async()=>{
+  const old=fixture.replace('assert.equal(mainOrm.em.getTransactionContext(),trx);assert.equal(rootProbe.getTransactionContext(),undefined)',
+    'assert.equal(mainOrm.em.getTransactionContext(),undefined)');
+  assert.notEqual(old,fixture);await assert.rejects(run(old),e=>e.code==='ERR_ASSERTION'&&e.operator==='rejects'&&!e.regressionState.insert&&!e.regressionState.intentional);
+  const healthy=await run(fixture);assert(healthy.insert&&healthy.foreign&&healthy.intentional);assert.equal(healthy.emits,1);
+  const resolvedForeign=fixture.replace('foreign.em.fork({clear:true,useContext:false,disableContextResolution:true})','foreign.em.fork({clear:true,useContext:false})');
+  assert.notEqual(resolvedForeign,fixture);await assert.rejects(run(resolvedForeign),e=>e.code==='ERR_ASSERTION'&&!e.regressionState.foreign&&!e.regressionState.intentional);
+  const ambientForeign=fixture.replace('foreign.em.fork({clear:true,useContext:false,disableContextResolution:true})','foreign.em');
+  assert.notEqual(ambientForeign,fixture);await assert.rejects(run(ambientForeign),e=>e.code==='ERR_ASSERTION'&&!e.regressionState.foreign&&!e.regressionState.intentional);
+  const controls=['wrong_pid','wrong_txid','visible_write','root_mutation','leaked_receipt','lost_admission','live_authority'];
+  for(const control of controls)await assert.rejects(run(fixture,control),e=>e.code==='ERR_ASSERTION');
+  console.log(JSON.stringify({status:'passed',scope:'actual rollback fixture callback; real Node AsyncLocalStorage; pinned-context semantics with in-memory controls; NO PG acceptance',old_failure_reproduced:true,foreign_ambient_mask_reproduced:true,negative_controls:controls.length}));
+})().catch(e=>{console.error(e.stack);process.exitCode=1});
+"""
+    done = subprocess.run(['node', '-e', code, str(ROOT/'acceptance.cjs')],
+                          capture_output=True, text=True, check=True, timeout=10)
+    print(done.stdout.strip())
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate-root', type=Path, required=True)
@@ -24,6 +97,7 @@ def main():
     module = runpy.run_path(str(ROOT / 'run-postgres.py'))
     module['hashes'].__globals__['CANDIDATE'] = args.candidate_root.resolve()
     module['self_test']()
+    transaction_context_regression()
     diagnostics = module['node_diagnostics']
     valid = 'PG_CHECKPOINT ' + json.dumps({'stage':'PG_DEPENDENCY_IDENTITIES','role':'main','sequence':1,'error':'private text'})
     valid += '\nPG_NODE_DIAGNOSTIC ' + json.dumps({'stage':'PG_DEPENDENCY_IDENTITIES','role':'main','code':'MODULE_NOT_FOUND','error':'private text'})

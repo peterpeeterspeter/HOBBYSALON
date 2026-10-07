@@ -8,6 +8,86 @@ spec=importlib.util.spec_from_file_location('runtime',Path(__file__).with_name('
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 class Tests(unittest.TestCase):
+    def readiness_adapter(self,probes,queries):
+        h=r.Harness.__new__(r.Harness);h.pg='fixture-pg';h.values=['unused','password-canary'];calls=[]
+        probes=iter(probes);queries=iter(queries)
+        def proc(*args,**kw):
+            calls.append((args,kw))
+            if 'pg_isready' in args:
+                self.assertEqual(args[args.index('-h')+1],'127.0.0.1')
+                self.assertEqual(args[args.index('-d')+1],'acceptance')
+                rc,out=next(probes)
+            else:
+                self.assertEqual(args[:3],('docker','exec','-i'))
+                self.assertIn('-h 127.0.0.1',args[-1]);self.assertIn('-d acceptance',args[-1])
+                self.assertIn('export PGPASSWORD="$password"',args[-1])
+                self.assertEqual(kw['input'],'password-canary\nSELECT 1;\n')
+                rc,out=next(queries)
+            self.assertNotIn('password-canary',' '.join(args))
+            return subprocess.CompletedProcess(args,rc,out,'')
+        h.proc=proc
+        return h,calls
+    def test_pg_temporary_unix_ready_never_accepted(self):
+        # Even misleading accepting-connections text cannot override TCP failure.
+        h,calls=self.readiness_adapter([(2,'/var/run/postgresql:5432 - accepting connections\n')]*30,[])
+        with patch.object(r.time,'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError,'^EMPTY_PG_NOT_READY$'):h.wait_pg_ready()
+        self.assertEqual(len(calls),30);self.assertEqual(sleep.call_count,30)
+        self.assertTrue(all('pg_isready' in args for args,kw in calls))
+    def test_pg_final_tcp_requires_successful_authenticated_select(self):
+        h,calls=self.readiness_adapter([(2,'no response'),(0,'accepting connections'),(0,'accepting connections'),(0,'accepting connections')],[(1,'1\n'),(0,'0\n'),(0,'1\n')])
+        with patch.object(r.time,'sleep') as sleep:h.wait_pg_ready()
+        self.assertEqual(sleep.call_count,3);self.assertEqual(len(calls),7)
+        self.assertEqual(sum('pg_isready' not in args for args,kw in calls),3)
+    def test_pg_tcp_without_database_query_cannot_pass(self):
+        for query in [(1,''),(0,''),(0,'0\n')]:
+            with self.subTest(query=query):
+                h,calls=self.readiness_adapter([(0,'accepting connections')]*30,[query]*30)
+                with patch.object(r.time,'sleep'):
+                    with self.assertRaisesRegex(RuntimeError,'^EMPTY_PG_NOT_READY$'):h.wait_pg_ready()
+    def test_pg_probe_timeout_fails_closed(self):
+        h,calls=self.readiness_adapter([],[])
+        h.proc=lambda *args,**kw:(_ for _ in ()).throw(subprocess.TimeoutExpired(args,5))
+        with self.assertRaises(subprocess.TimeoutExpired):h.wait_pg_ready()
+    def cleanup_adapter(self,tmp):
+        h=r.Harness.__new__(r.Harness);h.pg='fixture-pg';h.redis='fixture-redis';h.pg_started=True
+        h.containers=[h.pg,h.redis];h.created_volumes=[];h.network_created=False;h.firewall=[];h.prefix='fixture'
+        h.values=[];h.evidence={'status':'PASS'};h.a=SimpleNamespace(out=Path(tmp))
+        h.secret_dir=Path(tmp)/'secrets';h.secret_dir.mkdir()
+        removed=[];h.remove_container=removed.append;h.docker=lambda *args,**kw:''
+        return h,removed
+    def test_cleanup_existing_fixed_roles_only_including_no_roles(self):
+        for existing in [set(),{'app'},{'migrator'},{'app','migrator'},{'unrelated'}]:
+            with self.subTest(existing=existing),tempfile.TemporaryDirectory() as tmp:
+                h,removed=self.cleanup_adapter(tmp);roles={name:True for name in existing};queries=[]
+                def sql(q):
+                    queries.append(q)
+                    if q.startswith('SELECT format('):
+                        self.assertIn("format('ALTER ROLE %I NOLOGIN PASSWORD NULL;',rolname)",q)
+                        self.assertIn("FROM pg_roles WHERE rolname IN ('app','migrator') ORDER BY rolname\n\\gexec",q)
+                        self.assertIn("usename IN ('app','migrator') AND pid<>pg_backend_pid()",q)
+                        self.assertNotIn('ALTER ROLE app',q);self.assertNotIn('ALTER ROLE migrator',q)
+                        for name in set(roles)&{'app','migrator'}:roles[name]=False
+                        return ''
+                    self.assertIn("FROM pg_authid WHERE rolname IN ('app','migrator') AND (rolcanlogin OR rolpassword IS NOT NULL)",q)
+                    return str(sum(roles[name] for name in set(roles)&{'app','migrator'}))
+                h.sql=sql;h.cleanup()
+                self.assertEqual(len(queries),2);self.assertTrue(h.evidence['db_credentials_revoked']);self.assertTrue(h.evidence['cleanup'])
+                self.assertEqual(h.evidence['cleanup_errors'],[]);self.assertEqual(set(removed),{h.pg,h.redis})
+                self.assertFalse(h.secret_dir.exists());self.assertTrue((Path(tmp)/'runtime.json').exists())
+                if 'unrelated' in roles:self.assertTrue(roles['unrelated'])
+    def test_cleanup_revocation_query_failure_or_unverified_state_fails_closed(self):
+        for failing_call,result in [(1,'0'),(2,'0'),(None,'1'),(None,''),(None,'unexpected')]:
+            with self.subTest(failing_call=failing_call,result=result),tempfile.TemporaryDirectory() as tmp:
+                h,removed=self.cleanup_adapter(tmp);queries=[]
+                def sql(q):
+                    queries.append(q)
+                    if len(queries)==failing_call:raise RuntimeError('QUERY_FAILED')
+                    return result
+                h.sql=sql;h.cleanup()
+                self.assertFalse(h.evidence.get('db_credentials_revoked',False));self.assertFalse(h.evidence['cleanup'])
+                self.assertEqual(h.evidence['status'],'FAIL');self.assertIn('revocation_unverified',h.evidence['cleanup_errors'])
+                self.assertEqual(set(removed),{h.pg,h.redis});self.assertFalse(h.secret_dir.exists())
     def test_index_field_codes_public_allowlist_no_private_values(self):
         codes=['INDEX_DIAG_INDEX_ROW_MISSING','INDEX_DIAG_INDEX_CAPTURE_UNAVAILABLE','INDEX_DIAG_INDEX_FIELDS_MATCH','INDEX_DIAG_SQL_QUERY_ERROR']
         codes += ['INDEX_DIAG_INDEX_'+field+'_MISMATCH' for field in ['TABLE','METHOD','VALID','READY','UNIQUE','KEY_COUNT','ATTRIBUTE_COUNT','PREDICATE','EXPRESSION','KEY']]
