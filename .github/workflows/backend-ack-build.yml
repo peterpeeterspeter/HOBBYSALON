@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - ops/release-validation-20261007
+    paths:
+      - release-input/source.full.tar.xz
+      - release-input/approval.json
+      - .github/workflows/backend-ack-build.yml
 permissions:
   contents: read
 concurrency:
@@ -14,7 +18,7 @@ jobs:
       github.repository == 'peterpeeterspeter/HOBBYSALON' &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/ops/release-validation-20261007' &&
-      github.event.created == true && github.run_attempt == 1
+      github.run_attempt == 1
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -65,8 +69,8 @@ jobs:
             --metadata-file "$RUNNER_TEMP/candidate-20261007/build-metadata.raw.json" \
             --tag "$IMAGE" \
             --label org.opencontainers.image.revision=bb33a1c1a41e3ac47973badf9283d1330eb9525e \
-            --label io.hobbysalon.source.archive.sha256=596ef6d7a70f316b92b8dcc59b9e139b5b006867375de48f3998def810daf3f2 \
-            --label io.hobbysalon.source.manifest.sha256=72634b09f6c17ab57cde6004df3df3fe0e3ef62fbd15a862272ce637d0a3aa13 \
+            --label io.hobbysalon.source.archive.sha256=550ad750e67fbc98429ef186acb555a7c03cb3c619e185af00d1fd4f6f3daa71 \
+            --label io.hobbysalon.source.manifest.sha256=d8af3e7bc175747649ffa441fe81b82b4e290e4edcfe0afdf53c8cc853e6feb4 \
             --file "$RUNNER_TEMP/candidate-20261007/context/apps/backend/Dockerfile" \
             "$RUNNER_TEMP/candidate-20261007/context" \
             2>&1 | tee "$RUNNER_TEMP/candidate-20261007/receipts/build.log"
