@@ -6,6 +6,7 @@ on:
     paths:
       - release-input/source.full.tar.xz
       - release-input/approval.json
+      - release-input/verify-source.py
       - .github/workflows/backend-ack-build.yml
 permissions:
   contents: read
