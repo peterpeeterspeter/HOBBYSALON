@@ -102,6 +102,10 @@ class Tests(unittest.TestCase):
         self.assertEqual(out['node_failure_codes'], ['MODULE_NOT_FOUND'])
         self.assertEqual(out['planned_tests'],17)
         self.assertNotIn(marker, json.dumps(out))
+        data['failed_cases']=[{'name':g.EXPECTED[0],'status':'failed','code':'ERR_ASSERTION','operator':'strictEqual','stack':{'file':'acceptance.cjs','line':99},'error':marker},{'name':marker,'status':'failed'},None]
+        out=p.project(data,'postgres','failure')
+        self.assertEqual(out['failed_cases'],[{'name':g.EXPECTED[0],'status':'failed','classification':'ASSERTION','code':'ERR_ASSERTION','operator':'strictEqual','stack':{'file':'acceptance.cjs','line':99}}])
+        self.assertNotIn(marker,json.dumps(out))
 
     def test_projection_missing_report_is_not_run(self):
         out = p.project({}, 'postgres', 'failure', 'BUILD_BINDING')

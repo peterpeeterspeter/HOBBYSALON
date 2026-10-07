@@ -18,6 +18,7 @@ import signal
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 import uuid
 
 ROOT = Path(__file__).resolve().parent
@@ -35,6 +36,78 @@ NODE_STAGES = {'PG_DEPENDENCY_IDENTITIES', 'PG_NATIVE_INVENTORY', 'PG_IDENTITY_E
                'PG_RUNTIME_METADATA', 'PG_TEST_EXECUTION', 'PG_PREFLIGHT_COMPLETE', 'PG_NODE_COMPLETE'}
 NODE_CODES = {'MODULE_NOT_FOUND', 'ERR_PACKAGE_PATH_NOT_EXPORTED', 'ERR_ASSERTION', 'ENOENT', 'EACCES',
               'ECONNREFUSED', 'ETIMEDOUT', 'UNCLASSIFIED'}
+CASE_CLASSES = {code: 'NODE_ERROR' for code in NODE_CODES - {'ERR_ASSERTION', 'UNCLASSIFIED'}}
+CASE_CLASSES.update({'ERR_ASSERTION': 'ASSERTION', 'UNCLASSIFIED': 'UNCLASSIFIED',
+                     '23503': 'POSTGRES_CONSTRAINT', '23505': 'POSTGRES_CONSTRAINT', '23514': 'POSTGRES_CONSTRAINT',
+                     '40001': 'POSTGRES_CONCURRENCY', '40P01': 'POSTGRES_CONCURRENCY', '57014': 'POSTGRES_CANCELLED'})
+CASE_OPERATORS = {'strictEqual', 'notStrictEqual', 'deepStrictEqual', '==', 'rejects', 'throws'}
+
+def safe_test_results(text):
+    # Retain order/duplicates for diagnosis, not acceptance. Never copy arbitrary fields.
+    results = []
+    for line in text.splitlines():
+        if not line.startswith('TEST_RESULT '):
+            continue
+        try:
+            item = json.loads(line[len('TEST_RESULT '):])
+            if not isinstance(item, dict) or item.get('name') not in EXPECTED or item.get('status') not in ('passed', 'failed', 'skipped'):
+                continue
+            safe = {'name': item['name'], 'status': item['status']}
+            if safe['status'] == 'failed':
+                code = item.get('code')
+                code = code if isinstance(code, str) and code in CASE_CLASSES else 'UNCLASSIFIED'
+                operator = item.get('operator')
+                operator = operator if code == 'ERR_ASSERTION' and isinstance(operator, str) and operator in CASE_OPERATORS else None
+                stack = item.get('stack')
+                stack = {'file': 'acceptance.cjs', 'line': stack['line']} if isinstance(stack, dict) and stack.get('file') == 'acceptance.cjs' and type(stack.get('line')) is int and 0 < stack['line'] <= 9007199254740991 else None
+                safe.update(classification=CASE_CLASSES[code], code=code, operator=operator, stack=stack)
+            results.append(safe)
+        except (ValueError, TypeError):
+            continue
+    return results
+
+def capture_node_result(report, done, outcome):
+    # Called before command errors/receipt validation can interrupt the runner.
+    report['node_exit_code'] = done.returncode
+    report['node_command_outcome'] = outcome
+    report['results'] = safe_test_results(done.stdout)
+    report['failed_cases'] = [r for r in report['results'] if r['status'] == 'failed']
+    report['node_diagnostics'] = node_diagnostics(done.stdout)
+    checkpoints = [x for x in report['node_diagnostics']['checkpoints'] if x['role'] == 'main']
+    failures = [x for x in report['node_diagnostics']['failures'] if x['role'] == 'main']
+    report['node_diagnostic_stage'] = (failures or checkpoints or [{'stage': 'PG_NODE_START'}])[-1]['stage']
+    report['diagnostic_stage'] = 'PG_RECEIPT_CAPTURE'
+    try:
+        report['runtime'] = tagged(done.stdout, 'RUNTIME_METADATA')
+    except (ValueError, TypeError):
+        report['runtime'] = []
+
+def command_result(log, args, timeout=30, check=True, on_result=None):
+    log.write('COMMAND ' + json.dumps(args) + '\n')
+    outcome = 'COMPLETED'
+    timed_out = None
+    def text(value):
+        return value.decode(errors='replace') if isinstance(value, bytes) else (value or '')
+    try:
+        # Explicitly disable subprocess checking; this helper owns the check policy.
+        done = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout, check=False)
+    except subprocess.CalledProcessError as e:
+        # Defensive: adapters may raise despite check=False. Preserve their actual output/code.
+        done = subprocess.CompletedProcess(args, e.returncode, text(e.stdout) + text(e.stderr))
+        outcome = 'CALLED_PROCESS_ERROR'
+    except subprocess.TimeoutExpired as e:
+        # A timeout supplies no process exit code: never invent one.
+        done = SimpleNamespace(args=args, returncode=None, stdout=text(e.stdout) + text(e.stderr))
+        outcome, timed_out = 'TIMEOUT', e
+    log.write(done.stdout)
+    log.flush()
+    if on_result is not None:
+        on_result(done, outcome)
+    if timed_out is not None:
+        raise Blocked('command timeout') from timed_out
+    if check and done.returncode:
+        raise Blocked(f'command failed {done.returncode}: {args[:3]}')
+    return done
 
 def private_open(path, exclusive=False):
     flags = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | (os.O_EXCL if exclusive else os.O_TRUNC)
@@ -79,7 +152,7 @@ def canonical_hash(value):
 
 def hashes():
     result = {f: hashlib.sha256((CANDIDATE / f).read_bytes()).hexdigest() for f in INVENTORY['candidate_files']}
-    result.update({'harness/' + f: hashlib.sha256((ROOT / f).read_bytes()).hexdigest() for f in ('acceptance.cjs', 'dependency-identity.cjs', 'inventory.json', 'run-postgres.py')})
+    result.update({'harness/' + f: hashlib.sha256((ROOT / f).read_bytes()).hexdigest() for f in ('acceptance.cjs', 'dependency-identity.cjs', 'failed-case-diagnostics.cjs', 'inventory.json', 'run-postgres.py')})
     return result
 
 def resources():
@@ -193,17 +266,8 @@ def run(output, backend, dependency_role):
               'backend_dependency_role': dependency_role, 'candidate_root': str(CANDIDATE), 'expected_tests': EXPECTED, 'status': 'running', 'cleanup': [], 'containers': {}, 'log': str(log_path), 'diagnostic_stage': 'PG_SOURCE_PINS'}
     owned = []
     log = private_open(log_path, exclusive=True)
-    def command(args, timeout=30, check=True):
-        log.write('COMMAND ' + json.dumps(args) + '\n')
-        try:
-            done = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
-        except subprocess.TimeoutExpired as e:
-            log.write((e.stdout or b'').decode(errors='replace') if isinstance(e.stdout, bytes) else (e.stdout or ''))
-            raise Blocked('command timeout') from e
-        log.write(done.stdout)
-        if check and done.returncode:
-            raise Blocked(f'command failed {done.returncode}: {args[:3]}')
-        return done
+    def command(args, timeout=30, check=True, on_result=None):
+        return command_result(log, args, timeout, check, on_result)
     def inspect(name):
         done = command(['docker', 'container', 'inspect', name], check=False)
         if inspect_absent(name, done.returncode, done.stdout):
@@ -267,14 +331,8 @@ def run(output, backend, dependency_role):
             '--mount', f'type=bind,source={CANDIDATE},target=/candidate,readonly', '--mount', f'type=bind,source={ROOT},target=/fixture,readonly',
             '-e', 'ACK_ISOLATED_FIXTURE=1', '-e', 'NODE_OPTIONS=', '-e', 'MEDUSA_TELEMETRY_DISABLED=true'], backend,
             ['--max-old-space-size=160', '/fixture/acceptance.cjs'])
-        done = command(['docker', 'start', '--attach', node], timeout=360, check=False)
-        report['node_exit_code'] = done.returncode
-        report['results'] = tagged(done.stdout, 'TEST_RESULT')
-        report['runtime'] = tagged(done.stdout, 'RUNTIME_METADATA')
-        report['node_diagnostics'] = node_diagnostics(done.stdout)
-        checkpoints = [x for x in report['node_diagnostics']['checkpoints'] if x['role'] == 'main']
-        failures = [x for x in report['node_diagnostics']['failures'] if x['role'] == 'main']
-        report['node_diagnostic_stage'] = (failures or checkpoints or [{'stage': 'PG_NODE_START'}])[-1]['stage']
+        done = command(['docker', 'start', '--attach', node], timeout=360, check=False,
+                       on_result=lambda result, outcome: capture_node_result(report, result, outcome))
         report['diagnostic_stage'] = 'PG_RECEIPT_VERIFY'
         report['summary'] = validate(done.stdout, done.returncode, before)
         # Real-positive receipt negative controls. These do not synthesize PG evidence.

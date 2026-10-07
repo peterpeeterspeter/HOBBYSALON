@@ -33,6 +33,8 @@ def project(data, kind, job_status, diagnostic_stage='UNKNOWN'):
         failures = diagnostics.get('failures', []) if isinstance(diagnostics,dict) else []
         result['node_failure_codes'] = [x['code'] for x in failures if isinstance(x,dict) and isinstance(x.get('code'),str) and x['code'] in pg['NODE_CODES']] if isinstance(failures,list) else []
         result['planned_tests'] = len(pg['EXPECTED'])
+        failed = data.get('failed_cases', [])
+        result['failed_cases'] = [row for row in pg['safe_test_results']('\n'.join('TEST_RESULT '+json.dumps(x) for x in failed)) if row['status']=='failed'] if isinstance(failed,list) else []
         results=data.get('results',[])
         result['observed_tests']=len(results) if isinstance(results,list) else 0
         result['passed_tests']=sum(isinstance(x,dict) and x.get('status')=='passed' for x in results) if isinstance(results,list) else 0

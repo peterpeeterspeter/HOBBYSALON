@@ -2,6 +2,7 @@
 """No-launch regression tests. Fake package fixtures are NOT acceptance evidence."""
 import argparse
 import ast
+import io
 import json
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ import runpy
 import stat
 import subprocess
 import tempfile
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent
 
@@ -35,11 +37,89 @@ def main():
         for tag in ['PG_CHECKPOINT', 'PG_NODE_DIAGNOSTIC']:
             assert diagnostics(tag + ' ' + json.dumps(item)) == {'checkpoints':[], 'failures':[]}
     assert diagnostics('PG_CHECKPOINT {bad json') == {'checkpoints':[], 'failures':[]}
+    # Real subprocess nonzero output + defensive throwing adapter + timeout capture.
+    # These are regression controls, never PG acceptance receipts.
+    capture, command_result = module['capture_node_result'], module['command_result']
+    case = module['EXPECTED'][0]
+    failed = {'name':case, 'status':'failed', 'code':'ERR_ASSERTION', 'operator':'strictEqual',
+              'classification':'PRIVATE', 'stack':{'file':'acceptance.cjs','line':12,'raw':'PRIVATE'}, 'error':'PRIVATE'}
+    output = 'TEST_RESULT ' + json.dumps(failed) + '\n' + valid + '\nRUNTIME_METADATA {bad json\n'
+    for check in (False, True):
+        report, log = {}, io.StringIO()
+        try:
+            done = command_result(log, ['python3','-c', 'import sys; print(sys.argv[1], flush=True); sys.exit(7)', output],
+                                  check=check, on_result=lambda d,o: capture(report,d,o))
+        except module['Blocked']:
+            assert check
+        else:
+            assert not check and done.returncode == 7
+        assert report['node_exit_code'] == 7 and len(report['failed_cases']) == 1
+        assert report['failed_cases'][0]['classification'] == 'ASSERTION'
+        assert report['node_diagnostics']['failures'][0]['code'] == 'MODULE_NOT_FOUND'
+        assert report['node_diagnostic_stage'] == 'PG_DEPENDENCY_IDENTITIES'
+        assert report['diagnostic_stage'] == 'PG_RECEIPT_CAPTURE'
+        assert 'PRIVATE' not in json.dumps(report) and output in log.getvalue()
+        try:
+            module['validate'](output, report['node_exit_code'], {})
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError('nonzero failed control accepted')
+    for check in (False, True):
+        report, log = {}, io.StringIO()
+        with patch('subprocess.run', side_effect=subprocess.CalledProcessError(7,['adapter'],output=output.encode())) as mocked:
+            try:
+                done = command_result(log,['adapter'],check=check,on_result=lambda d,o:capture(report,d,o))
+            except module['Blocked']:
+                assert check
+            else:
+                assert not check and done.returncode == 7
+            assert mocked.call_args.kwargs['check'] is False
+        assert report['node_command_outcome'] == 'CALLED_PROCESS_ERROR'
+        assert report['failed_cases'][0]['stack'] == {'file':'acceptance.cjs','line':12}
+        assert output in log.getvalue() and 'PRIVATE' not in json.dumps(report)
+    report, log = {}, io.StringIO()
+    try:
+        command_result(log,['python3','-c','import sys,time; print(sys.argv[1],flush=True); time.sleep(5)',output],
+                       timeout=1,check=False,on_result=lambda d,o:capture(report,d,o))
+    except module['Blocked']:
+        pass
+    else:
+        raise AssertionError('timeout accepted')
+    assert report['node_exit_code'] is None and report['node_command_outcome'] == 'TIMEOUT'
+    assert len(report['failed_cases']) == 1 and output in log.getvalue()
+    assert 'PRIVATE' not in json.dumps(report)
+    for item in [None, [], {'name':'PRIVATE','status':'failed'}, {'name':case,'status':'PRIVATE'}]:
+        assert module['safe_test_results']('TEST_RESULT '+json.dumps(item)) == []
+    for unsafe in [{'code':{}}, {'operator':'PRIVATE'}, {'stack':{'file':'PRIVATE','line':12}},
+                   {'stack':{'file':'acceptance.cjs','line':True}}, {'stack':{'file':'acceptance.cjs','line':0}}]:
+        safe = module['safe_test_results']('TEST_RESULT '+json.dumps({**failed, **unsafe}))[0]
+        assert 'PRIVATE' not in json.dumps(safe)
+    node_code = r"""const assert=require('node:assert/strict'),vm=require('node:vm'),path=require('node:path');
+const helper=require(process.argv[1]), inventory=require(process.argv[2]);
+assert.deepEqual(helper.CODE_CLASSES,JSON.parse(process.argv[3]));
+assert.deepEqual([...helper.OPERATORS].sort(),JSON.parse(process.argv[4]).sort());
+const file=path.join(path.dirname(process.argv[1]),'acceptance.cjs');
+let error;try{vm.runInNewContext('assert.equal("PRIVATE actual", "PRIVATE expected")',{assert},{filename:file})}catch(e){error=e}
+const result=helper.failedCase(inventory.cases[0],error);
+assert.equal(result.code,'ERR_ASSERTION');assert.equal(result.operator,'strictEqual');
+assert.deepEqual(result.stack,{file:'acceptance.cjs',line:1});assert(!JSON.stringify(result).includes('PRIVATE'));
+assert.throws(()=>helper.failedCase('PRIVATE',error));
+for(const code of Object.keys(helper.CODE_CLASSES))assert.equal(helper.failedCase(inventory.cases[0],{code}).classification,helper.CODE_CLASSES[code]);
+const unsafe=helper.failedCase(inventory.cases[0],{code:'PRIVATE',operator:'PRIVATE',message:'PRIVATE',stack:'PRIVATE\n at /private/acceptance.cjs:13:2'});
+assert.equal(unsafe.code,'UNCLASSIFIED');assert.equal(unsafe.operator,null);assert.equal(unsafe.stack,null);assert(!JSON.stringify(unsafe).includes('PRIVATE'));
+console.log(JSON.stringify({status:'passed',scope:'real Node assertion extraction; no suite, DB or acceptance evidence',code:result.code,operator:result.operator,stack:result.stack}));
+"""
+    done = subprocess.run(['node','-e',node_code,str(ROOT/'failed-case-diagnostics.cjs'),str(ROOT/'inventory.json'),
+                           json.dumps(module['CASE_CLASSES']),json.dumps(sorted(module['CASE_OPERATORS']))],
+                          capture_output=True,text=True,check=True,timeout=10)
+    print(done.stdout.strip())
+    print(json.dumps({'status':'passed','scope':'real exit-7/check-true/check-false and partial-output timeout capture; throwing-adapter control; allowlist rejection; NO PG evidence'}))
     # Syntax and explicit no-launch boundary check, without executing acceptance.
     source = (ROOT / 'acceptance.cjs').read_text()
     preflight = source.split("if(process.argv[2]==='--preflight'){")[1].split('}else if(')[0]
     assert 'observer.connect' not in preflight and 'c.run(' not in preflight and '.up(' not in preflight
-    for file in ['acceptance.cjs', 'dependency-identity.cjs']:
+    for file in ['acceptance.cjs', 'dependency-identity.cjs', 'failed-case-diagnostics.cjs']:
         subprocess.run(['node', '--check', str(ROOT / file)], check=True, capture_output=True, text=True, timeout=10)
     with tempfile.TemporaryDirectory(prefix='pg-selftest-', dir=args.private_dir) as temp:
         temp = Path(temp)
@@ -88,6 +168,7 @@ console.log(JSON.stringify({status:'passed',scope:'fake package regression only;
         assert receipt.read_text() == 'private test fixture\n'
     ast.parse((ROOT/'run-postgres.py').read_text())
     assert 'harness/dependency-identity.cjs' in module['hashes']()
+    assert 'harness/failed-case-diagnostics.cjs' in module['hashes']()
     print(json.dumps({'status':'passed','scope':'no-launch diagnostics allowlist, syntax, private modes, exclusive/symlink refusal, helper hash coverage; NO PG evidence'}))
 
 if __name__ == '__main__':

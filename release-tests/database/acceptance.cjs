@@ -9,6 +9,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto')
 const { spawn } = require('node:child_process'), { createRequire } = require('node:module')
 const { specifier, identity, STAGES, errorCode } = require('./dependency-identity.cjs')
+const { failedCase } = require('./failed-case-diagnostics.cjs')
 const diagnosticRole = process.argv[2] === '--preflight' ? 'preflight' : process.argv[2]?.startsWith('--') ? 'worker' : 'main'
 let diagnosticStage, diagnosticSequence = 0
 function checkpoint(stage) {
@@ -416,7 +417,7 @@ async function main(){
     source_hashes:hashes(),expected_tests:inventory.cases.length,boundary:'real candidate PG storage; seeded parent completed state and explicit DB-backed domain/graph fixture adapters; NOT native checkout/provider/broker/host-power-loss'})
   const results=[]
   checkpoint('PG_TEST_EXECUTION')
-  try{for(const c of cases){try{await c.run();results.push({name:c.name,status:'passed'})}catch(e){results.push({name:c.name,status:'failed',error:String(e.stack)});process.exitCode=1}emit('TEST_RESULT',results.at(-1))}}
+  try{for(const c of cases){try{await c.run();results.push({name:c.name,status:'passed'})}catch(e){results.push(failedCase(c.name,e));process.exitCode=1}emit('TEST_RESULT',results.at(-1))}}
   finally{
     for(const child of children)child.kill('SIGKILL')
     for(const p of pools)await p.destroy();if(mainOrm)await mainOrm.close(true);await observer.end()

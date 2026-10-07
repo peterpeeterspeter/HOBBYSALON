@@ -8,6 +8,14 @@ spec=importlib.util.spec_from_file_location('runtime',Path(__file__).with_name('
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 class Tests(unittest.TestCase):
+    def test_index_field_codes_public_allowlist_no_private_values(self):
+        codes=['INDEX_DIAG_INDEX_ROW_MISSING','INDEX_DIAG_INDEX_CAPTURE_UNAVAILABLE','INDEX_DIAG_INDEX_FIELDS_MATCH','INDEX_DIAG_SQL_QUERY_ERROR']
+        codes += ['INDEX_DIAG_INDEX_'+field+'_MISMATCH' for field in ['TABLE','METHOD','VALID','READY','UNIQUE','KEY_COUNT','ATTRIBUTE_COUNT','PREDICATE','EXPRESSION','KEY']]
+        for code in codes:
+            self.assertIn(code,r.DIAGNOSTIC_CODES)
+            self.assertEqual(r.diagnostic_codes(json.dumps({'marker':'CI_RUNTIME_DIAGNOSTIC','code':code})),[code])
+            self.assertEqual(r.diagnostic_codes(json.dumps({'marker':'CI_RUNTIME_DIAGNOSTIC','code':code,'key':'private_canary'})),[])
+        self.assertEqual(r.diagnostic_codes(json.dumps({'marker':'CI_RUNTIME_DIAGNOSTIC','code':'INDEX_DIAG_INDEX_private_canary_MISMATCH'})),[])
     def test_private_stdout_stderr_and_safe_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
             h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.evidence={}
