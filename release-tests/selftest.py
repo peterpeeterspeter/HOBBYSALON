@@ -130,8 +130,13 @@ class Tests(unittest.TestCase):
             codes = set(re.findall(r"'([A-Z_]+)'", projection['env']['DIAGNOSTIC_STAGE']))
             self.assertTrue(codes <= p.WORKFLOW_STAGES)
             self.assertEqual(projection['if'], 'always()')
-            upload = next(s for s in job['steps'] if 'upload-artifact@' in s.get('uses', ''))
+            uploads = [s for s in job['steps'] if 'upload-artifact@' in s.get('uses', '')]
+            self.assertEqual(len(uploads),2)
+            upload = next(s for s in uploads if s['with']['name'].startswith('scoped-'))
             self.assertEqual(upload['with']['path'].splitlines(), ['${{ runner.temp }}/scoped-tests/public/summary.json', '${{ runner.temp }}/scoped-tests/public/SCOPE.md'])
+            encrypted=next(s for s in uploads if s['with']['name'].startswith('encrypted-'))
+            self.assertRegex(encrypted['with']['path'],r'^\$\{\{ runner.temp \}\}/scoped-tests/encrypted-(postgres|runtime)\.cms$')
+            self.assertEqual(encrypted['with']['retention-days'],'1')
             self.assertNotIn('secrets.', json.dumps(job))
 
     def test_python_and_workflow_shell_syntax(self):

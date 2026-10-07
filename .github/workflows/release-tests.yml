@@ -81,6 +81,17 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           DIAGNOSTIC_STAGE: ${{ steps.checkout.outcome != 'success' && 'CHECKOUT' || steps.source.outcome != 'success' && 'SOURCE_APPROVAL' || steps.binding.outcome != 'success' && 'BUILD_BINDING' || steps.download.outcome != 'success' && 'CANDIDATE_DOWNLOAD' || steps.verification.outcome != 'success' && 'CANDIDATE_VERIFY' || steps.fixture.outcome != 'success' && 'PG_FIXTURE_PULL' || steps.controls.outcome != 'success' && 'PG_CONTROLS' || steps.harness.outcome != 'success' && 'PG_HARNESS' || 'COMPLETE' }}
         run: python3 release-tests/public-evidence.py --kind postgres --report release-tests/database/evidence/ack-postgres.json --out "$RUNNER_TEMP/scoped-tests/public/summary.json"
+      - name: Encrypt explicitly authorized disposable private diagnostics
+        if: always()
+        run: python3 release-tests/encrypt-diagnostics.py --kind postgres --out "$RUNNER_TEMP/scoped-tests/encrypted-postgres.cms"
+      - name: Retain encrypted diagnostics only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: encrypted-postgres-diagnostics-20261007
+          path: ${{ runner.temp }}/scoped-tests/encrypted-postgres.cms
+          retention-days: 1
+          if-no-files-found: error
       - name: Retain scrubbed scoped evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -167,6 +178,17 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           DIAGNOSTIC_STAGE: ${{ steps.checkout.outcome != 'success' && 'CHECKOUT' || steps.source.outcome != 'success' && 'SOURCE_APPROVAL' || steps.controls.outcome != 'success' && 'RUNTIME_CONTROLS' || steps.binding.outcome != 'success' && 'BUILD_BINDING' || steps.download.outcome != 'success' && 'CANDIDATE_DOWNLOAD' || steps.verification.outcome != 'success' && 'CANDIDATE_VERIFY' || steps.acquisition.outcome != 'success' && 'PREVIOUS_ACQUISITION' || steps.previous.outcome != 'success' && 'PREVIOUS_LOAD' || steps.runtime.outcome != 'success' && 'RUNTIME_HARNESS' || 'COMPLETE' }}
         run: python3 release-tests/public-evidence.py --kind runtime --report "$RUNNER_TEMP/scoped-tests/runtime/runtime.json" --out "$RUNNER_TEMP/scoped-tests/public/summary.json"
+      - name: Encrypt explicitly authorized disposable private diagnostics
+        if: always()
+        run: python3 release-tests/encrypt-diagnostics.py --kind runtime --out "$RUNNER_TEMP/scoped-tests/encrypted-runtime.cms"
+      - name: Retain encrypted diagnostics only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: encrypted-runtime-diagnostics-20261007
+          path: ${{ runner.temp }}/scoped-tests/encrypted-runtime.cms
+          retention-days: 1
+          if-no-files-found: error
       - name: Retain scrubbed evidence only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

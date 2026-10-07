@@ -417,7 +417,7 @@ async function main(){
     source_hashes:hashes(),expected_tests:inventory.cases.length,boundary:'real candidate PG storage; seeded parent completed state and explicit DB-backed domain/graph fixture adapters; NOT native checkout/provider/broker/host-power-loss'})
   const results=[]
   checkpoint('PG_TEST_EXECUTION')
-  try{for(const c of cases){try{await c.run();results.push({name:c.name,status:'passed'})}catch(e){results.push(failedCase(c.name,e));process.exitCode=1}emit('TEST_RESULT',results.at(-1))}}
+  try{for(const c of cases){try{await c.run();results.push({name:c.name,status:'passed'})}catch(e){console.error(e?.stack || String(e));results.push(failedCase(c.name,e));process.exitCode=1}emit('TEST_RESULT',results.at(-1))}}
   finally{
     for(const child of children)child.kill('SIGKILL')
     for(const p of pools)await p.destroy();if(mainOrm)await mainOrm.close(true);await observer.end()

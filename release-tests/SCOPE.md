@@ -32,6 +32,9 @@ Only pinned disposable PostgreSQL/Redis fixtures may be pulled. Local preparatio
 performs syntax, mocked self-tests and credential scans only; no container launch,
 install, push or dispatch. Parent owns publication and the real hosted execution.
 
-Public evidence uploads only an allowlisted summary and this scope. Raw fixture
-reports/logs, previous build logs, downloaded image archives, secrets, environment
-and whole runner temporary directories are never test artifacts.
+Public plaintext evidence uploads only an allowlisted summary and this scope.
+The owner separately authorized encrypted disposable diagnostics: raw fixture
+logs/receipts are encrypted in memory with the committed public certificate and
+AES-256-GCM CMS; only ciphertext is uploaded, retained one day. The private key
+remains on the parent machine outside publication. No previous build logs,
+downloaded image archives or whole runner directories are uploaded.

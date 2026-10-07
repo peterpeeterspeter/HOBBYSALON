@@ -391,6 +391,7 @@ def main():
     signal.signal(signal.SIGALRM,expired);signal.alarm(2070)
     try: h.execute()
     except Exception as e:
+        h.evidence['failure_stage']=h.evidence.get('diagnostic_stage')
         h.private_record('harness-exception',{'exception':traceback.format_exc()})
         h.evidence['error']='RUNTIME_FAILURE'
         h.capture_owned_failure()
