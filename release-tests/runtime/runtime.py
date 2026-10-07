@@ -650,12 +650,15 @@ ROLLBACK;""",user='postgres').strip()
             if status=='healthy' and ready and probes:
                 if good is None: good=time.monotonic()
                 if time.monotonic()-good>=300:
-                    if len(probes)<2 or (max(stamp(p['End']) for p in probes.values())-min(stamp(p['Start']) for p in probes.values()))<290*10**9:
-                        failure_timings('PROBE_CHRONOLOGY_TOO_SHORT')
-                        raise RuntimeError('PROBE_CHRONOLOGY_TOO_SHORT')
-                    return {'started_at':started,'native_continuous_healthy_seconds':300,'initialization_markers':markers,'native_probes':list(probes.values()),'logs':receipt}
+                    # TESTONLY: both native clocks must qualify; a short rolling
+                    # sample at 300 seconds keeps observing within the same 390.
+                    if len(probes)>=2 and (max(stamp(p['End']) for p in probes.values())-min(stamp(p['Start']) for p in probes.values()))>=290*10**9:
+                        return {'started_at':started,'native_continuous_healthy_seconds':300,'initialization_markers':markers,'native_probes':list(probes.values()),'logs':receipt}
             elif good is not None: raise RuntimeError(phase+':HEALTH_REGRESSION')
             time.sleep(1)
+        if good is not None and time.monotonic()-good>=300 and (len(probes)<2 or (max(stamp(p['End']) for p in probes.values())-min(stamp(p['Start']) for p in probes.values()))<290*10**9):
+            failure_timings('PROBE_CHRONOLOGY_TOO_SHORT')
+            raise RuntimeError('PROBE_CHRONOLOGY_TOO_SHORT')
         failure_timings(phase+':NATIVE_HEALTH_300S_NOT_REACHED')
         raise RuntimeError(phase+':NATIVE_HEALTH_300S_NOT_REACHED')
     def preservation(self,baseline,schema,static):

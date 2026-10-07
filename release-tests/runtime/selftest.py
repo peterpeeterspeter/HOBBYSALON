@@ -1171,15 +1171,15 @@ class RestartFailureTimingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             _,receipt,error,elapsed=self.observe(tmp,'short')
             self.assertIsNone(receipt);self.assertEqual(error,'PROBE_CHRONOLOGY_TOO_SHORT')
-            self.assertEqual(elapsed,302)
+            self.assertEqual(elapsed,390)
             files=list(Path(tmp).glob('health-failure-*.json'));self.assertEqual(len(files),1)
             self.assertEqual(files[0].stat().st_mode & 0o777,0o600)
             row=json.loads(files[0].read_text())
             self.assertEqual(row['acceptance'],'failed-not-a-receipt')
-            self.assertEqual(row['steady_elapsed_seconds'],300)
-            self.assertEqual(row['loop_elapsed_seconds'],302)
+            self.assertEqual(row['steady_elapsed_seconds'],388)
+            self.assertEqual(row['loop_elapsed_seconds'],390)
             self.assertEqual(row['good_start_monotonic'],2)
-            self.assertEqual(row['observation_monotonic'],302)
+            self.assertEqual(row['observation_monotonic'],390)
             self.assertEqual(row['native_probe_span_nanoseconds'],280*10**9)
             self.assertEqual(len(row['native_probes']),2)
             self.assertTrue(all(r.stamp(x['Start'])>=r.stamp(row['started_at']) for x in row['native_probes']))
@@ -1207,7 +1207,121 @@ class RestartFailureTimingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             _,receipt,error,elapsed=self.observe(tmp,'io-error')
             self.assertIsNone(receipt);self.assertEqual(error,'PROBE_CHRONOLOGY_TOO_SHORT')
-            self.assertEqual(elapsed,302)
+            self.assertEqual(elapsed,390)
             self.assertEqual(list(Path(tmp).glob('health-failure-*.json')),[])
+
+class RestartProbeWaitTests(unittest.TestCase):
+    """TESTONLY offline inspect sequence; not Docker execution or release evidence.
+
+    First ten probe timestamps replay attempt16's selected private diagnostic.
+    The eleventh probe and failure variants are explicitly offline test doubles.
+    Monotonic time and sleep are simulated; no real 390/600-second wait occurs.
+    """
+    STARTED='2026-10-07T14:38:15.466755101Z'
+    ACTUAL_PROBE_TIMES=(
+        ('14:38:25.69908374','14:38:25.810230084'),
+        ('14:38:55.811262311','14:38:55.919539434'),
+        ('14:39:25.921084602','14:39:26.016557623'),
+        ('14:39:56.017527928','14:39:56.108158775'),
+        ('14:40:26.108844724','14:40:26.201993259'),
+        ('14:40:56.203216807','14:40:56.297433658'),
+        ('14:41:26.298915378','14:41:26.400958644'),
+        ('14:41:56.401660278','14:41:56.496807989'),
+        ('14:42:26.497391819','14:42:26.596027135'),
+        ('14:42:56.596676059','14:42:56.694003266'))
+
+    def observe(self,tmp,mode='extra',delay=0,fault=None):
+        import copy
+        clock=[0.0];trace=[]
+        probes=[{'Start':'2026-10-07T'+a+'Z','End':'2026-10-07T'+b+'Z',
+            'ExitCode':0,'Output':''} for a,b in self.ACTUAL_PROBE_TIMES]
+        extra={'Start':'2026-10-07T14:43:26.694003266Z',
+            'End':'2026-10-07T14:43:26.794003266Z','ExitCode':0,'Output':''}
+        marker={'marker':'CI_INDEX_INIT_COMPLETE','kind':'readonly','pid':1,
+            'at':'2026-10-07T14:38:21.146Z'}
+        logs=marker['at']+' '+json.dumps(marker)+'\n'+marker['at']+' '+json.dumps({'message':'Server is ready on port: 9000'})
+        h=r.Harness.__new__(r.Harness);h.app='offline-sequence-only';h.private_dir=Path(tmp)
+        h.a=SimpleNamespace(candidate='offline-candidate',previous='offline-previous')
+        h.evidence={'status':'FAIL','phases':[]}
+        def inspect(_):
+            if clock[0]==0:clock[0]=10.383311315
+            available=[p for p in probes if (r.stamp(p['End'])-r.stamp(self.STARTED))/10**9<=clock[0]]
+            if mode=='one':available=available[:1]
+            if mode=='extra' and clock[0]>=330:available.append(extra)
+            native=copy.deepcopy(available[-5:])  # Offline rolling inspect buffer, not reuse.
+            native.insert(0,{'Start':'2026-10-07T14:37:00Z','End':'2026-10-07T14:37:01Z','ExitCode':1,'Output':'offline-old-epoch'})
+            status='healthy' if clock[0]>=delay else 'starting'
+            state={'Running':True,'StartedAt':self.STARTED,'Health':{'Status':status,'Log':native}}
+            if fault and clock[0]>=315:
+                if fault in ('starting','unhealthy'):state['Health']['Status']=fault
+                elif fault=='epoch':state['StartedAt']='2026-10-07T14:38:16Z'
+                elif fault in ('probe','clock'):
+                    native.append(dict(extra,ExitCode=1) if fault=='probe' else dict(extra,End='2026-10-07T14:43:25Z'))
+            trace.append({'loop_seconds':clock[0],'available_current_epoch':len(available),
+                'status':state['Health']['Status']})
+            return {'Image':'offline-candidate','RestartCount':0,'State':state}
+        h.inspect=inspect
+        h.capture_logs=lambda _: (logs+('\nerror: offline-worker-fault' if fault=='logs' and clock[0]>=315 else ''),
+            {'file':'offline-sequence.complete.log','complete':True,'sha256':'a'*64})
+        def sleep(seconds):
+            next_time=clock[0]+seconds
+            actual_check=310.450249378
+            clock[0]=actual_check if clock[0]<actual_check<=next_time+0.1 else min(next_time,390)
+            self.assertLessEqual(clock[0],390)
+        receipt=None;error=None
+        with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]),patch.object(r.time,'sleep',side_effect=sleep):
+            try:receipt=h.healthy('candidate-restart',self.STARTED,'readonly')
+            except RuntimeError as exc:error=str(exc)
+        self.assertEqual(h.evidence,{'status':'FAIL','phases':[]})
+        return receipt,error,clock[0],trace
+
+    def test_actual_ten_then_offline_eleventh_waits_for_both(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            receipt,error,elapsed,trace=self.observe(tmp)
+            self.assertIsNone(error);self.assertIsNotNone(receipt)
+            assert receipt is not None
+            self.assertGreaterEqual(elapsed,330);self.assertLess(elapsed,390)
+            check=next(x for x in trace if x['loop_seconds']==310.450249378)
+            self.assertEqual(check['available_current_epoch'],10);self.assertEqual(check['status'],'healthy')
+            self.assertAlmostEqual(check['loop_seconds']-10.383311315,300.066938063)
+            self.assertEqual(len(receipt['native_probes']),11)
+            self.assertEqual(receipt['native_continuous_healthy_seconds'],300)
+            native=receipt['native_probes']
+            self.assertEqual(r.stamp(native[9]['End'])-r.stamp(native[0]['Start']),270994919526)
+            self.assertGreaterEqual(r.stamp(native[-1]['End'])-r.stamp(native[0]['Start']),300*10**9)
+            self.assertTrue(all(p['ExitCode']==0 and r.stamp(p['Start'])>=r.stamp(self.STARTED) for p in native))
+            self.assertEqual(len({p['Start'] for p in native}),11)
+            self.assertEqual(list(Path(tmp).glob('health-failure-*.json')),[])
+
+    def test_insufficient_ten_or_single_probe_fail_only_at_deadline(self):
+        for mode,count in [('short',10),('one',1)]:
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as tmp:
+                receipt,error,elapsed,trace=self.observe(tmp,mode=mode)
+                self.assertIsNone(receipt);self.assertEqual(error,'PROBE_CHRONOLOGY_TOO_SHORT')
+                self.assertEqual(elapsed,390)
+                row=json.loads(next(Path(tmp).glob('health-failure-*.json')).read_text())
+                self.assertEqual(len(row['native_probes']),count)
+                self.assertEqual(row['loop_elapsed_seconds'],390)
+                self.assertGreaterEqual(row['steady_elapsed_seconds'],300)
+                self.assertEqual(row['acceptance'],'failed-not-a-receipt')
+
+    def test_delayed_healthy_600_or_late_steady_remains_bounded(self):
+        for delay in [600,120]:
+            with self.subTest(delay=delay),tempfile.TemporaryDirectory() as tmp:
+                receipt,error,elapsed,_=self.observe(tmp,delay=delay)
+                self.assertIsNone(receipt);self.assertEqual(elapsed,390)
+                self.assertEqual(error,'candidate-restart:NATIVE_HEALTH_300S_NOT_REACHED')
+
+    def test_fault_after_300_before_extra_probe_fails_immediately(self):
+        faults={'starting':'HEALTH_REGRESSION','unhealthy':'NATIVE_UNHEALTHY',
+            'probe':'NATIVE_PROBE_FAILED','logs':'STARTUP_OR_WORKER_LOG_ERROR',
+            'clock':'NATIVE_PROBE_CLOCK_ERROR','epoch':'NATIVE_STATE_CHANGED'}
+        for fault,code in faults.items():
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as tmp:
+                receipt,error,elapsed,trace=self.observe(tmp,fault=fault)
+                self.assertIsNone(receipt);self.assertEqual(error,'candidate-restart:'+code)
+                self.assertGreaterEqual(elapsed,315);self.assertLess(elapsed,316)
+                self.assertLess(elapsed,330);self.assertLess(elapsed,390)
+                self.assertEqual(trace[-1]['loop_seconds'],elapsed)
 
 if __name__=='__main__':unittest.main(verbosity=2)
