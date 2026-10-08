@@ -1064,7 +1064,7 @@ workflow_execution
         with tempfile.TemporaryDirectory() as tmp:
             h,events=self.adapter(tmp);h.prefix='double';h.pg='double-pg';h.redis='double-redis';h.net='double-net'
             h.volumes=['double-pgdata','double-static'];h.created_volumes=[];h.firewall=[];h.containers=[]
-            h.values=['a'*64]*8;h.network_created=False;h.pg_started=False
+            h.values=[str(i)*64 for i in range(8)];h.deadline=time.monotonic()+2490;h.network_created=False;h.pg_started=False
             manifest={'image':r.PREVIOUS_ID,'image_id':r.PREVIOUS_ID,'source_hash':r.PREVIOUS_SOURCE,
                 'gzip_sha256':r.PREVIOUS_ARCHIVE,'gzip_bytes':273965027,'config_sha256_verified':True,
                 'ordered_layer_sha256_verified':True,'source_receipt_verified':True,'diff_ids':['sha256:'+'1'*64]*11}
@@ -1079,7 +1079,7 @@ workflow_execution
             good=AuditTests().good_receipt();h.sandbox=lambda name,*args,**kw:json.dumps(good) if name.endswith('-fixture') else ''
             h.owner_audit_controls=lambda:{'owner_truncate_guard':'PASS','owner_rows_schema_unchanged':True,'status':'PASS'}
             def envfile(name,role):
-                f=Path(tmp)/name;f.write_text('DOUBLE=only\n');return f
+                f=Path(tmp)/name;f.write_text('DOUBLE=only\nDATABASE_URL=postgresql://app:'+h.values[0]+'@pg:5432/acceptance?sslmode=disable\n');return f
             h.envfile=envfile;running=[False];number=[0];current=[''];image=['']
             def app_start(im,env,verify_types=True):
                 image[0]=im;number[0]+=1;current[0]='2026-10-07T%02d:00:00Z'%number[0];running[0]=env.name!='negative.env'
@@ -1089,6 +1089,10 @@ workflow_execution
                 events.append('app:'+im);return current[0]
             h.app_start=app_start
             def docker(*args,**kw):
+                if args[0]=='inspect':
+                    obj={'Config':{'Labels':{r.LABEL:h.prefix},'Env':(Path(tmp)/'negative.env').read_text().splitlines()}}
+                    return json.dumps([obj])
+                if args[0]=='logs':return '2026-10-07T00:00:01Z password authentication failed'
                 if args[:2]==('image','inspect'):return json.dumps([{'Id':args[2],'RootFS':{'Layers':manifest['diff_ids']}}])
                 if args[:2]==('network','inspect'):return json.dumps([{'Internal':True,'EnableIPv6':False,'Id':'1234567890123456'}])
                 if args[0]=='restart':number[0]+=1;current[0]='2026-10-07T%02d:00:00Z'%number[0];events.append('restart')
@@ -1397,5 +1401,180 @@ class NegativeFailClosedTests(unittest.TestCase):
             with self.subTest(fault=fault):
                 seen=self.execute_control(fault);self.assertIn('error',seen)
                 self.assertEqual(seen['evidence']['status'],'FAIL');self.assertTrue(seen['cleanup_attempted'])
+
+class NegativeDiagnosticTests(unittest.TestCase):
+    """Synthetic offline controls ONLY: no hosted timing, Docker or PostgreSQL."""
+    def adapter(self,tmp):
+        h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.secret_dir=Path(tmp)
+        h.app='offline-app';h.pg='offline-pg';h.prefix='offline-owner';h.deadline=1000
+        h.values=[str(i)*64 for i in range(8)];h.a=SimpleNamespace(candidate='offline-image',out=Path(tmp))
+        h.evidence={'status':'FAIL'};h.static_baseline='static';h.snapshot=lambda:{'rows':'same'}
+        h.envfile('runtime.env','app')
+        h.schema=lambda:'schema';h.static_hash=lambda offline=False:'static';events=[]
+        h.app_start=lambda *a,**k:'2026-10-07T00:00:00Z'
+        state={'Running':False,'ExitCode':1,'OOMKilled':False,'StartedAt':'2026-10-07T00:00:00Z','FinishedAt':'2026-10-07T00:05:05Z'}
+        h.inspect=lambda _: {'State':dict(state),'RestartCount':0}
+        def docker(*args,**kw):
+            events.append(args)
+            if args[0]=='inspect':return json.dumps([{'State':state,'Image':'offline-image','Path':'node','Args':r.APP_COMMAND,
+                'HostConfig':{'NetworkMode':'offline-net'},'NetworkSettings':{'Networks':{'offline-net':{}}},
+                'Config':{'Labels':{r.LABEL:h.prefix},'Env':(Path(tmp)/'negative.env').read_text().splitlines()}}])
+            if args[0]=='logs':return '2026-10-07T00:05:00Z password authentication failed for user "app"\n'
+            self.fail('Only synthetic inspect/log diagnostics allowed')
+        h.docker=docker
+        h.capture_logs=lambda _:('password authentication failed',{'complete':True})
+        h.remove_container=lambda _:events.append(('remove',))
+        return h,events
+    def test_monotonic_budget_includes_inspect_overhead_and_partial_sleep(self):
+        for cost in (0.0,2.75):
+            with self.subTest(cost=cost),tempfile.TemporaryDirectory() as tmp:
+                h,_=self.adapter(tmp);clock=[0.0];calls=[];original=h.deadline
+                def inspect(_):
+                    calls.append((clock[0],h.deadline));clock[0]+=min(cost,h.deadline-clock[0])
+                    return {'State':{'Running':True}}
+                h.inspect=inspect
+                with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]),patch.object(r.time,'sleep',side_effect=lambda n:clock.__setitem__(0,clock[0]+n)):
+                    with self.assertRaisesRegex(RuntimeError,'^NEGATIVE_ACTUAL_APP_DID_NOT_EXIT$'):h.observe_negative_exit()
+                self.assertEqual(clock[0],390);self.assertEqual(h.deadline,original)
+                self.assertTrue(all(t<390 and end==390 for t,end in calls))
+                row=json.loads(next(Path(tmp).glob('negative-observation-*.json')).read_text())
+                self.assertEqual(row['elapsed_seconds'],390)
+    def test_natural_exit_at_305_and_late_exit_never_qualifies(self):
+        for exit_at,expected in ((305,True),(391,False)):
+            with self.subTest(exit_at=exit_at),tempfile.TemporaryDirectory() as tmp:
+                h,_=self.adapter(tmp);clock=[0.0]
+                h.inspect=lambda _: {'State':{'Running':clock[0]<exit_at}}
+                with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]),patch.object(r.time,'sleep',side_effect=lambda n:clock.__setitem__(0,clock[0]+n)):
+                    if expected:self.assertFalse(h.observe_negative_exit()['State']['Running'])
+                    else:
+                        with self.assertRaisesRegex(RuntimeError,'NEGATIVE_ACTUAL_APP_DID_NOT_EXIT'):h.observe_negative_exit()
+                self.assertEqual(clock[0],305 if expected else 390)
+    def test_late_inspect_exit_and_outer_deadline_cannot_qualify(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);clock=[0.0];h.deadline=12.5
+            def inspect(_):clock[0]=12.5;return {'State':{'Running':False}}
+            h.inspect=inspect
+            with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]):
+                with self.assertRaisesRegex(RuntimeError,'NEGATIVE_ACTUAL_APP_DID_NOT_EXIT'):h.observe_negative_exit()
+            self.assertEqual(h.deadline,12.5)
+    def test_proc_receives_residual_real_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);h.deadline=390
+            with patch.object(r.time,'monotonic',return_value=389.75),patch.object(r.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'','')) as run:
+                h.proc('synthetic-no-launch',timeout=60)
+            self.assertEqual(run.call_args.kwargs['timeout'],0.25)
+    def test_env_comparison_only_boolean_and_rejects_other_deltas(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);normal=h.envfile('normal.env','app').read_text()
+            bad=normal.replace(h.values[0],h.values[7]);good=r.negative_env_comparison(normal,bad,bad.splitlines())
+            self.assertTrue(all(good.values()));self.assertTrue(all(type(v) is bool for v in good.values()))
+            self.assertNotIn(h.values[7],json.dumps(good))
+            for changed in (normal,bad.replace('pg:5432','other:5432'),bad.replace('app:','other:'),
+                    bad.replace('/acceptance?','/other?'),bad.replace('COMMERCE_PAYMENTS_ENABLED=false','COMMERCE_PAYMENTS_ENABLED=true'),
+                    bad+'DATABASE_URL=duplicate\n',bad.replace(h.values[7],'nothex')):
+                with self.subTest(changed=changed[:20]):
+                    row=r.negative_env_comparison(normal,changed,changed.splitlines())
+                    self.assertFalse(row['only_db_password_differs']);self.assertTrue(all(type(v) is bool for v in row.values()))
+            self.assertFalse(r.negative_env_comparison(normal,bad,normal.splitlines())['effective_bad_env_matches'])
+    def test_owned_private_inspect_and_pg_auth_precede_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp)
+            with patch.object(r.time,'monotonic',return_value=0):h.negative({'rows':'same'},'schema')
+            self.assertEqual(h.evidence['startup_negative']['status'],'PASS') # Synthetic path only.
+            self.assertEqual(events[-1],('remove',));self.assertTrue(all(events.index(e)<len(events)-1 for e in events[:-1]))
+            state=json.loads(next(Path(tmp).glob('negative-owned-state-*.json')).read_text())
+            self.assertTrue(state['ownership_checked']);self.assertIn('Env',state['inspect']['Config'])
+            pg=json.loads(next(Path(tmp).glob('negative-pg-auth-*.json')).read_text())
+            self.assertEqual(pg['auth_reject_count'],1)
+            self.assertTrue(all(f.stat().st_mode & 0o777==0o600 for f in Path(tmp).glob('*.json')))
+            self.assertTrue(all(h.evidence['startup_negative']['env_comparison'].values()))
+    def test_primary_timeout_preserved_with_app_assertion_pg_auth_and_cleanup_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);primary=RuntimeError('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT')
+            h.observe_negative_exit=lambda:(_ for _ in ()).throw(primary)
+            h.capture_logs=lambda _:('KnexTimeoutError',{'complete':True})
+            def remove(_):events.append(('remove',));raise OSError('synthetic cleanup error')
+            h.remove_container=remove
+            with self.assertRaises(RuntimeError) as raised:h.negative({'rows':'same'},'schema')
+            self.assertIs(raised.exception,primary);self.assertEqual(h.evidence['startup_negative']['status'],'FAIL')
+            self.assertFalse(h.evidence['startup_negative']['actual_app_exit_verified'])
+            self.assertTrue(h.evidence['startup_negative']['pg_auth_observed'])
+            row=json.loads(next(Path(tmp).glob('startup-negative-failure-*.json')).read_text())
+            self.assertIn('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT',row['exception'])
+            self.assertEqual([e['stage'] for e in row['errors']],['phase_error','final_capture_error','cleanup_error'])
+            self.assertIn('NEGATIVE_WRONG_FAILURE',row['errors'][1]['exception'])
+            self.assertTrue(list(Path(tmp).glob('negative-owned-state-*.json')))
+    def test_pg_auth_does_not_replace_mandatory_app_auth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);h.capture_logs=lambda _:('KnexTimeoutError',{'complete':True})
+            with patch.object(r.time,'monotonic',return_value=0):
+                with self.assertRaisesRegex(RuntimeError,'^NEGATIVE_WRONG_FAILURE$'):h.negative({'rows':'same'},'schema')
+            self.assertTrue(h.evidence['startup_negative']['pg_auth_observed'])
+            self.assertFalse(h.evidence['startup_negative']['actual_app_exit_verified'])
+    def test_foreign_owner_never_captured_or_pg_logs_requested(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,events=self.adapter(tmp);h.docker=lambda *a,**k:json.dumps([{'Config':{'Labels':{r.LABEL:'foreign'},'Env':['SECRET=canary']}}])
+            with self.assertRaisesRegex(RuntimeError,'CONTAINER_OWNERSHIP_MISMATCH'):h.capture_negative_diagnostics('','','time',{})
+            self.assertEqual(list(Path(tmp).glob('negative-owned-state-*.json')),[])
+            self.assertEqual(list(Path(tmp).glob('negative-pg-auth-*.json')),[])
+            self.assertNotIn('SECRET', ''.join(f.read_text() for f in Path(tmp).glob('*.json')))
+    def test_app_inspect_failure_still_retains_independently_owned_pg_auth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);normal=(Path(tmp)/'runtime.env').read_text();bad=normal.replace(h.values[0],h.values[7])
+            (Path(tmp)/'negative.env').write_text(bad);docker=h.docker;receipt={}
+            def fail_app(*args,**kw):
+                if args==('inspect',h.app):raise OSError('synthetic app inspect failed')
+                return docker(*args,**kw)
+            h.docker=fail_app
+            with self.assertRaisesRegex(OSError,'synthetic app inspect failed'):
+                h.capture_negative_diagnostics(normal,bad,'2026-10-07T00:00:00Z',receipt)
+            self.assertTrue(receipt['pg_auth_observed']);self.assertTrue(list(Path(tmp).glob('negative-pg-auth-*.json')))
+    def test_normal_env_is_previous_runtime_file_not_regenerated_negative(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);normal=Path(tmp)/'runtime.env'
+            normal.write_text(normal.read_text().replace('COMMERCE_PAYMENTS_ENABLED=false','COMMERCE_PAYMENTS_ENABLED=true'))
+            with patch.object(r.time,'monotonic',return_value=0):
+                with self.assertRaisesRegex(RuntimeError,'NEGATIVE_ENV_COMPARISON_MISMATCH'):h.negative({'rows':'same'},'schema')
+            self.assertFalse(h.evidence['startup_negative']['env_comparison']['only_db_password_differs'])
+            self.assertTrue(h.evidence['startup_negative']['pg_auth_observed'])
+    def test_real_subprocess_timeout_uses_short_outer_deadline(self):
+        # REAL elapsed timer, shortened outer budget; not a hosted 390s observation.
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);begin=time.monotonic();h.deadline=begin+0.15
+            h.inspect=lambda _:h.proc('python3','-B','-c','import time;time.sleep(5)',timeout=60)
+            with self.assertRaisesRegex(RuntimeError,'NEGATIVE_ACTUAL_APP_DID_NOT_EXIT'):h.observe_negative_exit()
+            self.assertLess(time.monotonic()-begin,1.0)
+            row=json.loads(next(Path(tmp).glob('negative-observation-*.json')).read_text())
+            self.assertLessEqual(row['deadline_monotonic']-row['begin_monotonic'],0.15)
+    def test_selective_observation_io_failure_blocks_pass_and_preserves_timeout(self):
+        for timed_out in (False,True):
+            with self.subTest(timed_out=timed_out),tempfile.TemporaryDirectory() as tmp:
+                h,events=self.adapter(tmp);record=h.private_record;clock=[0.0]
+                def selective(kind,data):
+                    if kind=='negative-observation':raise OSError('synthetic observation IO')
+                    return record(kind,data)
+                h.private_record=selective
+                if timed_out:h.inspect=lambda _: {'State':{'Running':True}}
+                with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]),patch.object(r.time,'sleep',side_effect=lambda n:clock.__setitem__(0,clock[0]+n)):
+                    with self.assertRaisesRegex(RuntimeError if timed_out else OSError,
+                            'NEGATIVE_ACTUAL_APP_DID_NOT_EXIT' if timed_out else 'synthetic observation IO'):
+                        h.negative({'rows':'same'},'schema')
+                self.assertEqual(h.evidence['startup_negative']['status'],'FAIL')
+                self.assertEqual(h.evidence['startup_negative']['diagnostic_capture_error'],'OSError')
+                self.assertEqual(events[-1],('remove',))
+                self.assertFalse(list(Path(tmp).glob('negative-observation-*.json')))
+                self.assertTrue(list(Path(tmp).glob('negative-owned-state-*.json')))
+                self.assertTrue(list(Path(tmp).glob('negative-pg-auth-*.json')))
+    def test_diagnostic_io_failure_remains_failclosed_and_primary_survives(self):
+        for failure in ('capture','private-record'):
+            with self.subTest(failure=failure),tempfile.TemporaryDirectory() as tmp:
+                h,events=self.adapter(tmp);primary=RuntimeError('primary-synthetic')
+                h.observe_negative_exit=lambda:(_ for _ in ()).throw(primary)
+                if failure=='capture':h.capture_negative_diagnostics=lambda *a:(_ for _ in ()).throw(OSError('capture-synthetic'))
+                else:h.private_record=lambda *a:(_ for _ in ()).throw(OSError('record-synthetic'))
+                with self.assertRaises(RuntimeError) as raised:h.negative({'rows':'same'},'schema')
+                self.assertIs(raised.exception,primary);self.assertEqual(events[-1],('remove',))
+                self.assertEqual(h.evidence['startup_negative']['status'],'FAIL')
+                self.assertIn('diagnostic_capture_error',h.evidence['startup_negative'])
 
 if __name__=='__main__':unittest.main(verbosity=2)

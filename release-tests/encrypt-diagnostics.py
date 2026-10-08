@@ -7,16 +7,24 @@ MAX_TOTAL=64*1024*1024
 
 def bundle(kind, workspace, temp):
     bases = [('postgres', workspace/'release-tests/database/evidence')] if kind=='postgres' else [('runtime',temp/'scoped-tests/runtime'),('runtime-diagnosis',temp/'scoped-tests/runtime-diagnosis')]
+    sources=[(label,base,True) for label,base in bases]
+    if kind=='runtime':
+        # Exact actual runner outputs only: do not recurse over scoped-tests,
+        # dump environment/auth, copy downloaded images, or synthesize receipts.
+        sources += [('runtime-control',temp/'scoped-tests/previous-manifest.json',False),
+                    ('runtime-control',temp/'scoped-tests/acquisition.private.json',False),
+                    ('candidate-verified',temp/'scoped-tests/verified/image-receipt.json',False)]
     data=io.BytesIO(); total=0; count=0
     with tarfile.open(fileobj=data,mode='w:gz') as archive:
-        for label,base in bases:
-            if not base.exists(): continue
+        for label,base,recursive in sources:
             if any(x.is_symlink() for x in (base,*base.parents)): raise RuntimeError('DIAGNOSTIC_SYMLINK_REFUSED')
-            for path in sorted(base.rglob('*')):
+            if not base.exists(): continue
+            if not recursive and not base.is_file(): raise RuntimeError('DIAGNOSTIC_FILE_REFUSED')
+            for path in sorted(base.rglob('*')) if recursive else [base]:
                 if path.is_symlink(): raise RuntimeError('DIAGNOSTIC_SYMLINK_REFUSED')
                 if not path.is_file(): continue
                 if path.suffix not in ('.json','.log'): continue
-                relative=path.relative_to(base)
+                relative=path.relative_to(base) if recursive else Path(path.name)
                 if any(part in ('.','..') for part in relative.parts): raise RuntimeError('DIAGNOSTIC_PATH_REFUSED')
                 size=path.stat().st_size;total+=size
                 if total>MAX_TOTAL: raise RuntimeError('DIAGNOSTIC_SIZE_LIMIT')

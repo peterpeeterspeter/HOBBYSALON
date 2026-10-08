@@ -2,7 +2,7 @@
 """Hosted-only disposable runtime gate. Import and --help never invoke Docker.
 Parent builds candidate and verifies/loads saved previous artifact. No registry path.
 """
-import argparse, datetime, hashlib, json, os, re, secrets, shutil, signal, subprocess, tempfile, time, traceback
+import argparse, datetime, hashlib, json, os, re, secrets, shutil, signal, subprocess, sys, tempfile, time, traceback
 from pathlib import Path
 PG='postgres@sha256:aa90e97ee862e558111d34cfb8b2c4bec768c2b039fb791341686928560263b3'
 REDIS='redis@sha256:ca0acbb137c1dc3339c8b147a58fd6f42775d4599327b50e7b116c23de501af2'
@@ -399,6 +399,35 @@ def init_markers(logs,started):
     if not markers: raise RuntimeError('ACTUAL_INDEX_INIT_MARKER_REQUIRED')
     return markers
 
+def negative_env_comparison(normal,bad,effective):
+    """Fixed boolean-only projection; malformed/duplicate entries fail closed."""
+    from urllib.parse import urlsplit
+    result:dict[str,bool]=dict.fromkeys(('env_well_formed','same_keys','other_env_identical',
+        'db_password_differs','db_passwords_hex64','db_host_identical','db_role_identical',
+        'db_name_identical','db_nonpassword_url_identical','only_db_password_differs',
+        'effective_bad_env_matches'),False)
+    def parse(lines):
+        rows={}
+        for line in lines:
+            key,sep,value=line.partition('=')
+            if not sep or not key or key in rows:raise ValueError('invalid env')
+            rows[key]=value
+        return rows
+    try:
+        a=parse(normal.splitlines());b=parse(bad.splitlines());e=parse(effective)
+        x=urlsplit(a['DATABASE_URL']);y=urlsplit(b['DATABASE_URL'])
+        xp=x.password;yp=y.password
+        result.update(env_well_formed=True,same_keys=set(a)==set(b),
+            other_env_identical={k:v for k,v in a.items() if k!='DATABASE_URL'}=={k:v for k,v in b.items() if k!='DATABASE_URL'},
+            db_password_differs=xp!=yp,db_passwords_hex64=bool(re.fullmatch('[a-f0-9]{64}',xp or '') and re.fullmatch('[a-f0-9]{64}',yp or '')),
+            db_host_identical=x.hostname==y.hostname and x.port==y.port,
+            db_role_identical=x.username==y.username,db_name_identical=x.path==y.path,
+            db_nonpassword_url_identical=bool(xp and yp and a['DATABASE_URL'].replace(':'+xp+'@',':<password>@',1)==b['DATABASE_URL'].replace(':'+yp+'@',':<password>@',1)),
+            effective_bad_env_matches=all(e.get(k)==v for k,v in b.items()))
+        result['only_db_password_differs']=all(result[k] for k in result if k not in ('only_db_password_differs','effective_bad_env_matches'))
+    except (ValueError,TypeError,KeyError,AttributeError):pass
+    return result
+
 class Harness:
     def __init__(self,a):
         self.a=a; self.prefix='ci-four-'+secrets.token_hex(5); self.deadline=time.monotonic()+RUNTIME_DEADLINE_SECONDS
@@ -784,22 +813,86 @@ ROLLBACK;""",user='postgres').strip()
         logs,receipt['logs']=self.capture_logs(name+'-restart')
         if ERRORS.search(logs): raise RuntimeError('COMPLETE_PHASE_LOG_ERROR')
         self.docker('rm',self.app)
+    def observe_negative_exit(self):
+        # One real monotonic budget, not 390 iterations plus Docker overhead.
+        begin=time.monotonic();original=self.deadline;end=min(original,begin+390)
+        self.deadline=end;c=None
+        try:
+            while time.monotonic()<end:
+                try:c=self.inspect(self.app)
+                except Exception:
+                    if time.monotonic()>=end:raise RuntimeError('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT')
+                    raise
+                # A late inspect response or subsequent forced cleanup never qualifies.
+                if time.monotonic()>=end:break
+                if not c['State']['Running']:return c
+                left=end-time.monotonic()
+                if left>0:time.sleep(min(1,left))
+            raise RuntimeError('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT')
+        finally:
+            self.deadline=original
+            active_error=sys.exc_info()[1]
+            try:self.private_record('negative-observation',{'budget_seconds':390,
+                'begin_monotonic':begin,'deadline_monotonic':end,
+                'elapsed_seconds':time.monotonic()-begin,'last_state':None if c is None else c.get('State'),
+                'scope':'diagnostic observation only; no forced exit acceptance'})
+            except Exception as error:
+                self.evidence['startup_negative']['diagnostic_capture_error']=type(error).__name__
+                self.evidence['startup_negative']['status']='FAIL'
+                if active_error is None:raise
+                # Keep an already reached timeout primary; missing capture remains FAIL.
+    def capture_negative_diagnostics(self,normal,bad,started,receipt):
+        # BEFORE cleanup, raw inspect (including Env) is private and owner-checked.
+        errors=[]
+        try:
+            c=json.loads(self.docker('inspect',self.app,timeout=5))[0]
+            if c.get('Config',{}).get('Labels',{}).get(LABEL)!=self.prefix:
+                raise RuntimeError('CONTAINER_OWNERSHIP_MISMATCH')
+            self.private_record('negative-owned-state',{'ownership_checked':True,'inspect':c})
+            comparison=negative_env_comparison(normal,bad,c.get('Config',{}).get('Env'))
+            receipt['env_comparison']=comparison # Boolean metadata only, never values/hashes.
+            self.private_record('negative-env-comparison',comparison)
+            if not all(comparison.values()):raise RuntimeError('NEGATIVE_ENV_COMPARISON_MISMATCH')
+        except Exception as error:errors.append(error)
+        # Independent PG capture: an app inspect failure must not discard PG evidence.
+        try:
+            pg=json.loads(self.docker('inspect',self.pg,timeout=5))[0]
+            if pg.get('Config',{}).get('Labels',{}).get(LABEL)!=self.prefix:
+                raise RuntimeError('CONTAINER_OWNERSHIP_MISMATCH')
+            self.private_record('negative-pg-owned-state',{'ownership_checked':True,'inspect':pg})
+            if started is None:raise RuntimeError('NEGATIVE_PG_START_BOUND_REQUIRED')
+            logs=self.docker('logs','--timestamps','--since',started,self.pg,timeout=5)
+            hits=[line for line in logs.splitlines() if re.search('password authentication failed',line,re.I)]
+            self.private_record('negative-pg-auth',{'started_at':started,'logs':logs,
+                'sha256':hashlib.sha256(logs.encode()).hexdigest(),'auth_reject_count':len(hits),
+                'first_auth_line':hits[0] if hits else None,'last_auth_line':hits[-1] if hits else None,
+                'limitation':'PG log diagnostic, never substitutes the mandatory app-log auth assertion'})
+            receipt['pg_auth_observed']=bool(hits)
+        except Exception as error:errors.append(error)
+        if errors:
+            try:self.private_record('negative-diagnostic-errors',{'errors':[
+                ''.join(traceback.format_exception(type(e),e,e.__traceback__)) for e in errors]})
+            except Exception:pass
+            raise errors[0]
     def negative(self,baseline,schema):
         self.evidence.update(diagnostic_stage='RUNTIME_STARTUP_NEGATIVE',diagnostic_phase='startup-negative')
         # Only credential differs, same DB/image/native command after successful boot.
         receipt={'status':'FAIL','injection':'invalid DB password only','actual_app_exit_verified':False,'cleanup_verified':False}
         self.evidence['startup_negative']=receipt
         self.evidence['status']='FAIL'
+        primary=None;primary_tb=None;errors=[];normal='';bad='';started=None
+        def retain(error,field):
+            nonlocal primary,primary_tb
+            receipt[field]=type(error).__name__
+            errors.append({'stage':field,'exception':traceback.format_exc()})
+            if primary is None:primary=error;primary_tb=error.__traceback__
         try:
             try:
+                normal=(self.secret_dir/'runtime.env').read_text()
                 env=self.envfile('negative.env','app')
-                env.write_text(env.read_text().replace(self.values[0],self.values[7]))
+                bad=env.read_text().replace(self.values[0],self.values[7]);env.write_text(bad)
                 started=self.app_start(self.a.candidate,env,verify_types=False)
-                for _ in range(90):
-                    c=self.inspect(self.app)
-                    if not c['State']['Running']: break
-                    time.sleep(1)
-                else: raise RuntimeError('NEGATIVE_ACTUAL_APP_DID_NOT_EXIT')
+                c=self.observe_negative_exit()
                 state=c['State'];logs,logreceipt=self.capture_logs('startup-negative')
                 receipt['logs']=logreceipt
                 if not isinstance(logreceipt,dict) or logreceipt.get('complete') is not True: raise RuntimeError('NEGATIVE_COMPLETE_LOGS_REQUIRED')
@@ -808,31 +901,34 @@ ROLLBACK;""",user='postgres').strip()
                 receipt.update(actual_app_exit_verified=True,actual_app_exit_code=state['ExitCode'],started_at=started,finished_at=state['FinishedAt'])
                 if self.snapshot()!=baseline or self.schema()!=schema or self.static_hash(offline=True)!=self.static_baseline: raise RuntimeError('NEGATIVE_DATA_SCHEMA_STATIC_CHANGED')
             except Exception as error:
-                receipt['phase_error']=type(error).__name__
-                raise
+                retain(error,'phase_error')
             finally:
-                # Cleanup must still run if final capture or its assertions fail.
+                # Retain every secondary failure, never mask the primary exception.
+                # Diagnostics and complete logs precede ownership-checked removal.
+                try:
+                    self.capture_negative_diagnostics(normal,bad,started,receipt)
+                except Exception as error:
+                    retain(error,'diagnostic_capture_error')
                 try:
                     logs,logreceipt=self.capture_logs('startup-negative')
                     if not isinstance(logreceipt,dict) or logreceipt.get('complete') is not True: raise RuntimeError('NEGATIVE_COMPLETE_LOGS_REQUIRED')
                     if not re.search('password authentication failed',logs,re.I): raise RuntimeError('NEGATIVE_WRONG_FAILURE')
                     receipt['logs']=logreceipt
                 except Exception as error:
-                    receipt.update(log_capture_failed=True,final_capture_error=type(error).__name__)
-                    raise
+                    receipt['log_capture_failed']=True
+                    retain(error,'final_capture_error')
                 finally:
                     try:
                         self.remove_container(self.app)
                         receipt['cleanup_verified']=True
                     except Exception as error:
-                        receipt['cleanup_error']=type(error).__name__
-                        raise
+                        retain(error,'cleanup_error')
+            if primary is not None:raise primary.with_traceback(primary_tb)
             receipt['status']='PASS'
         except Exception:
             receipt['status']='FAIL'
-            # Keep private traceback plus all phase/capture/cleanup error types.
-            # Evidence I/O failure cannot prevent the already attempted cleanup.
-            try:self.private_record('startup-negative-failure',{'receipt':receipt,'exception':traceback.format_exc()})
+            # Raw primary and secondary tracebacks remain private; public types only.
+            try:self.private_record('startup-negative-failure',{'receipt':receipt,'exception':traceback.format_exc(),'errors':errors})
             except Exception:receipt['failure_evidence_failed']=True
             raise
     def bind_bridge(self):
