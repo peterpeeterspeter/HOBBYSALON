@@ -3,5 +3,15 @@
   "buildCommand": "yarn build:preview",
   "installCommand": "yarn install",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "fix/startup-pg-auth-propagation": false
+    }
+  }
 }
