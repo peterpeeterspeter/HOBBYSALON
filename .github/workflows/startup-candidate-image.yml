@@ -1,0 +1,247 @@
+name: Exact merged startup candidate image (artifact only)
+'on':
+  push:
+    branches: ['ops/startup-release-20261008']
+permissions:
+  contents: read
+concurrency:
+  group: startup-release-20261008-artifact-only
+  cancel-in-progress: false
+jobs:
+  image:
+    # A first branch-creation push only; no dispatch, PR, subsequent push or rerun.
+    if: >-
+      github.repository == 'peterpeeterspeter/HOBBYSALON' &&
+      github.ref == 'refs/heads/ops/startup-release-20261008' &&
+      github.event.created == true && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SOURCE_SHA: f105b2fc1421320edc8860c8419fb2ec5c8aba43
+      SOURCE_TREE: 18e56de6c8f39dbc231c91766ce3c01fe7103a67
+      RELEASE_IMAGE_TAG: hobbysalon-release-candidate:f105b2fc1421320edc8860c8419fb2ec5c8aba43
+      RELEASE_BUILD_APPROVED: 'yes'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Initialize audit evidence before any checkout can fail
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf '%s\n' 'Artifact-only candidate workflow; no registry push or deployment.' > evidence/workflow-scope.txt
+      - name: Checkout immutable workflow input push
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: inputs
+          persist-credentials: false
+      - name: Checkout exact merged main commit, never branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: f105b2fc1421320edc8860c8419fb2ec5c8aba43
+          path: source
+          persist-credentials: false
+      - name: Bind pristine full source and unchanged release recipe
+        run: |
+          set -euo pipefail
+          exec > >(tee -a evidence/source-binding.log) 2>&1
+          test "$(uname -m)" = x86_64
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test -z "$(git -C source status --porcelain --untracked-files=all)"
+          git -C inputs ls-files > evidence/input-files.txt
+          python3 - <<'PY'
+          import pathlib,json
+          files=pathlib.Path('evidence/input-files.txt').read_text().splitlines()
+          allowed={'.github/workflows/startup-candidate-image.yml','ops/image-verifier.cjs','ops/README.md','vercel.json','apps/storefront/vercel.json','apps/vendor-panel/vercel.json'}
+          assert set(files)==allowed, 'Input branch must contain only audited workflow inputs; no main source or other workflow'
+          for f in ['vercel.json','apps/storefront/vercel.json','apps/vendor-panel/vercel.json']:
+              assert json.loads((pathlib.Path('inputs')/f).read_text())['git']['deploymentEnabled'] is False
+          PY
+          cd source
+          printf '%s\n' \
+            '155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7  apps/backend/Dockerfile' \
+            'd34b60391a4b7fbafc26507494ad32177bf5676166691155302f95cfeb2dcac6  yarn.lock' \
+            'ebbb36171095076a98e9211414f53de42b011498bcac3c533613d0ea35e61f2e  deploy/release/recipe.sh' \
+            '5369e834cbd7f038b3f4cff9183d506f791829d59fc3fb6324e7214875438ff0  deploy/release/audit-dependencies.cjs' \
+            '44c1669a48978c4353e9e49a605d05b904755e368b11f173dbaf6d782d69f3b4  deploy/release/archive-runtime.cjs' \
+            '00e2bd9c556b9a622ec6a16ccf48f2901521f36e13e5ec2b9985cbce324bfe17  deploy/release/startup-pg-errors.cjs' \
+            'dfaaa1404f22485c2c66f89c80ebc63f8be0a87e3b5d187865dc0578b6968c5f  apps/backend/entrypoint.sh' | sha256sum -c -
+          node deploy/release/audit-dependencies.cjs snapshot "$PWD" > ../evidence/full-source.json
+          printf '%s\n' 'ca62f61071258d2e0d83cea34f4cbc754db251e9f1fe55441c9c47a612c52d6f  ../evidence/full-source.json' | sha256sum -c -
+          sh deploy/release/recipe.sh verify > ../evidence/recipe-verify.log 2>&1
+          # Original regression diagnostics are offline; no native cache substitutes.
+          node --check scripts/tests/startup-pg-errors.test.cjs
+          node --check ../inputs/ops/image-verifier.cjs
+      - name: Dedicated BuildKit builder with bounded parallelism
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 2
+      - name: One candidate build using unchanged Dockerfile
+        working-directory: source
+        run: |
+          set -euo pipefail
+          test "$RELEASE_BUILD_APPROVED" = yes
+          node deploy/release/audit-dependencies.cjs preflight "$PWD" > ../evidence/preflight-host.json 2> ../evidence/preflight-host.stderr.log
+          # Direct buildx equivalent adds provenance labels, not source/recipe edits.
+          # Exactly one build; Dockerfile already freezes install and denies compile network.
+          docker buildx build --load --platform linux/amd64 --pull --progress=plain \
+            --metadata-file ../evidence/build-metadata.json \
+            --file apps/backend/Dockerfile --tag "$RELEASE_IMAGE_TAG" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --label 'org.opencontainers.image.source=https://github.com/peterpeeterspeter/HOBBYSALON' \
+            . 2>&1 | tee ../evidence/build.log
+          node deploy/release/audit-dependencies.cjs unchanged "$PWD" ../evidence/full-source.json > ../evidence/source-unchanged.json 2> ../evidence/source-unchanged.stderr.log
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Inspect only image config and verify actual packaged code without network
+        run: |
+          set -euo pipefail
+          exec 2> >(tee -a evidence/image-inspection.stderr.log >&2)
+          docker image inspect "$RELEASE_IMAGE_TAG" | node -e '
+            const fs=require("node:fs"),a=require("node:assert/strict");
+            const [i]=JSON.parse(fs.readFileSync(0,"utf8")),c=i.Config;
+            a.equal(i.Os,"linux");a.equal(i.Architecture,"amd64");
+            a.equal(c.User,"medusa");a.equal(c.WorkingDir,"/app/apps/backend/.medusa/server");
+            a.deepEqual(c.Entrypoint,["/usr/local/bin/release-entrypoint"]);a.deepEqual(c.Cmd,["start"]);
+            a.equal(c.Labels["org.opencontainers.image.revision"],process.env.SOURCE_SHA);
+            const allowed=new Set(["PATH","NODE_VERSION","YARN_VERSION","NODE_ENV"]);
+            for(const e of c.Env||[])a(allowed.has(e.split("=")[0]),"Unexpected baked environment key");
+            a((c.Env||[]).includes("NODE_ENV=production"));
+            a(Number.isSafeInteger(i.Size)&&i.Size>0);a.equal(i.RootFS.Type,"layers");
+            a(i.RootFS.Layers.length>0);for(const d of i.RootFS.Layers)a(/^sha256:[a-f0-9]{64}$/.test(d));
+            console.log(JSON.stringify({Id:i.Id,Size:i.Size,RootFS:i.RootFS,Os:i.Os,Architecture:i.Architecture,User:c.User,
+              WorkingDir:c.WorkingDir,Entrypoint:c.Entrypoint,Cmd:c.Cmd,Labels:c.Labels,
+              environment_keys:(c.Env||[]).map(e=>e.split("=")[0]),Healthcheck:c.Healthcheck},null,2));
+          ' > evidence/image-inspect.json
+          # No source mounts, writable app mounts, credentials, app entrypoint or DB bootstrap.
+          docker run --rm --no-healthcheck --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
+            --user 1001:1001 --entrypoint node \
+            --mount "type=bind,src=$PWD/evidence/full-source.json,dst=/audit/full-source.json,readonly" \
+            "$RELEASE_IMAGE_TAG" -e "$(< inputs/ops/image-verifier.cjs)" \
+            > evidence/image-verification.json 2> evidence/image-verification.stderr.log
+          # Exact helper bytes from immutable merged source, independent of verifier hash check.
+          docker run --rm --no-healthcheck --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --user 1001:1001 --entrypoint node \
+            "$RELEASE_IMAGE_TAG" -e 'process.stdout.write(require("node:fs").readFileSync("/app/deploy/release/startup-pg-errors.cjs"))' \
+            | cmp - source/deploy/release/startup-pg-errors.cjs
+      - name: Original offline PostgreSQL error regressions on real image dependencies
+        run: |
+          set -euo pipefail
+          exec 2> >(tee -a evidence/startup-pg-regressions.stderr.log >&2)
+          # Only three immutable diagnostic files are mounted; no dependency or app source tree.
+          docker run --rm --no-healthcheck --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
+            --user 1001:1001 --entrypoint node \
+            --mount "type=bind,src=$PWD/source/scripts/tests/startup-pg-errors.test.cjs,dst=/diagnostics/scripts/tests/startup-pg-errors.test.cjs,readonly" \
+            --mount "type=bind,src=$PWD/source/deploy/release/startup-pg-errors.cjs,dst=/diagnostics/deploy/release/startup-pg-errors.cjs,readonly" \
+            --mount "type=bind,src=$PWD/source/apps/backend/entrypoint.sh,dst=/diagnostics/apps/backend/entrypoint.sh,readonly" \
+            "$RELEASE_IMAGE_TAG" /diagnostics/scripts/tests/startup-pg-errors.test.cjs /app \
+            > evidence/startup-pg-regressions.log
+          node -e '
+            const fs=require("node:fs"),a=require("node:assert/strict");
+            const lines=fs.readFileSync("evidence/startup-pg-regressions.log","utf8").trim().split(/\n/);
+            const r=JSON.parse(lines.at(-1));a.equal(r.status,"PASS");a(r.tests>0);
+            a.deepEqual(r.guard_attempts,[]);a.equal(r.real_runtime_acceptance,false);
+          '
+      - name: Save candidate image, never registry push or production deployment
+        run: |
+          set -euo pipefail
+          exec 2> >(tee -a evidence/image-archive.stderr.log >&2)
+          docker image save "$RELEASE_IMAGE_TAG" | gzip -n -1 > evidence/image.tar.gz
+          # Stream archive reads only: no extraction, docker load or container execution.
+          python3 - <<'PY' > evidence/docker-archive-inspect.json
+          import hashlib,json,pathlib,tarfile,zlib
+          archive=pathlib.Path('evidence/image.tar.gz')
+          image=json.loads(pathlib.Path('evidence/image-inspect.json').read_text())
+          with tarfile.open(archive,'r|gz') as tar:
+              records={}; manifests=[]; configs={}
+              for member in tar:
+                  assert member.name not in records, 'Duplicate archive member'
+                  assert member.isfile() or member.isdir(), 'Unexpected archive member type'
+                  if not member.isfile():
+                      continue
+                  stream=tar.extractfile(member); digest=hashlib.sha256(); diffhash=hashlib.sha256(); data=[]
+                  inflate=None;uncompressed=0
+                  metadata=member.name=='manifest.json' or member.name.endswith('.json') or member.size<=4*1024*1024
+                  size=0
+                  for chunk in iter(lambda:stream.read(1024*1024),b''):
+                      if size==0 and chunk.startswith(b'\x1f\x8b'):
+                          inflate=zlib.decompressobj(16+zlib.MAX_WBITS)
+                      digest.update(chunk);size+=len(chunk)
+                      if inflate:
+                          pending=chunk
+                          while pending:
+                              output=inflate.decompress(pending,1024*1024)
+                              diffhash.update(output);uncompressed+=len(output)
+                              pending=inflate.unconsumed_tail
+                      else:
+                          diffhash.update(chunk);uncompressed+=len(chunk)
+                      if metadata:
+                          assert size<=4*1024*1024, 'Oversized archive metadata'
+                          data.append(chunk)
+                  assert size==member.size, 'Truncated archive member'
+                  if inflate:
+                      assert inflate.eof and not inflate.unused_data, 'Invalid compressed archive layer'
+                  records[member.name]={'path':member.name,'bytes':size,'sha256':digest.hexdigest(),
+                      'uncompressed_bytes':uncompressed,'diff_id':'sha256:'+diffhash.hexdigest()}
+                  if metadata:
+                      try:
+                          obj=json.loads(b''.join(data))
+                      except (ValueError,UnicodeDecodeError):
+                          continue
+                      if member.name=='manifest.json':
+                          manifests=obj
+                      elif isinstance(obj,dict) and 'rootfs' in obj:
+                          configs[member.name]=obj
+              assert len(manifests)==1, 'Exactly one candidate image required'
+              manifest=manifests[0];config_path=manifest['Config'];config=configs[config_path]
+              assert 'sha256:'+records[config_path]['sha256']==image['Id'], 'Archive config differs from inspected image'
+              assert config['os']==image['Os'] and config['architecture']==image['Architecture']
+              diffids=config['rootfs']['diff_ids'];assert diffids==image['RootFS']['Layers']
+              assert manifest['RepoTags']==['hobbysalon-release-candidate:f105b2fc1421320edc8860c8419fb2ec5c8aba43']
+              layers=[records[name] for name in manifest['Layers']]
+              assert len(layers)==len(diffids)>0
+              for layer,diffid in zip(layers,diffids):
+                  assert layer['diff_id']==diffid, 'Saved layer differs from image diffID'
+              print(json.dumps({'schema':1,'status':'PASS','scope':'streamed docker save archive; no extraction or runtime acceptance',
+                  'image_id':image['Id'],'image_size_bytes':image['Size'],'config_path':config_path,
+                  'config_sha256':records[config_path]['sha256'],'repo_tags':manifest['RepoTags'],
+                  'rootfs_diff_ids':diffids,'layer_count':len(layers),'layers':layers,
+                  'sum_layer_tar_bytes':sum(layer['bytes'] for layer in layers),
+                  'sum_uncompressed_layer_tar_bytes':sum(layer['uncompressed_bytes'] for layer in layers),
+                  'compressed_archive_bytes':archive.stat().st_size},indent=2))
+          PY
+      - name: Record final job outcome and hash every retained evidence file
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path('evidence')
+          (root/'job-outcome.json').write_text(json.dumps({'schema':1,'job_status':os.environ['JOB_STATUS'],
+              'scope':'candidate artifact only; no production or runtime acceptance'},indent=2)+'\n')
+          files=sorted(p for p in root.rglob('*') if p.is_file() and p.name!='SHA256SUMS')
+          lines=[]
+          for p in files:
+              h=hashlib.sha256()
+              with p.open('rb') as stream:
+                  for chunk in iter(lambda:stream.read(1024*1024),b''):
+                      h.update(chunk)
+              lines.append(h.hexdigest()+'  '+p.relative_to(root).as_posix())
+          (root/'SHA256SUMS').write_text('\n'.join(lines)+'\n')
+          PY
+      - name: Retain verified candidate and audit evidence for three days
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: startup-candidate-f105b2fc1421320edc8860c8419fb2ec5c8aba43
+          path: evidence/
+          retention-days: 3
+          if-no-files-found: error
