@@ -16,6 +16,7 @@ const helperFile = path.join(repo, 'deploy/release/startup-pg-errors.cjs');
 const hash = b => crypto.createHash('sha256').update(b).digest('hex');
 assert(fs.existsSync(helperFile), 'RED: authorized startup propagation helper is missing');
 const manifest = new Map(), blocked = [];
+const offlineDatabaseUrl = 'postgresql://offline.invalid/offline';
 function deny(obj, keys, label) {
   for (const key of keys) if (typeof obj[key] === 'function') obj[key] = function () {
     blocked.push(label + '.' + key); throw new Error('OFFLINE_BOUNDARY_DENIED');
@@ -131,7 +132,7 @@ fs.readFileSync = function (file, ...args) {
 };
 function scenario(codes=[], extra={}) {
   return {codes, connects:0,queries:0,ends:0,outer:0,outerErrors:[],errors:[],warnings:[],factories:[],registrations:0,
-    config:{projectConfig:{databaseUrl:'postgresql://offline:offline@offline.invalid/offline',databaseSchema:'public',databaseDriverOptions:{pool:{min:0,max:1,propagateCreateError:true,acquireTimeoutMillis:1}}}},...extra};
+    config:{projectConfig:{databaseUrl:offlineDatabaseUrl,databaseSchema:'public',databaseDriverOptions:{pool:{min:0,max:1,propagateCreateError:true,acquireTimeoutMillis:1}}}},...extra};
 }
 async function test(name, fn) { const t=performance.now(); await fn(); records.push({name,status:'PASS',duration_ms:Number((performance.now()-t).toFixed(3))}); console.log('PASS '+name); }
 async function load(s) { return scenarios.run(s, () => loaderModule.exports.pgConnectionLoader()); }
@@ -181,7 +182,7 @@ async function load(s) { return scenarios.run(s, () => loaderModule.exports.pgCo
       assert.equal(JSON.stringify(s.config),before); await s.factories[0].nativeDestroy();
     });
     await test('outside loader synchronous factory preserves options receiver result and default false',async () => {
-      const options={clientUrl:'postgresql://offline:offline@offline.invalid/offline',pool:{min:0,max:1}};
+      const options={clientUrl:offlineDatabaseUrl,pool:{min:0,max:1}};
       const before=JSON.stringify(options), receiver={role:'diagnostic'}, sentinel={};
       const db=Reflect.apply(wrappedFactory,receiver,[options,sentinel]); const record=allocated.at(-1);
       assert.equal(db,record.db); assert.equal(typeof db.then,'undefined'); assert.equal(record.receiver,receiver);
@@ -189,7 +190,7 @@ async function load(s) { return scenarios.run(s, () => loaderModule.exports.pgCo
       assert.equal(db.client.pool.propagateCreateError,false); await db.destroy();
     });
     await test('existing registration is returned with no factory or pool mutation',async () => {
-      const options={clientUrl:'postgresql://offline:offline@offline.invalid/offline',pool:{min:0,max:1}};
+      const options={clientUrl:offlineDatabaseUrl,pool:{min:0,max:1}};
       const db=wrappedFactory(options); const count=allocated.length; const s=scenario([],{existing:db});
       assert.equal(await load(s),db); assert.equal(allocated.length,count); assert.equal(s.outer,0); assert.equal(s.registrations,0);
       assert.equal(db.client.pool.propagateCreateError,false); await db.destroy();
