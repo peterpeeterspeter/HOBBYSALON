@@ -15,7 +15,7 @@ class Tests(unittest.TestCase):
             h.net='fixture-network';h.volumes=['fixture-pgdata','fixture-static'];calls=[]
             h.sandbox=lambda *args,**kwargs:calls.append((args,kwargs))
             h.docker=lambda *args,**kwargs:self.fail('No Docker call allowed')
-            for image in ['sha256:'+'a'*64,r.PREVIOUS_ID]:
+            for image in [r.FIRSTBOOT_IMAGE,r.PREVIOUS_ID]:
                 h.inspect=lambda name,image=image:{'Image':image,'HostConfig':{
                     'PortBindings':{},'NetworkMode':h.net,'ReadonlyRootfs':True,
                     'RestartPolicy':{'Name':'no'},'Tmpfs':{'/tmp':{},r.TYPES:{}}},
@@ -23,7 +23,8 @@ class Tests(unittest.TestCase):
                     'State':{'StartedAt':'2026-10-07T00:00:00Z'}}
                 h.app_start(image,Path(tmp)/'runtime.env',verify_types=False)
                 args,kwargs=calls[-1]
-                self.assertEqual(args[:2],(h.app,image));self.assertIs(args[3],r.APP_COMMAND)
+                self.assertEqual(args[:2],(h.app,image));self.assertEqual(args[3],r.app_command(image))
+                if image==r.PREVIOUS_ID:self.assertIs(args[3],r.APP_COMMAND)
                 self.assertTrue(kwargs['detach']);self.assertNotIn('--publish',kwargs['extra'])
             self.assertEqual(len(calls),2)
         import inspect

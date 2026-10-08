@@ -29,6 +29,18 @@ DIAGNOSTIC_CODES.update({
 # tables on the exact authorized sixth image. Every other table is protected, even when empty.
 # No financial-name heuristic; preservation() never uses this firstboot allowance.
 FIRSTBOOT_IMAGE='sha256:165c63c8481f77b85771385ea609f36a5911c3e34627cb1b38e9851ca4ea1795'
+APP_START_HELPER='/app/deploy/release/startup-pg-errors.cjs'
+APP_START_BRIDGE_IMAGE='sha256:afb6397899ff3a85d82a9598dbe8803ad0e192afa60a1f51bd12089b0392d09c'
+
+def app_command(image):
+    # The node entrypoint bypasses the image shell's helper preload. Restore it
+    # only for this exact reviewed candidate; rollback commands stay untouched.
+    if image==FIRSTBOOT_IMAGE:
+        return ['--require',APP_START_HELPER]+APP_COMMAND
+    if image in (PREVIOUS_ID,APP_START_BRIDGE_IMAGE):
+        return APP_COMMAND
+    raise RuntimeError('APP_START_EXACT_AUTHORIZED_IMAGE_REQUIRED')
+
 FIRSTBOOT_TABLES=frozenset(('cat_saleschannel','currency','fulfillment_provider',
     'index_data','index_metadata','index_sync','notification_provider','payment_provider',
     'price_preference','region_country','sales_channel','store','store_currency','tax_provider'))
@@ -533,8 +545,9 @@ SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename IN ('app','
         if detach: args+=['-d']
         return self.owned_run(name,image,args,command)
     def app_start(self,image,env,verify_types=True):
+        command=app_command(image)
         dotenv=self.secret_dir/'dotenv-placeholder';dotenv.write_text('# Disposable fixture; container env only.\n');dotenv.chmod(0o644)
-        self.sandbox(self.app,image,env,APP_COMMAND,extra=['--network-alias','app','--workdir','/app/apps/backend/.medusa/server','--mount',f'type=volume,src={self.volumes[1]},dst={STATIC}','--mount',f'type=bind,src={dotenv},dst=/app/apps/backend/.medusa/server/.env.production,readonly'],detach=True)
+        self.sandbox(self.app,image,env,command,extra=['--network-alias','app','--workdir','/app/apps/backend/.medusa/server','--mount',f'type=volume,src={self.volumes[1]},dst={STATIC}','--mount',f'type=bind,src={dotenv},dst=/app/apps/backend/.medusa/server/.env.production,readonly'],detach=True)
         c=self.inspect(self.app); hc=c['HostConfig']
         if c['Image']!=image or hc.get('PortBindings') or hc['NetworkMode']!=self.net or not hc['ReadonlyRootfs'] or hc['RestartPolicy']['Name']!='no': raise RuntimeError('SANDBOX_CONFIG_MISMATCH')
         if c['Config'].get('User')!='1001:1001' or not c['Config'].get('Healthcheck',{}).get('Test'): raise RuntimeError('NATIVE_HEALTHCHECK_REQUIRED')
