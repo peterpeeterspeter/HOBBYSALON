@@ -4,6 +4,8 @@ import argparse, io, json, os, stat, subprocess, tarfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 MAX_TOTAL=64*1024*1024
+# Match the final diagnostic archive consumer's uncompressed per-member ceiling.
+MAX_MEMBER=20_000_000
 
 def bundle(kind, workspace, temp):
     bases = [('postgres', workspace/'release-tests/database/evidence')] if kind=='postgres' else [('runtime',temp/'scoped-tests/runtime'),('runtime-diagnosis',temp/'scoped-tests/runtime-diagnosis')]
@@ -26,7 +28,9 @@ def bundle(kind, workspace, temp):
                 if path.suffix not in ('.json','.log'): continue
                 relative=path.relative_to(base) if recursive else Path(path.name)
                 if any(part in ('.','..') for part in relative.parts): raise RuntimeError('DIAGNOSTIC_PATH_REFUSED')
-                size=path.stat().st_size;total+=size
+                size=path.stat().st_size
+                if size>MAX_MEMBER: raise RuntimeError('DIAGNOSTIC_SIZE_LIMIT')
+                total+=size
                 if total>MAX_TOTAL: raise RuntimeError('DIAGNOSTIC_SIZE_LIMIT')
                 content=path.read_bytes()
                 if len(content)!=size: raise RuntimeError('DIAGNOSTIC_CHANGED')

@@ -267,11 +267,15 @@ wishlist_wishlist_product_product
 workflow_execution
 '''.split())
 EMPTY_TABLE_SHA256=hashlib.sha256(b'').hexdigest()
-# Add ONLY the firstboot runner's existing 390s ceiling to the original outer
-# budget. The old 2070s alarm cannot contain seven mandatory 300s health windows.
-# Six lifecycle floors/probe timing are unchanged; runtime job ceiling is 60min.
-RUNTIME_DEADLINE_SECONDS=2490
-RUNTIME_ALARM_SECONDS=2460
+# TESTONLY: one bounded global budget, including the negative's unchanged 390s.
+# No observation rearm/reset. Seven 300s health floors and all guards unchanged.
+RUNTIME_DEADLINE_SECONDS=2850
+RUNTIME_ALARM_SECONDS=RUNTIME_DEADLINE_SECONDS
+NEGATIVE_OBSERVATION_SECONDS=390
+NEGATIVE_FINALIZATION_SECONDS=60
+# Cap SERIALIZED JSON bytes, not raw stream length (escaping expands members).
+# Below the private consumer's 20 MiB member cap; overflow is never truncated.
+PRIVATE_MEMBER_MAX_BYTES=16*1024*1024
 DIAGNOSTIC_CODES.update({'FIRSTBOOT_REQUIRED','FIRSTBOOT_PROTECTED_PASS',
     'FIRSTBOOT_STABLE_CONFIRMED','FIRSTBOOT_FAILED'})
 
@@ -442,8 +446,11 @@ class Harness:
         base=self.a.out.parent/'runtime-diagnosis';base.mkdir(mode=0o700,exist_ok=True);base.chmod(0o700)
         self.private_dir=Path(tempfile.mkdtemp(prefix=self.prefix+'-',dir=base));self.private_dir.chmod(0o700)
     def private_record(self,kind,data):
+        payload=json.dumps(data,indent=2).encode('utf8')
+        if len(payload)>PRIVATE_MEMBER_MAX_BYTES:
+            raise RuntimeError('PRIVATE_DIAGNOSTIC_MEMBER_TOO_LARGE')
         fd=os.open(self.private_dir/(kind+'-'+secrets.token_hex(8)+'.json'),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-        with os.fdopen(fd,'w') as f: json.dump(data,f,indent=2)
+        with os.fdopen(fd,'wb') as f: f.write(payload)
     def capture_owned_failure(self):
         # Raw state/logs contain env/credentials: private only, before any removal.
         original=self.deadline;self.deadline=time.monotonic()+30
@@ -462,10 +469,10 @@ class Harness:
                 except Exception:
                     self.private_record('capture-failure',{'code':'PRIVATE_CAPTURE_FAILED'})
         finally: self.deadline=original
-    def proc(self,*args,input=None,timeout=60):
+    def proc(self,*args,input=None,timeout=60,text=True):
         left=self.deadline-time.monotonic()
-        if left<=0: raise RuntimeError('RUNTIME_DEADLINE_2490S')
-        return subprocess.run(args,input=input,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(timeout,left))
+        if left<=0: raise RuntimeError('RUNTIME_DEADLINE_2850S')
+        return subprocess.run(args,input=input,text=text,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=min(timeout,left))
     def run(self,*args,input=None,timeout=60,check=True):
         try: p=self.proc(*args,input=input,timeout=timeout)
         except subprocess.TimeoutExpired as e:
@@ -534,8 +541,35 @@ SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename IN ('app','
         if set(hc.get('Tmpfs',{}))!={'/tmp',TYPES}: raise RuntimeError('ONLY_EXACT_TYPES_TMPFS_ALLOWED')
         if verify_types: self.docker('exec',self.app,'node','-e',f"const f=require('fs'),s=f.statSync({json.dumps(TYPES)});if(s.uid!==1001||s.gid!==1001)process.exit(1)")
         return c['State']['StartedAt']
+    def capture_negative_raw_logs(self):
+        # Only the real negative capture path, never every healthy poll.
+        # Owner/image/start checked BEFORE reading logs; no foreign raw leakage.
+        import base64
+        c=json.loads(self.docker('inspect',self.app,timeout=5))[0]
+        if c.get('Config',{}).get('Labels',{}).get(LABEL)!=self.prefix:
+            raise RuntimeError('CONTAINER_OWNERSHIP_MISMATCH')
+        started=getattr(self,'_negative_started_at',None)
+        if started is None or c.get('Image')!=self.a.candidate or c.get('State',{}).get('StartedAt')!=started:
+            raise RuntimeError('NEGATIVE_RAW_IMAGE_START_BINDING_REQUIRED')
+        row={'container':self.app,'owner':self.prefix,'ownership_checked':True,
+            'image':c['Image'],'started_at':started,'returncode':None,'complete':False}
+        def streams(stdout,stderr):
+            for key,value in [('stdout',stdout),('stderr',stderr)]:
+                raw=value if isinstance(value,bytes) else (value or '').encode('utf8')
+                row[key]=raw.decode('utf8','replace')
+                row[key+'_base64']=base64.b64encode(raw).decode('ascii')
+        try:
+            p=self.proc('docker','logs','--timestamps',self.app,timeout=10,text=False)
+        except subprocess.TimeoutExpired as error:
+            streams(error.stdout,error.stderr);row['error']='COMMAND_TIMEOUT'
+            self.private_record('negative-owned-logs',row)
+            raise RuntimeError('COMMAND_TIMEOUT') from error
+        streams(p.stdout,p.stderr);row.update(returncode=p.returncode,complete=p.returncode==0)
+        self.private_record('negative-owned-logs',row) # BEFORE APPauth/PG/cleanup.
+        if p.returncode:raise RuntimeError('COMMAND_FAILED')
+        return row['stdout']+row['stderr']
     def capture_logs(self,phase):
-        logs=self.docker('logs','--timestamps',self.app)
+        logs=self.capture_negative_raw_logs() if phase=='startup-negative' else self.docker('logs','--timestamps',self.app)
         file=phase+'.complete.log'; data=self.scrub(logs)
         (self.a.out/file).write_text(data)
         return logs,{'file':file,'sha256':hashlib.sha256(data.encode()).hexdigest(),'complete':True}
@@ -815,6 +849,8 @@ ROLLBACK;""",user='postgres').strip()
         self.docker('rm',self.app)
     def observe_negative_exit(self):
         # One real monotonic budget, not 390 iterations plus Docker overhead.
+        if getattr(self,'_negative_observation_closed',False):
+            raise RuntimeError('NEGATIVE_OBSERVATION_CLOSED')
         begin=time.monotonic();original=self.deadline;end=min(original,begin+390)
         self.deadline=end;c=None
         try:
@@ -881,17 +917,32 @@ ROLLBACK;""",user='postgres').strip()
         self.evidence['startup_negative']=receipt
         self.evidence['status']='FAIL'
         primary=None;primary_tb=None;errors=[];normal='';bad='';started=None
+        original_deadline=self.deadline
+        self._negative_started_at=None
+        already_closed=getattr(self,'_negative_observation_closed',False)
         def retain(error,field):
             nonlocal primary,primary_tb
             receipt[field]=type(error).__name__
-            errors.append({'stage':field,'exception':traceback.format_exc()})
+            errors.append({'stage':field,'exception':''.join(traceback.format_exception(type(error),error,error.__traceback__))})
             if primary is None:primary=error;primary_tb=error.__traceback__
         try:
             try:
                 normal=(self.secret_dir/'runtime.env').read_text()
                 env=self.envfile('negative.env','app')
                 bad=env.read_text().replace(self.values[0],self.values[7]);env.write_text(bad)
+                available=original_deadline-time.monotonic()
+                receipt['budget']={'available_seconds':available,'observation_seconds':390,
+                    'finalization_seconds':NEGATIVE_FINALIZATION_SECONDS}
+                if already_closed:raise RuntimeError('NEGATIVE_OBSERVATION_CLOSED')
+                if available<=390+NEGATIVE_FINALIZATION_SECONDS:
+                    raise RuntimeError('NEGATIVE_FULL_OBSERVATION_BUDGET_REQUIRED')
+                # Launch uses ONLY surplus: it cannot steal the observation/reserve.
+                self.deadline=original_deadline-390-NEGATIVE_FINALIZATION_SECONDS
                 started=self.app_start(self.a.candidate,env,verify_types=False)
+                self._negative_started_at=started
+                self.deadline=original_deadline
+                if original_deadline-time.monotonic()<390+NEGATIVE_FINALIZATION_SECONDS:
+                    raise RuntimeError('NEGATIVE_FULL_OBSERVATION_BUDGET_REQUIRED')
                 c=self.observe_negative_exit()
                 state=c['State'];logs,logreceipt=self.capture_logs('startup-negative')
                 receipt['logs']=logreceipt
@@ -903,26 +954,35 @@ ROLLBACK;""",user='postgres').strip()
             except Exception as error:
                 retain(error,'phase_error')
             finally:
+                # Close observation permanently before canceling the global alarm.
+                # Separate bounded finalization survives an expired global deadline.
+                self._negative_observation_closed=True
+                if getattr(self,'_global_alarm_installed',False):signal.alarm(0)
+                final_end=time.monotonic()+NEGATIVE_FINALIZATION_SECONDS
+                self.deadline=final_end-30 # capture <=30s, reserved removal <=30s
                 # Retain every secondary failure, never mask the primary exception.
                 # Diagnostics and complete logs precede ownership-checked removal.
+                try:
+                    # Raw APP logs first: PG diagnostic work cannot consume their reserve.
+                    logs,logreceipt=self.capture_logs('startup-negative')
+                    receipt['logs']=logreceipt # capture receipt survives subsequent assertion failure
+                    if not isinstance(logreceipt,dict) or logreceipt.get('complete') is not True: raise RuntimeError('NEGATIVE_COMPLETE_LOGS_REQUIRED')
+                    if not re.search('password authentication failed',logs,re.I): raise RuntimeError('NEGATIVE_WRONG_FAILURE')
+                except Exception as error:
+                    receipt['log_capture_failed']=True
+                    retain(error,'final_capture_error')
                 try:
                     self.capture_negative_diagnostics(normal,bad,started,receipt)
                 except Exception as error:
                     retain(error,'diagnostic_capture_error')
-                try:
-                    logs,logreceipt=self.capture_logs('startup-negative')
-                    if not isinstance(logreceipt,dict) or logreceipt.get('complete') is not True: raise RuntimeError('NEGATIVE_COMPLETE_LOGS_REQUIRED')
-                    if not re.search('password authentication failed',logs,re.I): raise RuntimeError('NEGATIVE_WRONG_FAILURE')
-                    receipt['logs']=logreceipt
-                except Exception as error:
-                    receipt['log_capture_failed']=True
-                    retain(error,'final_capture_error')
                 finally:
+                    self.deadline=min(final_end,time.monotonic()+30)
                     try:
                         self.remove_container(self.app)
                         receipt['cleanup_verified']=True
                     except Exception as error:
                         retain(error,'cleanup_error')
+                    self.deadline=original_deadline
             if primary is not None:raise primary.with_traceback(primary_tb)
             receipt['status']='PASS'
         except Exception:
@@ -1091,10 +1151,13 @@ def main():
     if a.previous is None:a.previous=pins['image']
     if a.candidate!=FIRSTBOOT_IMAGE or a.previous!=pins['image']:raise RuntimeError('EXACT_FIFTH_CANDIDATE_AND_DISTINCT_BRIDGE_REQUIRED')
     h=Harness(a)
-    def expired(*_): raise RuntimeError('RUNTIME_DEADLINE_2490S')
+    def expired(*_): raise RuntimeError('RUNTIME_DEADLINE_2850S')
     signal.signal(signal.SIGALRM,expired);signal.alarm(RUNTIME_ALARM_SECONDS)
+    h._global_alarm_installed=True
     try: h.execute()
     except Exception as e:
+        h._negative_observation_closed=True
+        signal.alarm(0) # observation has failed; capture is never more observation
         h.evidence['failure_stage']=h.evidence.get('diagnostic_stage')
         h.private_record('harness-exception',{'exception':traceback.format_exc()})
         h.evidence['error']='RUNTIME_FAILURE'

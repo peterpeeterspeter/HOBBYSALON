@@ -1028,8 +1028,8 @@ workflow_execution
         Tests('test_native_failure_probe_cannot_pass').test_native_failure_probe_cannot_pass()
     def test_firstboot_receipt_mutations_and_outer_ceiling_not_floors(self):
         import copy,inspect
-        self.assertEqual(r.RUNTIME_DEADLINE_SECONDS,2100+390)
-        self.assertEqual(r.RUNTIME_ALARM_SECONDS,2070+390)
+        self.assertEqual(r.RUNTIME_DEADLINE_SECONDS,2460+390)
+        self.assertEqual(r.RUNTIME_ALARM_SECONDS,r.RUNTIME_DEADLINE_SECONDS)
         self.assertGreater(r.RUNTIME_ALARM_SECONDS,7*300)
         self.assertIn('signal.alarm(RUNTIME_ALARM_SECONDS)',inspect.getsource(r.main))
         with tempfile.TemporaryDirectory() as tmp:
@@ -1406,7 +1406,7 @@ class NegativeDiagnosticTests(unittest.TestCase):
     """Synthetic offline controls ONLY: no hosted timing, Docker or PostgreSQL."""
     def adapter(self,tmp):
         h=r.Harness.__new__(r.Harness);h.private_dir=Path(tmp);h.secret_dir=Path(tmp)
-        h.app='offline-app';h.pg='offline-pg';h.prefix='offline-owner';h.deadline=1000
+        h.app='offline-app';h.pg='offline-pg';h.prefix='offline-owner';h.deadline=time.monotonic()+1000
         h.values=[str(i)*64 for i in range(8)];h.a=SimpleNamespace(candidate='offline-image',out=Path(tmp))
         h.evidence={'status':'FAIL'};h.static_baseline='static';h.snapshot=lambda:{'rows':'same'}
         h.envfile('runtime.env','app')
@@ -1576,5 +1576,264 @@ class NegativeDiagnosticTests(unittest.TestCase):
                 self.assertIs(raised.exception,primary);self.assertEqual(events[-1],('remove',))
                 self.assertEqual(h.evidence['startup_negative']['status'],'FAIL')
                 self.assertIn('diagnostic_capture_error',h.evidence['startup_negative'])
+
+class Correction20Tests(unittest.TestCase):
+    """TESTONLY: private raw capture and real shortened isolated SIGALRM controls."""
+    def adapter(self,tmp):
+        h,events=NegativeDiagnosticTests().adapter(tmp);h.deadline=time.monotonic()+1000
+        h.a.out=Path(tmp)/'scrubbed';h.a.out.mkdir()
+        h.private_dir=Path(tmp)/'private';h.private_dir.mkdir(mode=0o700)
+        return h,events
+    def test_consistent_global_budget_and_historical_full_availability(self):
+        self.assertEqual(r.RUNTIME_DEADLINE_SECONDS,2850)
+        self.assertEqual(r.RUNTIME_ALARM_SECONDS,r.RUNTIME_DEADLINE_SECONDS)
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);h.deadline=2850;start=h.app_start
+            def app_start(*a,**kw):
+                self.assertLessEqual(h.deadline,2400);return start(*a,**kw)
+            h.app_start=app_start
+            with patch.object(r.time,'monotonic',return_value=2359.025):h.negative({'rows':'same'},'schema')
+            self.assertEqual(h.deadline,2850);receipt=h.evidence['startup_negative']
+            self.assertEqual(receipt['status'],'PASS');self.assertGreaterEqual(receipt['budget']['available_seconds'],450)
+            self.assertEqual(receipt['budget']['observation_seconds'],390);self.assertEqual(receipt['budget']['finalization_seconds'],60)
+    def test_insufficient_budget_refused_before_app_start(self):
+        for left in (0,242,390,449.999):
+            with self.subTest(left=left),tempfile.TemporaryDirectory() as tmp:
+                h,events=self.adapter(tmp);h.deadline=2359.025+left;starts=[]
+                h.app_start=lambda *a,**k:starts.append(True)
+                with patch.object(r.time,'monotonic',return_value=2359.025):
+                    with self.assertRaisesRegex(RuntimeError,'NEGATIVE_FULL_OBSERVATION_BUDGET_REQUIRED'):h.negative({'rows':'same'},'schema')
+                self.assertEqual(starts,[]);self.assertEqual(events[-1],('remove',))
+                self.assertEqual(h.evidence['startup_negative']['status'],'FAIL');self.assertEqual(h.deadline,2359.025+left)
+    def test_receipt_logs_retained_after_final_appauth_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);primary=RuntimeError('TESTONLY_PRIMARY');h.observe_negative_exit=lambda:(_ for _ in ()).throw(primary)
+            logreceipt={'complete':True,'file':'startup-negative.complete.log','sha256':'a'*64}
+            h.capture_logs=lambda _:('KnexTimeoutError',logreceipt)
+            with self.assertRaises(RuntimeError) as raised:h.negative({'rows':'same'},'schema')
+            self.assertIs(raised.exception,primary);self.assertIs(h.evidence['startup_negative']['logs'],logreceipt)
+            self.assertTrue(h.evidence['startup_negative']['cleanup_verified']);self.assertTrue(h.evidence['startup_negative']['pg_auth_observed'])
+    def raw_adapter(self,tmp,foreign=False,image=None,started=None):
+        h,events=self.adapter(tmp);del h.capture_logs;del h.docker
+        h._negative_started_at='2026-10-07T00:00:00Z';calls=[]
+        c={'Image':image or h.a.candidate,'State':{'StartedAt':started or h._negative_started_at,'Running':True},
+            'Config':{'Labels':{r.LABEL:'foreign' if foreign else h.prefix}}}
+        def proc(*a,**kw):
+            calls.append(a)
+            if a[1]=='inspect':return subprocess.CompletedProcess(a,0,json.dumps([c]),'')
+            return subprocess.CompletedProcess(a,0,'stdout '+h.values[0]+'\n','stderr '+h.values[7]+'\n')
+        h.proc=proc;return h,calls,c
+    def test_raw_private_streams_owner_image_start_and_scrubbed_public(self):
+        import contextlib,io
+        with tempfile.TemporaryDirectory() as tmp:
+            h,calls,c=self.raw_adapter(tmp);console=io.StringIO()
+            with contextlib.redirect_stdout(console),contextlib.redirect_stderr(console):logs,receipt=h.capture_logs('startup-negative')
+            paths=list(h.private_dir.glob('negative-owned-logs-*.json'));self.assertEqual(len(paths),1)
+            row=json.loads(paths[0].read_text());self.assertEqual(row['returncode'],0);self.assertTrue(row['complete'])
+            self.assertEqual(row['stdout'],'stdout '+h.values[0]+'\n');self.assertEqual(row['stderr'],'stderr '+h.values[7]+'\n')
+            self.assertEqual(row['image'],h.a.candidate);self.assertEqual(row['started_at'],h._negative_started_at)
+            self.assertEqual(row['owner'],h.prefix);self.assertTrue(row['ownership_checked'])
+            self.assertEqual(paths[0].stat().st_mode&0o777,0o600);self.assertEqual(h.private_dir.stat().st_mode&0o777,0o700)
+            public=(h.a.out/receipt['file']).read_text()+console.getvalue()+json.dumps(receipt)
+            self.assertNotIn(h.values[0],public);self.assertNotIn(h.values[7],public)
+            self.assertLess(calls.index(('docker','inspect',h.app)),calls.index(('docker','logs','--timestamps',h.app)))
+    def test_foreign_image_or_start_refuses_raw_log_read(self):
+        for kw in ({'foreign':True},{'image':'foreign-image'},{'started':'2026-10-07T00:01:00Z'}):
+            with self.subTest(kw=kw),tempfile.TemporaryDirectory() as tmp:
+                h,calls,c=self.raw_adapter(tmp,**kw)
+                with self.assertRaises(RuntimeError):h.capture_logs('startup-negative')
+                self.assertFalse(any(a[1]=='logs' for a in calls));self.assertEqual(list(h.private_dir.glob('negative-owned-logs-*.json')),[])
+    def test_raw_timeout_failed_command_and_io_fail_closed(self):
+        for mode in ('timeout','command','io'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as tmp:
+                h,calls,c=self.raw_adapter(tmp);proc=h.proc
+                def failure(*a,**kw):
+                    if a[1]=='logs':
+                        if mode=='timeout':raise subprocess.TimeoutExpired(a,0.1,output=b'partial-out',stderr=b'partial-err')
+                        return subprocess.CompletedProcess(a,7,'failed-out','failed-err')
+                    return proc(*a,**kw)
+                h.proc=failure
+                if mode=='io':h.private_record=lambda *a:(_ for _ in ()).throw(OSError('TESTONLY_RAW_IO'))
+                with self.assertRaises(Exception):h.capture_logs('startup-negative')
+                self.assertEqual(list(h.a.out.iterdir()),[])
+                if mode!='io':
+                    row=json.loads(next(h.private_dir.glob('negative-owned-logs-*.json')).read_text());self.assertFalse(row['complete'])
+                    self.assertEqual(row['returncode'],None if mode=='timeout' else 7)
+                    self.assertEqual(row['stdout'],'partial-out' if mode=='timeout' else 'failed-out')
+                    self.assertEqual(row['stderr'],'partial-err' if mode=='timeout' else 'failed-err')
+    def test_serialized_member_cap_rejects_escaping_without_truncation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_,_=self.raw_adapter(tmp)
+            with patch.object(r,'PRIVATE_MEMBER_MAX_BYTES',256,create=True):
+                with self.assertRaisesRegex(RuntimeError,'PRIVATE_DIAGNOSTIC_MEMBER_TOO_LARGE'):h.private_record('oversize',{'stdout':'\x00'*100})
+            self.assertEqual(list(h.private_dir.iterdir()),[])
+    def test_healthy_capture_does_not_aggregate_raw_poll_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_,_=self.raw_adapter(tmp);h.capture_logs('candidate')
+            self.assertEqual(list(h.private_dir.glob('negative-owned-logs-*.json')),[])
+    def test_real_global_alarm_preserves_primary_and_bounded_finalization(self):
+        import sys
+        code=r'''import importlib.util,sys,time,signal,tempfile,json
+from pathlib import Path
+s=importlib.util.spec_from_file_location('selftest',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);r=m.r
+with tempfile.TemporaryDirectory() as tmp:
+ h,events=m.NegativeDiagnosticTests().adapter(tmp);begin=time.monotonic();h.deadline=begin+1000;original=h.deadline
+ primary=RuntimeError('TESTONLY_OLD_GLOBAL_ALARM');hits=[]
+ def expired(*a):hits.append(time.monotonic());raise primary
+ signal.signal(signal.SIGALRM,expired);signal.setitimer(signal.ITIMER_REAL,.12);h._global_alarm_installed=True
+ def inspect(_):return h.proc(sys.executable,'-B','-c','import time;time.sleep(5)',timeout=60)
+ h.inspect=inspect;capture=h.capture_negative_diagnostics
+ def diagnostics(*a):
+  assert h.deadline>time.monotonic();h.proc(sys.executable,'-B','-c','print("offline-final-capture")',timeout=.4)
+  return capture(*a)
+ h.capture_negative_diagnostics=diagnostics;h.capture_logs=lambda _:('KnexTimeoutError',{'complete':True})
+ remove=h.remove_container
+ def cleanup(_):
+  assert 0<h.deadline-time.monotonic()<=60
+  try:h.proc(sys.executable,'-B','-c','import time;time.sleep(5)',timeout=.05)
+  except r.subprocess.TimeoutExpired:pass
+  remove(_)
+ h.remove_container=cleanup
+ try:h.negative({'rows':'same'},'schema');raise AssertionError('must fail')
+ except RuntimeError as e:assert e is primary
+ assert h.deadline==original;assert len(hits)==1;assert events[-1]==('remove',)
+ assert h.evidence['startup_negative']['logs']['complete'];assert h.evidence['startup_negative']['cleanup_verified']
+ assert h.evidence['startup_negative']['status']=='FAIL';assert signal.getitimer(signal.ITIMER_REAL)==(0.,0.)
+ assert time.monotonic()-begin<1.5
+ print(json.dumps({'alarm_hits':len(hits),'elapsed_seconds':time.monotonic()-begin,'primary_preserved':True,'deadline_restored':True,'cleanup':True}))
+'''
+        p=subprocess.run([sys.executable,'-B','-c',code,str(Path(__file__))],capture_output=True,text=True,timeout=4)
+        self.assertEqual(p.returncode,0,p.stderr);row=json.loads(p.stdout);self.assertEqual(row['alarm_hits'],1)
+        print('REAL_SHORTENED_GLOBAL_ALARM '+p.stdout.strip())
+    def test_raw_binary_streams_lossless_and_json_cap(self):
+        import base64
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_,_=self.raw_adapter(tmp);proc=h.proc
+            stdout=b'raw\xff\x00\n';stderr=b'err\xfe\n'
+            def binary(*a,**kw):
+                if a[1]=='logs':
+                    self.assertIs(kw['text'],False)
+                    return subprocess.CompletedProcess(a,0,stdout,stderr)
+                return proc(*a,**kw)
+            h.proc=binary;h.capture_logs('startup-negative')
+            row=json.loads(next(h.private_dir.glob('negative-owned-logs-*.json')).read_text())
+            self.assertEqual(base64.b64decode(row['stdout_base64']),stdout)
+            self.assertEqual(base64.b64decode(row['stderr_base64']),stderr)
+            with patch.object(r,'PRIVATE_MEMBER_MAX_BYTES',256):
+                with self.assertRaisesRegex(RuntimeError,'PRIVATE_DIAGNOSTIC_MEMBER_TOO_LARGE'):h.capture_logs('startup-negative')
+            self.assertEqual(len(list(h.private_dir.glob('negative-owned-logs-*.json'))),1)
+    def test_raw_capture_primary_pg_failure_and_cleanup_order(self):
+        for mode in ('pg','timeout','command','io'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as tmp:
+                h,calls,_=self.raw_adapter(tmp);primary=RuntimeError('TESTONLY_PRIMARY')
+                h.observe_negative_exit=lambda:(_ for _ in ()).throw(primary)
+                proc=h.proc;record=h.private_record
+                def fault(*a,**kw):
+                    if a[1]=='logs':
+                        if mode=='timeout':
+                            calls.append(a);raise subprocess.TimeoutExpired(a,.1,output=b'partial',stderr=b'partial-error')
+                        if mode=='command':
+                            calls.append(a);return subprocess.CompletedProcess(a,7,b'failed',b'failed-error')
+                    return proc(*a,**kw)
+                h.proc=fault
+                def private(kind,data):
+                    if mode=='io' and kind=='negative-owned-logs':raise OSError('TESTONLY_RAW_IO')
+                    return record(kind,data)
+                h.private_record=private
+                def pg(*a):calls.append(('pg-diagnostic',));raise OSError('TESTONLY_PG')
+                h.capture_negative_diagnostics=pg
+                h.remove_container=lambda _:calls.append(('cleanup',))
+                with self.assertRaises(RuntimeError) as raised:h.negative({'rows':'same'},'schema')
+                self.assertIs(raised.exception,primary);self.assertEqual(calls[-1],('cleanup',))
+                self.assertLess(calls.index(('docker','logs','--timestamps',h.app)),calls.index(('pg-diagnostic',)))
+                self.assertEqual(h.evidence['startup_negative']['status'],'FAIL')
+                self.assertTrue(h.evidence['startup_negative']['cleanup_verified'])
+                if mode!='io':
+                    row=json.loads(next(h.private_dir.glob('negative-owned-logs-*.json')).read_text())
+                    self.assertEqual(row['complete'],mode=='pg')
+                if mode=='pg':self.assertTrue(h.evidence['startup_negative']['logs']['complete'])
+    def test_finalization_expired_global_bounded_capture_cleanup_restore(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);clock=[0.0];h.deadline=1000;deadlines=[]
+            primary=RuntimeError('TESTONLY_EXPIRED_GLOBAL')
+            def observation():clock[0]=1001;raise primary
+            h.observe_negative_exit=observation
+            def logs(_):
+                deadlines.append(h.deadline);self.assertEqual(h.deadline,1031)
+                clock[0]=1031;raise subprocess.TimeoutExpired('offline',30)
+            h.capture_logs=logs
+            h.capture_negative_diagnostics=lambda *a:None
+            def cleanup(_):deadlines.append(h.deadline);self.assertEqual(h.deadline,1061)
+            h.remove_container=cleanup
+            with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]):
+                with self.assertRaises(RuntimeError) as raised:h.negative({'rows':'same'},'schema')
+            self.assertIs(raised.exception,primary);self.assertEqual(deadlines,[1031,1061])
+            self.assertEqual(h.deadline,1000);self.assertTrue(h.evidence['startup_negative']['cleanup_verified'])
+    def test_source_guard_two_finally_and_no_observation_alarm_rearm(self):
+        import inspect,ast,textwrap
+        source=inspect.getsource(r.Harness.negative)
+        self.assertEqual(sum(isinstance(n,ast.Try) and bool(n.finalbody) for n in ast.walk(ast.parse(textwrap.dedent(source)))),2)
+        self.assertNotIn('setitimer',source)
+        self.assertEqual(source.count('signal.alarm('),1);self.assertIn('signal.alarm(0)',source)
+        self.assertIn('begin+390',inspect.getsource(r.Harness.observe_negative_exit))
+    def test_launch_cannot_consume_reserved_full_observation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);clock=[2359.025];h.deadline=2850;observed=[]
+            def start(*a,**kw):
+                self.assertEqual(h.deadline,2400);clock[0]=2400.001;return '2026-10-07T00:00:00Z'
+            h.app_start=start;h.observe_negative_exit=lambda:observed.append(True)
+            with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]):
+                with self.assertRaisesRegex(RuntimeError,'NEGATIVE_FULL_OBSERVATION_BUDGET_REQUIRED'):h.negative({'rows':'same'},'schema')
+            self.assertEqual(observed,[]);self.assertEqual(h.deadline,2850)
+    def test_no_observation_rearm_after_finalization(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h,_=self.adapter(tmp);h.negative({'rows':'same'},'schema')
+            with self.assertRaisesRegex(RuntimeError,'NEGATIVE_OBSERVATION_CLOSED'):h.observe_negative_exit()
+
+class Correction20ReviewFixTests(unittest.TestCase):
+    def test_main_failure_closes_observation_before_alarm_cancel(self):
+        import contextlib,io,importlib.util,sys
+        h=SimpleNamespace(evidence={'status':'FAIL','phases':[],'cleanup':False,'diagnostic_stage':'offline'},
+            _negative_observation_closed=False)
+        h.execute=lambda:(_ for _ in ()).throw(RuntimeError('TESTONLY_MAIN_PRIMARY'))
+        h.private_record=lambda *a:None;h.capture_owned_failure=lambda:None
+        h.capture_logs=lambda _:('',{'complete':True})
+        h.cleanup=lambda:h.evidence.update(cleanup=True)
+        bridge=SimpleNamespace(load=lambda _: {'image':'offline-bridge'})
+        cancellations=[]
+        def alarm(seconds):
+            if seconds==0:
+                cancellations.append(h._negative_observation_closed)
+                self.assertTrue(h._negative_observation_closed)
+            return 0
+        args=['offline','--candidate',r.FIRSTBOOT_IMAGE,'--previous-manifest','offline-manifest',
+            '--out','offline-out','--bridge-contract','offline-contract']
+        with patch.object(sys,'argv',args),patch.object(r,'Harness',return_value=h),\
+                patch.object(importlib.util,'spec_from_file_location',return_value=SimpleNamespace(loader=SimpleNamespace(exec_module=lambda _:None))),\
+                patch.object(importlib.util,'module_from_spec',return_value=bridge),\
+                patch.object(r.signal,'signal'),patch.object(r.signal,'alarm',side_effect=alarm),\
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(r.main(),1)
+        self.assertEqual(cancellations,[True,True]);self.assertTrue(h.evidence['cleanup'])
+    def test_early_and_late_capture_removal_independently_at_most_30_seconds(self):
+        for capture_elapsed in (0.0,0.5,29.5,30.0):
+            with self.subTest(capture_elapsed=capture_elapsed),tempfile.TemporaryDirectory() as tmp:
+                h,_=NegativeDiagnosticTests().adapter(tmp);h.deadline=1000;clock=[0.0];timeouts=[]
+                primary=RuntimeError('TESTONLY_PRIMARY')
+                h.observe_negative_exit=lambda:(_ for _ in ()).throw(primary)
+                def capture(_):
+                    clock[0]=capture_elapsed
+                    return 'password authentication failed',{'complete':True}
+                h.capture_logs=capture;h.capture_negative_diagnostics=lambda *a:None
+                def remove(_):
+                    self.assertLessEqual(h.deadline-clock[0],30.0)
+                    with patch.object(r.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'','')) as proc:
+                        h.proc('offline-not-launched',timeout=60)
+                        timeouts.append(proc.call_args.kwargs['timeout'])
+                h.remove_container=remove
+                with patch.object(r.time,'monotonic',side_effect=lambda:clock[0]):
+                    with self.assertRaises(RuntimeError) as raised:h.negative({'rows':'same'},'schema')
+                self.assertIs(raised.exception,primary);self.assertEqual(timeouts,[30.0])
+                self.assertEqual(h.deadline,1000);self.assertTrue(h.evidence['startup_negative']['cleanup_verified'])
 
 if __name__=='__main__':unittest.main(verbosity=2)
