@@ -633,7 +633,7 @@ class FirstbootTests(unittest.TestCase):
     TABLES=('cat_saleschannel','currency','fulfillment_provider','index_data','index_metadata',
         'index_sync','notification_provider','payment_provider','price_preference','region_country',
         'sales_channel','store','store_currency','tax_provider')
-    IMAGE='sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5'
+    IMAGE='sha256:165c63c8481f77b85771385ea609f36a5911c3e34627cb1b38e9851ca4ea1795'
     # Independent real names, not invented count-filling fixture tables.
     # Extracted from attempt13 baseline hashes; matched to attempt14 before/counts.
     INVENTORY=tuple('''

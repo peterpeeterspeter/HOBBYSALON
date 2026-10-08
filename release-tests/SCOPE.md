@@ -8,10 +8,11 @@ publication review. No merge, production deployment, provider calls or package
 registry publication is authorized. Main is read-only.
 
 Candidate binding requires a completed/success first attempt of build run
-37622607612, commit 59efa5f84902380c30e7c0a25a890c57c925e98e, artifact
+37762001784, commit def117bf1a03460b7e37b568c31afd984fad847a, artifact
 `release-candidate-20261007`. Config ID, archive SHA, frozen source and actual
 baked/compiled source must agree before tests. Previous image is acquired only
-from pinned artifact 11408703641, run 37455485280 with read-only GitHub token.
+from immutable bridge artifact 11504828273, run 37671453633 with read-only GitHub token.
+The former artifact 11408703641/run 37455485280 is historical only, not PhaseB previous.
 
 PostgreSQL exercises limited admission/kernel/financial consumer/replay and
 native migrations using seeded parent financial state and explicit DB-backed
@@ -20,10 +21,10 @@ Redis/provider or host-power-loss acceptance. The PostgreSQL repository digest
 was obtained from local read-only image inspection; hosted pull must reproduce
 the expected immutable config ID or fail closed.
 
-Before publication, the parent independently confirmed completed/success build
-37622607612 and its actual artifact metadata: ID 11483101180, digest
-`sha256:c72759529e368a0977966ee0fc0fca555849115e70684d9ae3a7787e234c1fa6`,
-size 275571663 bytes. The verifier pins all three actual values. After the exact
+Authenticated saved API/ZIP evidence records the completed/success build
+37762001784 and its actual artifact metadata: ID 11542109616, digest
+`sha256:bd00fca73a3517b9ac921f24822368390fe3a96f4b25a8bbd1c4ce00e7e54bfd`,
+size 275591237 bytes. The verifier pins all three actual values. After the exact
 successful-build guard, only this run's bounded GitHub metadata is read (at most
 100 entries and 1 MiB; no pagination or other-run search). Exactly one matching
 name/run/head/branch artifact must exist, expired=false, and ID/digest/size must
@@ -109,3 +110,25 @@ from 50 to 60 minutes, retaining 780 seconds setup/diagnostic tail reserve beyon
 2490 runtime + 120 cleanup + 180 acquisition + 30 encryption. PostgreSQL remains
 50 minutes. This is a finite test-budget adjustment, not a new build or deployment.
 Any budget exhaustion still fails closed; no phase is shortened or skipped.
+
+## Current PhaseB24 source-conditional candidate binding — REVIEW PENDING
+
+This section supersedes historical SAME-fifth-image/no-new-build statements above
+for the separately authorized sixth candidate ONLY. Exactly one additional real
+PostgreSQL/runtime verification run is authorized; the sixth build is already
+complete. No seventh build, automatic repeat, rerun, merge, deploy, provider
+permission change or previous/bridge image change is permitted. Preparation
+performs local offline controls only and is NOT runtime/release acceptance.
+Independent image/publication review and parent publication are still pending.
+
+Candidate config: `sha256:165c63c8481f77b85771385ea609f36a5911c3e34627cb1b38e9851ca4ea1795`. Startup entry SHA256: `dfaaa1404f22485c2c66f89c80ebc63f8be0a87e3b5d187865dc0578b6968c5f`.
+Frozen approval SHA256: `72f3feedd2e7b339abd62f48350c43cf74c4e07d5f3614696712ace80f989b51`.
+Actual baked source SHA256: `72385a7b9b7fba6b2bde4b8fae86256fe1b1dff4d504772c98b7331e9dfaf2a1`.
+Actual compiled receipt SHA256: `42bbc8a5c3ed1239088d129cc1777dc69d1573441a7dc6607903ee43891e32e3`.
+All original PG/native audit and 227/14/213 firstboot predicates remain mandatory,
+including seven separate 300-second health floors, six lifecycle phases,
+unchanged 390-second invalid-password observation, natural PID-1 application
+exit, app role/auth-log proof, monotone 2850-second runtime budget and bounded
+cleanup. Historical budget prose above is not a current executable budget.
+The original strict final verifier is immutable; a separately reviewed read-only
+source-pin adapter is pending and no final verifier has been executed here.

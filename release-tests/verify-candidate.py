@@ -3,14 +3,34 @@
 import argparse, hashlib, json, os, re, subprocess, sys, urllib.request
 from pathlib import Path
 REPO = 'peterpeeterspeter/HOBBYSALON'
-RUN = 37622607612
-COMMIT = '59efa5f84902380c30e7c0a25a890c57c925e98e'
+RUN = 37762001784
+COMMIT = 'def117bf1a03460b7e37b568c31afd984fad847a'
 ARTIFACT_NAME = 'release-candidate-20261007'
-ARTIFACT_ID = 11483101180
-ARTIFACT_DIGEST = 'sha256:c72759529e368a0977966ee0fc0fca555849115e70684d9ae3a7787e234c1fa6'
-ARTIFACT_SIZE = 275571663
+ARTIFACT_ID = 11542109616
+ARTIFACT_DIGEST = 'sha256:bd00fca73a3517b9ac921f24822368390fe3a96f4b25a8bbd1c4ce00e7e54bfd'
+ARTIFACT_SIZE = 275591237
 IMAGE = 'hobbysalon-release-candidate:20261007'
 ROOT = Path(__file__).resolve().parent.parent
+
+# PhaseB24 source-conditional binding for the one authorized verification run only.
+# Exact acquired bytes, not a runtime PASS; previous bridge is never rebound.
+CANDIDATE_ID = 'sha256:165c63c8481f77b85771385ea609f36a5911c3e34627cb1b38e9851ca4ea1795'
+CANDIDATE_APPROVAL_SHA256 = '72f3feedd2e7b339abd62f48350c43cf74c4e07d5f3614696712ace80f989b51'
+CANDIDATE_RECEIPT_SHA256 = 'b76c75c11ff4fe6fbf9d2f1ef94d3c825c06ef20b6dba6edcc749a1073c74b78'
+CANDIDATE_SOURCE_SNAPSHOT = '72385a7b9b7fba6b2bde4b8fae86256fe1b1dff4d504772c98b7331e9dfaf2a1'
+CANDIDATE_ENTRYPOINT_SHA256 = 'dfaaa1404f22485c2c66f89c80ebc63f8be0a87e3b5d187865dc0578b6968c5f'
+CANDIDATE_COMPILED_SHA256 = '42bbc8a5c3ed1239088d129cc1777dc69d1573441a7dc6607903ee43891e32e3'
+CANDIDATE_IMAGE_ARCHIVE_SHA256 = '3a52fdea2c915ce39cb09863b94a7cdb1b4064f2483aa68dd1e44a57ad716703'
+
+def candidate_source_binding(approval, receipt):
+    require(digest(ROOT/'release-input/approval.json') == CANDIDATE_APPROVAL_SHA256, 'EXACT_CANDIDATE_APPROVAL_SOURCE')
+    require(approval.get('maximum_additional_test_runs') == 1 and approval.get('maximum_hosted_builds') == 6 and approval.get('rerun_allowed') is False and approval.get('deploy_allowed') is False and approval.get('merge_allowed') is False and approval.get('provider_permission_changes_allowed') is False and approval.get('rollback_image_change_allowed') is False, 'ONE_AUTHORIZED_VERIFICATION_ONLY')
+    for key, value in {'image_id':CANDIDATE_ID, 'source_snapshot_sha256':CANDIDATE_SOURCE_SNAPSHOT, 'entrypoint_sha256':CANDIDATE_ENTRYPOINT_SHA256, 'compiled_receipt_sha256':CANDIDATE_COMPILED_SHA256}.items():
+        require(receipt.get(key) == value, 'EXACT_CANDIDATE_SOURCE_COMPILED_ENTRY_BINDING')
+
+def candidate_artifact_binding(artifact):
+    for path, expected in {'image-receipt.json':CANDIDATE_RECEIPT_SHA256, 'backend-image.tar.gz':CANDIDATE_IMAGE_ARCHIVE_SHA256, 'baked/source.json':CANDIDATE_SOURCE_SNAPSHOT, 'entrypoint':CANDIDATE_ENTRYPOINT_SHA256, 'compiled.json':CANDIDATE_COMPILED_SHA256}.items():
+        require(digest(artifact/path) == expected, 'EXACT_ACQUIRED_CANDIDATE_RECEIPT_ARCHIVE')
 
 def require(ok, code):
     if not ok: raise RuntimeError(code)
@@ -66,6 +86,8 @@ def docker(*args):
 def verify(a):
     approval = json.loads((ROOT/'release-input/approval.json').read_text())
     receipt = json.loads((a.artifact/'image-receipt.json').read_text())
+    candidate_source_binding(approval, receipt)
+    candidate_artifact_binding(a.artifact)
     image = receipt.get('image_id','')
     require(re.fullmatch(r'sha256:[0-9a-f]{64}',image), 'CONFIG_ID_REQUIRED')
     require(receipt.get('status')=='PASS' and receipt.get('kind')=='build-only-image-inspection' and receipt.get('production_release') is False and receipt.get('runtime_acceptance') is False, 'BUILD_INSPECTION_REQUIRED')

@@ -200,8 +200,8 @@ assert.equal(process.exitCode, 1);
             os.close(write_fd)
 
     def test_source_build_pins(self):
-        self.assertEqual(v.RUN, 37622607612)
-        self.assertEqual(v.COMMIT, '59efa5f84902380c30e7c0a25a890c57c925e98e')
+        self.assertEqual(v.RUN, 37762001784)
+        self.assertEqual(v.COMMIT, 'def117bf1a03460b7e37b568c31afd984fad847a')
         self.assertIn(v.COMMIT, (ROOT.parent / '.github/workflows/release-tests.yml').read_text())
         self.assertIn(str(v.RUN), (ROOT / 'SCOPE.md').read_text())
         self.assertIn(v.COMMIT, (ROOT / 'SCOPE.md').read_text())

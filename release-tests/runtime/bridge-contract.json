@@ -16,9 +16,9 @@
     "status": "HISTORICAL_NO_GO_NOT_PHASEB_PREVIOUS"
   },
   "candidate": {
-    "run_id": 37622607612,
-    "commit": "59efa5f84902380c30e7c0a25a890c57c925e98e",
-    "image": "sha256:f98bfc5e71f0d9457d0b15e81226c7675982dfb1cd759f3ca69c2441932ba0a5"
+    "run_id": 37762001784,
+    "commit": "def117bf1a03460b7e37b568c31afd984fad847a",
+    "image": "sha256:165c63c8481f77b85771385ea609f36a5911c3e34627cb1b38e9851ca4ea1795"
   },
   "runtime_acceptance": false,
   "deployment": false
