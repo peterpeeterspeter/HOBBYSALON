@@ -40,6 +40,8 @@ const required = [
  'packages/framework/dist/index.js',
  'deploy/release/migrate-native.cjs',
  'deploy/release/migration-plan.cjs',
+ 'deploy/release/startup-pg-errors.cjs',
+ 'deploy/release/verify-startup-pg-errors.cjs',
  'packages/modules/b2c-core/.medusa/server/src/modules/marketplace/migrations/Migration20261006113000.js',
  'packages/modules/b2c-core/.medusa/server/src/utils/marketplace-capture-ack.js',
  'packages/modules/b2c-core/.medusa/server/src/utils/marketplace-capture-subscriber.js',

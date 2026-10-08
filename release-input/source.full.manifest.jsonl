@@ -4,7 +4,7 @@
 {"git_mode":"100644","path":"apps/backend/.yarnrc.yml","sha256":"473e6def86fc03638120e0c01d0c8bbab095677256460fa4ea763e5d4697f270","size":25,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/Dockerfile","sha256":"155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7","size":3375,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/README.md","sha256":"f50ee9faa1b67be1d21193847fc194e95fcfaaf813680b781471e681452984cd","size":3805,"type":"file"}
-{"git_mode":"100644","path":"apps/backend/entrypoint.sh","sha256":"abc173a11ab7e0457ccaf11c9ce71ccebff0b8b01881ca41910a2c42ce9f462e","size":2657,"type":"file"}
+{"git_mode":"100644","path":"apps/backend/entrypoint.sh","sha256":"dfaaa1404f22485c2c66f89c80ebc63f8be0a87e3b5d187865dc0578b6968c5f","size":2709,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/instrumentation.ts","sha256":"a3ae8df98e60965528672cc541a18751066564b1bc0f0536e661379d8f154ae7","size":774,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/integration-tests/http/README.md","sha256":"078abaca4b5ab18e607515cc0c7e05882777a8da3a81967ad3b140226507f41f","size":826,"type":"file"}
 {"git_mode":"100644","path":"apps/backend/integration-tests/http/health.spec.ts","sha256":"186ed809bdd967f56c664b01cec0a42ebbd5f855082a8ecf4f4074797079901b","size":385,"type":"file"}
@@ -71,7 +71,9 @@
 {"git_mode":"100644","path":"deploy/release/migrate-native.cjs","sha256":"fd029c4ee405996f1a6836379c8612a374c859d5e3e731a3854c4534d515ef90","size":9469,"type":"file"}
 {"git_mode":"100644","path":"deploy/release/migration-plan.cjs","sha256":"e449b9274e479651a7245bdf6d2e1bf69447846317ebb47bc3a05286a68019d6","size":13511,"type":"file"}
 {"git_mode":"100644","path":"deploy/release/recipe.sh","sha256":"ebbb36171095076a98e9211414f53de42b011498bcac3c533613d0ea35e61f2e","size":1327,"type":"file"}
+{"git_mode":"100644","path":"deploy/release/startup-pg-errors.cjs","sha256":"00e2bd9c556b9a622ec6a16ccf48f2901521f36e13e5ec2b9985cbce324bfe17","size":6708,"type":"file"}
 {"git_mode":"100644","path":"deploy/release/verify-offline.cjs","sha256":"d7fa9bfc51db45be35706571b9e0ab5078c951698a342039d876e16586cee063","size":7745,"type":"file"}
+{"git_mode":"100644","path":"deploy/release/verify-startup-pg-errors.cjs","sha256":"28b03d2119bc4007604917b5e4094b1686829237ed8f7c66955df61850367b63","size":18439,"type":"file"}
 {"git_mode":"100644","path":"package.json","sha256":"bf085e8c11b662f851b5202cd4448a5fc740290c00c06ca23964d2194d4dc599","size":1343,"type":"file"}
 {"git_mode":"100644","path":"packages/framework/README.md","sha256":"9f0608ce5c6cf7216caa5cfe88698fd5c1ee85fb6aa5b230a0c512930b993f3a","size":931,"type":"file"}
 {"git_mode":"100644","path":"packages/framework/package.json","sha256":"b847d43d2ab460aa330eb7a5d203cac0faa0f7d6ab91b03953b9276aea11a0da","size":1380,"type":"file"}

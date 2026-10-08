@@ -8,11 +8,11 @@ from pathlib import Path, PurePosixPath
 import stat
 import tarfile
 
-ARCHIVE = 'c439c536c4caf9b70d0e551f350e525b88d05749b6eb0325bc8c8d3e5846476e'
-MANIFEST = '4b4b4fa7fd5e81f9954c9aeb61595802d4f8847730ac3ff07e0b9151fad62fd6'
+ARCHIVE = '3cd277fcebd6af36bfa9fd964d29ac601932ecc4cf932caca34d080d172e46a3'
+MANIFEST = '08cd70c1806adc4b6e81ea89ce4b64ab5dad2303f4fd640279041acf62895f8e'
 BASE = 'bb33a1c1a41e3ac47973badf9283d1330eb9525e'
 PATCH = '892c33cd8b484a4ab906a0087ca27fcd8d5b7f26736a29cf0d08b4931bae85c8'
-PATCH_FILES = {'package.json': 'bf085e8c11b662f851b5202cd4448a5fc740290c00c06ca23964d2194d4dc599', 'yarn.lock': 'fc0d51491548834c643a39416ce1461f9b61b3cca119c410f82e2bdfb3e77b98', 'turbo.json': '7b4600964e0ab5778a7e641b588fb195d3438585048d8ad9e11d009e7714178a', 'apps/backend/Dockerfile': '155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7', 'apps/backend/entrypoint.sh': 'abc173a11ab7e0457ccaf11c9ce71ccebff0b8b01881ca41910a2c42ce9f462e', 'deploy/release/archive-runtime.cjs': '44c1669a48978c4353e9e49a605d05b904755e368b11f173dbaf6d782d69f3b4', 'deploy/release/audit-dependencies.cjs': '5369e834cbd7f038b3f4cff9183d506f791829d59fc3fb6324e7214875438ff0', 'deploy/release/index-bootstrap.cjs': 'fb57075bf3e04893a88fc850f6c6cc46225d03bfcc9e894fbcdba4693233249a', 'deploy/release/migrate-native.cjs': 'fd029c4ee405996f1a6836379c8612a374c859d5e3e731a3854c4534d515ef90', 'deploy/release/migration-plan.cjs': 'e449b9274e479651a7245bdf6d2e1bf69447846317ebb47bc3a05286a68019d6', 'deploy/release/recipe.sh': 'ebbb36171095076a98e9211414f53de42b011498bcac3c533613d0ea35e61f2e', 'deploy/release/verify-offline.cjs': 'd7fa9bfc51db45be35706571b9e0ab5078c951698a342039d876e16586cee063'}
+PATCH_FILES = {'apps/backend/Dockerfile': '155ef12fc5094994bf057d7c2a44f62b571821b8d4089e1c9e177e015292abb7', 'apps/backend/entrypoint.sh': 'dfaaa1404f22485c2c66f89c80ebc63f8be0a87e3b5d187865dc0578b6968c5f', 'deploy/release/archive-runtime.cjs': '44c1669a48978c4353e9e49a605d05b904755e368b11f173dbaf6d782d69f3b4', 'deploy/release/audit-dependencies.cjs': '5369e834cbd7f038b3f4cff9183d506f791829d59fc3fb6324e7214875438ff0', 'deploy/release/index-bootstrap.cjs': 'fb57075bf3e04893a88fc850f6c6cc46225d03bfcc9e894fbcdba4693233249a', 'deploy/release/migrate-native.cjs': 'fd029c4ee405996f1a6836379c8612a374c859d5e3e731a3854c4534d515ef90', 'deploy/release/migration-plan.cjs': 'e449b9274e479651a7245bdf6d2e1bf69447846317ebb47bc3a05286a68019d6', 'deploy/release/recipe.sh': 'ebbb36171095076a98e9211414f53de42b011498bcac3c533613d0ea35e61f2e', 'deploy/release/verify-offline.cjs': 'd7fa9bfc51db45be35706571b9e0ab5078c951698a342039d876e16586cee063', 'package.json': 'bf085e8c11b662f851b5202cd4448a5fc740290c00c06ca23964d2194d4dc599', 'turbo.json': '7b4600964e0ab5778a7e641b588fb195d3438585048d8ad9e11d009e7714178a', 'yarn.lock': 'fc0d51491548834c643a39416ce1461f9b61b3cca119c410f82e2bdfb3e77b98', 'deploy/release/startup-pg-errors.cjs': '00e2bd9c556b9a622ec6a16ccf48f2901521f36e13e5ec2b9985cbce324bfe17', 'deploy/release/verify-startup-pg-errors.cjs': '28b03d2119bc4007604917b5e4094b1686829237ed8f7c66955df61850367b63'}
 
 def fail(message):
     raise ValueError(message)
@@ -45,7 +45,7 @@ def load_manifest(path):
             if type(d['size']) is not int or d['size'] < 0 or len(d['sha256']) != 64:
                 fail('Manifest size/hash invalid')
             records[name] = d
-    if len(records) != 1333 or sum(d['size'] for d in records.values()) != 3546856:
+    if len(records) != 1335 or sum(d['size'] for d in records.values()) != 3572055:
         fail('Manifest count/size mismatch')
     # Root Docker context control file is required, not a directory or an extra COPY root.
     if records.get('.dockerignore', {}).get('sha256') != 'c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782':
@@ -68,11 +68,12 @@ def main():
                 'accepted_patch_sha256': PATCH, 'accepted_file_sha256': PATCH_FILES,
                 'build_only': True, 'production_release': False, 'runtime_acceptance': False,
                 'branch': 'ops/release-validation-20261007', 'max_build_minutes': 40,
-                'artifact_retention_days': 7, 'maximum_hosted_builds': 5,
+                'artifact_retention_days': 7, 'maximum_hosted_builds': 6,
+                'authorization_sha256': 'baca9283440bbd4465e2125cdfb2c6923d15599f8a56d12cf3edb33258b3408c', 'independent_source_review_sha256': '6ce9698b194bdfb73d2d3c8001757f932615de1f2940fb2627efafbd39694f6a', 'maximum_additional_builds': 1, 'maximum_additional_test_runs': 1, 'rerun_allowed': False, 'deploy_allowed': False, 'merge_allowed': False, 'rollback_image_change_allowed': False, 'provider_permission_changes_allowed': False,
                 'image': 'hobbysalon-release-candidate:20261007', 'repository': 'peterpeeterspeter/HOBBYSALON',
                 'dockerfile': 'apps/backend/Dockerfile', 'schema': 1,
                 'source_scope': ['.dockerignore', 'package.json', 'yarn.lock', 'turbo.json', 'packages', 'apps/backend', 'deploy/release', 'scripts/tests/index-runtime-sdk-init.test.cjs'],
-                'source_files': 1333, 'source_bytes': 3546856,
+                'source_files': 1335, 'source_bytes': 3572055,
                 'dockerignore_sha256': 'c237bacce89343d64ca455b56d0345e7bba4b27a467a9415a6babc9272c89782',
                 'exclusions_sha256': 'f5af2bfcea1403c167210efd8fb78cdfef00db75a7681c73ea610865376ec9ac'}
     if any(a.get(k) != v or type(a.get(k)) is not type(v) for k, v in expected.items()):

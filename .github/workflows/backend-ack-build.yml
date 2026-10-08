@@ -1,4 +1,4 @@
-# Authorization ceiling: maximum_hosted_builds=5; one fifth build only after parent review/commit; no sixth build or rerun.
+# Authorization ceiling: maximum_hosted_builds=6; exactly one extra sixth build after parent review/publication; no seventh build or rerun.
 name: Exact release candidate build only
 on:
   push:
@@ -71,8 +71,8 @@ jobs:
             --metadata-file "$RUNNER_TEMP/candidate-20261007/build-metadata.raw.json" \
             --tag "$IMAGE" \
             --label org.opencontainers.image.revision=bb33a1c1a41e3ac47973badf9283d1330eb9525e \
-            --label io.hobbysalon.source.archive.sha256=c439c536c4caf9b70d0e551f350e525b88d05749b6eb0325bc8c8d3e5846476e \
-            --label io.hobbysalon.source.manifest.sha256=4b4b4fa7fd5e81f9954c9aeb61595802d4f8847730ac3ff07e0b9151fad62fd6 \
+            --label io.hobbysalon.source.archive.sha256=3cd277fcebd6af36bfa9fd964d29ac601932ecc4cf932caca34d080d172e46a3 \
+            --label io.hobbysalon.source.manifest.sha256=08cd70c1806adc4b6e81ea89ce4b64ab5dad2303f4fd640279041acf62895f8e \
             --file "$RUNNER_TEMP/candidate-20261007/context/apps/backend/Dockerfile" \
             "$RUNNER_TEMP/candidate-20261007/context" \
             2>&1 | tee "$RUNNER_TEMP/candidate-20261007/receipts/build.log"
