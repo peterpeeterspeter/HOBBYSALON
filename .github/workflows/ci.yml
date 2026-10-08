@@ -111,6 +111,28 @@ jobs:
       - name: Run isolated payment SQL rollback and concurrency tests
         run: bash scripts/test-payment-atomicity.sh
 
+  startup-pg-regressions:
+    name: Startup PostgreSQL regressions (isolated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run isolated startup PostgreSQL regressions
+        # Native dependency leaves with synthetic loader imports and pg wire boundary; no services or app bootstrap.
+        run: node scripts/tests/startup-pg-errors.test.cjs
+
   build:
     name: Build
     runs-on: ubuntu-latest

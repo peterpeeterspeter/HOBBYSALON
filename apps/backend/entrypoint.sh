@@ -16,7 +16,7 @@ case "$command" in
     cd /app/apps/backend/.medusa/server
     [ -f medusa-config.js ] || { printf '%s\n' 'Compiled config is missing' >&2; exit 78; }
     # Direct compiled CLI: cli.js would register ts-node even in production.
-    exec node /app/node_modules/@medusajs/cli/dist/index.js start --types=false --host 0.0.0.0 --port "${PORT:-9000}"
+    exec node --require /app/deploy/release/startup-pg-errors.cjs /app/node_modules/@medusajs/cli/dist/index.js start --types=false --host 0.0.0.0 --port "${PORT:-9000}"
     ;;
   migrate)
     [ "${RELEASE_MIGRATION_APPROVED:-}" = 'yes' ] || { printf '%s\n' 'Migration blocked: explicit RELEASE_MIGRATION_APPROVED=yes required' >&2; exit 78; }
