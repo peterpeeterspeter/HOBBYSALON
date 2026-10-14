@@ -10,7 +10,7 @@ class StripeConnectCardProviderService extends StripeConnectProvider {
 
   get paymentIntentOptions(): PaymentIntentOptions {
     return {
-      payment_method_types: ["card"],
+      payment_method_types: ["card", "bancontact", "ideal"],
     };
   }
 }
