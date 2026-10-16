@@ -70,6 +70,12 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
             >
               Alle prijzen
             </Link>
+            <Link
+              href="/terms"
+              className="font-semibold text-[var(--accent)] underline underline-offset-4"
+            >
+              Algemene voorwaarden
+            </Link>
           </p>
         </aside>
 

@@ -641,6 +641,12 @@ const nextConfig: NextConfig = {
         destination: "/over-ons",
         permanent: true,
       },
+      // No dedicated voorwaarden page yet — send /terms to the only legal page.
+      {
+        source: "/terms",
+        destination: "/privacy",
+        permanent: false,
+      },
       // Dashboard restructure: moderator tools live under /beheer.
       { source: "/dashboard/moderatie/roles", destination: "/beheer/rollen", permanent: true },
       {
