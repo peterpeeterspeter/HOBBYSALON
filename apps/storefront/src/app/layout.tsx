@@ -1,20 +1,60 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Quicksand, Lato } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthHashRedirect } from "@/components/auth/AuthHashRedirect";
 import { getSiteUrl, DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_HEIGHT, DEFAULT_OG_IMAGE_WIDTH } from "@/lib/seo";
 
-const quicksand = Quicksand({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const quicksand = localFont({
+  src: [
+    {
+      path: "../fonts/quicksand/quicksand-latin-400-normal.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../fonts/quicksand/quicksand-latin-500-normal.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../fonts/quicksand/quicksand-latin-600-normal.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../fonts/quicksand/quicksand-latin-700-normal.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
   variable: "--font-quicksand",
   display: "swap",
 });
 
-const lato = Lato({
-  subsets: ["latin"],
-  weight: ["300", "400", "700", "900"],
+const lato = localFont({
+  src: [
+    {
+      path: "../fonts/lato/lato-latin-300-normal.woff2",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../fonts/lato/lato-latin-400-normal.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../fonts/lato/lato-latin-700-normal.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../fonts/lato/lato-latin-900-normal.woff2",
+      weight: "900",
+      style: "normal",
+    },
+  ],
   variable: "--font-lato",
   display: "swap",
 });
