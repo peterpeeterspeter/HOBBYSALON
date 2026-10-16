@@ -44,6 +44,11 @@ function PricingRouteCards({
                   </li>
                 ))}
               </ul>
+              {card.note ? (
+                <p className="mt-4 max-w-3xl text-base leading-relaxed text-[var(--muted)] md:text-lg">
+                  {card.note}
+                </p>
+              ) : null}
               <Link
                 href={card.href}
                 className="mt-6 inline-flex min-h-12 items-center gap-2 text-base font-semibold text-[var(--accent)] hover:underline"

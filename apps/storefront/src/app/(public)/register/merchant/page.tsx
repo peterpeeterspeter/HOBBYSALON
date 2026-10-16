@@ -12,12 +12,13 @@ import { CardShell } from "@/components/ui/card-shell";
 import { getAuthUser } from "@/lib/auth/session";
 import { getSafeInternalPath } from "@/lib/auth/account-paths";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
+import { MERCHANT_REGISTER_PILOT } from "@/lib/pricing/public-pricing";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Je winkel aanmelden",
   description:
-    "Meld je winkel of materialen aan op Hobbysalon en bereik een gericht creatief publiek.",
+    "Meld je winkel of materialen aan op Hobbysalon. €0 vaste kosten, 10% commissie op de totale verkoopprijs.",
 };
 
 type Props = {
@@ -46,11 +47,15 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
       >
         <aside
           className="mb-6 rounded-xl border border-[var(--border-strong)] bg-[var(--background)] px-5 py-4 text-base leading-relaxed text-[var(--foreground)]"
-          aria-label="Pilotvoorwaarden"
+          aria-label="Pilotvoorwaarden en prijzen"
         >
-          <p className="font-semibold">Pilot: maximaal 20 winkels</p>
+          <p className="font-semibold">{MERCHANT_REGISTER_PILOT.title}</p>
+          <p className="mt-2 text-[var(--muted)]">{MERCHANT_REGISTER_PILOT.body}</p>
+          <p className="mt-3 font-medium text-[var(--foreground)]">
+            {MERCHANT_REGISTER_PILOT.example}
+          </p>
           <p className="mt-2 text-[var(--muted)]">
-            €0 vaste kosten, 10% commissie op verkopen, betaalkosten apart
+            {MERCHANT_REGISTER_PILOT.paymentNote}
           </p>
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
             <Link
@@ -58,6 +63,12 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
               className="font-semibold text-[var(--accent)] underline underline-offset-4"
             >
               Meer over verkopen
+            </Link>
+            <Link
+              href="/prijzen"
+              className="font-semibold text-[var(--accent)] underline underline-offset-4"
+            >
+              Alle prijzen
             </Link>
             <Link
               href="/terms"
