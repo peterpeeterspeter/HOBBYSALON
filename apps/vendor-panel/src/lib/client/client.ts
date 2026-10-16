@@ -71,7 +71,7 @@ export const importProductsQuery = async (file: File) => {
 export const uploadFilesQuery = async (files: any[]) => {
   const token = getAuthToken();
   if (isTokenExpired(token)) {
-    return { message: 'Unauthorized' };
+    throw new Error('Unauthorized');
   }
 
   const formData = new FormData();
@@ -89,16 +89,15 @@ export const uploadFilesQuery = async (files: any[]) => {
     }
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    return {
-      message:
-        (payload as { message?: string } | null)?.message ??
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.files) {
+    throw new Error(
+      (payload as { message?: string } | null)?.message ??
         `Upload failed (${response.status})`
-    };
+    );
   }
 
-  return response.json().catch(() => null);
+  return payload;
 };
 
 export const fetchQuery = async (

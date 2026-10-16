@@ -37,7 +37,7 @@ function EventCard({ event, className }: EventCardProps) {
           <Badge variant="domain">{typeLabel}</Badge>
           <LocationBadge city={event.city} />
         </div>
-        <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)] line-clamp-2">
+        <h3 className="mt-3 text-lg font-semibold leading-snug text-[var(--foreground)] line-clamp-2">
           {event.title}
         </h3>
         <DateDisplay date={event.starts_at} format="long" className="mt-1" />

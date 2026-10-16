@@ -49,7 +49,7 @@ function ProductCard({ product, className }: ProductCardProps) {
         <Badge variant="domain">
           {PRODUCT_TYPE_LABELS[product.product_type] ?? product.product_type}
         </Badge>
-        <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)] line-clamp-2">
+        <h3 className="mt-3 text-lg font-semibold leading-snug text-[var(--foreground)] line-clamp-2">
           {product.title}
         </h3>
         {(product.creator_display_name || product.creator_city) && (

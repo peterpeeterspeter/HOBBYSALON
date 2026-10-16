@@ -101,7 +101,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
   return (
     <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={productJsonLd} />
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_340px] lg:items-start">
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1.2fr)_340px] lg:items-start lg:gap-16">
         {/* Main content */}
         <div className="min-w-0">
           <AspectImage

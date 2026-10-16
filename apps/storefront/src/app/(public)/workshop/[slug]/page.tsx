@@ -194,7 +194,7 @@ export default async function WorkshopPage({ params }: Props) {
   return (
     <PageLayout breadcrumbs={breadcrumbs}>
       <JsonLd data={workshopJsonLd} />
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_340px] lg:items-start">
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_340px] lg:items-start lg:gap-16">
         {/* Main content */}
         <div className="min-w-0">
           <AspectImage
@@ -206,7 +206,7 @@ export default async function WorkshopPage({ params }: Props) {
           />
 
           {galleryImages.length > 0 ? (
-            <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
               {galleryImages.map((image) => (
                 <li key={image.id}>
                   <AspectImage
@@ -220,7 +220,7 @@ export default async function WorkshopPage({ params }: Props) {
             </ul>
           ) : null}
 
-          <div className="mt-6 flex flex-wrap items-center gap-2">
+          <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-3">
             {domain && <Badge variant="domain">{domain.name}</Badge>}
             {category && <Badge variant="format">{category.name}</Badge>}
             {offerType && (
@@ -249,11 +249,11 @@ export default async function WorkshopPage({ params }: Props) {
             <DifficultyIndicator level={workshop.difficulty_level} />
           </div>
 
-          <h1 className="mt-3 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
+          <h1 className="mt-5 font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--foreground)] md:text-4xl">
             {workshop.title}
           </h1>
 
-          <div className="mt-3 flex flex-wrap items-center gap-4">
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
             {creator && (
               <span className="text-[var(--muted)]">
                 door{" "}
@@ -274,7 +274,7 @@ export default async function WorkshopPage({ params }: Props) {
           </div>
 
           {workshop.description && (
-            <section className="mt-8">
+            <section className="mt-12">
               <SectionTitle>Over de workshop</SectionTitle>
               <p className="mt-3 whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
                 {workshop.description}
@@ -283,7 +283,7 @@ export default async function WorkshopPage({ params }: Props) {
           )}
 
           {sessions.length > 0 && (
-            <section className="mt-10">
+            <section className="mt-14">
               <SectionTitle>Beschikbare data</SectionTitle>
               <ul className="mt-4 divide-y divide-[var(--border)] border-y border-[var(--border)]">
                 {sessions.map((s) => (
@@ -322,7 +322,7 @@ export default async function WorkshopPage({ params }: Props) {
           )}
 
           {creator && (
-            <section className="mt-10">
+            <section className="mt-14">
               <SectionTitle>Workshopgever</SectionTitle>
               <div className="mt-4">
                 <CreatorCard creator={creator} className="max-w-md" />

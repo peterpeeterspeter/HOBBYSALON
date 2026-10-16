@@ -137,12 +137,12 @@ export const FileUpload = ({
         )}
       </button>
       <input
-        hidden
         ref={inputRef}
         onChange={handleFileChange}
         type="file"
         accept={formats.join(",")}
         multiple={multiple}
+        className="sr-only"
       />
     </div>
   )

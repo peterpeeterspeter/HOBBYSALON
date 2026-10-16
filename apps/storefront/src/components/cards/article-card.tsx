@@ -36,7 +36,7 @@ function ArticleCard({ article, domainName, className }: ArticleCardProps) {
           {domainName ? <Badge variant="domain">{domainName}</Badge> : null}
           <DifficultyBadge difficulty={article.difficulty_level} />
         </div>
-        <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)] line-clamp-2">
+        <h3 className="mt-3 text-lg font-semibold leading-snug text-[var(--foreground)] line-clamp-2">
           {displayTitle}
         </h3>
         {article.reading_time_minutes ? (
