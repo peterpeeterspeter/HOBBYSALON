@@ -403,16 +403,20 @@ export async function listDiscoveryWorkshops(
     .eq("is_cancelled", false)
     .limit(2000);
 
-  // Bound by start date so past sessions with a far-future ends_at are dropped.
+  // Soft bound: allow multi-day that started before the window; refine in JS.
   if (range) {
+    const softFrom = new Date(
+      Date.parse(range.from) - 60 * 24 * 60 * 60 * 1000
+    ).toISOString();
     sessionQuery = sessionQuery
-      .gte("starts_at", range.from)
+      .gte("starts_at", softFrom)
       .lte("starts_at", range.to);
   } else {
-    sessionQuery = sessionQuery.gte(
-      "starts_at",
-      startOfTodayIso(new Date(nowIso))
-    );
+    const softFrom = new Date(
+      Date.parse(startOfTodayIso(new Date(nowIso))) -
+        366 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    sessionQuery = sessionQuery.gte("starts_at", softFrom);
   }
 
   const { data: sessionRows, error: sessionError } = await sessionQuery;

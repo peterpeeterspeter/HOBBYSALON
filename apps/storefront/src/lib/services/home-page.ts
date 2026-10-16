@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import {
+  isUpcomingOrOngoingToday,
   resolveAgendaDatePreset,
-  startsOnOrAfterToday,
 } from "@/lib/agenda/agenda-helpers";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
@@ -255,7 +255,7 @@ async function loadDomainsWithLiveContent(
     if (id) liveIds.add(id);
   }
 
-  // Only count event domains for starts_at on/after local today
+  // Only count event domains for upcoming/ongoing (ends_at ≥ today)
   const eventIdsForDomains = [
     ...new Set(
       (moreEventDomainRows ?? []).map(
@@ -271,7 +271,7 @@ async function loadDomainsWithLiveContent(
       .eq("is_active", true);
     const upcomingEventIds = new Set(
       ((eventRows ?? []) as Event[])
-        .filter((e) => startsOnOrAfterToday(e.starts_at))
+        .filter((e) => isUpcomingOrOngoingToday(e))
         .map((e) => e.id)
     );
     for (const row of moreEventDomainRows ?? []) {
@@ -495,7 +495,7 @@ const getHomePageDataCached = unstable_cache(
       return EMPTY_HOME_PAGE_DATA;
     }
   },
-  ["home-page-data-v7"],
+  ["home-page-data-v8"],
   {
     revalidate: 60 * 5,
     tags: ["home-page"],

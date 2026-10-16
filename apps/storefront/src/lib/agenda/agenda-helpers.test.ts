@@ -4,6 +4,7 @@ import {
   eventOverlapsRange,
   formatAgendaPlaceLabel,
   groupEventsByAgendaBucket,
+  isUpcomingOrOngoingToday,
   resolveAgendaCustomRange,
   resolveAgendaDatePreset,
   sanitizeAgendaSearchQuery,
@@ -124,41 +125,63 @@ test("groupEventsByAgendaBucket preset buckets", () => {
   );
 });
 
-test("groupEventsByAgendaBucket ignores past starts with far-future ends_at", () => {
-  const now = new Date("2026-10-16T12:00:00+02:00");
+test("groupEventsByAgendaBucket keeps multi-day overlapping weekend, drops past single-day", () => {
+  const now = new Date("2026-10-16T12:00:00+02:00"); // Friday
   const events = [
     {
-      id: "past-aug",
+      id: "past-single",
       starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
-      ends_at: zonedDateTimeToUtcIso(2027, 8, 15, 10, 0, 0),
+      ends_at: null,
     },
     {
-      id: "past-sep",
-      starts_at: zonedDateTimeToUtcIso(2026, 9, 16, 10, 0, 0),
-      ends_at: zonedDateTimeToUtcIso(2027, 9, 16, 10, 0, 0),
+      id: "multi-into-weekend",
+      // Started Thursday, runs through Sunday → overlaps Dit weekend
+      starts_at: zonedDateTimeToUtcIso(2026, 10, 15, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2026, 10, 18, 18, 0, 0),
     },
     {
-      id: "weekend",
+      id: "weekend-sat",
       starts_at: zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
       ends_at: zonedDateTimeToUtcIso(2026, 10, 17, 13, 0, 0),
+    },
+    {
+      id: "ended-yesterday",
+      starts_at: zonedDateTimeToUtcIso(2026, 10, 14, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2026, 10, 15, 18, 0, 0),
     },
   ];
   const groups = groupEventsByAgendaBucket(events, { mode: "preset", now });
   assert.deepEqual(
     groups.map((g) => [g.key, g.events.map((e) => e.id)]),
-    [["weekend", ["weekend"]]]
+    [["weekend", ["multi-into-weekend", "weekend-sat"]]]
   );
 });
 
-test("startsOnOrAfterToday uses Europe/Brussels calendar day", () => {
+test("isUpcomingOrOngoingToday keeps multi-day, drops past single-day", () => {
   const now = new Date("2026-10-16T12:00:00+02:00");
   assert.equal(
-    startsOnOrAfterToday(zonedDateTimeToUtcIso(2026, 10, 16, 0, 0, 0), now),
+    isUpcomingOrOngoingToday(
+      {
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 14, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 18, 18, 0, 0),
+      },
+      now
+    ),
     true
   );
   assert.equal(
-    startsOnOrAfterToday(zonedDateTimeToUtcIso(2026, 10, 15, 23, 0, 0), now),
+    isUpcomingOrOngoingToday(
+      {
+        starts_at: zonedDateTimeToUtcIso(2026, 8, 4, 10, 0, 0),
+        ends_at: null,
+      },
+      now
+    ),
     false
+  );
+  assert.equal(
+    startsOnOrAfterToday(zonedDateTimeToUtcIso(2026, 10, 16, 0, 0, 0), now),
+    true
   );
   assert.equal(
     startsWithinRange(

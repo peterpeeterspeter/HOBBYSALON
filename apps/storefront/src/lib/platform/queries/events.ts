@@ -4,9 +4,9 @@ import {
   eventIsUpcomingOrOngoing,
   eventMatchesPlace,
   eventOverlapsRange,
+  isUpcomingOrOngoingToday,
   sanitizeAgendaSearchQuery,
   startOfTodayIso,
-  startsOnOrAfterToday,
 } from "@/lib/agenda/agenda-helpers";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
@@ -135,7 +135,6 @@ export async function listAgendaEvents(
   const supabase = createPlatformClient();
   const upcomingOnly = filters?.upcoming_only !== false;
   const now = new Date();
-  const todayStartIso = startOfTodayIso(now);
   const searchTerm = sanitizeAgendaSearchQuery(filters?.q);
   const place = (filters?.near ?? filters?.city)?.trim() || null;
 
@@ -155,9 +154,12 @@ export async function listAgendaEvents(
   if (filters?.country_code) {
     query = query.eq("country_code", filters.country_code.toUpperCase());
   }
-  // Public lists: only starts_at on/after local today (Europe/Brussels).
+  // Soft window: include multi-day that may have started earlier; refine in JS.
   if (upcomingOnly) {
-    query = query.gte("starts_at", todayStartIso);
+    const softFrom = new Date(
+      Date.parse(startOfTodayIso(now)) - 366 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    query = query.gte("starts_at", softFrom);
   }
   if (filters?.to_date) {
     query = query.lte("starts_at", filters.to_date);
@@ -169,9 +171,8 @@ export async function listAgendaEvents(
   let events = (data ?? []) as Event[];
 
   if (upcomingOnly) {
-    events = events.filter((event) =>
-      startsOnOrAfterToday(event.starts_at, now)
-    );
+    // Keep multi-day with ends_at ≥ today; drop past single-day.
+    events = events.filter((event) => isUpcomingOrOngoingToday(event, now));
   }
 
   if (filters?.from_date || filters?.to_date) {

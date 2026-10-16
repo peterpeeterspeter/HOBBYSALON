@@ -162,7 +162,6 @@ export function startOfTodayIso(
 
 /**
  * True when the event/session start is on or after local today (Europe/Brussels).
- * Used for public listings so past starts with a far-future ends_at do not linger.
  */
 export function startsOnOrAfterToday(
   startsAt: string,
@@ -192,6 +191,22 @@ export function startsWithinRange(
     return false;
   }
   return startMs >= fromMs && startMs <= toMs;
+}
+
+/**
+ * Still happening or not yet started for public lists: effective end
+ * (ends_at ?? starts_at) is on or after local today (Europe/Brussels).
+ * Keeps multi-day events that started earlier; drops past single-day items.
+ */
+export function isUpcomingOrOngoingToday(
+  event: { starts_at: string; ends_at?: string | null },
+  now = new Date(),
+  timeZone = AGENDA_TIMEZONE
+): boolean {
+  const endMs = agendaInstantMs(eventEffectiveEndIso(event));
+  const todayMs = agendaInstantMs(startOfTodayIso(now, timeZone));
+  if (!Number.isFinite(endMs) || !Number.isFinite(todayMs)) return false;
+  return endMs >= todayMs;
 }
 
 /**
@@ -314,8 +329,8 @@ export function eventOverlapsRange(
 }
 
 /**
- * Still happening or not yet started (effective end ≥ now).
- * Prefer {@link startsOnOrAfterToday} for public discovery lists.
+ * Still happening or not yet started (effective end ≥ nowIso instant).
+ * Prefer {@link isUpcomingOrOngoingToday} for Brussels calendar-day lists.
  */
 export function eventIsUpcomingOrOngoing(
   event: { starts_at: string; ends_at?: string | null },
@@ -410,25 +425,20 @@ export function groupEventsByAgendaBucket<
   ];
 
   for (const event of events) {
-    // Bucket by start date so a far-future ends_at cannot pin past sessions
-    // under "Dit weekend". Weekend keeps Sat–Sun of the upcoming weekend
-    // (Saturday may be yesterday when today is Sunday).
-    if (startsWithinRange(event.starts_at, weekend.from, weekend.to)) {
+    // Past single-day (and fully ended multi-day) drop off.
+    if (!isUpcomingOrOngoingToday(event, now, timeZone)) continue;
+
+    // Dit weekend: anything still ongoing that overlaps upcoming Sat–Sun
+    // (including multi-day that started before today).
+    if (eventOverlapsRange(event, weekend.from, weekend.to)) {
       buckets[0]!.events.push(event);
-    } else if (
-      startsOnOrAfterToday(event.starts_at, now, timeZone) &&
-      startsWithinRange(event.starts_at, nextWeek.from, nextWeek.to)
-    ) {
+    } else if (eventOverlapsRange(event, nextWeek.from, nextWeek.to)) {
       buckets[1]!.events.push(event);
-    } else if (
-      startsOnOrAfterToday(event.starts_at, now, timeZone) &&
-      startsWithinRange(event.starts_at, month.from, month.to)
-    ) {
+    } else if (eventOverlapsRange(event, month.from, month.to)) {
       buckets[2]!.events.push(event);
-    } else if (startsOnOrAfterToday(event.starts_at, now, timeZone)) {
+    } else {
       buckets[3]!.events.push(event);
     }
-    // else: past start — omit from public buckets
   }
 
   return buckets.filter((b) => b.events.length > 0);

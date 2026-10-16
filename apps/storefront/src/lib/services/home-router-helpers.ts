@@ -4,7 +4,7 @@
 
 import {
   agendaInstantMs,
-  startsOnOrAfterToday,
+  isUpcomingOrOngoingToday,
 } from "@/lib/agenda/agenda-helpers";
 import type { Event } from "@/types/platform";
 
@@ -13,7 +13,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Near-term first; mild featured boost so far fairs don't displace this weekend.
  *  If nothing falls in the near windows, fall back to all upcoming events so the
  *  homepage still surfaces the agenda when inventory is sparse or far out.
- *  Past starts (even with a far-future ends_at) are excluded. */
+ *  Multi-day events that started earlier stay if ends_at ≥ today; past single-day drop. */
 export function selectHomeAgendaEvents(
   events: Event[],
   limit = 3,
@@ -21,7 +21,7 @@ export function selectHomeAgendaEvents(
 ): Event[] {
   const nowMs = now.getTime();
   const upcoming = events.filter((event) =>
-    startsOnOrAfterToday(event.starts_at, now)
+    isUpcomingOrOngoingToday(event, now)
   );
 
   const windows = [21, 45, 90];
@@ -30,7 +30,7 @@ export function selectHomeAgendaEvents(
     const horizon = nowMs + days * DAY_MS;
     pool = upcoming.filter((event) => {
       const start = agendaInstantMs(event.starts_at);
-      return Number.isFinite(start) && start <= horizon;
+      return Number.isFinite(start) && (start <= horizon || start <= nowMs);
     });
     if (pool.length >= limit) break;
   }
