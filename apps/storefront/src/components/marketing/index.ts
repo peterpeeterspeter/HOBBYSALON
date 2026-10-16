@@ -63,6 +63,8 @@ export { AboutHobbysalonSection } from "./about-hobbysalon-section";
 
 export { PartnersLanding } from "./partners-landing";
 
+export { AdverterenLanding } from "./adverteren-landing";
+
 export { ContentMakerLanding } from "./content-maker-landing";
 
 export { MakerLanding } from "./maker-landing";

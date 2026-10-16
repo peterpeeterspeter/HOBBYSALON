@@ -22,6 +22,7 @@ const STATIC_PATHS = [
   "/tools",
   "/prijzen",
   "/partners",
+  "/adverteren",
   "/voor-contentmakers",
   "/voor-makers",
   "/voor-workshopgevers",

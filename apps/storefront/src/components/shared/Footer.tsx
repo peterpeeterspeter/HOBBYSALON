@@ -29,6 +29,15 @@ export async function Footer() {
               Creatieve inspiratie in je inbox
             </p>
             <NewsletterSignupForm variant="footer" />
+            <p className="mt-3 text-sm text-white/55">
+              Zakelijk?{" "}
+              <Link
+                href="/adverteren"
+                className="font-semibold text-white/80 underline-offset-4 hover:text-white hover:underline"
+              >
+                Adverteren in de nieuwsbrief
+              </Link>
+            </p>
           </div>
         </div>
 

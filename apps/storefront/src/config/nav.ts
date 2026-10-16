@@ -84,5 +84,6 @@ export const FOOTER_SECTIONS = {
   zakelijk: [
     { href: "/partners", label: "Zakelijk samenwerken" },
     { href: "/prijzen", label: "Prijzen en formules" },
+    { href: "/adverteren", label: "Adverteren in de nieuwsbrief" },
   ],
 } as const;
