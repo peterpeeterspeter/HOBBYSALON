@@ -1,3 +1,6 @@
+/** Acumbamail list "Hobbysalon Subscribers". */
+const DEFAULT_LIST_ID = "836565";
+
 type AcumbamailSubscriber = {
   email: string;
   firstName: string | null;
@@ -8,10 +11,14 @@ type AcumbamailSubscriber = {
 
 export type AcumbamailSyncResult = {
   ok: boolean;
-  /** True when ACUMBAMAIL_WEBHOOK_URL is unset or NODE_ENV=test. */
+  /** True when ACUMBAMAIL_AUTH_TOKEN is unset or NODE_ENV=test. */
   skipped: boolean;
   status: number | null;
 };
+
+export function acumbamailListId(): string {
+  return process.env.ACUMBAMAIL_LIST_ID?.trim() || DEFAULT_LIST_ID;
+}
 
 export function buildAcumbamailSubscriberPayload(subscriber: AcumbamailSubscriber) {
   const email = subscriber.email.trim().toLocaleLowerCase("nl-BE");
@@ -21,21 +28,18 @@ export function buildAcumbamailSubscriberPayload(subscriber: AcumbamailSubscribe
 
   return {
     email,
-    double_optin: 0,
-    welcome_email: 0,
-    update_subscriber: 1,
-    voornaam: subscriber.firstName ?? "",
-    plaats: subscriber.preferredCity ?? "",
-    taal: "nl",
+    Voornaam: subscriber.firstName ?? "",
+    Plaats: subscriber.preferredCity ?? "",
+    Taal: "nl",
     country: "BE",
-    optin: 1,
+    optin: "1",
     url: subscriber.sourcePath,
     added: subscriber.confirmedAt,
   };
 }
 
 export function isAcumbamailSyncConfigured(): boolean {
-  return Boolean(process.env.ACUMBAMAIL_WEBHOOK_URL?.trim()) && process.env.NODE_ENV !== "test";
+  return Boolean(process.env.ACUMBAMAIL_AUTH_TOKEN?.trim()) && process.env.NODE_ENV !== "test";
 }
 
 /**
@@ -45,16 +49,28 @@ export function isAcumbamailSyncConfigured(): boolean {
 export async function syncConfirmedAcumbamailSubscriber(
   subscriber: AcumbamailSubscriber
 ): Promise<AcumbamailSyncResult> {
-  const endpoint = process.env.ACUMBAMAIL_WEBHOOK_URL?.trim();
-  if (!endpoint || process.env.NODE_ENV === "test") {
+  const authToken = process.env.ACUMBAMAIL_AUTH_TOKEN?.trim();
+  if (!authToken || process.env.NODE_ENV === "test") {
     return { ok: false, skipped: true, status: null };
   }
 
+  const mergeFields = buildAcumbamailSubscriberPayload(subscriber);
+  const body = new URLSearchParams();
+  body.set("auth_token", authToken);
+  body.set("list_id", acumbamailListId());
+  body.set("double_optin", "0");
+  body.set("welcome_email", "0");
+  body.set("update_subscriber", "1");
+  body.set("response_type", "json");
+  for (const [key, value] of Object.entries(mergeFields)) {
+    body.set(`merge_fields[${key}]`, value);
+  }
+
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch("https://acumbamail.com/api/1/addSubscriber/", {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildAcumbamailSubscriberPayload(subscriber)),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
       cache: "no-store",
     });
 
