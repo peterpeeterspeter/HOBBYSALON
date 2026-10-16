@@ -110,48 +110,84 @@ export const checkResourceOwnershipByResourceId = <Body>({
 export const checkResourcesOwnershipByResourceBatch = ({
   entryPoint,
   filterField = 'id',
-  resourceIds = (req) => ({ add: req.validatedBody.add || [], remove: req.validatedBody.remove || [] })
+  resourceIds = (req) => ({
+    add: req.validatedBody?.add === undefined ? [] : req.validatedBody.add,
+    remove: req.validatedBody?.remove === undefined ? [] : req.validatedBody.remove
+  })
 }: CheckResourcesOwnershipByResourceBatchOptions<LinkMethodRequest>) => {
   return async (
     req: AuthenticatedMedusaRequest<LinkMethodRequest>,
     res: MedusaResponse,
     next: NextFunction
   ) => {
-    const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+    const deny = () => {
+      res.status(403).json({
+        message: 'You are not allowed to perform this action',
+        type: MedusaError.Types.NOT_ALLOWED
+      })
+    }
+    const actorId = req.auth_context?.actor_id
+    if (typeof actorId !== 'string' || actorId.length === 0) {
+      deny()
+      return
+    }
 
-    const {
-      data: [member]
-    } = await query.graph(
+    const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+    const memberResult = await query.graph(
       {
         entity: 'member',
         fields: ['seller.id'],
-        filters: {
-          id: req.auth_context.actor_id
-        }
+        filters: { id: actorId }
       },
       { throwIfKeyNotFound: true }
     )
+    const members = memberResult?.data
+    const sellerId = Array.isArray(members) && members.length === 1
+      ? members[0]?.seller?.id
+      : undefined
+    if (typeof sellerId !== 'string' || sellerId.length === 0) {
+      deny()
+      return
+    }
 
-    const { add, remove } = resourceIds(req)
-    const allResourceIds = add.concat(remove)
+    const batch = resourceIds(req)
+    if (!batch || !Array.isArray(batch.add) || !Array.isArray(batch.remove)) {
+      deny()
+      return
+    }
+    const ids = [...batch.add, ...batch.remove]
+    if (ids.some((id) => typeof id !== 'string' || id.trim().length === 0)) {
+      deny()
+      return
+    }
+    const allResourceIds = [...new Set(ids)]
+    // A no-op must still be authenticated and linked to a seller.
+    if (allResourceIds.length === 0) {
+      next()
+      return
+    }
 
-
-    const {
-      data: resources
-    } = await query.graph({
+    const resourceResult = await query.graph({
       entity: entryPoint,
       fields: ['seller_id', filterField],
       filters: {
         [filterField]: allResourceIds,
-        seller_id: member.seller.id
+        seller_id: sellerId
       }
     })
-
-    if (!resources.some((resource) => allResourceIds.includes(resource[filterField]))) {
-      res.status(404).json({
-        message: `You are not allowed to perform this action`,
-        type: MedusaError.Types.NOT_FOUND
-      })
+    const resources = resourceResult?.data
+    const requestedIds = new Set(allResourceIds)
+    // Validate returned ownership too: a filter or row count is not proof.
+    if (!Array.isArray(resources) || resources.some((resource) =>
+      !resource || resource.seller_id !== sellerId ||
+      !requestedIds.has(resource[filterField])
+    )) {
+      deny()
+      return
+    }
+    const ownedIds = new Set(resources.map((resource) => resource[filterField]))
+    if (!allResourceIds.every((id) => ownedIds.has(id))) {
+      deny()
       return
     }
 

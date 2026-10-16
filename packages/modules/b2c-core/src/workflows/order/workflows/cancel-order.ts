@@ -4,6 +4,7 @@ import { StepResponse, WorkflowData, WorkflowResponse, createStep, createWorkflo
 import { CancelValidateOrderStepInput, cancelOrdersStep, deleteReservationsByLineItemsStep, emitEventStep, useQueryGraphStep } from '@medusajs/medusa/core-flows'
 import { orderRefundScopeFields, settleOrderRefundStep } from '../steps/settle-order-refund'
 import type { OrderRefundSnapshot } from '../../../utils/order-refund-plan'
+import { withCommerceOrderLock } from '../../../utils/commerce-financial-lock'
 
 export const cancelValidateOrder = createStep(
   'cancel-validate-order',
@@ -18,8 +19,8 @@ export const cancelValidateOrder = createStep(
   }
 )
 
-export const cancelOrderWorkflow = createWorkflow(
-  'cancel-single-order',
+const cancelOrderUnderLockWorkflow = createWorkflow(
+  'cancel-single-order-under-lock',
   (input: WorkflowData<OrderWorkflow.CancelOrderWorkflowInput>) => {
     const orderQuery = useQueryGraphStep({ entity: 'orders', fields: orderRefundScopeFields,
       filters: { id: input.order_id }, options: { throwIfKeyNotFound: true } }).config({ name: 'get-cart' })
@@ -45,4 +46,21 @@ export const cancelOrderWorkflow = createWorkflow(
     })))
     return new WorkflowResponse(transform({ completedOrder, event }, ({ completedOrder }) => completedOrder.id))
   }
+)
+
+// A native workflow may resume from any step; no lock token is serialized as input.
+// One noncompensating invocation owns the cart throughout financial settlement,
+// status, reservation and event effects, including their native dependency graph.
+const cancelWithCommerceLockStep = createStep('cancel-with-commerce-lock',
+  async (input: OrderWorkflow.CancelOrderWorkflowInput, { container }) =>
+    withCommerceOrderLock(container, input.order_id, async () => {
+      const result = await cancelOrderUnderLockWorkflow(container).run({ input, throwOnError: true })
+      if (result.errors?.length || result.transaction.getState() !== 'done' || result.result !== input.order_id) {
+        throw new Error('Locked order cancellation did not complete')
+      }
+      return new StepResponse(result.result)
+    })
+)
+export const cancelOrderWorkflow = createWorkflow('cancel-single-order',
+  (input: WorkflowData<OrderWorkflow.CancelOrderWorkflowInput>) => new WorkflowResponse(cancelWithCommerceLockStep(input))
 )

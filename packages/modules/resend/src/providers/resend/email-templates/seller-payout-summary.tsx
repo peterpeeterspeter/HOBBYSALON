@@ -6,18 +6,26 @@ interface EmailTemplateProps {
     };
     payouts: {
       id: string;
-      created_at: Date;
+      created_at?: Date | string | null;
       amount: number;
       currency_code: string;
       order: {
         id: string;
         display_id: number;
-        created_at: Date;
+        created_at?: Date | string | null;
       };
     }[];
     store_name: string;
     storefront_url: string;
   };
+}
+
+function formatOrderDate(value: Date | string | null | undefined): string {
+  // Notification data may have crossed a JSON boundary. Unknown is not epoch.
+  const date = typeof value === "string" ? new Date(value) : value;
+  return date instanceof Date && Number.isFinite(date.getTime())
+    ? date.toISOString()
+    : "—";
 }
 
 export const SellerPayoutSummaryEmailTemplate: React.FC<
@@ -103,7 +111,7 @@ export const SellerPayoutSummaryEmailTemplate: React.FC<
                   verticalAlign: "top",
                 }}
               >
-                {payout.order.created_at.toISOString()}
+                {formatOrderDate(payout.order.created_at)}
               </td>
             </tr>
           ))}

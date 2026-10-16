@@ -6,6 +6,7 @@ import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getStripeClient } from "@/lib/payments/stripe-client";
 import { absoluteUrl } from "@/lib/seo";
+import { withFlash } from "@/lib/dashboard/return-path";
 
 function fail(message: string): never {
   redirect("/dashboard/products?error=" + encodeURIComponent(message));
@@ -192,15 +193,18 @@ export async function createWorkshopListingCheckoutAction(
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
     redirect(
-      "/dashboard/workshops?error=" +
-        encodeURIComponent("Maak eerst je creator-profiel aan.")
+      withFlash("/dashboard/pagina", "error", "Maak eerst je maker-pagina aan.")
     );
   }
 
   const workshopId = formData.get("workshop_id")?.toString()?.trim();
+  const workshopPath =
+    workshopId && /^[0-9a-f-]{36}$/i.test(workshopId)
+      ? `/dashboard/workshops/${workshopId}`
+      : "/dashboard/aanbod?soort=workshops";
   if (!workshopId) {
     redirect(
-      "/dashboard/workshops?error=" + encodeURIComponent("Ongeldige workshop.")
+      withFlash(workshopPath, "error", "Ongeldige workshop.")
     );
   }
 
@@ -214,8 +218,7 @@ export async function createWorkshopListingCheckoutAction(
 
   if (!workshopRow) {
     redirect(
-      "/dashboard/workshops?error=" +
-        encodeURIComponent("Workshop niet gevonden.")
+      withFlash(workshopPath, "error", "Workshop niet gevonden.")
     );
   }
 
@@ -223,8 +226,7 @@ export async function createWorkshopListingCheckoutAction(
 
   if (workshop.listing_fee_status === "launch_free") {
     redirect(
-      "/dashboard/workshops?error=" +
-        encodeURIComponent("Deze workshop valt onder het gratis lanceraanbod.")
+      withFlash(workshopPath, "error", "Deze workshop valt onder het gratis lanceraanbod.")
     );
   }
 
@@ -234,8 +236,7 @@ export async function createWorkshopListingCheckoutAction(
     new Date(workshop.listing_expires_at).getTime() > Date.now()
   ) {
     redirect(
-      "/dashboard/workshops?error=" +
-        encodeURIComponent("Deze vermelding is al betaald en nog zichtbaar.")
+      withFlash(workshopPath, "error", "Deze vermelding is al betaald en nog zichtbaar.")
     );
   }
 
@@ -280,19 +281,21 @@ export async function createWorkshopListingCheckoutAction(
       err
     );
     redirect(
-      "/dashboard/workshops?error=" +
-        encodeURIComponent(
-          "Kon geen betaalsessie starten. Probeer het later opnieuw."
-        )
+      withFlash(
+        workshopPath,
+        "error",
+        "Kon geen betaalsessie starten. Probeer het later opnieuw."
+      )
     );
   }
 
   if (!sessionUrl) {
     redirect(
-      "/dashboard/workshops?error=" +
-        encodeURIComponent(
-          "Kon geen betaalsessie starten. Probeer het later opnieuw."
-        )
+      withFlash(
+        workshopPath,
+        "error",
+        "Kon geen betaalsessie starten. Probeer het later opnieuw."
+      )
     );
   }
 

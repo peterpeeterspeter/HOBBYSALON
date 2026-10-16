@@ -12,7 +12,7 @@ import {
 async function requireRoleModerator(): Promise<string> {
   const user = await getAuthUser();
   if (!user) {
-    redirect("/login?next=/dashboard/moderatie/roles");
+    redirect("/login?next=/beheer/rollen");
   }
   if (!(await isModerator(user.id))) {
     redirect("/dashboard");
@@ -27,7 +27,7 @@ export async function moderateRoleRequestAction(formData: FormData): Promise<voi
   const note = formData.get("reviewer_note")?.toString().trim() || null;
 
   if (!requestId) {
-    redirect("/dashboard/moderatie/roles?error=Aanvraag%20niet%20gevonden.");
+    redirect("/beheer/rollen?error=Aanvraag%20niet%20gevonden.");
   }
 
   const result =
@@ -37,17 +37,17 @@ export async function moderateRoleRequestAction(formData: FormData): Promise<voi
         ? await rejectRoleRequest(requestId, moderatorId, note)
         : { ok: false, message: "Ongeldige moderatiestatus." };
 
-  revalidatePath("/dashboard/moderatie/roles");
+  revalidatePath("/beheer/rollen");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard");
 
   if (!result.ok) {
     redirect(
-      `/dashboard/moderatie/roles?error=${encodeURIComponent(result.message)}`
+      `/beheer/rollen?error=${encodeURIComponent(result.message)}`
     );
   }
 
   redirect(
-    `/dashboard/moderatie/roles?success=${encodeURIComponent(result.message)}`
+    `/beheer/rollen?success=${encodeURIComponent(result.message)}`
   );
 }

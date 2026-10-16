@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
-import { AccountChoiceCards } from "@/components/auth/AccountChoiceCards";
 import { loginAction } from "@/app/actions/auth";
 import { getAuthUser } from "@/lib/auth/session";
-import { getSafeInternalPath } from "@/lib/auth/account-paths";
+import {
+  getAccountRegistrationHref,
+  getSafeInternalPath,
+} from "@/lib/auth/account-paths";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Aanmelden | Hobbysalon",
+  title: "Aanmelden",
   description: "Meld je aan om favorieten en je dashboard te beheren.",
 };
 
@@ -31,7 +33,7 @@ export default async function LoginPage({ searchParams }: Props) {
     <div className="bg-[var(--section-alt)]">
       <PageLayout
         title="Aanmelden"
-        description="Meld je aan om je favorieten en creator-dashboard te beheren."
+        description="Meld je aan om je favorieten en inschrijvingen te bekijken."
         size="narrow"
       >
         {error && (
@@ -46,7 +48,7 @@ export default async function LoginPage({ searchParams }: Props) {
           className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
           <AuthForm mode="login" action={loginAction} nextPath={nextPath} />
-          <p className="mt-4 text-sm text-[var(--muted)]">
+          <p className="mt-4 text-base text-[var(--muted)]">
             <Link
               href={
                 nextPath
@@ -60,7 +62,26 @@ export default async function LoginPage({ searchParams }: Props) {
           </p>
         </CardShell>
 
-        <AccountChoiceCards nextPath={nextPath} />
+        <div className="mt-8 space-y-3 text-base leading-relaxed">
+          <p className="text-[var(--foreground)]">
+            Nog geen account?{" "}
+            <Link
+              href={getAccountRegistrationHref("member", nextPath)}
+              className="font-semibold text-[var(--accent)] underline underline-offset-4"
+            >
+              Maak gratis een account
+            </Link>
+          </p>
+          <p className="text-[var(--muted)]">
+            Wil je iets aanbieden?{" "}
+            <Link
+              href={getAccountRegistrationHref("aanbieder", nextPath)}
+              className="font-semibold text-[var(--accent)] underline underline-offset-4"
+            >
+              Meld je aan als aanbieder
+            </Link>
+          </p>
+        </div>
       </PageLayout>
     </div>
   );

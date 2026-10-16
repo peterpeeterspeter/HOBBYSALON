@@ -9,6 +9,8 @@ import {
   parallelize,
   transform,
   when,
+  createStep,
+  StepResponse,
 } from "@medusajs/framework/workflows-sdk";
 import {
   authorizePaymentSessionStep,
@@ -50,8 +52,21 @@ import {
   prepareTaxLinesData,
 } from "../utils";
 
+import { assertExpectedCartPayment, ExpectedCartPayment } from "../../../utils/expected-cart-payment";
+import { assertCompletedCartOrderSet, completedOrderSetFields } from "../../../utils/completed-cart-order-set";
+
+import { assertCommerceCartLock } from "../../../utils/commerce-cart-lock";
+
+// A consumed first dependency guards every native completion node and hook.
+// Raw .run/.runAsStep callers cannot manufacture the AsyncLocalStorage capability.
+const requireCommerceCartLockStep = createStep("require-commerce-cart-lock", async (input: SplitAndCompleteCartWorkflowInput, { container }) => {
+  assertCommerceCartLock(container, input.id);
+  return new StepResponse(input);
+});
+
 type SplitAndCompleteCartWorkflowInput = {
   id: string;
+  expected_payment?: ExpectedCartPayment;
 };
 
 export const splitAndCompleteCartWorkflow = createWorkflow(
@@ -59,29 +74,32 @@ export const splitAndCompleteCartWorkflow = createWorkflow(
     name: "split-and-complete-cart",
     idempotent: true,
   },
-  function (input: WorkflowData<SplitAndCompleteCartWorkflowInput>) {
-    const existingOrderSet = useRemoteQueryStep({
+  function (rawInput: WorkflowData<SplitAndCompleteCartWorkflowInput>) {
+    const input = requireCommerceCartLockStep(rawInput);
+    const existingOrderSets = useRemoteQueryStep({
       entry_point: "order_set",
-      fields: ["id", "cart_id"],
-      variables: {
-        filters: {
-          cart_id: input.id,
-        },
-      },
-      list: false,
+      fields: completedOrderSetFields,
+      variables: { filters: { cart_id: input.id } },
+      list: true,
     }).config({ name: "order-set-query" });
+    const cart = useRemoteQueryStep({
+      entry_point: "cart",
+      fields: completeCartFields,
+      variables: { id: input.id },
+      list: false,
+    }).config({ name: "cart-query" });
+    const existingOrderSetId = transform(
+      { cart, sets: existingOrderSets, cartId: input.id, expected: input.expected_payment },
+      ({ cart, sets, cartId, expected }) => {
+        if (sets.length) return assertCompletedCartOrderSet(cart, sets, cartId, expected);
+        if (cart.completed_at) throw new MedusaError(MedusaError.Types.INVALID_DATA, "Completed marketplace cart has no order set; reconciliation required");
+        return null;
+      }
+    );
 
-    const orderSet = when({ existingOrderSet }, ({ existingOrderSet }) => {
-      return !existingOrderSet;
+    const orderSet = when({ existingOrderSetId }, ({ existingOrderSetId }) => {
+      return !existingOrderSetId;
     }).then(() => {
-      const cart = useRemoteQueryStep({
-        entry_point: "cart",
-        fields: completeCartFields,
-        variables: {
-          id: input.id,
-        },
-        list: false,
-      }).config({ name: "cart-query" });
 
       validateCartSellersStep(
         transform({ cart }, ({ cart }) => ({
@@ -104,8 +122,12 @@ export const splitAndCompleteCartWorkflow = createWorkflow(
 
       const paymentSessions = validateCartPaymentsStep({ cart });
 
+      const selectedPayment = transform({ cart, paymentSessions, expected: input.expected_payment, cartId: input.id }, ({ cart, paymentSessions, expected, cartId }) => {
+        assertExpectedCartPayment(cart, paymentSessions, expected, cartId);
+        return paymentSessions[0];
+      });
       const payment = authorizePaymentSessionStep({
-        id: paymentSessions[0].id,
+        id: selectedPayment.id,
         context: { cart_id: cart.id },
       });
 
@@ -374,9 +396,9 @@ export const splitAndCompleteCartWorkflow = createWorkflow(
     });
 
     const orderSetId = transform(
-      { orderSet, existingOrderSet },
-      ({ orderSet, existingOrderSet }) =>
-        orderSet ? orderSet.id : existingOrderSet.id
+      { orderSet, existingOrderSetId },
+      ({ orderSet, existingOrderSetId }) =>
+        orderSet ? orderSet.id : existingOrderSetId!
     );
 
     const orderSetCreatedHook = createHook("orderSetCreated", {

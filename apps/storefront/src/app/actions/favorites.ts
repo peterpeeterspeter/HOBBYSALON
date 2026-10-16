@@ -56,5 +56,6 @@ export async function toggleFavoriteAction(formData: FormData): Promise<void> {
   revalidatePath(nextPath);
   revalidatePath("/favorites");
   revalidatePath("/profile");
+  revalidatePath("/dashboard/pagina");
   redirect(nextPath);
 }

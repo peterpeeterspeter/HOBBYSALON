@@ -1,59 +1,58 @@
-FROM node:24-alpine AS base
+# BuildKit is required for the network-denied compilation step.
+# Registry index fetched and retained in the release-worker audit (2026-10-05).
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS base
 
-# The web Dockerfile is copy-pasted into our main docs at /docs/handbook/deploying-with-docker.
-# Make sure you update this Dockerfile, the Dockerfile in the web workspace and copy that over to Dockerfile in the docs.
+FROM base AS toolchain
+# Match packageManager without an unpinned global install. Verify published bytes.
+RUN wget -q https://registry.npmjs.org/yarn/-/yarn-1.22.21.tgz -O /tmp/yarn.tgz \
+    && printf '%s\n' 'dbed5b7e10c552ba0e1a545c948d5473bc6c5a28ce22a8fd27e493e3e5eb6370  /tmp/yarn.tgz' | sha256sum -c - \
+    && mkdir /opt/release-yarn \
+    && tar -xzf /tmp/yarn.tgz -C /opt/release-yarn --strip-components=1 \
+    && rm /tmp/yarn.tgz
+ENV PATH="/opt/release-yarn/bin:${PATH}"
 
-FROM base AS builder
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk update
-RUN apk add --no-cache libc6-compat
-# Set working directory
+FROM toolchain AS installer
 WORKDIR /app
-RUN yarn global add turbo
-COPY . .
-RUN turbo prune api --docker
+# Preserve the authoritative root lock and manifests byte-for-byte. Do not prune:
+# only backend + library workspaces are included; frontend dependencies stay out.
+COPY package.json yarn.lock turbo.json ./
+COPY packages/ ./packages/
+COPY apps/backend/ ./apps/backend/
+COPY deploy/release/ ./deploy/release/
+RUN mkdir /release \
+    && node deploy/release/audit-dependencies.cjs preflight /app > /release/preflight.json \
+    && node deploy/release/audit-dependencies.cjs snapshot /app > /release/source.json \
+    && sha256sum /release/source.json | cut -d ' ' -f 1 > /release/source.sha256 \
+    && yarn install --production=false --frozen-lockfile --non-interactive \
+    && yarn cache clean \
+    && node deploy/release/audit-dependencies.cjs unchanged /app /release/source.json \
+    && node deploy/release/audit-dependencies.cjs installed /app > /release/dependencies.json
 
-# Add lockfile and package.json's of isolated subworkspace
-FROM base AS installer
-RUN apk update
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
-
-# First install dependencies (as they change less often)
-COPY --from=builder /app/out/json/ .
-RUN yarn install --production=false --frozen-lockfile
-RUN yarn add --ignore-workspace-root-check --dev ts-node@10.9.2 typescript@5.6.2
-
-# Build the project and its dependencies
-COPY --from=builder /app/out/full/ .
-
-# Keep concurrency low: VPS builds OOM/thrash with parallel plugin compiles.
-RUN yarn turbo build --concurrency=1
+FROM installer AS builder
+# No database, migration, seed, provider, server or registry access while compiling.
+# Existing manifests already declare turbo, ts-node and TypeScript (lock: 5.9.3).
+RUN --network=none CI=true NODE_ENV=development DISABLE_ALGOLIA=true \
+    DATABASE_URL=postgres://build:build@127.0.0.1:1/build REDIS_URL= \
+    yarn turbo run build --filter=api... --concurrency=1 --force --no-daemon --env-mode=loose \
+    && node deploy/release/audit-dependencies.cjs unchanged /app /release/source.json \
+    && node deploy/release/audit-dependencies.cjs installed /app > /release/dependencies.json \
+    && node deploy/release/archive-runtime.cjs /app /runtime > /release/archive.json
 
 FROM base AS runner
+ENV NODE_ENV=production
 WORKDIR /app
-
-# Install wget for healthcheck
-RUN apk add --no-cache wget
-
-# Don't run production as root
-RUN addgroup --system --gid 1001 medusa
-RUN adduser --system --uid 1001 medusa
-
-# Ensure the medusa user owns the backend folder
-RUN mkdir -p /app/apps/backend/static
-RUN chown -R medusa:medusa /app/apps/backend
-
+RUN addgroup -S -g 1001 medusa && adduser -S -u 1001 -G medusa medusa
+# Keep executable code and approval receipt root-owned, not writable by the server.
+COPY --from=builder /runtime/ /app/
+COPY --from=builder /release/ /release/
+COPY apps/backend/entrypoint.sh /usr/local/bin/release-entrypoint
+RUN chmod 0555 /usr/local/bin/release-entrypoint \
+    && mkdir -p /app/apps/backend/static \
+    && chown medusa:medusa /app/apps/backend/static \
+    && ln -s /app/apps/backend/static /app/apps/backend/.medusa/server/static
 USER medusa
-COPY --from=installer --chown=medusa:medusa /app .
-
-WORKDIR /app/apps/backend
-
+WORKDIR /app/apps/backend/.medusa/server
 EXPOSE 9000
-
-# Run migrations, optionally seed demo data (controlled by SEED_DEMO_DATA env), and start server
-# MIGRATE_LINKS options: "safe" (default), "skip", "all"
-# - safe: auto-creates new links, skips deletions (recommended for most users)
-# - skip: ignores all link operations
-# - all: auto-executes all link operations including deletions (use with caution)
-CMD ["sh", "-c", "case \"$MIGRATE_LINKS\" in skip) LINK_FLAG='--skip-links';; all) LINK_FLAG='--execute-all-links';; *) LINK_FLAG='--execute-safe-links';; esac && yarn db:migrate $LINK_FLAG && if [ \"$SEED_DEMO_DATA\" = \"true\" ]; then yarn seed || true; fi && yarn start"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e 'const h=require("node:http");const r=h.get({host:"127.0.0.1",port:process.env.PORT||9000,path:"/health"},s=>{s.resume();process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})'
+ENTRYPOINT ["/usr/local/bin/release-entrypoint"]
+CMD ["start"]

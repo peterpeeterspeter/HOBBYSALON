@@ -1,22 +1,46 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { stripTypeScriptTypes } from 'node:module'
+import { createRequire } from 'node:module'
 import vm from 'node:vm'
 import test from 'node:test'
 
-// Actual middleware source/config, synthetic graph/HTTP collaborators; no network.
+// Actual middleware source/config and webhook validation/projections; no network.
+// Only graph/HTTP and unexercised financial effects are explicit collaborators.
+const require = createRequire(import.meta.url)
+const ts = require('typescript')
+const { ContainerRegistrationKeys, MathBN, MedusaError, Modules, PaymentActions } = require('@medusajs/framework/utils')
 const root = new URL('../../apps/backend/src/api/', import.meta.url)
+const b2cRoot = new URL('../../packages/modules/b2c-core/src/', import.meta.url)
+const unexpectedFinancialEffect = name => () => { throw new Error(`Unexpected financial dependency invocation: ${name}`) }
+const dependencies = new Map([
+  ['@medusajs/medusa', { defineMiddlewares: x => x }],
+  ['@medusajs/framework/utils', { ContainerRegistrationKeys, MathBN, MedusaError, Modules, PaymentActions }],
+  ['@mercurjs/b2c-core/links/seller-order', { default: { entryPoint: 'seller_order_link' } }],
+  ['@mercurjs/b2c-core/links/order-split-order-payment', { default: { entryPoint: 'order_split_link' } }],
+  ['@mercurjs/b2c-core/utils/commerce-cart-lock', {
+    withCommerceCartLock: unexpectedFinancialEffect('withCommerceCartLock'),
+  }],
+  ['@mercurjs/b2c-core/utils/marketplace-capture', {
+    completeMarketplaceCartUnderLock: unexpectedFinancialEffect('completeMarketplaceCartUnderLock'),
+    captureMarketplacePaymentUnderLock: unexpectedFinancialEffect('captureMarketplacePaymentUnderLock'),
+  }],
+  ['node:crypto', await import('node:crypto')],
+])
 const cache = new Map()
 async function load(url) {
   if (cache.has(url.href)) return cache.get(url.href)
-  const mod = new vm.SourceTextModule(stripTypeScriptTypes(readFileSync(url, 'utf8')), { identifier: url.href })
+  // Real TS emission elides type-only bindings in transitive repository imports.
+  const source = ts.transpileModule(readFileSync(url, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 }, fileName: url.pathname,
+  }).outputText
+  const mod = new vm.SourceTextModule(source, { identifier: url.href })
   cache.set(url.href, mod)
   await mod.link(async (name, parent) => {
     if (name.startsWith('.')) return load(new URL(name + '.ts', parent.identifier))
-    const exports = name === '@medusajs/medusa' ? { defineMiddlewares: x => x } :
-      name === '@medusajs/framework/utils' ? { ContainerRegistrationKeys: { QUERY: 'query' } } :
-      name.endsWith('/links/seller-order') ? { default: { entryPoint: 'seller_order_link' } } :
-      name.endsWith('/links/order-split-order-payment') ? { default: { entryPoint: 'order_split_link' } } : null
+    const exports = dependencies.get(name)
+    if (!exports && name === '@mercurjs/b2c-core/utils/completed-cart-order-set') {
+      return load(new URL('utils/completed-cart-order-set.ts', b2cRoot))
+    }
     assert.ok(exports, `unexpected import ${name}`)
     return new vm.SyntheticModule(Object.keys(exports), function () { for (const [k, v] of Object.entries(exports)) this.setExport(k, v) })
   })
@@ -31,6 +55,11 @@ const requestWorkflowNames = ['proceed-return-request', 'update-return-request']
   return name
 })
 const money = [...requestWorkflowNames, 'cancel-single-order', 'refund-seller-order-for-return', 'refund-payment-workflow', 'refund-payments-workflow', 'refund-captured-payments-workflow', 'refund-payment-and-recreate-payment-session', 'cancel-order', 'partial-payment-refund', 'refund-split-order-payment', 'process-payout-for-order']
+// Exact newly protected IDs in the actual middleware boundary set.
+const newMoney = ['cancel-single-order-under-lock', 'cancel-payment-collection', 'delete-payment-sessions', 'create-order-refund-credit-lines']
+const boundary = await load(new URL('middlewares/commerce-financial-boundary.ts', root))
+for (const id of newMoney) assert.ok(boundary.namespace.PROTECTED_FINANCIAL_WORKFLOWS.has(id), `Actual boundary is missing ${id}`)
+assert.deepEqual(new Set([...money, ...newMoney]), boundary.namespace.PROTECTED_FINANCIAL_WORKFLOWS)
 const fixtures = () => ({
   payment: [{ id: 'pay_1', payment_collection_id: 'paycol_1' }],
   payment_collection: [{ id: 'paycol_1' }],
@@ -57,7 +86,7 @@ async function dispatch(path, data = fixtures(), method = 'POST', override = {})
   await run(0)
   return { executed, status, body, calls }
 }
-for (const id of money) for (const suffix of ['run', 'steps/success', 'steps/failure']) test(`protected workflow ${id}/${suffix}`, async () => {
+for (const id of [...money, ...newMoney]) for (const suffix of ['run', 'steps/success', 'steps/failure']) test(`protected workflow ${id}/${suffix}`, async () => {
   const r = await dispatch(`/admin/workflows-executions/${id}/${suffix}`, new Error('must not resolve'))
   assert.equal(r.executed, 0); assert.equal(r.status, 409); assert.equal(r.calls.length, 0)
 })

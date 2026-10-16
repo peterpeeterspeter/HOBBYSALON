@@ -93,7 +93,7 @@ export async function submitProductInquiry(
       });
     }
 
-    revalidatePath("/dashboard/products");
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (e) {
     console.error("Product inquiry error:", e);
@@ -122,14 +122,14 @@ export async function updateProductInquiryStatusAction(
 
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
-    fail("/dashboard/products", "Geen creator-profiel.");
+    fail("/dashboard", "Geen creator-profiel.");
   }
 
   const inquiryId = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   const allowed = new Set(["new", "contacted", "accepted", "declined"]);
   if (!/^[0-9a-f-]{36}$/i.test(inquiryId) || !allowed.has(status)) {
-    fail("/dashboard/products", "Ongeldige aanvraagstatus.");
+    fail("/dashboard", "Ongeldige aanvraagstatus.");
   }
 
   const supabase = createPlatformClient();
@@ -140,8 +140,8 @@ export async function updateProductInquiryStatusAction(
     .eq("creator_id", creator.id);
 
   if (error) {
-    fail("/dashboard/products", "Status bijwerken mislukt.");
+    fail("/dashboard", "Status bijwerken mislukt.");
   }
 
-  ok("/dashboard/products", "Aanvraagstatus bijgewerkt.");
+  ok("/dashboard", "Aanvraagstatus bijgewerkt.");
 }

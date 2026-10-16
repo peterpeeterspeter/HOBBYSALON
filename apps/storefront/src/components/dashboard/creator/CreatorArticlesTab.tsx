@@ -14,12 +14,6 @@ import {
   type CreatorArticlesTabProps,
 } from "./types";
 
-const APPROVAL_RELATION: Record<string, string> = {
-  product: "related_product",
-  workshop: "related_workshop",
-  event: "related_event",
-};
-
 const TARGET_TYPE_LABELS: Record<string, string> = {
   product: "Product",
   workshop: "Workshop",
@@ -234,7 +228,6 @@ export function CreatorArticlesTab({
                             <div className="flex gap-2">
                               <form action={approveArticleSuggestionAction}>
                                 <input type="hidden" name="entity_link_id" value={link.id} />
-                                <input type="hidden" name="relation_type" value={APPROVAL_RELATION[link.target_entity_type] ?? "related_product"} />
                                 <Button type="submit" size="sm" variant="secondary">
                                   Bevestigen
                                 </Button>

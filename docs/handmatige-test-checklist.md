@@ -79,11 +79,11 @@ _______________________________________________________________________________
 
 | ☐ | Stap | Verwacht resultaat |
 |---|------|-------------------|
-| ☐ | Ga naar **Registreren** (of `/register`) | Formulier verschijnt |
-| ☐ | Vul e-mail en wachtwoord in en verstuur | Bevestiging of doorverwijzing (geen foutmelding) |
-| ☐ | Controleer je e-mail (indien gevraagd) | Bevestigingslink werkt; je bent daarna ingelogd |
+| ☐ | Ga naar **Registreren** (of `/register`) | Kort formulier: e-mail, wachtwoord, postcode (optioneel), nieuwsbrief. Geen rollen of interesses |
+| ☐ | Vul e-mail en wachtwoord in en verstuur | Het formulier verdwijnt en je ziet "Kijk in je mailbox" met jouw e-mailadres |
+| ☐ | Controleer je e-mail (indien gevraagd) | Bevestigingslink werkt; je bent daarna ingelogd op **Mijn Hobbysalon** |
 | ☐ | Log uit en log opnieuw in via **Inloggen** | Inloggen lukt met hetzelfde wachtwoord |
-| ☐ | Vul onboarding in (postcode, interesses) als je daar naartoe wordt gestuurd | Gegevens worden opgeslagen |
+| ☐ | Bovenaan **Mijn Hobbysalon** staat "Wat wil je vooral ontdekken?" | Kies iets en klik **Bewaar**: de vraag verdwijnt en komt niet terug |
 
 **Test-e-mail gebruikt:** _______________________________________________
 
@@ -146,8 +146,10 @@ _______________________________________________________________________________
 
 | ☐ | Stap | Verwacht resultaat |
 |---|------|-------------------|
-| ☐ | Ga naar **Registreer als creator** (`/register/creator`) | Creator-formulier verschijnt |
-| ☐ | Maak account aan (naam, type maker, enz.) | Je komt in het dashboard |
+| ☐ | Ga naar `/register` en klik onderaan **Meld je aan als aanbieder** | Je ziet 4 keuzes (`/register/aanbieden`) |
+| ☐ | Kies **Mijn creaties, tutorials of patronen delen** | Kort formulier met de knop "Account maken en verder" |
+| ☐ | Maak account aan en bevestig je e-mail | Je komt op **Jouw makerprofiel** (`/onboarding`): naam, stad, beschrijving, hobby |
+| ☐ | Vul je profiel in en sla op | Je komt bij **nieuwe creatie** (`/dashboard/products/nieuw`); een creatie opslaan lukt |
 | ☐ | Ga naar **Mijn profiel** (`/dashboard/creator`) | Je kunt profiel bewerken |
 | ☐ | Sla wijzigingen op (bio, foto, stad) | Wijzigingen blijven bewaard na verversen |
 | ☐ | Open je publieke profiel (`/creator/jouw-slug`) | Bezoekers zien je profiel zoals jij het instelde |
@@ -167,7 +169,7 @@ _______________________________________________________________________________
 
 | ☐ | Stap | Verwacht resultaat |
 |---|------|-------------------|
-| ☐ | Ga naar **Registreer als merchant** (`/register/merchant`) | Verkoper-formulier verschijnt |
+| ☐ | Ga naar `/register/aanbieden` en kies **Mijn winkel of materialen aanbieden** (`/register/merchant`) | Formulier "Je winkel aanmelden" verschijnt |
 | ☐ | Rond registratie af | Je komt in het dashboard of verkopersportaal |
 | ☐ | Ga naar **Mijn voorraad** (`/dashboard/materials`) | Pagina voor materialen/import opent |
 | ☐ | Klik **Verkopersportaal** in het menu (`/dashboard/verkoper`) | Je wordt doorgestuurd naar verkoper.hobbysalon.be |

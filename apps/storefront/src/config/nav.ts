@@ -12,7 +12,7 @@ export const ACCOUNT_NAV = {
   /** Setup entry when offer intent exists but no creator profile yet. */
   aanbodSetup: { href: "/onboarding", label: "Mijn aanbod instellen" },
   /** Soft entry for hobbyists who have not started offer onboarding yet. */
-  aanbodStart: { href: "/profile#rollen-upgraden", label: "Aanbod starten" },
+  aanbodStart: { href: "/dashboard/instellingen#aanbieden", label: "Aanbod starten" },
   /** @deprecated Use aanbod — kept for gradual migration of imports */
   pro: { href: "/dashboard", label: "Mijn aanbod" },
   backToHobby: { href: "/profile", label: "Terug naar Hobbysalon" },
@@ -75,6 +75,7 @@ export const FOOTER_SECTIONS = {
     { href: "/prijzen", label: "Prijzen" },
   ],
   info: [
+    { href: "/nieuwsbrief", label: "Nieuwsbrief" },
     { href: "/over-ons", label: "Over ons" },
     { href: "/over-ons#contact", label: "Contact" },
     { href: "/privacy", label: "Privacy" },
@@ -83,5 +84,6 @@ export const FOOTER_SECTIONS = {
   zakelijk: [
     { href: "/partners", label: "Zakelijk samenwerken" },
     { href: "/prijzen", label: "Prijzen en formules" },
+    { href: "/adverteren", label: "Adverteren in de nieuwsbrief" },
   ],
 } as const;

@@ -65,7 +65,7 @@ export function ProfileQuickLinks({
           <ul className="flex flex-wrap gap-2">
             {showMakerLink ? (
               <li>
-                <Link href="#maker-pagina" className={linkClassName}>
+                <Link href="/dashboard/pagina" className={linkClassName}>
                   {primaryOfferLabel
                     ? `${primaryOfferLabel}profiel`
                     : "Mijn profiel"}

@@ -16,9 +16,9 @@ import {
   countNewWorkshopBookingRequests,
 } from "@/lib/platform/queries/product-inquiries";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
+import { AccountSideSwitch } from "@/components/dashboard/AccountSideSwitch";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
-import { ACCOUNT_NAV } from "@/config/nav";
 
 export default async function DashboardLayout({
   children,
@@ -63,35 +63,28 @@ export default async function DashboardLayout({
   });
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div className="dashboard-scope min-h-[100dvh] bg-[var(--background)]">
       <header className="border-b border-[var(--border)] bg-[var(--card)]">
         <Container>
           <div className="flex flex-wrap items-center justify-between gap-4 py-4">
-            <div className="min-w-0">
-              <Link href="/" className="inline-block">
+            <div className="flex min-w-0 items-center gap-5">
+              <Link href="/" className="inline-block shrink-0" aria-label="Naar de website">
                 <Image
                   src="/logo.png"
                   alt="Hobbysalon"
                   width={150}
                   height={100}
-                  className="h-9 w-auto object-contain"
+                  className="h-10 w-auto object-contain"
                 />
               </Link>
-              <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                {ACCOUNT_NAV.aanbod.label}
-              </p>
-              <p className="truncate text-xs text-[var(--muted)]">
+              <AccountSideSwitch active="aanbod" />
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="hidden max-w-[16rem] truncate text-base text-[var(--muted)] md:block">
                 {user.email ?? "Ingelogd"}
               </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild variant="secondary" size="sm">
-                <Link href={ACCOUNT_NAV.backToHobby.href}>
-                  {ACCOUNT_NAV.backToHobby.label}
-                </Link>
-              </Button>
               <form action={logoutAction}>
-                <Button type="submit" variant="secondary" size="sm">
+                <Button type="submit" variant="secondary">
                   Uitloggen
                 </Button>
               </form>
@@ -103,7 +96,7 @@ export default async function DashboardLayout({
         </Container>
       </header>
       <main>
-        <Container className="py-8">{children}</Container>
+        <Container className="py-8 md:py-10">{children}</Container>
       </main>
     </div>
   );

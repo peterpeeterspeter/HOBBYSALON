@@ -30,7 +30,7 @@ function buildTabHref(
 
 export function CreatorDashboardTabs({
   activeTab,
-  basePath = "/profile",
+  basePath = "/dashboard/pagina",
   preserveQuery,
   children,
 }: CreatorDashboardTabsProps) {

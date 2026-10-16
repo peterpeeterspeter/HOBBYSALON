@@ -63,7 +63,7 @@ export async function getWorkshopPageData(
     };
   }
 
-  const [creator, domain, category, sessions, entityLinks, galleryImages] = await Promise.all([
+  const [creator, domain, category, sessions, entityConnections, galleryImages] = await Promise.all([
     getCreatorById(workshop.creator_id),
     workshop.domain_id
       ? (async () => {
@@ -84,8 +84,11 @@ export async function getWorkshopPageData(
     getWorkshopGalleryImages(workshop.id),
   ]);
 
-  const relatedProductIds = entityLinks
-    .filter((l) => l.entityType === "product")
+  // Only the workshop's own outbound product links supplement its material
+  // list. Reciprocal discovery must not turn an incoming recommendation into
+  // a material requirement; workshop_required_products remains authoritative.
+  const relatedProductIds = entityConnections
+    .filter((l) => l.entityType === "product" && l.direction === "outbound")
     .map((l) => l.entityId);
 
   const requiredRows = await getWorkshopRequiredProducts(workshop.id);
@@ -124,10 +127,10 @@ export async function getWorkshopPageData(
     ...optionalLinkedProducts,
   ];
 
-  const relatedEventIds = entityLinks
+  const relatedEventIds = entityConnections
     .filter((l) => l.entityType === "event")
     .map((l) => l.entityId);
-  const relatedArticleIds = entityLinks
+  const relatedArticleIds = entityConnections
     .filter((l) => l.entityType === "article")
     .map((l) => l.entityId);
 

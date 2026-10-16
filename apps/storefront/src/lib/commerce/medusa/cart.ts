@@ -519,7 +519,7 @@ export async function getPaymentProviders(regionId: string) {
   }
 }
 
-/** Fetch Stripe client_secret from backend (auto-refreshes if PaymentIntent is terminal). */
+/** Explicit checkout request: fetch the secret and recover only confirmed-canceled payments. */
 export async function getPaymentClientSecret(
   cartId: string
 ): Promise<{
@@ -536,7 +536,7 @@ export async function getPaymentClientSecret(
     const res = await fetch(
       `${baseUrl}/store/carts/${cartId}/payment-client-secret`,
       {
-        method: "GET",
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-publishable-api-key": pk,

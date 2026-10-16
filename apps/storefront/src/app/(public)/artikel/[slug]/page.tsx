@@ -43,6 +43,11 @@ const dateFmt = new Intl.DateTimeFormat("nl-NL", {
   year: "numeric",
 });
 
+const shopPriceFmt = new Intl.NumberFormat("nl-BE", {
+  style: "currency",
+  currency: "EUR",
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { article } = await getArticlePageData(slug);
@@ -64,6 +69,8 @@ export default async function ArticlePage({ params }: Props) {
   const {
     article,
     author,
+    sourceMaterials,
+    sourceMaterialOffers,
     requiredMaterials,
     requiredTools,
     optionalMaterials,
@@ -75,6 +82,9 @@ export default async function ArticlePage({ params }: Props) {
     relatedEvents,
     communityProjects,
   } = data;
+
+  const offersBySourceKey = new Map(sourceMaterialOffers.map(material => [material.key, material.offers]));
+  const hasSourceOffers = sourceMaterialOffers.some(material => material.offers.length > 0);
 
   const user = await getAuthUser();
   const articleIsFavorite = user
@@ -247,6 +257,45 @@ export default async function ArticlePage({ params }: Props) {
           />
         ) : null}
 
+        {/* Source materials, separate from linked commerce requirements */}
+        {sourceMaterials.length > 0 && (
+          <section
+            aria-labelledby="source-materials-heading"
+            className="mt-10 rounded-xl border border-[var(--border)] bg-[var(--section-alt)] p-5 sm:p-6"
+          >
+            <h2 id="source-materials-heading" className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
+              Materialen uit dit artikel
+            </h2>
+            <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+              {hasSourceOffers
+                ? "Dit is de materialenlijst uit de artikeltekst. Bij sommige regels staan automatisch gevonden winkelproducten; dit zijn geen goedgekeurde koppelingen. "
+                : "Dit is de materialenlijst uit de artikeltekst, geen gekoppelde winkelproducten. "}
+              Genoemde bedragen zijn broninformatie, geen actuele aanbiedingen. Controleer hoeveelheden,
+              garendikte en stekenverhouding in het originele patroon.
+            </p>
+            <ul className="mt-4 list-disc space-y-3 pl-5 text-[17px] leading-relaxed text-[var(--foreground)]">
+              {sourceMaterials.map((material) => (
+                <li key={material.key} data-material-key={material.key}>
+                  <span>{material.title}</span>
+                  {(offersBySourceKey.get(material.key) ?? []).map((offer) => (
+                    <div key={`${offer.requirementLabel}:${offer.productId}:${offer.variantId}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+                      <p className="text-base font-semibold">Voor deze bronregel: {offer.requirementLabel}</p>
+                      <Link href={offer.href} className="mt-1 block text-[17px] font-semibold text-[var(--accent)] underline underline-offset-4">
+                        {offer.productTitle} — {offer.variantTitle}
+                      </Link>
+                      <p className="mt-1 text-base">
+                        {offer.price
+                          ? `Winkelprijs: ${shopPriceFmt.format(offer.price.amount / 100)}`
+                          : "Winkelprijs onbekend — bekijk het product voor de actuele prijs."}
+                      </p>
+                    </div>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Breadcrumb trail */}
         <nav
           aria-label="Breadcrumb"
@@ -332,7 +381,7 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {relatedProducts.length > 0 && (
-            <GraphSection title="Dit heb je nodig" seeAllHref="/materials">
+            <GraphSection title="Past bij dit project" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {relatedProducts.map((p) => (
                   <ProductCard key={p.id} product={p} />

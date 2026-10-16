@@ -5,16 +5,20 @@ import Link from "next/link";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { PriceDisplay } from "@/components/domain/price-display";
 import { medusaAmountToCents } from "@/lib/commerce/money";
+import { exactEurVariantPrice, type ExactVariantPriceInput } from "@/lib/commerce/variant-price";
 
 type Variant = {
   id: string;
   title: string;
   calculated_amount?: number;
   currency_code?: string;
+  exact_price?: ExactVariantPriceInput | null;
 };
 
 type ProductPurchaseControlsProps = {
   variants: Variant[];
+  /** Validated URL selection; unmatched IDs keep the legacy first variant. */
+  selectedVariantId?: string;
   productType?: string;
   creatorSlug?: string | null;
   /** Fallback display price (cents) when variants have no per-variant amount. */
@@ -24,13 +28,17 @@ type ProductPurchaseControlsProps = {
 
 export function ProductPurchaseControls({
   variants,
+  selectedVariantId: initialVariantId,
   productType,
   creatorSlug,
   fallbackPrice,
   className,
 }: ProductPurchaseControlsProps) {
+  const requestedVariant = typeof initialVariantId === "string" && initialVariantId
+    ? variants.find((variant) => variant.id === initialVariantId)
+    : undefined;
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    variants[0]?.id ?? null
+    requestedVariant?.id ?? variants[0]?.id ?? null
   );
 
   const selectedVariant = useMemo(
@@ -39,6 +47,9 @@ export function ProductPurchaseControls({
   );
 
   const displayPrice = useMemo(() => {
+    // Exact-link mode also normalizes subsequent manual selections, always
+    // from their raw provenance and never from another variant's fallback.
+    if (requestedVariant) return exactEurVariantPrice(selectedVariant?.exact_price);
     if (
       selectedVariant?.calculated_amount != null &&
       Number.isFinite(selectedVariant.calculated_amount)
@@ -49,7 +60,7 @@ export function ProductPurchaseControls({
       };
     }
     return fallbackPrice ?? null;
-  }, [selectedVariant, fallbackPrice]);
+  }, [selectedVariant, fallbackPrice, requestedVariant]);
 
   if (!variants.length || !selectedVariantId) {
     const isHandmade = productType === "handmade";

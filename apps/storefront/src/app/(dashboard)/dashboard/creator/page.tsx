@@ -1,21 +1,16 @@
 import { redirect } from "next/navigation";
-import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
-import { resolveCreatorTab } from "@/components/dashboard/creator/types";
 
 type Props = {
   searchParams: Promise<{ success?: string; error?: string; tab?: string }>;
 };
 
+/** Old maker-page route; the maker page now lives at /dashboard/pagina. */
 export default async function DashboardCreatorPage({ searchParams }: Props) {
-  const { success, error, tab: tabParam } = await searchParams;
-  const tab = resolveCreatorTab(tabParam);
-
-  redirect(
-    creatorMakerProfileUrl({
-      tab,
-      success,
-      error,
-      withHash: true,
-    })
-  );
+  const { success, error, tab } = await searchParams;
+  const params = new URLSearchParams();
+  if (tab) params.set("tab", tab);
+  if (success) params.set("success", success);
+  if (error) params.set("error", error);
+  const query = params.toString();
+  redirect(`/dashboard/pagina${query ? `?${query}` : ""}`);
 }

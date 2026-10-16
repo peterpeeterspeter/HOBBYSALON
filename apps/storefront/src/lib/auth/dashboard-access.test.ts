@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript test runner requires the extension.
-import { buildRoleAwareDashboardNav, resolveDashboardCapabilities } from "./dashboard-access.ts";
+import {
+  buildRoleAwareDashboardNav,
+  resolveActiveNavHref,
+  resolveDashboardCapabilities,
+  resolveOfferSections,
+} from "./dashboard-access.ts";
 
 const baseContext = {
   roles: ["user"] as const,
@@ -16,7 +21,7 @@ test("hobbyist only sees overview", () => {
     registrationContext: { ...baseContext, roles: ["user"] },
   });
   const nav = buildRoleAwareDashboardNav(caps).map((item) => item.href);
-  assert.deepEqual(nav, ["/dashboard"]);
+  assert.deepEqual(nav, ["/dashboard", "/dashboard/instellingen"]);
   assert.equal(caps.canAccessVendorPortal, false);
   assert.equal(caps.canManageWorkshops, false);
   assert.equal(caps.canManageEvents, false);
@@ -33,11 +38,11 @@ test("workshopgever sees workshops but not events or vendor portal", () => {
     hasCreatorProfile: true,
   });
   const nav = buildRoleAwareDashboardNav(caps).map((item) => item.href);
-  assert.ok(nav.includes("/dashboard/workshops"));
-  assert.ok(!nav.includes("/dashboard/creator"));
-  assert.ok(!nav.includes("/dashboard/events"));
-  assert.ok(!nav.includes("/dashboard/verkoper"));
-  assert.ok(!nav.includes("/dashboard/products"));
+  assert.ok(nav.includes("/dashboard/aanbod"));
+  assert.ok(nav.includes("/dashboard/pagina"));
+  assert.ok(!nav.includes("/dashboard/winkel"));
+  const sections = resolveOfferSections(caps).map((section) => section.key);
+  assert.deepEqual(sections, ["workshops"]);
 });
 
 test("organizer sees events but not workshops or vendor portal", () => {
@@ -51,9 +56,12 @@ test("organizer sees events but not workshops or vendor portal", () => {
     hasCreatorProfile: true,
   });
   const nav = buildRoleAwareDashboardNav(caps).map((item) => item.href);
-  assert.ok(nav.includes("/dashboard/events"));
-  assert.ok(!nav.includes("/dashboard/workshops"));
-  assert.ok(!nav.includes("/dashboard/verkoper"));
+  assert.ok(nav.includes("/dashboard/aanbod"));
+  assert.ok(!nav.includes("/dashboard/winkel"));
+  assert.deepEqual(
+    resolveOfferSections(caps).map((section) => section.key),
+    ["events"]
+  );
 });
 
 test("workshopgever without approved role can draft but not publish", () => {
@@ -104,7 +112,7 @@ test("vendor portal nav for pending merchant request", () => {
   assert.equal(pending.canAccessVendorPortal, false);
   assert.equal(pending.canViewVendorPortalNav, true);
   const nav = buildRoleAwareDashboardNav(pending).map((item) => item.href);
-  assert.ok(nav.includes("/dashboard/verkoper"));
+  assert.ok(nav.includes("/dashboard/winkel"));
 });
 
 test("vendor portal nav for merchant role with or without seller link", () => {
@@ -118,7 +126,7 @@ test("vendor portal nav for merchant role with or without seller link", () => {
   assert.equal(withoutLink.canAccessVendorPortal, false);
   assert.equal(withoutLink.canViewVendorPortalNav, true);
   const navWithoutLink = buildRoleAwareDashboardNav(withoutLink).map((item) => item.href);
-  assert.ok(navWithoutLink.includes("/dashboard/verkoper"));
+  assert.ok(navWithoutLink.includes("/dashboard/winkel"));
 
   const withMerchant = resolveDashboardCapabilities({
     registrationContext: {
@@ -130,9 +138,9 @@ test("vendor portal nav for merchant role with or without seller link", () => {
   assert.equal(withMerchant.canAccessVendorPortal, true);
   assert.equal(withMerchant.canViewVendorPortalNav, true);
   const nav = buildRoleAwareDashboardNav(withMerchant).map((item) => item.href);
-  assert.ok(nav.includes("/dashboard/verkoper"));
-  assert.ok(!nav.includes("/dashboard/workshops"));
-  assert.ok(!nav.includes("/dashboard/events"));
+  assert.ok(nav.includes("/dashboard/winkel"));
+  assert.ok(!nav.includes("/dashboard/aanbod"));
+  assert.deepEqual(resolveOfferSections(withMerchant), []);
 });
 
 test("organizer without approved role can draft but not publish", () => {
@@ -237,6 +245,102 @@ test("orders are only for merchants with a Medusa seller link", () => {
   assert.ok(
     buildRoleAwareDashboardNav(merchant)
       .map((item) => item.href)
-      .includes("/dashboard/orders")
+      .includes("/dashboard/winkel")
   );
+});
+
+test("nav has at most six top-level items, even for every role at once", () => {
+  const everything = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "creator", "merchant", "organizer", "workshop_host"],
+      hasCreatorProfile: true,
+      sellerLinks: [{ sellerId: "sel_merchant", sellerType: "merchant" }],
+    },
+    creatorTypes: ["maker", "workshopgever", "organizer"],
+    hasCreatorProfile: true,
+  });
+  const nav = buildRoleAwareDashboardNav(everything, { userIsModerator: true });
+  assert.ok(nav.length <= 6);
+  assert.deepEqual(
+    resolveOfferSections(everything).map((section) => section.key),
+    ["creaties", "workshops", "events"]
+  );
+});
+
+test("new requests from all sources add up on Vandaag", () => {
+  const caps = resolveDashboardCapabilities({
+    registrationContext: { ...baseContext, roles: ["user", "creator"], hasCreatorProfile: true },
+    creatorTypes: ["maker"],
+    hasCreatorProfile: true,
+  });
+  const nav = buildRoleAwareDashboardNav(caps, {
+    newProductInquiryCount: 2,
+    newWorkshopBookingCount: 1,
+    newEventVendorInquiryCount: 3,
+  });
+  assert.equal(nav[0].href, "/dashboard");
+  assert.equal(nav[0].badge, 6);
+});
+
+test("old dashboard routes highlight their new parent", () => {
+  assert.equal(resolveActiveNavHref("/dashboard/workshops"), "/dashboard/aanbod");
+  assert.equal(resolveActiveNavHref("/dashboard/events/new"), "/dashboard/aanbod");
+  assert.equal(resolveActiveNavHref("/dashboard/orders"), "/dashboard/winkel");
+  assert.equal(resolveActiveNavHref("/dashboard/verkoper"), "/dashboard/winkel");
+  assert.equal(resolveActiveNavHref("/beheer/rollen"), "/beheer");
+  assert.equal(resolveActiveNavHref("/dashboard"), "/dashboard");
+});
+
+test("offer intent without a page yet can open Mijn pagina; a pure merchant cannot", () => {
+  const intentOnly = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user"],
+      preference: {
+        city: null,
+        postalCode: null,
+        countryCode: "BE",
+        interestTypes: [],
+        preferredDomainIds: [],
+        offerRoles: ["maker"],
+        primaryOfferRole: "maker",
+        marketingOptIn: false,
+        marketingOptedInAt: null,
+        marketingOptedOutAt: null,
+        marketingConsentSource: null,
+        onboardingCompleted: false,
+      },
+    },
+  });
+  assert.equal(intentOnly.canViewCreatorPage, false);
+  assert.equal(intentOnly.canEditCreatorPage, true);
+  assert.ok(
+    buildRoleAwareDashboardNav(intentOnly)
+      .map((item) => item.href)
+      .includes("/dashboard/pagina")
+  );
+
+  const merchantOnly = resolveDashboardCapabilities({
+    registrationContext: {
+      ...baseContext,
+      roles: ["user", "merchant"],
+      sellerLinks: [{ sellerId: "sel_merchant", sellerType: "merchant" }],
+      preference: {
+        city: null,
+        postalCode: null,
+        countryCode: "BE",
+        interestTypes: [],
+        preferredDomainIds: [],
+        offerRoles: ["merchant"],
+        primaryOfferRole: "merchant",
+        marketingOptIn: false,
+        marketingOptedInAt: null,
+        marketingOptedOutAt: null,
+        marketingConsentSource: null,
+        onboardingCompleted: true,
+      },
+    },
+  });
+  assert.equal(merchantOnly.canEditCreatorPage, false);
 });

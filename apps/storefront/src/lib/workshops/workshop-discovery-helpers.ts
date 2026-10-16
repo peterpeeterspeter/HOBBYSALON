@@ -4,8 +4,10 @@
  */
 
 import {
+  agendaInstantMs,
   eventOverlapsRange,
   groupEventsByAgendaBucket,
+  isUpcomingOrOngoingToday,
   type AgendaDateRange,
   type AgendaGroup,
 } from "@/lib/agenda/agenda-helpers";
@@ -52,9 +54,9 @@ function sessionEffectiveEnd(session: {
 }
 
 /**
- * No date range → first future (effective end ≥ now) non-cancelled session.
- * With date range → first session overlapping [from, to].
- * Returns earliest by starts_at among matches.
+ * No date range → first upcoming/ongoing session (ends_at ?? starts_at ≥ today).
+ * With date range → first session overlapping [from, to] that is still upcoming.
+ * Multi-day sessions that started before today stay eligible until they end.
  */
 export function pickNextMatchingSession(
   sessions: WorkshopSessionRow[],
@@ -64,24 +66,27 @@ export function pickNextMatchingSession(
   }
 ): WorkshopNextSession | null {
   const active = sessions.filter((s) => !s.is_cancelled);
+  const now = new Date(options.nowIso);
   let candidates: WorkshopSessionRow[];
 
   if (options.range) {
-    candidates = active.filter((s) =>
-      eventOverlapsRange(
-        { starts_at: s.starts_at, ends_at: s.ends_at },
-        options.range!.from,
-        options.range!.to
-      )
+    candidates = active.filter(
+      (s) =>
+        isUpcomingOrOngoingToday(s, now) &&
+        eventOverlapsRange(
+          { starts_at: s.starts_at, ends_at: s.ends_at },
+          options.range!.from,
+          options.range!.to
+        )
     );
   } else {
-    candidates = active.filter(
-      (s) => sessionEffectiveEnd(s) >= options.nowIso
-    );
+    candidates = active.filter((s) => isUpcomingOrOngoingToday(s, now));
   }
 
   if (candidates.length === 0) return null;
-  candidates.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  candidates.sort(
+    (a, b) => agendaInstantMs(a.starts_at) - agendaInstantMs(b.starts_at)
+  );
   const first = candidates[0]!;
   return {
     id: first.id,

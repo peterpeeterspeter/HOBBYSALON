@@ -23,9 +23,14 @@ function stripMarkdownInline(raw: string): string {
     .replace(/__([^_]+)__/g, "$1")
     .replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, "$1")
     .replace(/(?<!\w)_([^_]+)_(?!\w)/g, "$1")
-    .replace(/^\d+\s*[x×]\s*/i, "")
-    .replace(/^\d+\s+/, "")
     .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeChecklistLine(raw: string): string {
+  return stripMarkdownInline(raw)
+    .replace(/^\d+\s*[x×]\s*/i, "")
+    .replace(/^\d+\s+(?!\s*(?:mm\b|%))/i, "")
     .trim();
 }
 
@@ -35,7 +40,7 @@ export function normalizeMaterialTitle(title: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/^\d+\s*[x×]\s*/i, "")
-    .replace(/^\d+\s+/, "")
+    .replace(/^\d+\s+(?!\s*(?:mm\b|%))/, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -78,7 +83,7 @@ export function parseArticleMaterials(
   for (const line of section.split(/\n/)) {
     const match = line.match(LIST_LINE_RE);
     if (!match) continue;
-    const title = stripMarkdownInline(match[1]);
+    const title = normalizeChecklistLine(match[1]);
     if (!title || title.length < 2) continue;
     const keySlug = slugifyMaterialTitle(title);
     if (seen.has(keySlug)) continue;
@@ -89,6 +94,56 @@ export function parseArticleMaterials(
     });
   }
 
+  return items;
+}
+
+/**
+ * Preserve the author's display quantities, separate from saved checklist normalization.
+ * Blank fenced examples before heading detection so fake headings cannot delimit prose.
+ */
+export function parseArticleSourceMaterials(
+  bodyMarkdown: string | null | undefined
+): ParsedArticleMaterial[] {
+  if (!bodyMarkdown?.trim()) return [];
+  let fence: { marker: string; length: number } | null = null;
+  const prose = bodyMarkdown.split(/\r?\n/).map(line => {
+    let fenceLine = line;
+    let previous: string;
+    do {
+      previous = fenceLine;
+      fenceLine = fenceLine.replace(/^[ \t]*(?:>[ \t]?|(?:[-+*]|\d+[.)])[ \t]+)/, "");
+    } while (fenceLine !== previous);
+    const marker = fenceLine.match(/^[ \t]*(`{3,}|~{3,})(.*)$/);
+    if (fence) {
+      if (marker && marker[1][0] === fence.marker && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      return "";
+    }
+    if (marker) {
+      fence = { marker: marker[1][0], length: marker[1].length };
+      return "";
+    }
+    return line;
+  }).join("\n");
+  const headings = findArticleHeadings(prose);
+  const seen = new Set<string>();
+  const items: ParsedArticleMaterial[] = [];
+  let cursor = 0;
+  for (let index = 0; index < headings.length; index += 1) {
+    const heading = headings[index];
+    if (heading.start < cursor || !isMaterialsSectionHeading(heading.text)) continue;
+    const end = headings.slice(index + 1).find(next => next.level <= heading.level)?.start ?? prose.length;
+    for (const line of prose.slice(heading.end, end).split("\n")) {
+      const match = line.match(LIST_LINE_RE);
+      if (!match) continue;
+      const title = stripMarkdownInline(match[1]);
+      if (!title || title.length < 2 || seen.has(title)) continue;
+      seen.add(title);
+      // The full display title is a lossless identity: no truncated slugs,
+      // quantity normalization or insertion-order suffix collisions.
+      items.push({ key: `material:source:${encodeURIComponent(title)}`, title });
+    }
+    cursor = end;
+  }
   return items;
 }
 

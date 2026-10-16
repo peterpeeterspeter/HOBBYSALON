@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { withFlash } from "@/lib/dashboard/return-path";
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/session";
 import {
@@ -31,11 +32,11 @@ function isNextRedirectError(error: unknown): boolean {
 }
 
 function fail(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  redirect(withFlash(path, "error", message));
 }
 
 function ok(path: string, message: string): never {
-  redirect(`${path}?success=${encodeURIComponent(message)}`);
+  redirect(withFlash(path, "success", message));
 }
 
 function parseOptionalString(formData: FormData, key: string): string | null {
@@ -136,14 +137,14 @@ export async function startOfferRoleUpgradeAction(
 
   const existing = await getCreatorByUserId(user.id);
   if (existing) {
-    redirect("/dashboard#account");
+    redirect("/dashboard/instellingen#aanbieden");
   }
 
   const roleRaw = parseOptionalString(formData, "offer_role");
   const roles = parseRegistrationOfferRoles(roleRaw ? [roleRaw] : []);
   const role = resolvePrimaryOfferRole(roles);
   if (!role || role === "merchant") {
-    fail("/profile#rollen-upgraden", "Kies een geldige aanbiedersrol.");
+    fail("/dashboard/instellingen", "Kies een geldige aanbiedersrol.");
   }
 
   const { getUserRegistrationContext } = await import(
@@ -165,6 +166,7 @@ export async function startOfferRoleUpgradeAction(
 
   revalidatePath("/onboarding");
   revalidatePath("/profile");
+  revalidatePath("/dashboard/pagina");
   revalidatePath("/dashboard");
   redirect(`/onboarding?role=${encodeURIComponent(role)}`);
 }
@@ -304,6 +306,7 @@ export async function saveOnboardingProfileAction(
 
     revalidatePath("/onboarding");
     revalidatePath("/profile");
+    revalidatePath("/dashboard/pagina");
     revalidatePath("/dashboard");
     await setOnboardingCompleted(user.id, true);
     const listingPath = getFirstListingPath(role);

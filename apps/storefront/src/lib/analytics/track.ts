@@ -1,5 +1,7 @@
 "use client";
 
+import { sendGa4Event } from "./ga4";
+
 export type AnalyticsPayload = Record<string, unknown>;
 
 type FunnelStage = "discovery" | "intent" | "checkout" | "purchase" | "engagement";
@@ -58,7 +60,23 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["workshop_id", "creator_id"],
     funnelStage: "engagement",
   },
+  product_inquiry_submitted: {
+    required: ["product_id", "creator_id"],
+    funnelStage: "engagement",
+  },
+  sign_up: {
+    required: ["method"],
+    funnelStage: "engagement",
+  },
+  listing_published: {
+    required: ["listing_type"],
+    funnelStage: "engagement",
+  },
   newsletter_signup: {
+    required: ["signup_source"],
+    funnelStage: "engagement",
+  },
+  newsletter_signup_requested: {
     required: ["signup_source"],
     funnelStage: "engagement",
   },
@@ -103,7 +121,7 @@ export type DataLayerEvent = AnalyticsPayload & {
 
 declare global {
   interface Window {
-    dataLayer?: DataLayerEvent[];
+    dataLayer?: Array<DataLayerEvent | IArguments | unknown[]>;
   }
 }
 
@@ -397,8 +415,7 @@ export function trackEvent(event: string, payload: AnalyticsPayload = {}): void 
     schema_valid: missingRequiredFields.length === 0,
   };
 
-  const dataLayer = (window.dataLayer ??= []);
-  dataLayer.push(eventPayload);
+  sendGa4Event(event, sanitizedPayload);
   appendEventToLog(eventPayload);
   sendEventToPassportIngest(eventPayload);
   window.dispatchEvent(

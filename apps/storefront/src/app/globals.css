@@ -849,3 +849,41 @@ details > summary::-webkit-details-marker {
     max-width: none !important;
   }
 }
+
+/*
+ * Dashboard ("Mijn aanbod") type scale for a 55+ audience.
+ * Tailwind v4 utilities read --text-* variables, so this lifts every
+ * text-xs/sm/base inside the dashboard without touching each page:
+ * small print 16px, body 18px, nothing below 16px.
+ */
+.dashboard-scope {
+  --text-xs: 1rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 1.0625rem;
+  --text-sm--line-height: 1.55;
+  --text-base: 1.125rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.5;
+  font-size: 1.125rem;
+}
+
+.dashboard-scope :where(input, select, textarea) {
+  min-height: var(--touch-target-min);
+  font-size: 1.125rem;
+}
+
+.dashboard-scope :where(textarea) {
+  min-height: 7rem;
+}
+
+.dashboard-scope :where(input[type="checkbox"], input[type="radio"]) {
+  min-height: 0;
+  width: 1.375rem;
+  height: 1.375rem;
+  accent-color: var(--accent);
+}
+
+.dashboard-scope :where(button, [type="submit"]) {
+  min-height: var(--touch-target-min);
+}

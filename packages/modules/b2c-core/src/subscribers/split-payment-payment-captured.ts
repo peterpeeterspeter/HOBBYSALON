@@ -1,23 +1,15 @@
 import { SubscriberArgs, SubscriberConfig } from '@medusajs/framework'
-import { Modules, PaymentEvents } from '@medusajs/framework/utils'
+import { PaymentEvents } from '@medusajs/framework/utils'
 
-import { markSplitOrderPaymentsAsCapturedWorkflow } from '../workflows/split-order-payment/workflows'
+import { acknowledgeMarketplaceCapture } from '../utils/marketplace-capture-subscriber'
 
 export default async function paymentCapturedHandler({
   event,
   container
 }: SubscriberArgs<{ id: string }>) {
-  const payment_id = event.data.id
-  const paymentService = container.resolve(Modules.PAYMENT)
-
-  const payment = await paymentService.retrievePayment(payment_id, {
-    relations: ['payment_collection']
-  })
-
-  await markSplitOrderPaymentsAsCapturedWorkflow.run({
-    container,
-    input: payment.payment_collection_id
-  })
+  // The locked capture tail owns accounting. A delayed event must never reset
+  // a refunded/canceled split, even when its queue job ID is deterministic.
+  await acknowledgeMarketplaceCapture(container, event)
 }
 
 export const config: SubscriberConfig = {

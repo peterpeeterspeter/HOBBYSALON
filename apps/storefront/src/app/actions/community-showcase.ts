@@ -133,6 +133,6 @@ export async function moderateArticleCommunityProjectAction(formData: FormData):
     .eq("id", submissionId)
     .eq("status", "pending");
   if (error) throw new Error("Modereren mislukt. Probeer later opnieuw.");
-  revalidatePath("/dashboard/moderatie/community");
+  revalidatePath("/beheer/community");
   revalidatePath("/artikel", "layout");
 }

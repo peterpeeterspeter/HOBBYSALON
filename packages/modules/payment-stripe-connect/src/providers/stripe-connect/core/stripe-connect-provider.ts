@@ -199,19 +199,43 @@ abstract class StripeConnectProvider extends AbstractPaymentProvider<Options> {
 
   async capturePayment({
     data: paymentSessionData,
+    context,
   }: CapturePaymentInput): Promise<CapturePaymentOutput> {
     const id = paymentSessionData?.id as string;
-    try {
-      const data = (await this.client_.paymentIntents.capture(id)) as any;
-      return { data };
-    } catch (error) {
-      if (error.code === ErrorCodes.PAYMENT_INTENT_UNEXPECTED_STATE) {
-        if (error.payment_intent?.status === ErrorIntentStatus.SUCCEEDED) {
-          return { data: error.payment_intent };
-        }
-      }
-      throw this.buildError("An error occurred in capturePayment", error);
+    const idempotencyKey = context?.idempotency_key;
+    if (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 255) {
+      throw new Error("Capture requires a stable Medusa capture identity");
     }
+    const currency = paymentSessionData?.currency;
+    const amount = paymentSessionData?.amount;
+    if (typeof id !== "string" || !id.trim() || typeof currency !== "string" ||
+        !/^[a-z]{3}$/.test(currency) || !Number.isSafeInteger(amount) || amount <= 0) {
+      throw new Error("Capture requires an exact provider identity, currency and full amount");
+    }
+    const verify = (receipt) => {
+      if (!receipt || receipt.id !== id || receipt.currency !== currency ||
+          receipt.amount !== amount || receipt.amount_received !== amount ||
+          receipt.amount_capturable !== 0 || receipt.status !== "succeeded") {
+        throw new Error("Capture receipt does not prove this exact full payment");
+      }
+      return { data: receipt };
+    };
+    let receipt;
+    try {
+      receipt = await this.client_.paymentIntents.capture(id, {}, { idempotencyKey });
+    } catch (error) {
+      if (error?.code !== ErrorCodes.PAYMENT_INTENT_UNEXPECTED_STATE) {
+        throw this.buildError("An error occurred in capturePayment", error);
+      }
+      // An attached error object is not verified evidence. Reconcile using an
+      // actual read of the original intent, checking every money/identity field.
+      try {
+        receipt = await this.client_.paymentIntents.retrieve(id);
+      } catch (readError) {
+        throw this.buildError("An error occurred reconciling capturePayment", readError);
+      }
+    }
+    return verify(receipt);
   }
 
   deletePayment(data: DeletePaymentInput): Promise<DeletePaymentOutput> {

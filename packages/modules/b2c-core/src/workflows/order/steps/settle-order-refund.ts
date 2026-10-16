@@ -1,5 +1,8 @@
 import { ContainerRegistrationKeys, MathBN, OrderStatus } from '@medusajs/framework/utils'
 import { StepResponse, createStep } from '@medusajs/framework/workflows-sdk'
+import { withCommerceOrderLock } from '../../../utils/commerce-financial-lock'
+import { assertCommerceFinancialLock } from '../../../utils/commerce-cart-lock'
+import { assertCommerceRefundQuarantineClear } from '../../../utils/commerce-refund-quarantine'
 import { PAYOUT_MODULE, type PayoutModuleService } from '../../../modules/payout'
 import { refundSplitOrderPaymentWorkflow } from '../../split-order-payment/workflows/refund-split-order-payment'
 import {
@@ -8,6 +11,7 @@ import {
   type SettlementStore,
 } from '../../../utils/refund-settlement'
 import { createPostgresSettlementStore } from '../../../utils/refund-settlement-store'
+import { withRefundEffectFence } from '../../../utils/refund-effect-fence'
 import {
   createPostgresPayoutExecutionStore,
   type PayoutExecution,
@@ -33,7 +37,9 @@ export const orderRefundScopeFields = [
   'payment_collections.id', 'payment_collections.captured_amount',
 ]
 const planFields = [
-  ...orderRefundScopeFields, 'items.quantity', 'items.unit_price', 'items.subtotal', 'items.total',
+  // Medusa 2.11.3 requires an ORDER-level total to calculate line totals,
+  // and detail.quantity to load the purchased quantity from the order item.
+  ...orderRefundScopeFields, 'total', 'items.quantity', 'items.detail.quantity', 'items.unit_price', 'items.subtotal', 'items.total',
   'split_order_payment.*', 'payouts.*', 'payouts.reversals.*',
 ]
 function successful(value: any): void {
@@ -77,22 +83,36 @@ export const settleOrderRefundStep = createStep(
   'settle-order-refund',
   async (input: SettleOrderRefundInput, { container }) => {
     const { request, operation_id, fingerprint } = snapshotOrderRefundRequest(input)
+    return withCommerceOrderLock(container, request.order_id, async () => {
+    assertCommerceFinancialLock()
     const query = container.resolve(ContainerRegistrationKeys.QUERY)
+    let scopeCheck: (() => void) | undefined
+    const check = () => { assertCommerceFinancialLock(); scopeCheck?.() }
+    const graph: typeof query.graph = async (...args) => {
+      check()
+      const result = await query.graph(...args)
+      check()
+      return result
+    }
     const readOrder = async (fields: string[]) => {
-      const { data } = await query.graph({ entity: 'orders', fields, filters: { id: request.order_id } })
+      const { data } = await graph({ entity: 'orders', fields, filters: { id: request.order_id } })
       if (data.length !== 1 || data[0].id !== request.order_id) throw new Error('Refund order not found')
       return data[0] as unknown as OrderRefundSnapshot
     }
-    const initial = input.scope_order ?? await readOrder(orderRefundScopeFields)
+    const initial = await readOrder(orderRefundScopeFields)
     if (initial.id !== request.order_id) throw new Error('Refund order identity mismatch')
     const settlementInput = { operation_id, order_id: request.order_id, scope_id: orderRefundScope(initial), fingerprint }
-    const postgres = createPostgresSettlementStore(container.resolve(ContainerRegistrationKeys.PG_CONNECTION))
+    // Before planning OR replay, an earlier uncertain native dispatch blocks the
+    // entire cancellation workflow, including already-canceled inventory retries.
+    await assertCommerceRefundQuarantineClear(settlementInput.scope_id)
+    check()
+    const postgres = createPostgresSettlementStore(container.resolve(ContainerRegistrationKeys.PG_CONNECTION), assertCommerceFinancialLock)
     let recordedPayout: PayoutExecution | null = null
     const verifyRecordedPayout = async (order: OrderRefundSnapshot) => {
       if (!recordedPayout) return
       const saved = recordedPayout, expected = saved.plan
       if (orderRefundScope(order) !== saved.scope_id || order.id !== saved.order_id) throw new Error('Recorded payout scope changed')
-      const { data: links } = await query.graph({ entity: 'order_payout', fields: ['order_id', 'payout_id'], filters: { order_id: request.order_id } })
+      const { data: links } = await graph({ entity: 'order_payout', fields: ['order_id', 'payout_id'], filters: { order_id: request.order_id } })
       const projected = order.payouts ?? []
       if (expected.amount === 0) {
         if (saved.payout_id || saved.transfer_id || links.length || projected.length) throw new Error('Recorded zero payout contradicts live evidence')
@@ -103,6 +123,7 @@ export const settleOrderRefundStep = createStep(
           !MathBN.eq(projected[0].amount, expected.amount)) throw new Error('Recorded payout linkage requires reconciliation')
       const service = container.resolve<PayoutModuleService>(PAYOUT_MODULE)
       const payout = await service.retrievePayout(saved.payout_id)
+      check()
       const data = payout.data as Record<string, any> | null
       const digits = new Intl.NumberFormat('en', { style: 'currency', currency: expected.currency }).resolvedOptions().maximumFractionDigits
       if (digits === undefined) throw new Error('Invalid payout currency precision')
@@ -121,34 +142,45 @@ export const settleOrderRefundStep = createStep(
     // lookup to authorize a pending money leg on an already-canceled order.
     const store: SettlementStore = {
       withScopeLock: (scope, work) => postgres.withScopeLock(scope, async (session) => {
+        if (!session.assertActive) throw new Error('Missing refund scope authority')
+        scopeCheck = session.assertActive
+        check()
         // Runs for retries as well as fresh plans, under the collection lock.
         const payoutExecutions = createPostgresPayoutExecutionStore(container.resolve(ContainerRegistrationKeys.PG_CONNECTION))
         await payoutExecutions.assertScopeResolved(scope)
+        check()
         const payoutExecution = await payoutExecutions.get(request.order_id)
+        check()
         if (payoutExecution && (payoutExecution.phase !== 'completed' || payoutExecution.scope_id !== scope)) {
           throw new Error('Unresolved or changed-scope payout requires reconciliation')
         }
         recordedPayout = payoutExecution
         if (recordedPayout) await verifyRecordedPayout(await readOrder(planFields))
+        check()
         if (request.kind === 'cancel' && initial.status === OrderStatus.CANCELED) {
           const existing = await session.getOperation(operation_id)
+          check()
           if (existing?.phase !== 'completed') throw new Error('Canceled order requires a completed settlement')
         }
-        return work(session)
+        check()
+        return withRefundEffectFence(check, () => work(session))
       }),
     }
     const result = await executeSettlement(store, settlementInput, {
+      assertActive: check,
       plan: async () => {
+        check()
         const order = await readOrder(planFields)
         if (orderRefundScope(order) !== settlementInput.scope_id) throw new Error('Refund payment scope changed')
         // Revalidate the exact snapshot used for allocation as well, so a later
         // missing projection cannot silently turn a known transfer into zero.
         await verifyRecordedPayout(order)
+        check()
         if (request.kind === 'cancel' && (order.status === OrderStatus.CANCELED ||
             (order.fulfillments ?? []).some((fulfillment) => !fulfillment.canceled_at))) {
           throw new Error('Order cannot be canceled')
         }
-        const { data: commissionLines } = await query.graph({ entity: 'commission_line',
+        const { data: commissionLines } = await graph({ entity: 'commission_line',
           fields: ['item_line_id', 'value'], filters: { item_line_id: (order.items ?? []).map((item) => item.id) } })
         const plan = allocateOrderRefund(order, request, settlementInput, commissionLines)
         // Validate provider-key length before persisting or refunding anything.
@@ -156,7 +188,7 @@ export const settleOrderRefundStep = createStep(
         let payment_id: string | null = null
         if (plan.customerRefund > 0) {
           if (!plan.split_order_payment_id) throw new Error('Positive refund requires a split payment')
-          const { data: collections } = await query.graph({ entity: 'payment_collection',
+          const { data: collections } = await graph({ entity: 'payment_collection',
             fields: ['id', 'currency_code', 'payments.id'], filters: { id: settlementInput.scope_id } })
           const collection = collections[0]
           if (collections.length !== 1 || collection.id !== settlementInput.scope_id ||
@@ -165,7 +197,7 @@ export const settleOrderRefundStep = createStep(
           if (!ids.length || ids.some((id) => typeof id !== 'string' || !id.trim()) || new Set(ids).size !== ids.length) {
             throw new Error('Invalid collection payment identities')
           }
-          const { data: payments } = await query.graph({ entity: 'payment', fields: [
+          const { data: payments } = await graph({ entity: 'payment', fields: [
             'id', 'currency_code', 'canceled_at', 'captures.amount', 'refunds.amount',
           ], filters: { id: ids } })
           if (payments.length !== ids.length || new Set(payments.map((payment) => payment.id)).size !== ids.length ||
@@ -186,11 +218,13 @@ export const settleOrderRefundStep = createStep(
         return { ...plan, payment_id }
       },
       refund: async (plan) => {
+        check()
         if (!plan.split_order_payment_id || !plan.payment_id) throw new Error('Missing pinned refund identities')
         const response = await refundSplitOrderPaymentWorkflow(container).run({ input: {
           id: plan.split_order_payment_id, amount: plan.customerRefund,
           operation_id: plan.operation_id, payment_id: plan.payment_id,
         }, throwOnError: true })
+        check()
         successful(response)
         // Outer workflow returns updated split records; its nested native refund
         // workflow validates the successful PaymentDTO and transaction dependency.
@@ -201,15 +235,20 @@ export const settleOrderRefundStep = createStep(
         return response.result
       },
       reverse: async (plan) => {
+        check()
         const service = container.resolve<PayoutModuleService>(PAYOUT_MODULE)
         const payout = await service.retrievePayout(plan.payout_id!)
-        const row = await service.createPayoutReversal({ payout_id: plan.payout_id!, amount: plan.sellerReversal,
-          currency_code: plan.currency_code, operation_id: plan.operation_id })
+        check()
+        const row = await withRefundEffectFence(check, () => service.createPayoutReversal({ payout_id: plan.payout_id!, amount: plan.sellerReversal,
+          currency_code: plan.currency_code, operation_id: plan.operation_id }))
+        check()
         return reversalEvidence(row, payout, plan)
       },
       recoverReversal: async (plan) => {
+        check()
         const service = container.resolve<PayoutModuleService>(PAYOUT_MODULE)
         const payout = await service.retrievePayout(plan.payout_id!)
+        check()
         const key = reversalKey(plan)
         let found: ReturnType<typeof reversalEvidence> | null = null
         // Read-only LOCAL rows. Missing proof means unknown outcome, never
@@ -217,6 +256,7 @@ export const settleOrderRefundStep = createStep(
         for (let skip = 0; ; skip += 100) {
           const rows = await service.listPayoutReversals({ payout_id: plan.payout_id! },
             { take: 100, skip, order: { id: 'ASC' } })
+          check()
           for (const row of rows) {
             if (row.data?.idempotency_key !== key) continue
             if (found) throw new Error('Ambiguous saved reversal evidence')
@@ -227,7 +267,9 @@ export const settleOrderRefundStep = createStep(
         return found
       },
     })
+    assertCommerceFinancialLock()
     if (result.receipt.phase !== 'completed') throw new Error('Financial settlement is incomplete')
     return new StepResponse(result)
+    })
   }
 )

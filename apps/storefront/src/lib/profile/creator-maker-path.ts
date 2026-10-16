@@ -1,6 +1,6 @@
 import type { CreatorTab } from "@/components/dashboard/creator/types";
 
-export const CREATOR_MAKER_PROFILE_PATH = "/profile";
+export const CREATOR_MAKER_PROFILE_PATH = "/dashboard/pagina";
 
 export function creatorMakerProfileUrl(options?: {
   tab?: CreatorTab;

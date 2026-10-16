@@ -17,6 +17,7 @@ export default async function orderCreatedHandler({
 
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const storeData = await fetchStoreData(container);
+  const errors: unknown[] = [];
 
   for (const orderId of event.data.order_ids) {
     try {
@@ -39,18 +40,20 @@ export default async function orderCreatedHandler({
       });
 
       if (!order) {
-        continue;
+        throw new Error(`Order not found: ${orderId}`);
       }
 
       const orderUrl = buildHostAddress(
         Hosts.STOREFRONT,
-        `/account/orders/${order.order_set.id ?? order.id}`
+        `/account/orders/${order.order_set?.id ?? order.id}`
       ).toString();
 
       await notificationService.createNotifications({
         to: order.email,
         channel: "email",
         template: ResendNotificationTemplates.BUYER_NEW_ORDER,
+        // Native notification idempotency skips successful sends on event retry.
+        idempotency_key: `buyer-new-order:${order.id}`,
         content: {
           subject: `Order Confirmation - #${order.display_id}`,
         },
@@ -74,7 +77,11 @@ export default async function orderCreatedHandler({
         `Error processing buyer notification for order ${orderId}:`,
         error
       );
+      errors.push(error);
     }
+  }
+  if (errors.length) {
+    throw new AggregateError(errors, "Failed to process buyer order notifications");
   }
 }
 

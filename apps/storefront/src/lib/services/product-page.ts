@@ -5,7 +5,12 @@ import {
   listProductsByIds,
 } from "@/lib/platform/queries/products";
 import { getCreatorById } from "@/lib/platform/queries/creators";
-import { getWorkshopById } from "@/lib/platform/queries/workshops";
+import { listWorkshopsByIds } from "@/lib/platform/queries/workshops";
+import {
+  listWorkshopIdsUsingProduct,
+  listProjectIdsUsingProduct,
+  listPublicProjectsByIds,
+} from "@/lib/platform/queries/product-usage";
 import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
@@ -15,8 +20,9 @@ import {
   getMedusaProductByHandle,
 } from "@/lib/commerce/medusa/products";
 import { medusaAmountToCents } from "@/lib/commerce/money";
+import type { ExactVariantPriceInput } from "@/lib/commerce/variant-price";
 import { publicAssetUrl, publicAssetUrls } from "@/lib/media/public-asset-url";
-import type { Product, Creator, Domain, Workshop, Article, Event } from "@/types/platform";
+import type { Product, Creator, Domain, Workshop, Article, Event, Project } from "@/types/platform";
 
 export type ProductPageData = {
   product: Product | null;
@@ -28,12 +34,15 @@ export type ProductPageData = {
     title: string;
     calculated_amount?: number;
     currency_code?: string;
+    /** Unmodified commerce provenance for validated exact-link prices. */
+    exact_price?: ExactVariantPriceInput | null;
   }>;
   galleryImages: string[];
   relatedWorkshops: Workshop[];
   relatedSupplies: Product[];
   relatedArticles: Article[];
   relatedEvents: Event[];
+  relatedProjects: Project[];
 };
 
 const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
@@ -56,10 +65,11 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       relatedSupplies: [],
       relatedArticles: [],
       relatedEvents: [],
+      relatedProjects: [],
     };
   }
 
-  const [creator, domain, entityLinks, galleryResult] = await Promise.all([
+  const [creator, domain, entityConnections, galleryResult] = await Promise.all([
     product.creator_id ? getCreatorById(product.creator_id) : Promise.resolve(null),
     product.domain_id
       ? (async () => {
@@ -98,6 +108,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     title: string;
     calculated_amount?: number;
     currency_code?: string;
+    exact_price?: ExactVariantPriceInput | null;
   }> = [];
 
   if (useMedusaCommerce) {
@@ -114,6 +125,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
         title: v.title,
         calculated_amount: v.calculated_price?.calculated_amount,
         currency_code: v.calculated_price?.currency_code ?? "EUR",
+        exact_price: v.calculated_price,
       })) ?? [];
 
     const firstPriced = variants.find((v) => v.calculated_amount != null);
@@ -137,24 +149,31 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     };
   }
 
-  const workshopIds = entityLinks
-    .filter((l) => l.entityType === "workshop")
-    .map((l) => l.entityId);
-  const relatedWorkshops =
-    workshopIds.length > 0
-      ? (
-          await Promise.all(
-            workshopIds.map((id) => getWorkshopById(id))
-          )
-        ).filter((w): w is Workshop => w != null)
-      : [];
-  const relatedArticleIds = entityLinks
+  // Explicit saved usage comes first; graph neighbors remain recommendations.
+  // Never derive a cart, bundle, or new material requirement on this page.
+  const [usageWorkshopIds, usageProjectIds] = await Promise.all([
+    listWorkshopIdsUsingProduct(product.id),
+    listProjectIdsUsingProduct(product.id),
+  ]);
+  const workshopIds = [...new Set([
+    ...usageWorkshopIds,
+    ...entityConnections.filter((l) => l.entityType === "workshop").map((l) => l.entityId),
+  ])];
+  const projectIds = [...new Set([
+    ...usageProjectIds,
+    ...entityConnections.filter((l) => l.entityType === "project").map((l) => l.entityId),
+  ])];
+  const [relatedWorkshops, relatedProjects] = await Promise.all([
+    listWorkshopsByIds(workshopIds),
+    listPublicProjectsByIds(projectIds),
+  ]);
+  const relatedArticleIds = entityConnections
     .filter((l) => l.entityType === "article")
     .map((l) => l.entityId);
-  const relatedEventIds = entityLinks
+  const relatedEventIds = entityConnections
     .filter((l) => l.entityType === "event")
     .map((l) => l.entityId);
-  const relatedProductIds = entityLinks
+  const relatedProductIds = entityConnections
     .filter((l) => l.entityType === "product")
     .map((l) => l.entityId);
 
@@ -211,5 +230,6 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     relatedSupplies,
     relatedArticles,
     relatedEvents,
+    relatedProjects,
   };
 }

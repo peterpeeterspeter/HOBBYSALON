@@ -12,6 +12,7 @@ import {
 } from "@/lib/platform/listing-credits";
 import { isCommercialGatingEnabled } from "@/lib/platform/commercial-entitlements";
 import { sendExhibitorOutreachEmail } from "@/lib/platform/notifications/exhibitor-outreach-email";
+import { resolveReturnPath, withFlash } from "@/lib/dashboard/return-path";
 
 function isNextRedirectError(error: unknown): boolean {
   return (
@@ -23,8 +24,8 @@ function isNextRedirectError(error: unknown): boolean {
   );
 }
 
-function fail(message: string): never {
-  redirect("/dashboard/events?error=" + encodeURIComponent(message));
+function fail(path: string, message: string): never {
+  redirect(withFlash(path, "error", message));
 }
 
 /**
@@ -34,6 +35,7 @@ function fail(message: string): never {
  * on the public event page, sharing their own details themselves.
  */
 export async function sendExhibitorOutreachAction(formData: FormData): Promise<void> {
+  const returnPath = resolveReturnPath(formData, "/dashboard/events");
   try {
     const user = await getAuthUser();
     if (!user) {
@@ -42,13 +44,13 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
 
     const creator = await getCreatorByUserId(user.id);
     if (!creator) {
-      fail("Maak eerst een creator-profiel aan.");
+      fail(returnPath, "Maak eerst een creator-profiel aan.");
     }
 
     const eventId = formData.get("event_id")?.toString()?.trim();
     const message = formData.get("message")?.toString()?.trim() || null;
     if (!eventId) {
-      fail("Ongeldig event.");
+      fail(returnPath, "Ongeldig event.");
     }
 
     const supabase = createPlatformClient();
@@ -60,7 +62,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
       .maybeSingle();
 
     if (!event) {
-      fail("Event niet gevonden.");
+      fail(returnPath, "Event niet gevonden.");
     }
 
     const cost = LISTING_CREDIT_COSTS.exhibitorOutreach;
@@ -68,6 +70,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
       const balance = await getCreditBalance(creator.id);
       if (balance < cost) {
         fail(
+          returnPath,
           `Onvoldoende credits. Een oproep kost ${cost} credits, je hebt er ${balance}.`
         );
       }
@@ -86,7 +89,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
     );
 
     if (recipients.length === 0) {
-      fail("Geen makers gevonden die openstaan voor markten en beurzen.");
+      fail(returnPath, "Geen makers gevonden die openstaan voor markten en beurzen.");
     }
 
     const emailResults = await Promise.allSettled(
@@ -111,6 +114,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
     // silently when RESEND_API_KEY/RESEND_FROM_EMAIL are missing.
     if (sentCount === 0) {
       fail(
+        returnPath,
         "Er kon geen enkele oproep verstuurd worden. Er zijn geen credits aangerekend."
       );
     }
@@ -125,7 +129,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
         { recipient_count: sentCount }
       );
       if (!result.ok) {
-        fail(result.error ?? "Credits verbruiken mislukt.");
+        fail(returnPath, result.error ?? "Credits verbruiken mislukt.");
       }
       creditsSpent = cost;
     }
@@ -139,12 +143,9 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
     });
 
     revalidatePath("/dashboard/events");
-    redirect(
-      "/dashboard/events?success=" +
-        encodeURIComponent(`Oproep verstuurd naar ${sentCount} makers.`)
-    );
+    redirect(withFlash(returnPath, "success", `Oproep verstuurd naar ${sentCount} makers.`));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
-    fail(error instanceof Error ? error.message : "Onbekende fout.");
+    fail(returnPath, error instanceof Error ? error.message : "Onbekende fout.");
   }
 }

@@ -34,14 +34,17 @@ export function resolveOnboardingRole(
 
 /** Where to create the first listing after the profile step — real dashboard forms, no thin duplicate. */
 export function getFirstListingPath(role: RegistrationOfferRole): string {
-  return getPublishPath(role);
+  if (role === "workshopgever") return "/dashboard/workshops/nieuw";
+  if (role === "organizer") return "/dashboard/events/nieuw";
+  if (role === "maker") return "/dashboard/products/nieuw";
+  return "/dashboard/winkel";
 }
 
 export function getPublishPath(role: RegistrationOfferRole): string {
-  if (role === "workshopgever") return "/dashboard/workshops";
-  if (role === "organizer") return "/dashboard/events";
-  if (role === "maker") return "/dashboard/products";
-  return "/dashboard/verkoper";
+  if (role === "workshopgever") return "/dashboard/aanbod?soort=workshops";
+  if (role === "organizer") return "/dashboard/aanbod?soort=events";
+  if (role === "maker") return "/dashboard/aanbod?soort=creaties";
+  return "/dashboard/winkel";
 }
 
 export function getRoleStatusLabel(input: {

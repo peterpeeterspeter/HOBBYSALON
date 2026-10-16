@@ -140,6 +140,8 @@ export async function createProjectAction(formData: FormData): Promise<void> {
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath("/profile/projects");
     ok(
       `/profile/projects/${project.id}/edit`,
@@ -222,6 +224,8 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
     }
 
     revalidatePath("/profile");
+
+    revalidatePath("/dashboard/pagina");
     revalidatePath("/profile/projects");
     revalidatePath(`/profile/projects/${projectId}/edit`);
     revalidatePath(`/project/${project.slug}`);

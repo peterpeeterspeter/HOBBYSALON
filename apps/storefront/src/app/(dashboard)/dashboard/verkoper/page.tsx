@@ -46,7 +46,7 @@ export default async function VerkoperHandoffPage() {
           hier je winkel op verkoper.hobbysalon.be.
         </p>
         <p className="text-sm">
-          <Link href="/dashboard#account" className="text-[var(--accent)] underline">
+          <Link href="/dashboard/instellingen#aanbieden" className="text-[var(--accent)] underline">
             Bekijk je rollen in Account
           </Link>
         </p>

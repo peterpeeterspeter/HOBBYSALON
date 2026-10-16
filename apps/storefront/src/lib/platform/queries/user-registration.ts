@@ -162,44 +162,42 @@ export async function persistUserRegistrationProfile(
   const supabase = createPlatformClient();
   const errors: string[] = [];
 
-  const postalCode = sanitizePostalCode(input.postalCode);
-  const countryCode = sanitizeCountryCode(input.countryCode);
-  const interestTypes = sanitizeInterestTypes(input.interestTypes);
-  const preferredDomainIds = sanitizePreferredDomainIds(
-    input.preferredDomainIds
-  );
-  const offerRoles = sanitizeOfferRoles(input.offerRoles);
-  const primaryOfferRole =
-    input.primaryOfferRole !== undefined
-      ? input.primaryOfferRole
-      : resolvePrimaryOfferRole(offerRoles);
+  // Only write what the caller provides. Partial saves (merchant upgrade,
+  // Voorkeuren, interests prompt) must not reset consent or offer intent.
+  const preferencePayload: Record<string, unknown> = { user_id: input.userId };
 
-  const nowIso = new Date().toISOString();
-  const marketingOptIn = !!input.marketingOptIn;
-  const onboardingCompleted =
-    input.onboardingCompleted !== undefined
-      ? input.onboardingCompleted
-      : offerRoles.length === 0;
-
-  const preferencePayload: Record<string, unknown> = {
-    user_id: input.userId,
-    postal_code: postalCode,
-    country_code: countryCode,
-    interest_types: interestTypes,
-    offer_roles: offerRoles,
-    primary_offer_role: primaryOfferRole,
-    marketing_opt_in: marketingOptIn,
-    onboarding_completed: onboardingCompleted,
-  };
-
-  if (input.preferredDomainIds !== undefined) {
-    preferencePayload.preferred_domain_ids = preferredDomainIds;
+  if (input.postalCode !== undefined) {
+    preferencePayload.postal_code = sanitizePostalCode(input.postalCode);
   }
-
-  if (marketingOptIn) {
-    preferencePayload.marketing_opted_in_at = nowIso;
-    preferencePayload.marketing_consent_source =
-      input.marketingConsentSource?.trim() || "register";
+  if (input.countryCode !== undefined) {
+    preferencePayload.country_code = sanitizeCountryCode(input.countryCode);
+  }
+  if (input.interestTypes !== undefined) {
+    preferencePayload.interest_types = sanitizeInterestTypes(input.interestTypes);
+  }
+  if (input.preferredDomainIds !== undefined) {
+    preferencePayload.preferred_domain_ids = sanitizePreferredDomainIds(
+      input.preferredDomainIds
+    );
+  }
+  if (input.offerRoles !== undefined) {
+    const offerRoles = sanitizeOfferRoles(input.offerRoles);
+    preferencePayload.offer_roles = offerRoles;
+    preferencePayload.primary_offer_role =
+      input.primaryOfferRole !== undefined
+        ? input.primaryOfferRole
+        : resolvePrimaryOfferRole(offerRoles);
+  }
+  if (input.onboardingCompleted !== undefined) {
+    preferencePayload.onboarding_completed = input.onboardingCompleted;
+  }
+  if (input.marketingOptIn !== undefined) {
+    preferencePayload.marketing_opt_in = input.marketingOptIn;
+    if (input.marketingOptIn) {
+      preferencePayload.marketing_opted_in_at = new Date().toISOString();
+      preferencePayload.marketing_consent_source =
+        input.marketingConsentSource?.trim() || "register";
+    }
   }
 
   const [preferenceResult, roleResult] = await Promise.all([

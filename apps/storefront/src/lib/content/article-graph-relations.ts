@@ -1,5 +1,3 @@
-import { publicRelationAlias } from "../platform/graph-contract";
-
 export const ARTICLE_GRAPH_RELATION_TYPES = [
   "required_material",
   "required_tool",
@@ -44,20 +42,22 @@ const emptyRelations = (): ArticleGraphRelations => ({
   relatedArticles: [],
 });
 
+function compareGraphItems(first: OrderedArticleGraphItem, second: OrderedArticleGraphItem): number {
+  const firstOrder = first.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  const secondOrder = second.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  return firstOrder - secondOrder || (second.weight ?? 0) - (first.weight ?? 0);
+}
+
 function orderAndDeduplicate(items: OrderedArticleGraphItem[]): OrderedArticleGraphItem[] {
   const byId = new Map<string, OrderedArticleGraphItem>();
   for (const item of items) {
     const current = byId.get(item.id);
-    if (!current || (item.weight ?? 0) > (current.weight ?? 0)) {
+    if (!current || compareGraphItems(item, current) < 0) {
       byId.set(item.id, item);
     }
   }
 
-  return [...byId.values()].sort((first, second) => {
-    const firstOrder = first.sortOrder ?? Number.MAX_SAFE_INTEGER;
-    const secondOrder = second.sortOrder ?? Number.MAX_SAFE_INTEGER;
-    return firstOrder - secondOrder || (second.weight ?? 0) - (first.weight ?? 0);
-  });
+  return [...byId.values()].sort(compareGraphItems);
 }
 
 export function normalizeArticleGraphRelations(
@@ -74,22 +74,22 @@ export function normalizeArticleGraphRelations(
       weight: connection.weight,
     };
 
-    const relationType = publicRelationAlias(connection.entityType, connection.relationType);
-
     if (connection.entityType === "product") {
-      if (relationType === "required_material") {
+      if (connection.relationType === "required_material") {
         relations.requiredMaterials.push(item);
-      } else if (relationType === "required_tool") {
+      } else if (connection.relationType === "required_tool") {
         relations.requiredTools.push(item);
-      } else if (relationType === "optional_material") {
+      } else if (connection.relationType === "optional_material") {
         relations.optionalMaterials.push(item);
-      } else if (relationType === "related_product") {
+      } else if (connection.relationType === "related_product" || connection.relationType === "related") {
+        // Earlier approvals persisted the generic role. Read them as optional
+        // recommendations, never as required materials, without a DB rewrite.
         relations.relatedProducts.push(item);
       }
     } else if (connection.entityType === "article") {
-      if (relationType === "next_step") {
+      if (connection.relationType === "next_step") {
         relations.nextSteps.push(item);
-      } else if (relationType === "related_article") {
+      } else if (connection.relationType === "related_article") {
         relations.relatedArticles.push(item);
       }
     }

@@ -10,6 +10,8 @@ import {
 } from "@medusajs/framework/utils";
 
 import { Onboarding, Payout, PayoutAccount, PayoutReversal } from "./models";
+import { commerceNativeFence } from "../../utils/commerce-native-fence";
+import { captureRefundEffectFence, checkRefundEffectFence } from "../../utils/refund-effect-fence";
 import {
   CreateOnboardingDTO,
   CreatePayoutAccountDTO,
@@ -37,6 +39,33 @@ class PayoutModuleService extends MedusaService({
   constructor({ payoutProvider }: InjectedDependencies) {
     super(...arguments);
     this.provider_ = payoutProvider;
+    // Immutable own entries check before native decorator acquisition; preserve
+    // the original module/internal-service/private repository and EM receivers.
+    // Only reversal paths require authority. Unrelated createPayouts is untouched.
+    for (const name of ["createPayoutReversal", "createPayoutReversals"] as const) {
+      const method = this[name];
+      Object.defineProperty(this, name, { value: async (input: unknown, context: Context<EntityManager> = {}) => {
+        const check = captureRefundEffectFence();
+        const rootRepository = (this as unknown as { baseRepository_: { transaction: (work: (manager: EntityManager) => Promise<unknown>, options: unknown) => Promise<unknown> } }).baseRepository_;
+        const repository = commerceNativeFence(rootRepository, check);
+        const invoke = async (transactionManager: EntityManager) => {
+          check();
+          const result = await Reflect.apply(method, this, [input, {
+            ...context, transactionManager,
+            ...(context.manager ? { manager: commerceNativeFence(context.manager, check) } : {}),
+          }]);
+          check();
+          return result;
+        };
+        if (context.transactionManager) {
+          return invoke(commerceNativeFence(context.transactionManager, check));
+        }
+        return repository.transaction(invoke, {
+          manager: context.manager, isolationLevel: context.isolationLevel,
+          enableNestedTransactions: context.enableNestedTransactions ?? false,
+        });
+      } });
+    }
   }
 
   @InjectTransactionManager()
@@ -204,6 +233,12 @@ class PayoutModuleService extends MedusaService({
     input: CreatePayoutReversalDTO,
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
+    checkRefundEffectFence(); // direct prototype entry after native acquisition too
+    const check = captureRefundEffectFence();
+    sharedContext = { ...sharedContext,
+      ...(sharedContext?.manager ? { manager: commerceNativeFence(sharedContext.manager, check) } : {}),
+      ...(sharedContext?.transactionManager ? { transactionManager: commerceNativeFence(sharedContext.transactionManager, check) } : {}),
+    };
     if (typeof input.operation_id !== "string" || !input.operation_id.trim() ||
         typeof input.payout_id !== "string" || !input.payout_id.trim()) {
       throw new Error("Payout reversal requires a stable operation identity");
@@ -224,6 +259,7 @@ class PayoutModuleService extends MedusaService({
       throw new Error("Payout reversal operation identity is too long");
     }
     const payout = await this.retrievePayout(input.payout_id, undefined, sharedContext);
+    checkRefundEffectFence();
     if (!payout || !payout.data || !payout.data.id) {
       throw new MedusaError(MedusaError.Types.NOT_FOUND, "Payout not found");
     }
@@ -251,6 +287,7 @@ class PayoutModuleService extends MedusaService({
         sharedContext
       );
       const saved = reversals.find((row) => row.data?.idempotency_key === idempotencyKey);
+      checkRefundEffectFence();
       if (saved) {
         if (!MathBN.eq(saved.amount, amount) || saved.currency_code !== currency ||
             saved.id !== saved.data?.id) {
@@ -262,12 +299,14 @@ class PayoutModuleService extends MedusaService({
       if (reversals.length < pageSize) break;
     }
 
+    checkRefundEffectFence();
     const transferReversal = await this.provider_.reversePayout({
       transfer_id,
       amount,
       currency,
       idempotency_key: idempotencyKey,
     });
+    checkRefundEffectFence();
     validateResult(transferReversal as unknown as Record<string, unknown>);
 
     // The external ID is also the primary key: concurrent replies for the same
@@ -275,6 +314,7 @@ class PayoutModuleService extends MedusaService({
     // persistence error propagates; retry finds the winner or reuses the same
     // provider key. This is NOT a durable pending-operation ledger: unknown
     // outcomes beyond provider key retention still require reconciliation.
+    checkRefundEffectFence();
     const payoutReversal = await this.createPayoutReversals(
       {
         id: transferReversal.id,
@@ -286,6 +326,7 @@ class PayoutModuleService extends MedusaService({
       sharedContext
     );
 
+    checkRefundEffectFence();
     return payoutReversal;
   }
 

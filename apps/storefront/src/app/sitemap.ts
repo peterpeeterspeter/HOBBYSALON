@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { listPublishedNewsletterIssueSlugs } from "@/lib/newsletter/issues";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getSiteUrl } from "@/lib/seo";
 import { getAllTools } from "@/lib/tools/registry";
@@ -21,6 +22,7 @@ const STATIC_PATHS = [
   "/tools",
   "/prijzen",
   "/partners",
+  "/adverteren",
   "/voor-contentmakers",
   "/voor-makers",
   "/voor-workshopgevers",
@@ -28,6 +30,7 @@ const STATIC_PATHS = [
   "/voor-winkels",
   "/voor-hobbyisten",
   "/over-ons",
+  "/nieuwsbrief",
 ] as const;
 
 type SitemapArticle = {
@@ -88,5 +91,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticEntries, ...toolEntries, ...articleEntries];
+  const newsletterIssues = await listPublishedNewsletterIssueSlugs().catch(
+    () => []
+  );
+  const newsletterEntries: MetadataRoute.Sitemap = newsletterIssues.map(
+    (issue) => ({
+      url: sitemapUrl(`/nieuwsbrief/${issue.slug}`),
+      lastModified: issue.published_at,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })
+  );
+
+  return [
+    ...staticEntries,
+    ...toolEntries,
+    ...articleEntries,
+    ...newsletterEntries,
+  ];
 }

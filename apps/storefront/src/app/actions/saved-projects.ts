@@ -74,6 +74,7 @@ export async function updateSavedProjectNoteAction(formData:FormData){
   await logEvent(user.id,"project_note_updated",type,id,{note});
   revalidatePath(`/profile/start/${type}/${id}`);
   revalidatePath("/profile");
+  revalidatePath("/dashboard/pagina");
 }
 export async function completeSavedProjectAction(formData:FormData){
   const type=readStartableType(formData.get("entity_type"));
@@ -89,4 +90,5 @@ export async function completeSavedProjectAction(formData:FormData){
   await logEvent(user.id,"project_completed",type,id);
   revalidatePath(`/profile/start/${type}/${id}`);
   revalidatePath("/profile");
+  revalidatePath("/dashboard/pagina");
 }

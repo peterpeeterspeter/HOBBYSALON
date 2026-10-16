@@ -7,6 +7,7 @@ import {
   type NewsletterActionState,
 } from "@/app/actions/newsletter";
 import { trackEvent } from "@/lib/analytics/track";
+import { newsletterSuccessEvent } from "@/lib/analytics/conversions";
 import { cn } from "@/lib/utils";
 
 const INITIAL_STATE: NewsletterActionState = {
@@ -14,16 +15,22 @@ const INITIAL_STATE: NewsletterActionState = {
   message: "",
 };
 
-function SubscribeButton({ variant }: { variant?: "default" | "footer" }) {
+type FormVariant = "default" | "footer" | "page";
+
+function SubscribeButton({ variant }: { variant?: FormVariant }) {
   const { pending } = useFormStatus();
   const isFooter = variant === "footer";
+  const isPage = variant === "page";
 
   return (
     <button
       type="submit"
       disabled={pending}
       className={cn(
-        "rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 min-h-[var(--touch-target-min)]",
+        "rounded-lg px-5 font-semibold transition-colors disabled:opacity-60",
+        isPage
+          ? "min-h-14 px-6 text-lg"
+          : "min-h-[var(--touch-target-min)] py-2.5 text-sm",
         isFooter
           ? "bg-white text-[var(--accent)] hover:bg-white/90"
           : "bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90"
@@ -35,8 +42,8 @@ function SubscribeButton({ variant }: { variant?: "default" | "footer" }) {
 }
 
 type NewsletterSignupFormProps = {
-  /** "footer" renders white inputs on terracotta background */
-  variant?: "default" | "footer";
+  /** "footer" = white on terracotta; "page" = large senior-friendly controls */
+  variant?: FormVariant;
   /** Enables double opt-in and delivery for an active lead-magnet campaign. */
   leadMagnetCode?: string;
   /** Path recorded with the lead-magnet consent event. */
@@ -54,11 +61,13 @@ export function NewsletterSignupForm({
   );
   const trackedSuccess = useRef(false);
   const isFooter = variant === "footer";
+  const isPage = variant === "page";
 
   useEffect(() => {
     if (state.success && !trackedSuccess.current) {
       trackedSuccess.current = true;
-      trackEvent("newsletter_signup", {
+      trackEvent(newsletterSuccessEvent(state.success, leadMagnetCode)!, {
+        ...(!leadMagnetCode ? { opt_in_method: "single" } : {}),
         signup_source: leadMagnetCode
           ? "lead_magnet_form"
           : isFooter
@@ -74,7 +83,10 @@ export function NewsletterSignupForm({
   }, [state.success, isFooter, leadMagnetCode]);
 
   const inputClasses = cn(
-    "rounded-lg px-3 py-2.5 text-sm min-h-[var(--touch-target-min)]",
+    "rounded-lg px-3",
+    isPage
+      ? "min-h-14 px-4 text-lg"
+      : "min-h-[var(--touch-target-min)] py-2.5 text-sm",
     isFooter
       ? "border border-white/30 bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
       : "border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
@@ -85,11 +97,18 @@ export function NewsletterSignupForm({
       {leadMagnetCode && <input type="hidden" name="lead_magnet_code" value={leadMagnetCode} />}
       {leadMagnetCode && sourcePath && <input type="hidden" name="source_path" value={sourcePath} />}
       {!isFooter && (
-        <p className="text-sm font-medium text-[var(--foreground)]">Nieuwsbrief</p>
+        <p
+          className={cn(
+            "font-medium text-[var(--foreground)]",
+            isPage ? "text-lg" : "text-sm"
+          )}
+        >
+          Nieuwsbrief
+        </p>
       )}
 
       {/* Primary row: email + submit */}
-      <div className="flex gap-2">
+      <div className={cn("flex gap-2", isPage && "flex-col sm:flex-row")}>
         <input
           type="email"
           name="email"
@@ -132,7 +151,7 @@ export function NewsletterSignupForm({
       {state.message && (
         <p
           className={cn(
-            "text-xs",
+            isPage ? "text-base" : "text-xs",
             state.success
               ? isFooter ? "text-white/90" : "text-green-700"
               : isFooter ? "text-yellow-200" : "text-red-700"

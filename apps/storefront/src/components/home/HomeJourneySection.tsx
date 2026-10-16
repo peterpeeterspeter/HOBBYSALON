@@ -9,6 +9,19 @@ type HomeJourneySectionProps = {
 
 export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
   const imageSrc = journey.imageUrl?.trim() || LANDING_IMAGES.craftsGrid;
+  const legs: string[] = [];
+  if (journey.materials.length > 0) legs.push("materialen");
+  if (journey.workshop) legs.push("workshop");
+  if (journey.makers.length > 0) legs.push("makers");
+  const legLabel =
+    legs.length > 1
+      ? `${legs.slice(0, -1).join(", ")} en ${legs[legs.length - 1]}`
+      : legs[0] === "workshop"
+        ? "een workshop"
+        : legs[0];
+  const lead = legLabel
+    ? `${legLabel.charAt(0).toUpperCase()}${legLabel.slice(1)} bij dit idee.`
+    : "Ontdek dit idee.";
 
   return (
     <HomeReveal>
@@ -27,14 +40,34 @@ export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
               {journey.title}
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted)]">
-              Materialen, workshop en makers bij elkaar. Zo begin je meteen.
+              {lead}
             </p>
 
             <ul className="mt-6 space-y-3 text-[15px] leading-relaxed text-[var(--foreground)]">
               {journey.materials.length > 0 ? (
                 <li>
-                  <span className="font-semibold">Dit heb je nodig: </span>
-                  {journey.materials.map((m) => m.label).join(", ")}
+                  <span className="font-semibold">Materialen bij dit idee: </span>
+                  {journey.materials.map((material, index) => (
+                    <span key={material.href || `${material.label}:${index}`}>
+                      {index > 0 ? ", " : null}
+                      {material.href ? (
+                        <TrackedLink
+                          href={material.href}
+                          event="home_journey_clicked"
+                          eventPayload={{
+                            journey_kind: journey.kind,
+                            href: material.href,
+                            leg: "material",
+                          }}
+                          className="font-semibold text-[var(--accent)] underline underline-offset-4"
+                        >
+                          {material.label}
+                        </TrackedLink>
+                      ) : (
+                        material.label
+                      )}
+                    </span>
+                  ))}
                 </li>
               ) : null}
               {journey.workshop ? (
@@ -92,7 +125,7 @@ export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
               eventPayload={{ journey_kind: journey.kind, href: journey.href }}
               className="mt-7 inline-flex min-h-11 w-fit items-center rounded-[0.75rem] bg-[var(--accent)] px-5 font-bold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:translate-y-px"
             >
-              Bekijk dit project
+              {journey.kind === "article" ? "Lees dit artikel" : "Bekijk dit project"}
             </TrackedLink>
           </div>
         </div>

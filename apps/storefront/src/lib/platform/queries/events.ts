@@ -4,7 +4,9 @@ import {
   eventIsUpcomingOrOngoing,
   eventMatchesPlace,
   eventOverlapsRange,
+  isUpcomingOrOngoingToday,
   sanitizeAgendaSearchQuery,
+  startOfTodayIso,
 } from "@/lib/agenda/agenda-helpers";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
@@ -132,7 +134,7 @@ export async function listAgendaEvents(
 
   const supabase = createPlatformClient();
   const upcomingOnly = filters?.upcoming_only !== false;
-  const nowIso = new Date().toISOString();
+  const now = new Date();
   const searchTerm = sanitizeAgendaSearchQuery(filters?.q);
   const place = (filters?.near ?? filters?.city)?.trim() || null;
 
@@ -152,10 +154,10 @@ export async function listAgendaEvents(
   if (filters?.country_code) {
     query = query.eq("country_code", filters.country_code.toUpperCase());
   }
-  // Soft window: avoid loading ancient history; refine upcoming/overlap in JS.
+  // Soft window: include multi-day that may have started earlier; refine in JS.
   if (upcomingOnly) {
     const softFrom = new Date(
-      Date.now() - 366 * 24 * 60 * 60 * 1000
+      Date.parse(startOfTodayIso(now)) - 366 * 24 * 60 * 60 * 1000
     ).toISOString();
     query = query.gte("starts_at", softFrom);
   }
@@ -169,7 +171,8 @@ export async function listAgendaEvents(
   let events = (data ?? []) as Event[];
 
   if (upcomingOnly) {
-    events = events.filter((event) => eventIsUpcomingOrOngoing(event, nowIso));
+    // Keep multi-day with ends_at ≥ today; drop past single-day.
+    events = events.filter((event) => isUpcomingOrOngoingToday(event, now));
   }
 
   if (filters?.from_date || filters?.to_date) {

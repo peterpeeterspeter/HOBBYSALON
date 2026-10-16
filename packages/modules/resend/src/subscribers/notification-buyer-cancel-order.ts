@@ -45,6 +45,8 @@ export default async function buyerCancelOrderHandler({
     to: order.email,
     channel: "email",
     template: ResendNotificationTemplates.BUYER_CANCELED_ORDER,
+    // Native notification idempotency skips successful sends on event retry.
+    idempotency_key: `buyer-cancel-order:${order.id}`,
     content: {
       subject: `Your order #${order.display_id} has been canceled`,
     },

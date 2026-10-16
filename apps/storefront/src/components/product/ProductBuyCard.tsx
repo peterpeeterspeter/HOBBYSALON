@@ -11,6 +11,7 @@ type ProductBuyCardProps = {
   creator: Creator | null;
   price: { amount: number; currency_code: string } | null;
   variants: React.ComponentProps<typeof ProductPurchaseControls>["variants"];
+  selectedVariantId?: string;
   isFavorite: boolean;
 };
 
@@ -31,6 +32,7 @@ export function ProductBuyCard({
   creator,
   price,
   variants,
+  selectedVariantId,
   isFavorite,
 }: ProductBuyCardProps) {
   const isMakerListing = MAKER_LISTING_TYPES.has(product.product_type);
@@ -64,7 +66,9 @@ export function ProductBuyCard({
       <div className="mt-5">
         {hasCart ? (
           <ProductPurchaseControls
+            key={selectedVariantId ? `variant:${selectedVariantId}` : "default"}
             variants={variants}
+            selectedVariantId={selectedVariantId}
             productType={product.product_type}
             creatorSlug={creator?.slug ?? null}
             fallbackPrice={price}

@@ -1,0 +1,7 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "fix/startup-pg-auth-propagation": false
+    }
+  }
+}

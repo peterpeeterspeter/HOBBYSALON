@@ -56,16 +56,32 @@ test("selectHomeAgendaEvents prefers near events over far featured", () => {
   assert.equal(selected[0]?.id, "near");
 });
 
-test("selectHomeAgendaEvents keeps ongoing multi-day events", () => {
-  const now = Date.now();
+test("selectHomeAgendaEvents keeps ongoing multi-day, drops past single-day", () => {
+  const now = new Date();
   const day = 24 * 60 * 60 * 1000;
+  const pastSingle = eventFixture({
+    id: "past-single",
+    starts_at: new Date(now.getTime() - 60 * day).toISOString(),
+    ends_at: null,
+  });
   const ongoing = eventFixture({
     id: "ongoing",
-    starts_at: new Date(now - 2 * day).toISOString(),
-    ends_at: new Date(now + 2 * day).toISOString(),
+    starts_at: new Date(now.getTime() - 2 * day).toISOString(),
+    ends_at: new Date(now.getTime() + 2 * day).toISOString(),
   });
-  const selected = selectHomeAgendaEvents([ongoing], 1);
-  assert.equal(selected[0]?.id, "ongoing");
+  const upcoming = eventFixture({
+    id: "upcoming",
+    starts_at: new Date(now.getTime() + 3 * day).toISOString(),
+  });
+  const selected = selectHomeAgendaEvents(
+    [pastSingle, ongoing, upcoming],
+    3,
+    now
+  );
+  assert.deepEqual(
+    selected.map((e) => e.id).sort(),
+    ["ongoing", "upcoming"]
+  );
 });
 
 test("selectHomeAgendaEvents falls back to far upcoming when near pool is empty", () => {

@@ -3,7 +3,7 @@ import { sdk } from "./client";
 
 const MEDUSA_PRODUCT_TIMEOUT_MS = 8_000;
 const MEDUSA_PRODUCT_FIELDS =
-  "id,title,handle,*variants,*variants.calculated_price";
+  "id,title,handle,*variants,*variants.calculated_price,*variants.options,variants.options.option.title";
 const MEDUSA_COUNTRY_CODE =
   process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be";
 
@@ -17,6 +17,10 @@ export type MedusaProductPrice = {
 export type MedusaProductVariant = {
   id: string;
   title: string;
+  options?: Array<{
+    value: string;
+    option?: { title: string } | null;
+  }> | null;
   prices?: MedusaProductPrice[];
   calculated_price?: {
     calculated_amount: number;
@@ -43,6 +47,7 @@ function toMedusaProductData(product: {
   variants?: Array<{
     id: string;
     title: string;
+    options?: MedusaProductVariant["options"];
     calculated_price?: {
       calculated_amount: number;
       currency_code: string;
@@ -59,6 +64,10 @@ function toMedusaProductData(product: {
     variants: product.variants?.map((v) => ({
       id: v.id,
       title: v.title ?? "",
+      options: v.options?.map(({ value, option }) => ({
+        value,
+        option: option ? { title: option.title } : option,
+      })) ?? v.options,
       calculated_price: v.calculated_price,
     })),
     calculated_price: calculatedPrice
@@ -123,7 +132,7 @@ export async function getMedusaProductByHandle(
   try {
     const { products } = await sdk.store.product.list({
       handle,
-      fields: "id,title,handle,*variants,*variants.calculated_price",
+      fields: MEDUSA_PRODUCT_FIELDS,
       country_code: process.env.NEXT_PUBLIC_MEDUSA_COUNTRY_CODE ?? "be",
       limit: 1,
     });
