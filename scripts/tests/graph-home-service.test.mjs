@@ -35,12 +35,13 @@ async function load(options={}){
   '@/lib/platform/queries/events':{listAgendaEvents:async()=>({events:[]})},
   '@/lib/listing/featured-hero':{pickDayStableSample:(items,n)=>items.slice(0,n)},
   '@/lib/perf/server-timing':{logServerPerf:(name,value)=>calls.push(['perf',name,value.journey])},
-  '@/lib/agenda/agenda-helpers':{eventIsUpcomingOrOngoing:()=>forbidden('unused-agenda'),resolveAgendaDatePreset:()=>({})},
  };
  const real={
   '@/lib/services/home-page':'lib/services/home-page.ts',
   '@/lib/services/home-journey':'lib/services/home-journey.ts',
   '@/lib/services/home-router-helpers':'lib/services/home-router-helpers.ts',
+  // Real helpers: home-router/home-page import agendaInstantMs + isUpcomingOrOngoingToday.
+  '@/lib/agenda/agenda-helpers':'lib/agenda/agenda-helpers.ts',
  };
  const modules=new Map();
  const moduleFor=name=>{
@@ -51,6 +52,7 @@ async function load(options={}){
   modules.set(name,mod);return mod;
  };
  // Prelink shared module to avoid VM's concurrent diamond linking limitation.
+ await moduleFor('@/lib/agenda/agenda-helpers').link(moduleFor);
  await moduleFor('@/lib/services/home-router-helpers').link(moduleFor);
  await moduleFor('@/lib/services/home-journey').link(moduleFor);
  const mod=moduleFor('@/lib/services/home-page');await mod.link(moduleFor);await mod.evaluate();
@@ -71,7 +73,7 @@ test('actual homepage service consumes strongest actual journey and preserves ne
  assert.ok(f.calls.some(c=>c[0]==='perf'&&c[2]===1));
 });
 test('actual shared cache contract stays account-free, stable and receives no caller identity',async()=>{
- const f=await load();assert.deepEqual(f.cache,[{keys:['home-page-data-v6'],settings:{revalidate:300,tags:['home-page']}}]);
+ const f=await load();assert.deepEqual(f.cache,[{keys:['home-page-data-v8'],settings:{revalidate:300,tags:['home-page']}}]);
  const first=await f.run();assert.deepEqual(await f.run(),first);
  assert.ok(f.calls.filter(c=>c[0]==='cache-invoke').every(c=>c[1]===0));
 });

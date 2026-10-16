@@ -54,6 +54,64 @@ test("pickNextMatchingSession without range picks first future session", () => {
   assert.equal(next?.id, "soon");
 });
 
+test("pickNextMatchingSession keeps ongoing multi-day, drops past single-day", () => {
+  const nowIso = zonedDateTimeToUtcIso(2026, 10, 16, 12, 0, 0);
+  const next = pickNextMatchingSession(
+    [
+      {
+        id: "past-single",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
+        ends_at: null,
+      },
+      {
+        id: "ongoing-multi",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 14, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 18, 18, 0, 0),
+      },
+      {
+        id: "future",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 24, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 24, 13, 0, 0),
+      },
+    ],
+    { nowIso }
+  );
+  assert.equal(next?.id, "ongoing-multi");
+});
+
+test("pickNextMatchingSession weekend range includes multi-day overlap, not past single-day", () => {
+  const nowIso = zonedDateTimeToUtcIso(2026, 10, 16, 12, 0, 0);
+  const weekendFrom = zonedDateTimeToUtcIso(2026, 10, 17, 0, 0, 0);
+  const weekendTo = zonedDateTimeToUtcIso(2026, 10, 18, 23, 59, 59);
+  const next = pickNextMatchingSession(
+    [
+      {
+        id: "past-single",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 8, 15, 13, 0, 0),
+      },
+      {
+        id: "multi-into-weekend",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 15, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 18, 18, 0, 0),
+      },
+      {
+        id: "weekend",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 17, 13, 0, 0),
+      },
+    ],
+    { nowIso, range: { from: weekendFrom, to: weekendTo } }
+  );
+  assert.equal(next?.id, "multi-into-weekend");
+});
+
 test("pickNextMatchingSession with range picks in-range session not earlier future", () => {
   const nowIso = "2026-07-28T12:00:00.000Z";
   const weekendFrom = zonedDateTimeToUtcIso(2026, 8, 1, 0, 0, 0);

@@ -4,9 +4,12 @@ import {
   eventOverlapsRange,
   formatAgendaPlaceLabel,
   groupEventsByAgendaBucket,
+  isUpcomingOrOngoingToday,
   resolveAgendaCustomRange,
   resolveAgendaDatePreset,
   sanitizeAgendaSearchQuery,
+  startsOnOrAfterToday,
+  startsWithinRange,
   zonedDateTimeToUtcIso,
 } from "./agenda-helpers";
 
@@ -120,6 +123,82 @@ test("groupEventsByAgendaBucket preset buckets", () => {
       ["later", ["4"]],
     ]
   );
+});
+
+test("groupEventsByAgendaBucket keeps multi-day overlapping weekend, drops past single-day", () => {
+  const now = new Date("2026-10-16T12:00:00+02:00"); // Friday
+  const events = [
+    {
+      id: "past-single",
+      starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
+      ends_at: null,
+    },
+    {
+      id: "multi-into-weekend",
+      // Started Thursday, runs through Sunday → overlaps Dit weekend
+      starts_at: zonedDateTimeToUtcIso(2026, 10, 15, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2026, 10, 18, 18, 0, 0),
+    },
+    {
+      id: "weekend-sat",
+      starts_at: zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2026, 10, 17, 13, 0, 0),
+    },
+    {
+      id: "ended-yesterday",
+      starts_at: zonedDateTimeToUtcIso(2026, 10, 14, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2026, 10, 15, 18, 0, 0),
+    },
+  ];
+  const groups = groupEventsByAgendaBucket(events, { mode: "preset", now });
+  assert.deepEqual(
+    groups.map((g) => [g.key, g.events.map((e) => e.id)]),
+    [["weekend", ["multi-into-weekend", "weekend-sat"]]]
+  );
+});
+
+test("isUpcomingOrOngoingToday keeps multi-day, drops past single-day", () => {
+  const now = new Date("2026-10-16T12:00:00+02:00");
+  assert.equal(
+    isUpcomingOrOngoingToday(
+      {
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 14, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 18, 18, 0, 0),
+      },
+      now
+    ),
+    true
+  );
+  assert.equal(
+    isUpcomingOrOngoingToday(
+      {
+        starts_at: zonedDateTimeToUtcIso(2026, 8, 4, 10, 0, 0),
+        ends_at: null,
+      },
+      now
+    ),
+    false
+  );
+  assert.equal(
+    startsOnOrAfterToday(zonedDateTimeToUtcIso(2026, 10, 16, 0, 0, 0), now),
+    true
+  );
+  assert.equal(
+    startsWithinRange(
+      zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
+      zonedDateTimeToUtcIso(2026, 10, 17, 0, 0, 0),
+      zonedDateTimeToUtcIso(2026, 10, 18, 23, 59, 59)
+    ),
+    true
+  );
+});
+
+test("resolveAgendaDatePreset weekend on Sunday is current Sat–Sun", () => {
+  const now = new Date("2026-10-18T15:00:00+02:00");
+  const range = resolveAgendaDatePreset("weekend", now);
+  assert.ok(range);
+  assert.equal(range.from, zonedDateTimeToUtcIso(2026, 10, 17, 0, 0, 0));
+  assert.equal(range.to, zonedDateTimeToUtcIso(2026, 10, 18, 23, 59, 59));
 });
 
 test("groupEventsByAgendaBucket custom day headings", () => {
