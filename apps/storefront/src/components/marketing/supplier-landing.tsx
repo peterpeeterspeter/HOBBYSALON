@@ -78,8 +78,17 @@ function SupplierLanding() {
             <p className="mt-3 text-xl font-semibold text-[var(--accent)] md:text-2xl">
               {copy.pricingHighlight.subtitle}
             </p>
-            <p className="mt-5 max-w-[52ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+            <p className="mt-5 max-w-[58ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
               {copy.pricingHighlight.body}
+            </p>
+            <p className="mt-4 max-w-[58ch] text-base font-medium leading-relaxed text-[var(--foreground)] md:text-lg">
+              {copy.pricingHighlight.example}
+            </p>
+            <p className="mt-3 max-w-[58ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+              {copy.pricingHighlight.paymentNote}
+            </p>
+            <p className="mt-5 max-w-[58ch] text-base leading-relaxed text-[var(--muted)] md:text-lg">
+              {copy.pricingHighlight.finePrint}
             </p>
           </RevealOnView>
         </Container>
