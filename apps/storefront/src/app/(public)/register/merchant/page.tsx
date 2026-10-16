@@ -44,6 +44,30 @@ export default async function RegisterMerchantPage({ searchParams }: Props) {
         description="Voor winkels en handelaars met hobbymaterialen. Na je aanmelding stel je je winkel en productimport in."
         size="narrow"
       >
+        <aside
+          className="mb-6 rounded-xl border border-[var(--border-strong)] bg-[var(--background)] px-5 py-4 text-base leading-relaxed text-[var(--foreground)]"
+          aria-label="Pilotvoorwaarden"
+        >
+          <p className="font-semibold">Pilot: maximaal 20 winkels</p>
+          <p className="mt-2 text-[var(--muted)]">
+            €0 vaste kosten, 10% commissie op verkopen, betaalkosten apart
+          </p>
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+            <Link
+              href="/voor-winkels"
+              className="font-semibold text-[var(--accent)] underline underline-offset-4"
+            >
+              Meer over verkopen
+            </Link>
+            <Link
+              href="/terms"
+              className="font-semibold text-[var(--accent)] underline underline-offset-4"
+            >
+              Algemene voorwaarden
+            </Link>
+          </p>
+        </aside>
+
         <CardShell
           variant="default"
           padding="lg"
