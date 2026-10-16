@@ -31,6 +31,8 @@ export type PricingRouteCard = {
   features: string[];
   href: string;
   ctaLabel: string;
+  /** Optional senior-friendly clarification under the feature list */
+  note?: string;
 };
 
 export type PricingComparisonRow = {
@@ -74,11 +76,25 @@ export const PRICING_STATUS_LABEL: Record<PricingStatus, string | null> = {
 export const WORKSHOP_COMMISSION_NOTE =
   "Geen abonnement en geen commissie per deelnemer.";
 
-export const SUPPLIER_COMMISSION_NOTE =
-  "Op materialen via Hobbysalon checkout geldt 10% commissie. Verzendkosten en afrekenkosten worden apart verwerkt.";
+/** Shared shop (hobbymaterialenwinkel) pricing — use verbatim on marketing surfaces. */
+export const SHOP_PRICING_BODY =
+  "€0 vaste kosten. 10% commissie op de totale verkoopprijs, inclusief btw en verzendkosten. Betaalkosten van de betaalprovider zijn voor de winkel en worden per bestelling afgetrokken van je uitbetaling. Uitbetaling gebeurt dagelijks. Bij een retour krijg je de commissie op het terugbetaalde bedrag terug.";
+
+export const SHOP_PRICING_EXAMPLE =
+  "Voorbeeld: product €40 + verzending €5 = €45 → commissie €4,50 (excl. btw).";
+
+/** No hardcoded Stripe/provider fee amounts in this repo — refer generically. */
+export const SHOP_PAYMENT_PROVIDER_NOTE =
+  "De betaalkosten volgen de tarieven van onze betaalprovider.";
+
+export const SUPPLIER_COMMISSION_NOTE = SHOP_PRICING_BODY;
 
 export const P2P_COMMISSION_NOTE =
   "Geen commissie op P2P-verkoop. Je regelt betaling en verzending rechtstreeks met de koper.";
+
+/** Workshop/event listing prices on /prijzen are excl. btw. */
+export const PRIJZEN_LISTING_VAT_NOTE =
+  "Prijzen voor workshopvermeldingen (€9,99) en eventpagina's (€50, €69) zijn excl. btw.";
 
 /* -------------------------------------------------------------------------- */
 /* /prijzen — page chrome                                                     */
@@ -100,6 +116,7 @@ export const PRIJZEN_PAGE = {
     "Je kunt laagdrempelig starten. Uitbreidingen zijn optioneel en lonen pas wanneer je meer bereik of inzicht nodig hebt.",
   comparisonFootnote:
     'Uitbreiden betekent niet automatisch een abonnement: afhankelijk van je route werk je met credits, een eventpagina, een promotiepakket of een afspraak op maat. Bij "binnenkort" is de functie gepland, maar nog niet beschikbaar.',
+  listingVatNote: PRIJZEN_LISTING_VAT_NOTE,
   howtoTitle: "Hoe werkt de prijsopbouw?",
   faqTitle: "Veelgestelde vragen",
   closingTitle: "Klaar om jouw aanbod zichtbaar te maken?",
@@ -150,7 +167,7 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
     features: [
       "Tot 1 november: max. 3 workshops gratis (blijven gratis)",
-      "Daarna €9,99 per extra vermelding, 2 maanden zichtbaar",
+      "Daarna €9,99 per extra vermelding, 2 maanden zichtbaar (excl. btw)",
       "Tot drie sessiedata in één vermelding",
       "Geen commissie per deelnemer",
     ],
@@ -164,8 +181,8 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Zet je hobbybeurs of makers market gratis in de evenementenkalender. Wil je meer dan datum en locatie tonen, dan kies je een eventpagina.",
     features: [
       "Gratis kalendervermelding voor beide eventtypes",
-      "Eventpagina hobbybeurs vanaf €50 per maand",
-      "Eventpagina makers market vanaf €69 per event",
+      "Eventpagina hobbybeurs vanaf €50 per maand (excl. btw)",
+      "Eventpagina makers market vanaf €69 per event (excl. btw)",
       "Promotie op maat tijdens de pilot",
     ],
     href: "/voor-organisatoren",
@@ -173,13 +190,13 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
   },
   {
     id: "supplier",
-    title: "Hobbymaterialenwinkel — €0 per maand, 10% commissie",
-    description:
-      "Verkoop professionele hobbymaterialen via Hobbysalon. Geen vast maandbedrag in de basisformule.",
+    title: "Hobbymaterialenwinkel — €0 vaste kosten, 10% commissie",
+    description: SHOP_PRICING_BODY,
     features: [
+      SHOP_PRICING_EXAMPLE,
+      SHOP_PAYMENT_PROVIDER_NOTE,
       "Productcatalogus met varianten en voorraad",
-      "Checkout en orderbeheer",
-      "Verzending via je eigen instellingen",
+      "Checkout, orderbeheer en dagelijkse uitbetaling",
       "Premium zichtbaarheid en analyses: binnenkort",
     ],
     href: "/voor-winkels",
@@ -204,22 +221,24 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   {
     audience: "Workshopgever",
     now: "Lanceraanbod: 3 workshops gratis tot 1 november (blijven gratis)",
-    expansion: "Extra vermeldingen €9,99 / 2 maanden; promotie — binnenkort",
+    expansion:
+      "Extra vermeldingen €9,99 / 2 maanden (excl. btw); promotie — binnenkort",
     benefit: "Prominentere plaatsing en meetbaar resultaat",
   },
   {
     audience: "Organisator",
     now: "Gratis vermelding in de evenementenkalender",
     expansion:
-      "Eventpagina vanaf €50 per maand (hobbybeurs) of €69 per event (makers market)",
+      "Eventpagina vanaf €50 per maand (hobbybeurs) of €69 per event (makers market), excl. btw",
     benefit:
       "Een volledige pagina met programma, standhouders en updates in plaats van alleen datum en locatie",
   },
   {
     audience: "Hobbymaterialenwinkel",
-    now: "€0 per maand, 10% commissie bij verkoop",
+    now: "€0 vaste kosten, 10% commissie op de totale verkoopprijs (incl. btw en verzending)",
     expansion: "Premium zichtbaarheid en analyses — binnenkort",
-    benefit: "Meer bereik voor je producten en inzicht in prestaties",
+    benefit:
+      "Betaalkosten voor de winkel (tarieven van onze betaalprovider); dagelijkse uitbetaling",
   },
 ];
 
@@ -378,19 +397,20 @@ export const SUPPLIER_OFFER: PublicPricingOffer = {
   id: "webshop",
   audience: "Hobbymaterialenwinkels",
   title: "Basisformule",
-  priceLabel: "€0 / maand",
-  periodLabel: "10% commissie op verkopen via Hobbysalon",
+  priceLabel: "€0 vaste kosten",
+  periodLabel: "10% commissie op de totale verkoopprijs",
   status: "confirmed",
-  description:
-    "Verkoop professionele hobbymaterialen via Hobbysalon. Geen vast maandbedrag in de basisformule.",
+  description: SHOP_PRICING_BODY,
   features: [
+    SHOP_PRICING_EXAMPLE,
+    SHOP_PAYMENT_PROVIDER_NOTE,
     "Productcatalogus met varianten en voorraad",
-    "Checkout en orderbeheer",
-    "Verzending via je eigen instellingen",
+    "Checkout, orderbeheer en dagelijkse uitbetaling",
     "Premium zichtbaarheid en analyses: binnenkort",
   ],
   href: "/register/merchant",
   ctaLabel: "Meld je winkel aan",
+  finePrint: "Geen instapkosten, geen listinglimiet, geen minimumduur.",
 };
 
 export const SUPPLIER_PREMIUM_NOTE: PublicPricingOffer = {
@@ -676,19 +696,23 @@ export const ORGANIZER_PAGE = {
 export const SUPPLIER_PAGE = {
   metaTitle: "Hobbymaterialen verkopen | €0 + 10% commissie",
   metaDescription:
-    "Verkoop professionele hobbymaterialen via Hobbysalon. €0 per maand, 10% commissie bij verkoop. Geen instapkosten, geen listinglimiet, geen jaarcontract.",
+    "Verkoop professionele hobbymaterialen via Hobbysalon. €0 vaste kosten, 10% commissie op de totale verkoopprijs. Geen instapkosten, geen listinglimiet, geen minimumduur.",
   headline: "Verkoop je hobbymaterialen aan een publiek dat weet wat het zoekt",
   /** Short hero line (viewport budget) */
   heroSubheadline:
-    "Geen vast maandbedrag. Je rekent alleen af wanneer er echt verkocht wordt.",
+    "€0 vaste kosten. Alleen 10% commissie wanneer er echt verkocht wordt.",
   primaryCta: { label: "Meld je winkel aan", href: "/register/merchant" },
   secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
   intro:
     "Hobbysalon brengt professionele hobbymaterialenwinkels samen met een community van ruim 40.000 creatieve hobbyisten. Geen vast maandbedrag: in de basisformule reken je alleen af wanneer er daadwerkelijk verkocht wordt.",
   pricingHighlight: {
-    title: "€0 per maand",
-    subtitle: "10% commissie op verkopen via Hobbysalon",
-    body: "Geen instapkosten, geen listinglimiet, geen jaarcontract. Verkoop je niets, dan betaal je niets.",
+    title: "€0 vaste kosten",
+    subtitle: "10% commissie op de totale verkoopprijs",
+    body: SHOP_PRICING_BODY,
+    example: SHOP_PRICING_EXAMPLE,
+    paymentNote: SHOP_PAYMENT_PROVIDER_NOTE,
+    finePrint:
+      "Geen instapkosten, geen listinglimiet, geen minimumduur. Verkoop je niets, dan betaal je niets.",
   },
   features: {
     title: "Wat je krijgt",
@@ -730,7 +754,7 @@ export const SUPPLIER_PAGE = {
   },
   closing: {
     title: "Klaar om te starten?",
-    body: "€0 per maand, 10% commissie op wat er via Hobbysalon verkocht wordt. Geen contract, geen opzegtermijn.",
+    body: "€0 vaste kosten, 10% commissie op de totale verkoopprijs. Geen minimumduur, geen opzegtermijn.",
   },
 } as const;
 
@@ -797,11 +821,16 @@ export const SUPPLIER_FAQ: PricingFaqItem[] = [
   },
   {
     question: "Wat is de commissie?",
-    answer: "10% op materialen verkocht via Hobbysalon.",
+    answer: SHOP_PRICING_BODY,
   },
   {
     question: "Wat kost het per maand?",
-    answer: "€0 vaste maandelijkse basiskost. Alleen commissie bij verkoop.",
+    answer:
+      "€0 vaste kosten. Alleen 10% commissie bij verkoop. Geen minimumduur.",
+  },
+  {
+    question: "Wie betaalt de betaalkosten?",
+    answer: `${SHOP_PAYMENT_PROVIDER_NOTE} Die kosten zijn voor de winkel en worden per bestelling afgetrokken van je uitbetaling.`,
   },
   {
     question: "Wat is Premium?",
@@ -809,6 +838,14 @@ export const SUPPLIER_FAQ: PricingFaqItem[] = [
       "Premium zichtbaarheid en analyses: binnenkort. Tarieven volgen. De basisformule blijft ongewijzigd.",
   },
 ];
+
+/** Pilot block copy for /register/merchant */
+export const MERCHANT_REGISTER_PILOT = {
+  title: "Pilot: maximaal 20 winkels",
+  body: SHOP_PRICING_BODY,
+  example: SHOP_PRICING_EXAMPLE,
+  paymentNote: SHOP_PAYMENT_PROVIDER_NOTE,
+} as const;
 
 export const ORGANIZER_FAQ: PricingFaqItem[] = [
   {

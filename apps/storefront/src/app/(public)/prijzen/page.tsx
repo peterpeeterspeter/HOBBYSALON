@@ -37,7 +37,7 @@ export default function PrijzenPage() {
         id="vergelijking"
         title={PRIJZEN_PAGE.comparisonTitle}
         description={PRIJZEN_PAGE.comparisonIntro}
-        footnote={PRIJZEN_PAGE.comparisonFootnote}
+        footnote={`${PRIJZEN_PAGE.listingVatNote} ${PRIJZEN_PAGE.comparisonFootnote}`}
         rows={PRICING_COMPARISON_ROWS}
       />
       <PricingExplainerSections />
