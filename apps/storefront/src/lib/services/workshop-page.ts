@@ -4,7 +4,7 @@ import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { listProductsByIds } from "@/lib/platform/queries/products";
 import { createPlatformClient } from "@/lib/platform/client";
-import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
+import { getEntityConnections } from "@/lib/platform/queries/entity-links";
 import {
   getCreatorCommercialEntitlements,
   type CommercialEntitlements,
@@ -80,13 +80,13 @@ export async function getWorkshopPageData(
       ? getWorkshopCategoryById(workshop.category_id)
       : Promise.resolve(null),
     getWorkshopSessions(workshop.id),
-    getRelatedEntities("workshop", workshop.id),
+    getEntityConnections("workshop", workshop.id),
     getWorkshopGalleryImages(workshop.id),
   ]);
 
   const relatedProductIds = entityLinks
-    .filter((l) => l.target_entity_type === "product")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "product")
+    .map((l) => l.entityId);
 
   const requiredRows = await getWorkshopRequiredProducts(workshop.id);
   const requiredProductIds = requiredRows.map((row) => row.product_id);
@@ -125,11 +125,11 @@ export async function getWorkshopPageData(
   ];
 
   const relatedEventIds = entityLinks
-    .filter((l) => l.target_entity_type === "event")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "event")
+    .map((l) => l.entityId);
   const relatedArticleIds = entityLinks
-    .filter((l) => l.target_entity_type === "article")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "article")
+    .map((l) => l.entityId);
 
   const [relatedEvents, relatedArticles] = await Promise.all([
     listEventsByIds(relatedEventIds),

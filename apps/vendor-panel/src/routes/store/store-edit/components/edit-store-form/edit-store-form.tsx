@@ -34,15 +34,18 @@ export const EditStoreSchema = z.object({
 
 const SUPPORTED_FORMATS = [
   "image/jpeg",
+  "image/jpg",
   "image/png",
   "image/gif",
   "image/webp",
   "image/heic",
+  "image/heif",
   "image/svg+xml",
 ]
 
 const SUPPORTED_FORMATS_FILE_EXTENSIONS = [
   ".jpeg",
+  ".jpg",
   ".png",
   ".gif",
   ".webp",

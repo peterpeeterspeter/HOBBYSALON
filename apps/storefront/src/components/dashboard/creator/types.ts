@@ -51,6 +51,12 @@ export const CREATOR_TYPES: Array<{
 
 export const RELATION_TYPE_LABELS: Record<string, string> = {
   related: "Gerelateerd",
+  related_product: "Aanbevolen product",
+  related_workshop: "Gerelateerde workshop",
+  related_event: "Gerelateerd event",
+  required_material: "Benodigd materiaal",
+  required_tool: "Benodigd gereedschap",
+  optional_material: "Optioneel materiaal",
   featured: "Uitgelicht",
   recommended: "Aanbevolen",
   tutorial: "Tutorial-link",

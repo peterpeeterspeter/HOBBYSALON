@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 // @ts-expect-error Node's TypeScript script runner requires the extension.
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env.ts";
+import { selectGraphSuggestions } from "../src/lib/platform/graph-match.ts";
 
 type Args = {
   authorCreatorId: string;
@@ -19,6 +20,7 @@ type ArticleRow = {
 
 type ProductRow = {
   id: string;
+  title: string;
   domain_id: string | null;
   is_featured: boolean;
   updated_at: string;
@@ -26,6 +28,7 @@ type ProductRow = {
 
 type WorkshopRow = {
   id: string;
+  title: string;
   domain_id: string | null;
   is_featured: boolean;
   updated_at: string;
@@ -33,6 +36,7 @@ type WorkshopRow = {
 
 type EventRow = {
   id: string;
+  title: string;
   is_featured: boolean;
   starts_at: string;
 };
@@ -130,18 +134,18 @@ async function main() {
     await Promise.all([
       supabase
         .from("products")
-        .select("id,domain_id,is_featured,updated_at")
+        .select("id,title,domain_id,is_featured,updated_at")
         .eq("is_active", true)
         .eq("status", "active")
         .in("domain_id", domainIds),
       supabase
         .from("workshops")
-        .select("id,domain_id,is_featured,updated_at")
+        .select("id,title,domain_id,is_featured,updated_at")
         .eq("is_active", true)
         .in("domain_id", domainIds),
       supabase
         .from("events")
-        .select("id,is_featured,starts_at")
+        .select("id,title,is_featured,starts_at")
         .eq("is_active", true)
         .gte("ends_at", new Date().toISOString()),
       supabase
@@ -208,75 +212,73 @@ async function main() {
     source_entity_id: string;
     target_entity_type: "product" | "workshop" | "event";
     target_entity_id: string;
-    relation_type: "related";
+    relation_type: "suggested_auto";
     weight: number;
     sort_order: number;
   }> = [];
 
-  let skippedNoDomain = 0;
+  let skippedNoText = 0;
 
   for (const article of articles) {
-    if (!article.domain_id) {
-      skippedNoDomain += 1;
+    const sourceText = article.title ?? "";
+    if (!sourceText.trim()) {
+      skippedNoText += 1;
       continue;
     }
 
-    let sortOrder = 1;
+    const domainProducts = article.domain_id
+      ? (productsByDomain.get(article.domain_id) ?? [])
+      : [];
+    const domainWorkshops = article.domain_id
+      ? (workshopsByDomain.get(article.domain_id) ?? [])
+      : [];
+    const domainEvents = article.domain_id
+      ? (eventsByDomain.get(article.domain_id) ?? [])
+      : [];
 
-    const products = (productsByDomain.get(article.domain_id) ?? []).slice(0, 2);
-    for (const product of products) {
-      const keyValue = `${article.id}:product:${product.id}`;
-      if (existing.has(keyValue)) continue;
+    const existingKeys = new Set(
+      [...existing]
+        .filter((key) => key.startsWith(`${article.id}:`))
+        .map((key) => key.slice(article.id.length + 1))
+    );
+
+    const selected = selectGraphSuggestions(article.domain_id, sourceText, [
+      ...domainProducts.map((product) => ({
+        targetType: "product" as const,
+        targetId: product.id,
+        title: product.title,
+        domainId: product.domain_id,
+      })),
+      ...domainWorkshops.map((workshop) => ({
+        targetType: "workshop" as const,
+        targetId: workshop.id,
+        title: workshop.title,
+        domainId: workshop.domain_id,
+      })),
+      ...domainEvents.map((event) => ({
+        targetType: "event" as const,
+        targetId: event.id,
+        title: event.title,
+        domainId: article.domain_id,
+      })),
+    ], existingKeys);
+
+    selected.forEach(({ candidate, score }, index) => {
       toInsert.push({
         source_entity_type: "article",
         source_entity_id: article.id,
-        target_entity_type: "product",
-        target_entity_id: product.id,
-        relation_type: "related",
-        weight: 80,
-        sort_order: sortOrder,
+        target_entity_type: candidate.targetType,
+        target_entity_id: candidate.targetId,
+        relation_type: "suggested_auto",
+        weight: score,
+        sort_order: index + 1,
       });
-      existing.add(keyValue);
-      sortOrder += 1;
-    }
-
-    const workshops = (workshopsByDomain.get(article.domain_id) ?? []).slice(0, 2);
-    for (const workshop of workshops) {
-      const keyValue = `${article.id}:workshop:${workshop.id}`;
-      if (existing.has(keyValue)) continue;
-      toInsert.push({
-        source_entity_type: "article",
-        source_entity_id: article.id,
-        target_entity_type: "workshop",
-        target_entity_id: workshop.id,
-        relation_type: "related",
-        weight: 70,
-        sort_order: sortOrder,
-      });
-      existing.add(keyValue);
-      sortOrder += 1;
-    }
-
-    const events = (eventsByDomain.get(article.domain_id) ?? []).slice(0, 1);
-    for (const event of events) {
-      const keyValue = `${article.id}:event:${event.id}`;
-      if (existing.has(keyValue)) continue;
-      toInsert.push({
-        source_entity_type: "article",
-        source_entity_id: article.id,
-        target_entity_type: "event",
-        target_entity_id: event.id,
-        relation_type: "related",
-        weight: 60,
-        sort_order: sortOrder,
-      });
-      existing.add(keyValue);
-      sortOrder += 1;
-    }
+      existing.add(`${article.id}:${candidate.targetType}:${candidate.targetId}`);
+    });
   }
 
   console.log(`Articles scanned: ${articles.length}`);
-  console.log(`Skipped (no domain): ${skippedNoDomain}`);
+  console.log(`Skipped (no title): ${skippedNoText}`);
   console.log(`Links to insert: ${toInsert.length}`);
 
   if (args.dryRun || toInsert.length === 0) {

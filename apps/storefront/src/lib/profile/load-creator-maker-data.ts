@@ -194,7 +194,9 @@ export async function loadCreatorMakerData(
         (link) => link.relation_type === "suggested_auto"
       );
       articleConfirmedLinks = allArticleLinks.filter(
-        (link) => link.relation_type !== "suggested_auto"
+        (link) =>
+          link.relation_type !== "suggested_auto" &&
+          link.relation_type !== "dismissed_suggestion"
       );
     }
   }

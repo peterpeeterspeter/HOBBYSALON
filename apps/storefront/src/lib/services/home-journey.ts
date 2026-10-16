@@ -10,6 +10,7 @@ import {
 } from "@/lib/platform/queries/projects";
 import { createPlatformClient } from "@/lib/platform/client";
 import { isLikelyTestHomeContent } from "@/lib/services/home-router-helpers";
+import { pickStrongestJourney } from "@/lib/services/home-journey-rank";
 import type { Article, Project } from "@/types/platform";
 
 const MATERIAL_RELATIONS = new Set([
@@ -213,11 +214,17 @@ async function resolveLabels(parts: ScoredParts): Promise<{
 }
 
 /**
- * Load up to 8 quality candidates, score bidirectional links, return first with ≥2 legs.
+ * Load up to 8 quality candidates and keep the most complete eligible journey.
  */
 export async function resolveHomeJourney(): Promise<HomeJourney | null> {
   const candidates = await loadCandidates();
   if (candidates.length === 0) return null;
+
+  const ready: Array<{
+    item: HomeJourney;
+    resolvedCount: number;
+    materialCount: number;
+  }> = [];
 
   for (const candidate of candidates) {
     const entityType = candidate.kind === "article" ? "article" : "project";
@@ -238,37 +245,41 @@ export async function resolveHomeJourney(): Promise<HomeJourney | null> {
     if (completeness(parts) < 2) continue;
 
     const resolved = await resolveLabels(parts);
-    // Re-check after resolving (deleted/inactive targets)
     let resolvedCount = 0;
     if (resolved.materials.length > 0) resolvedCount += 1;
     if (resolved.workshop) resolvedCount += 1;
     if (resolved.makers.length > 0) resolvedCount += 1;
     if (resolvedCount < 2) continue;
 
-    if (candidate.kind === "article") {
-      return {
-        kind: "article",
-        title: candidate.item.title,
-        href: `/artikel/${candidate.item.slug}`,
-        imageUrl: candidate.item.featured_image_url,
-        difficultyLevel: candidate.item.difficulty_level,
-        materials: resolved.materials.slice(0, 4),
-        workshop: resolved.workshop,
-        makers: resolved.makers,
-      };
-    }
+    const journey: HomeJourney =
+      candidate.kind === "article"
+        ? {
+            kind: "article",
+            title: candidate.item.title,
+            href: `/artikel/${candidate.item.slug}`,
+            imageUrl: candidate.item.featured_image_url,
+            difficultyLevel: candidate.item.difficulty_level,
+            materials: resolved.materials.slice(0, 4),
+            workshop: resolved.workshop,
+            makers: resolved.makers,
+          }
+        : {
+            kind: "project",
+            title: candidate.item.title,
+            href: `/project/${candidate.item.slug}`,
+            imageUrl: candidate.item.featured_image_url,
+            difficultyLevel: candidate.item.difficulty_level,
+            materials: resolved.materials.slice(0, 4),
+            workshop: resolved.workshop,
+            makers: resolved.makers,
+          };
 
-    return {
-      kind: "project",
-      title: candidate.item.title,
-      href: `/project/${candidate.item.slug}`,
-      imageUrl: candidate.item.featured_image_url,
-      difficultyLevel: candidate.item.difficulty_level,
-      materials: resolved.materials.slice(0, 4),
-      workshop: resolved.workshop,
-      makers: resolved.makers,
-    };
+    ready.push({
+      item: journey,
+      resolvedCount,
+      materialCount: resolved.materials.length,
+    });
   }
 
-  return null;
+  return pickStrongestJourney(ready);
 }

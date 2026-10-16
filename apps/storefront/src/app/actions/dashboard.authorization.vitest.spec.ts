@@ -149,7 +149,7 @@ beforeEach(() => {
     project_gallery_images: [{ id: CHILD, project_id: PROJECT, image_url: "original" }],
     project_product_links: [{ id: CHILD, project_id: PROJECT, product_id: PRODUCT }],
     project_sought_materials: [{ id: CHILD, project_id: PROJECT, title: "Existing material" }],
-    products: [{ id: PRODUCT, creator_id: "creator-owner", product_type: "supply", title: "Knitting yarn", domain_id: DOMAIN }],
+    products: [{ id: PRODUCT, creator_id: "creator-owner", product_type: "supply", title: "Knitting yarn", domain_id: DOMAIN, is_active: true }],
     workshops: [], events: [],
     articles: [{ id: ARTICLE, author_creator_id: "creator-owner", title: "Original", slug: "original" }],
     entity_links: [

@@ -1,3 +1,5 @@
+import { publicRelationAlias } from "../platform/graph-contract";
+
 export const ARTICLE_GRAPH_RELATION_TYPES = [
   "required_material",
   "required_tool",
@@ -72,20 +74,22 @@ export function normalizeArticleGraphRelations(
       weight: connection.weight,
     };
 
+    const relationType = publicRelationAlias(connection.entityType, connection.relationType);
+
     if (connection.entityType === "product") {
-      if (connection.relationType === "required_material") {
+      if (relationType === "required_material") {
         relations.requiredMaterials.push(item);
-      } else if (connection.relationType === "required_tool") {
+      } else if (relationType === "required_tool") {
         relations.requiredTools.push(item);
-      } else if (connection.relationType === "optional_material") {
+      } else if (relationType === "optional_material") {
         relations.optionalMaterials.push(item);
-      } else if (connection.relationType === "related_product") {
+      } else if (relationType === "related_product") {
         relations.relatedProducts.push(item);
       }
     } else if (connection.entityType === "article") {
-      if (connection.relationType === "next_step") {
+      if (relationType === "next_step") {
         relations.nextSteps.push(item);
-      } else if (connection.relationType === "related_article") {
+      } else if (relationType === "related_article") {
         relations.relatedArticles.push(item);
       }
     }

@@ -9,7 +9,7 @@ import { getWorkshopById } from "@/lib/platform/queries/workshops";
 import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listArticlesByIds } from "@/lib/platform/queries/articles";
 import { createPlatformClient } from "@/lib/platform/client";
-import { getRelatedEntities } from "@/lib/platform/queries/entity-links";
+import { getEntityConnections } from "@/lib/platform/queries/entity-links";
 import {
   getMedusaProduct,
   getMedusaProductByHandle,
@@ -72,7 +72,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
           return data as Domain | null;
         })()
       : Promise.resolve(null),
-    getRelatedEntities("product", product.id),
+    getEntityConnections("product", product.id),
     createPlatformClient()
       .from("product_gallery_images")
       .select("image_url")
@@ -138,8 +138,8 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
   }
 
   const workshopIds = entityLinks
-    .filter((l) => l.target_entity_type === "workshop")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "workshop")
+    .map((l) => l.entityId);
   const relatedWorkshops =
     workshopIds.length > 0
       ? (
@@ -149,14 +149,14 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
         ).filter((w): w is Workshop => w != null)
       : [];
   const relatedArticleIds = entityLinks
-    .filter((l) => l.target_entity_type === "article")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "article")
+    .map((l) => l.entityId);
   const relatedEventIds = entityLinks
-    .filter((l) => l.target_entity_type === "event")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "event")
+    .map((l) => l.entityId);
   const relatedProductIds = entityLinks
-    .filter((l) => l.target_entity_type === "product")
-    .map((l) => l.target_entity_id);
+    .filter((l) => l.entityType === "product")
+    .map((l) => l.entityId);
 
   const [relatedArticles, relatedEvents, linkedProducts] = await Promise.all([
     listArticlesByIds(relatedArticleIds),

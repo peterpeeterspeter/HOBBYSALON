@@ -22,6 +22,8 @@ test("normalizes only explicit outbound article product requirement relations in
     connection("product", "brush", "required_tool", 2, 8),
     connection("product", "varnish", "optional_material", 3, 1),
     connection("product", "book", "related_product", 4, 5),
+    connection("product", "legacy", "related", 5, 3),
+    connection("product", "pending", "suggested_auto", 0, 99),
     connection("product", "ignored-inbound", "required_material", 0, 99, "inbound"),
     connection("product", "ignored-relation", "mentions", 0, 99),
   ]);
@@ -37,6 +39,7 @@ test("normalizes only explicit outbound article product requirement relations in
   ]);
   assert.deepEqual(relations.relatedProducts, [
     { id: "book", sortOrder: 4, weight: 5 },
+    { id: "legacy", sortOrder: 5, weight: 3 },
   ]);
 });
 

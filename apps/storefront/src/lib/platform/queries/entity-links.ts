@@ -4,6 +4,7 @@ import {
   resolveEntityConnection,
   type GraphConnection,
 } from "@/lib/platform/entity-graph";
+import { isPublicGraphRelation } from "@/lib/platform/graph-contract";
 
 export type EntityConnection = GraphConnection & {
   link: EntityLink;
@@ -35,7 +36,9 @@ export async function getRelatedEntities(
   });
 
   if (error) return [];
-  return (data ?? []) as EntityLink[];
+  return ((data ?? []) as EntityLink[]).filter((link) =>
+    isPublicGraphRelation(link.relation_type)
+  );
 }
 
 export async function getEntityConnections(
@@ -65,6 +68,7 @@ export async function getEntityConnections(
       return connection ? { ...connection, link } : null;
     })
     .filter((connection): connection is EntityConnection => connection !== null)
+    .filter((connection) => isPublicGraphRelation(connection.relationType))
     .sort((a, b) => {
       const aSortOrder = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
       const bSortOrder = b.sortOrder ?? Number.MAX_SAFE_INTEGER;

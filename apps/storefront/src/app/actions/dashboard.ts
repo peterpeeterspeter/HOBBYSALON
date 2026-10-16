@@ -30,6 +30,11 @@ import {
 import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing-fee";
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
+import { selectGraphSuggestions } from "@/lib/platform/graph-match";
+import {
+  DISMISSED_SUGGESTION_RELATION,
+  relationForApprovedSuggestion,
+} from "@/lib/platform/graph-contract";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
 import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import {
@@ -623,40 +628,6 @@ type SuggestionCandidate = {
   domainId: string | null;
 };
 
-function tokenizeForSuggestion(text: string): string[] {
-  return Array.from(
-    new Set(
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/gi, " ")
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 4)
-    )
-  );
-}
-
-function scoreSuggestion(
-  articleDomainId: string | null,
-  articleTokens: string[],
-  candidate: SuggestionCandidate
-): number {
-  const titleTokens = tokenizeForSuggestion(candidate.title);
-  let score = 0;
-
-  if (articleDomainId && candidate.domainId && articleDomainId === candidate.domainId) {
-    score += 60;
-  }
-
-  for (const token of titleTokens) {
-    if (articleTokens.includes(token)) {
-      score += 20;
-    }
-  }
-
-  return Math.min(score, 100);
-}
-
 async function generateArticleLinkSuggestions(input: {
   creatorId: string;
   articleId: string;
@@ -664,8 +635,8 @@ async function generateArticleLinkSuggestions(input: {
   sourceText: string;
 }): Promise<void> {
   const supabase = createPlatformClient();
-  const articleTokens = tokenizeForSuggestion(input.sourceText);
-  if (articleTokens.length === 0 && !input.articleDomainId) {
+  const articleTokensReady = input.sourceText.trim().length > 0 || input.articleDomainId;
+  if (!articleTokensReady) {
     return;
   }
 
@@ -675,16 +646,19 @@ async function generateArticleLinkSuggestions(input: {
         .from("products")
         .select("id,title,domain_id")
         .eq("creator_id", input.creatorId)
+        .eq("is_active", true)
         .limit(200),
       supabase
         .from("workshops")
         .select("id,title,domain_id")
         .eq("creator_id", input.creatorId)
+        .eq("is_active", true)
         .limit(200),
       supabase
         .from("events")
         .select("id,title,domain_id")
         .eq("organizer_creator_id", input.creatorId)
+        .eq("is_active", true)
         .limit(200),
       supabase
         .from("entity_links")
@@ -693,6 +667,15 @@ async function generateArticleLinkSuggestions(input: {
         .eq("source_entity_id", input.articleId)
         .in("target_entity_type", ["product", "workshop", "event"]),
     ]);
+
+  if (
+    productsResult.error ||
+    workshopsResult.error ||
+    eventsResult.error ||
+    existingLinksResult.error
+  ) {
+    throw new Error("Linksuggesties konden niet worden geladen.");
+  }
 
   const existingKeySet = new Set(
     (existingLinksResult.data ?? []).map(
@@ -733,18 +716,12 @@ async function generateArticleLinkSuggestions(input: {
     })),
   ];
 
-  const scored = candidates
-    .map((candidate) => ({
-      candidate,
-      score: scoreSuggestion(input.articleDomainId, articleTokens, candidate),
-    }))
-    .filter(
-      (row) =>
-        row.score >= 40 &&
-        !existingKeySet.has(`${row.candidate.targetType}:${row.candidate.targetId}`)
-    )
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+  const scored = selectGraphSuggestions(
+    input.articleDomainId,
+    input.sourceText,
+    candidates,
+    existingKeySet
+  );
 
   if (scored.length === 0) {
     return;
@@ -760,7 +737,10 @@ async function generateArticleLinkSuggestions(input: {
     sort_order: index + 1,
   }));
 
-  await supabase.from("entity_links").insert(rows);
+  const { error: insertError } = await supabase.from("entity_links").insert(rows);
+  if (insertError) {
+    throw new Error("Linksuggesties konden niet worden opgeslagen.");
+  }
 }
 
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
@@ -1475,12 +1455,11 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
   try {
     const { creator } = await getRequiredCreatorProfile();
     const entityLinkId = parseRequiredUuid(formData, "entity_link_id");
-    const relationType = parseOptionalString(formData, "relation_type") ?? "related";
     const supabase = createPlatformClient();
 
     const { data: linkRow, error: linkError } = await supabase
       .from("entity_links")
-      .select("id,source_entity_id,relation_type")
+      .select("id,source_entity_id,target_entity_type,relation_type")
       .eq("id", entityLinkId)
       .eq("source_entity_type", "article")
       .eq("relation_type", "suggested_auto")
@@ -1499,6 +1478,14 @@ export async function approveArticleSuggestionAction(formData: FormData): Promis
 
     if (!articleRow?.id) {
       fail(CREATOR_MAKER_PATH, "Geen rechten op deze suggestie.");
+    }
+
+    const relationType = relationForApprovedSuggestion(
+      String(linkRow.target_entity_type ?? ""),
+      parseOptionalString(formData, "relation_type")
+    );
+    if (!relationType) {
+      fail(CREATOR_MAKER_PATH, "Deze suggestie heeft geen geldige koppeling.");
     }
 
     const { error } = await supabase
@@ -1554,8 +1541,9 @@ export async function dismissArticleSuggestionAction(formData: FormData): Promis
 
     const { error } = await supabase
       .from("entity_links")
-      .delete()
-      .eq("id", entityLinkId);
+      .update({ relation_type: DISMISSED_SUGGESTION_RELATION })
+      .eq("id", entityLinkId)
+      .eq("relation_type", "suggested_auto");
 
     if (error) {
       fail(CREATOR_MAKER_PATH, "Verwijderen van suggestie mislukt.");
