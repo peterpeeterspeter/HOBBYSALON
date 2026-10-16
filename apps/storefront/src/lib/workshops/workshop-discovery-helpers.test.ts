@@ -54,6 +54,52 @@ test("pickNextMatchingSession without range picks first future session", () => {
   assert.equal(next?.id, "soon");
 });
 
+test("pickNextMatchingSession ignores past start with far-future ends_at", () => {
+  const nowIso = "2026-10-16T12:00:00.000Z";
+  const next = pickNextMatchingSession(
+    [
+      {
+        id: "stale",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2027, 8, 15, 10, 0, 0),
+      },
+      {
+        id: "future",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 24, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 24, 13, 0, 0),
+      },
+    ],
+    { nowIso }
+  );
+  assert.equal(next?.id, "future");
+});
+
+test("pickNextMatchingSession with weekend range excludes past starts", () => {
+  const nowIso = "2026-10-16T12:00:00.000Z";
+  const weekendFrom = zonedDateTimeToUtcIso(2026, 10, 17, 0, 0, 0);
+  const weekendTo = zonedDateTimeToUtcIso(2026, 10, 18, 23, 59, 59);
+  const next = pickNextMatchingSession(
+    [
+      {
+        id: "past-overlap-via-ends",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2027, 8, 15, 10, 0, 0),
+      },
+      {
+        id: "weekend",
+        workshop_id: "w1",
+        starts_at: zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
+        ends_at: zonedDateTimeToUtcIso(2026, 10, 17, 13, 0, 0),
+      },
+    ],
+    { nowIso, range: { from: weekendFrom, to: weekendTo } }
+  );
+  assert.equal(next?.id, "weekend");
+});
+
 test("pickNextMatchingSession with range picks in-range session not earlier future", () => {
   const nowIso = "2026-07-28T12:00:00.000Z";
   const weekendFrom = zonedDateTimeToUtcIso(2026, 8, 1, 0, 0, 0);

@@ -75,6 +75,7 @@ export const FOOTER_SECTIONS = {
     { href: "/prijzen", label: "Prijzen" },
   ],
   info: [
+    { href: "/nieuwsbrief", label: "Nieuwsbrief" },
     { href: "/over-ons", label: "Over ons" },
     { href: "/over-ons#contact", label: "Contact" },
     { href: "/privacy", label: "Privacy" },

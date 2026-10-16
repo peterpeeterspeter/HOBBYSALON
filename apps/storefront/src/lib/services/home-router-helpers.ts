@@ -2,31 +2,35 @@
  * Pure homepage router helpers (no Next/Supabase imports — safe for unit tests).
  */
 
-import { eventIsUpcomingOrOngoing } from "@/lib/agenda/agenda-helpers";
+import {
+  agendaInstantMs,
+  startsOnOrAfterToday,
+} from "@/lib/agenda/agenda-helpers";
 import type { Event } from "@/types/platform";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Near-term first; mild featured boost so far fairs don't displace this weekend.
  *  If nothing falls in the near windows, fall back to all upcoming events so the
- *  homepage still surfaces the agenda when inventory is sparse or far out. */
+ *  homepage still surfaces the agenda when inventory is sparse or far out.
+ *  Past starts (even with a far-future ends_at) are excluded. */
 export function selectHomeAgendaEvents(
   events: Event[],
-  limit = 3
+  limit = 3,
+  now = new Date()
 ): Event[] {
-  const nowIso = new Date().toISOString();
-  const now = Date.now();
+  const nowMs = now.getTime();
   const upcoming = events.filter((event) =>
-    eventIsUpcomingOrOngoing(event, nowIso)
+    startsOnOrAfterToday(event.starts_at, now)
   );
 
   const windows = [21, 45, 90];
   let pool: Event[] = [];
   for (const days of windows) {
-    const horizon = now + days * DAY_MS;
+    const horizon = nowMs + days * DAY_MS;
     pool = upcoming.filter((event) => {
-      const start = new Date(event.starts_at).getTime();
-      return start <= horizon || start <= now;
+      const start = agendaInstantMs(event.starts_at);
+      return Number.isFinite(start) && start <= horizon;
     });
     if (pool.length >= limit) break;
   }
@@ -38,9 +42,9 @@ export function selectHomeAgendaEvents(
   return [...pool]
     .sort((a, b) => {
       const aRank =
-        new Date(a.starts_at).getTime() - (a.is_featured ? 3 * DAY_MS : 0);
+        agendaInstantMs(a.starts_at) - (a.is_featured ? 3 * DAY_MS : 0);
       const bRank =
-        new Date(b.starts_at).getTime() - (b.is_featured ? 3 * DAY_MS : 0);
+        agendaInstantMs(b.starts_at) - (b.is_featured ? 3 * DAY_MS : 0);
       return aRank - bRank;
     })
     .slice(0, limit);

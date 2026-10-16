@@ -7,6 +7,8 @@ import {
   resolveAgendaCustomRange,
   resolveAgendaDatePreset,
   sanitizeAgendaSearchQuery,
+  startsOnOrAfterToday,
+  startsWithinRange,
   zonedDateTimeToUtcIso,
 } from "./agenda-helpers";
 
@@ -120,6 +122,60 @@ test("groupEventsByAgendaBucket preset buckets", () => {
       ["later", ["4"]],
     ]
   );
+});
+
+test("groupEventsByAgendaBucket ignores past starts with far-future ends_at", () => {
+  const now = new Date("2026-10-16T12:00:00+02:00");
+  const events = [
+    {
+      id: "past-aug",
+      starts_at: zonedDateTimeToUtcIso(2026, 8, 15, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2027, 8, 15, 10, 0, 0),
+    },
+    {
+      id: "past-sep",
+      starts_at: zonedDateTimeToUtcIso(2026, 9, 16, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2027, 9, 16, 10, 0, 0),
+    },
+    {
+      id: "weekend",
+      starts_at: zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
+      ends_at: zonedDateTimeToUtcIso(2026, 10, 17, 13, 0, 0),
+    },
+  ];
+  const groups = groupEventsByAgendaBucket(events, { mode: "preset", now });
+  assert.deepEqual(
+    groups.map((g) => [g.key, g.events.map((e) => e.id)]),
+    [["weekend", ["weekend"]]]
+  );
+});
+
+test("startsOnOrAfterToday uses Europe/Brussels calendar day", () => {
+  const now = new Date("2026-10-16T12:00:00+02:00");
+  assert.equal(
+    startsOnOrAfterToday(zonedDateTimeToUtcIso(2026, 10, 16, 0, 0, 0), now),
+    true
+  );
+  assert.equal(
+    startsOnOrAfterToday(zonedDateTimeToUtcIso(2026, 10, 15, 23, 0, 0), now),
+    false
+  );
+  assert.equal(
+    startsWithinRange(
+      zonedDateTimeToUtcIso(2026, 10, 17, 10, 0, 0),
+      zonedDateTimeToUtcIso(2026, 10, 17, 0, 0, 0),
+      zonedDateTimeToUtcIso(2026, 10, 18, 23, 59, 59)
+    ),
+    true
+  );
+});
+
+test("resolveAgendaDatePreset weekend on Sunday is current Sat–Sun", () => {
+  const now = new Date("2026-10-18T15:00:00+02:00");
+  const range = resolveAgendaDatePreset("weekend", now);
+  assert.ok(range);
+  assert.equal(range.from, zonedDateTimeToUtcIso(2026, 10, 17, 0, 0, 0));
+  assert.equal(range.to, zonedDateTimeToUtcIso(2026, 10, 18, 23, 59, 59));
 });
 
 test("groupEventsByAgendaBucket custom day headings", () => {

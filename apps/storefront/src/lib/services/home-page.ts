@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import {
-  eventIsUpcomingOrOngoing,
   resolveAgendaDatePreset,
+  startsOnOrAfterToday,
 } from "@/lib/agenda/agenda-helpers";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
@@ -208,7 +208,6 @@ async function loadDomainsWithLiveContent(
   }
 
   // Broader live signals (not limited to teaser rows)
-  const nowIso = new Date().toISOString();
   const [
     { data: workshopDomainRows },
     { data: articleDomainRows },
@@ -256,7 +255,7 @@ async function loadDomainsWithLiveContent(
     if (id) liveIds.add(id);
   }
 
-  // Only count event domains for upcoming/ongoing events
+  // Only count event domains for starts_at on/after local today
   const eventIdsForDomains = [
     ...new Set(
       (moreEventDomainRows ?? []).map(
@@ -272,7 +271,7 @@ async function loadDomainsWithLiveContent(
       .eq("is_active", true);
     const upcomingEventIds = new Set(
       ((eventRows ?? []) as Event[])
-        .filter((e) => eventIsUpcomingOrOngoing(e, nowIso))
+        .filter((e) => startsOnOrAfterToday(e.starts_at))
         .map((e) => e.id)
     );
     for (const row of moreEventDomainRows ?? []) {
@@ -496,7 +495,7 @@ const getHomePageDataCached = unstable_cache(
       return EMPTY_HOME_PAGE_DATA;
     }
   },
-  ["home-page-data-v6"],
+  ["home-page-data-v7"],
   {
     revalidate: 60 * 5,
     tags: ["home-page"],

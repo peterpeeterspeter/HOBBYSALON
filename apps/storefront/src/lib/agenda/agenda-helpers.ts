@@ -139,6 +139,61 @@ function startOfLocalDayIso(
   return zonedDateTimeToUtcIso(year, month, day, 0, 0, 0, timeZone);
 }
 
+/** Parse ISO / timestamptz / date-only strings to epoch ms; NaN if invalid. */
+export function agendaInstantMs(value: string | null | undefined): number {
+  if (!value?.trim()) return Number.NaN;
+  const trimmed = value.trim();
+  // Date-only → interpret as local midnight in Europe/Brussels.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-").map(Number) as [number, number, number];
+    return Date.parse(zonedDateTimeToUtcIso(y, m, d, 0, 0, 0));
+  }
+  return Date.parse(trimmed);
+}
+
+/** Start of "today" in Europe/Brussels as UTC ISO. */
+export function startOfTodayIso(
+  now = new Date(),
+  timeZone = AGENDA_TIMEZONE
+): string {
+  const local = partsInTimeZone(now, timeZone);
+  return startOfLocalDayIso(local.year, local.month, local.day, timeZone);
+}
+
+/**
+ * True when the event/session start is on or after local today (Europe/Brussels).
+ * Used for public listings so past starts with a far-future ends_at do not linger.
+ */
+export function startsOnOrAfterToday(
+  startsAt: string,
+  now = new Date(),
+  timeZone = AGENDA_TIMEZONE
+): boolean {
+  const startMs = agendaInstantMs(startsAt);
+  const todayMs = agendaInstantMs(startOfTodayIso(now, timeZone));
+  if (!Number.isFinite(startMs) || !Number.isFinite(todayMs)) return false;
+  return startMs >= todayMs;
+}
+
+/** True when starts_at falls inside an inclusive ISO range (by start instant). */
+export function startsWithinRange(
+  startsAt: string,
+  rangeFrom: string,
+  rangeTo: string
+): boolean {
+  const startMs = agendaInstantMs(startsAt);
+  const fromMs = agendaInstantMs(rangeFrom);
+  const toMs = agendaInstantMs(rangeTo);
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(fromMs) ||
+    !Number.isFinite(toMs)
+  ) {
+    return false;
+  }
+  return startMs >= fromMs && startMs <= toMs;
+}
+
 /**
  * Resolve a named date preset to an inclusive ISO range in Europe/Brussels.
  * Returns null for unknown / empty presets.
@@ -160,12 +215,15 @@ export function resolveAgendaDatePreset(
 
   if (preset === "weekend") {
     const dow = weekdayIndex(local.weekday);
-    // Mon=1 … Sat=6, Sun=0. Days until Saturday.
+    // Upcoming Sat–Sun: Mon–Fri → this coming weekend; Sat/Sun → this weekend.
+    // (Sun uses Saturday of the current weekend, which may be yesterday.)
     const daysUntilSat = dow === 6 ? 0 : dow === 0 ? -1 : 6 - dow;
-    const sat =
-      daysUntilSat >= 0
-        ? addCalendarDays(local.year, local.month, local.day, daysUntilSat)
-        : addCalendarDays(local.year, local.month, local.day, -1);
+    const sat = addCalendarDays(
+      local.year,
+      local.month,
+      local.day,
+      daysUntilSat
+    );
     const sun = addCalendarDays(sat.year, sat.month, sat.day, 1);
     return {
       from: startOfLocalDayIso(sat.year, sat.month, sat.day, timeZone),
@@ -234,23 +292,39 @@ export function eventEffectiveEndIso(event: {
   return event.ends_at?.trim() ? event.ends_at : event.starts_at;
 }
 
-/** Inclusive overlap: event intersects [rangeFrom, rangeTo]. */
+/** Inclusive overlap: event intersects [rangeFrom, rangeTo] (numeric instants). */
 export function eventOverlapsRange(
   event: { starts_at: string; ends_at?: string | null },
   rangeFrom: string,
   rangeTo: string
 ): boolean {
-  const start = event.starts_at;
-  const end = eventEffectiveEndIso(event);
-  return start <= rangeTo && end >= rangeFrom;
+  const startMs = agendaInstantMs(event.starts_at);
+  const endMs = agendaInstantMs(eventEffectiveEndIso(event));
+  const fromMs = agendaInstantMs(rangeFrom);
+  const toMs = agendaInstantMs(rangeTo);
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(endMs) ||
+    !Number.isFinite(fromMs) ||
+    !Number.isFinite(toMs)
+  ) {
+    return false;
+  }
+  return startMs <= toMs && endMs >= fromMs;
 }
 
-/** Still happening or not yet started (upcoming / ongoing). */
+/**
+ * Still happening or not yet started (effective end ≥ now).
+ * Prefer {@link startsOnOrAfterToday} for public discovery lists.
+ */
 export function eventIsUpcomingOrOngoing(
   event: { starts_at: string; ends_at?: string | null },
   nowIso: string
 ): boolean {
-  return eventEffectiveEndIso(event) >= nowIso;
+  const endMs = agendaInstantMs(eventEffectiveEndIso(event));
+  const nowMs = agendaInstantMs(nowIso);
+  if (!Number.isFinite(endMs) || !Number.isFinite(nowMs)) return false;
+  return endMs >= nowMs;
 }
 
 export function eventMatchesPlace(
@@ -336,15 +410,25 @@ export function groupEventsByAgendaBucket<
   ];
 
   for (const event of events) {
-    if (eventOverlapsRange(event, weekend.from, weekend.to)) {
+    // Bucket by start date so a far-future ends_at cannot pin past sessions
+    // under "Dit weekend". Weekend keeps Sat–Sun of the upcoming weekend
+    // (Saturday may be yesterday when today is Sunday).
+    if (startsWithinRange(event.starts_at, weekend.from, weekend.to)) {
       buckets[0]!.events.push(event);
-    } else if (eventOverlapsRange(event, nextWeek.from, nextWeek.to)) {
+    } else if (
+      startsOnOrAfterToday(event.starts_at, now, timeZone) &&
+      startsWithinRange(event.starts_at, nextWeek.from, nextWeek.to)
+    ) {
       buckets[1]!.events.push(event);
-    } else if (eventOverlapsRange(event, month.from, month.to)) {
+    } else if (
+      startsOnOrAfterToday(event.starts_at, now, timeZone) &&
+      startsWithinRange(event.starts_at, month.from, month.to)
+    ) {
       buckets[2]!.events.push(event);
-    } else {
+    } else if (startsOnOrAfterToday(event.starts_at, now, timeZone)) {
       buckets[3]!.events.push(event);
     }
+    // else: past start — omit from public buckets
   }
 
   return buckets.filter((b) => b.events.length > 0);

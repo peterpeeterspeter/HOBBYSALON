@@ -5,6 +5,7 @@ import {
   getActiveBoostScoresForEntities,
 } from "../ranking";
 import { brusselsDayRangeToUtcIso } from "../workshop-taxonomy";
+import { startOfTodayIso } from "@/lib/agenda/agenda-helpers";
 import {
   pickNextSessionByWorkshop,
   sanitizeAgendaSearchQuery,
@@ -402,14 +403,16 @@ export async function listDiscoveryWorkshops(
     .eq("is_cancelled", false)
     .limit(2000);
 
-  // Soft DB bound: avoid ancient history when no range.
+  // Bound by start date so past sessions with a far-future ends_at are dropped.
   if (range) {
-    sessionQuery = sessionQuery.lte("starts_at", range.to);
+    sessionQuery = sessionQuery
+      .gte("starts_at", range.from)
+      .lte("starts_at", range.to);
   } else {
-    const softFrom = new Date(
-      Date.now() - 366 * 24 * 60 * 60 * 1000
-    ).toISOString();
-    sessionQuery = sessionQuery.gte("starts_at", softFrom);
+    sessionQuery = sessionQuery.gte(
+      "starts_at",
+      startOfTodayIso(new Date(nowIso))
+    );
   }
 
   const { data: sessionRows, error: sessionError } = await sessionQuery;
