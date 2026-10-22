@@ -4,6 +4,7 @@ import { sanitizeInternalRedirect } from "./safe-redirect";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
+import { authConfirmUrlForOrigin } from "@/lib/markets/public-origin";
 
 export const AUTH_ACCESS_COOKIE = "hs_auth_access";
 export const AUTH_REFRESH_COOKIE = "hs_auth_refresh";
@@ -154,7 +155,7 @@ export async function registerEmailUser(
   // Keep emailRedirectTo allowlist-safe and stable. Nested ?next=…/#… caused
   // signup failures; retries then burned the project-wide email rate limit.
   await persistAuthNextPath(nextPath);
-  const confirmationUrl = buildAuthConfirmUrl();
+  const confirmationUrl = await buildAuthConfirmUrl();
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -171,13 +172,6 @@ export async function registerEmailUser(
     session: data.session ?? null,
     error: error?.message ?? null,
   };
-}
-
-function getSiteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.hobbysalon.be").replace(
-    /\/$/,
-    ""
-  );
 }
 
 /** Apply the same-origin redirect policy while preserving the no-leading-space contract. */
@@ -227,9 +221,18 @@ export async function consumeAuthNextPath(
 /**
  * Stable Supabase allowlist target. Do not append ?next= — store next in
  * AUTH_NEXT_COOKIE via persistAuthNextPath instead.
+ * Uses the request host (.be / .nl) so confirm and reset stay on the same domain.
+ * Pass `siteOrigin` when the caller already resolved the public origin (tests).
  */
-export function buildAuthConfirmUrl(_nextPath?: string | null): string {
-  return new URL("/auth/confirm", getSiteUrl()).toString();
+export async function buildAuthConfirmUrl(
+  _nextPath?: string | null,
+  siteOrigin?: string
+): Promise<string> {
+  if (siteOrigin) {
+    return authConfirmUrlForOrigin(siteOrigin);
+  }
+  const { getRequestPublicOrigin } = await import("@/lib/markets/request");
+  return authConfirmUrlForOrigin(await getRequestPublicOrigin());
 }
 
 export async function sendPasswordResetEmail(
@@ -238,7 +241,7 @@ export async function sendPasswordResetEmail(
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseAuthClient();
   await persistAuthNextPath("/auth/update-password");
-  const redirectTo = buildAuthConfirmUrl();
+  const redirectTo = await buildAuthConfirmUrl();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
     captchaToken: captchaToken || undefined,
