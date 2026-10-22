@@ -222,9 +222,61 @@ test("existing Belgian SEO helpers keep the BE origin and locale", () => {
       path: "/workshops",
       description: "Ontdek workshops",
     });
-    assert.equal(meta.alternates?.canonical, "/workshops");
+    assert.equal(
+      meta.alternates?.canonical,
+      "https://www.hobbysalon.be/workshops"
+    );
     assert.equal(meta.openGraph?.locale, "nl_BE");
     assert.equal(meta.openGraph?.url, "https://www.hobbysalon.be/workshops");
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = previous;
+  }
+});
+
+test("BE trusted host indexes while ENABLE_NL_MARKET is off", () => {
+  const resolved = resolveMarketFromHeaders({
+    host: "www.hobbysalon.be",
+    env: offEnv,
+  });
+  const seo = marketSeoDecision(resolved, offEnv);
+  assert.equal(seo.index, true);
+  assert.equal(seo.follow, true);
+  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.canonicalOrigin, MARKETS.BE.canonicalOrigin);
+  assert.equal(seo.htmlLang, "nl-BE");
+  assert.equal(seo.ogLocale, "nl_BE");
+});
+
+test("NL preparing never publishes hreflang or indexes even with flag on", () => {
+  assert.equal(MARKETS.NL.rollout, "preparing");
+  assert.equal(MARKETS.NL.indexing, "noindex");
+  const resolved = resolveMarketFromHeaders({
+    host: "hobbysalon.nl",
+    env: onPreviewEnv,
+  });
+  const seo = marketSeoDecision(resolved, onPreviewEnv);
+  assert.equal(seo.index, false);
+  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.canonicalOrigin, MARKETS.NL.canonicalOrigin);
+  assert.equal(seo.htmlLang, "nl-NL");
+});
+
+test("articles without market origin keep BE canonical on absolute form", () => {
+  const previous = process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  try {
+    const meta = buildPageMetadata({
+      title: "Artikel",
+      path: "/artikel/voorbeeld",
+      description: "BE artikel",
+      type: "article",
+    });
+    assert.equal(
+      meta.alternates?.canonical,
+      "https://www.hobbysalon.be/artikel/voorbeeld"
+    );
+    assert.equal(meta.alternates?.languages, undefined);
   } finally {
     if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
     else process.env.NEXT_PUBLIC_SITE_URL = previous;

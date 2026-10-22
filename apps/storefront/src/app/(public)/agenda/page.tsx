@@ -20,17 +20,21 @@ import {
   sanitizeAgendaSearchQuery,
 } from "@/lib/agenda/agenda-helpers";
 import { getLocationPreference } from "@/lib/location/preference";
+import { buildRegionalPageMetadata } from "@/lib/markets/regional-seo";
 import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listAgendaEvents } from "@/lib/platform/queries/events";
 import { pickEventListingHero } from "@/lib/platform/queries/listing-featured-hero";
 import { createPlatformClient } from "@/lib/platform/client";
 
-export const metadata: Metadata = {
-  title: "Agenda | Hobbysalon",
-  description:
-    "Handmade markten, hobbybeurzen, pop-ups en workshops bij jou in de buurt",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  return buildRegionalPageMetadata({
+    path: "/agenda",
+    decision: marketSeoDecision(resolution),
+  });
+}
 
 type SearchParams = Promise<{
   q?: string;

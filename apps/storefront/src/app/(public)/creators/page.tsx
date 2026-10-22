@@ -31,12 +31,17 @@ import {
   type MaterialsCatalogItem,
 } from "@/lib/platform/queries/products";
 import { pickMakerProductListingHero } from "@/lib/platform/queries/listing-featured-hero";
+import { buildRegionalPageMetadata } from "@/lib/markets/regional-seo";
+import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
 
-export const metadata: Metadata = {
-  title: "Makersmarkt | Hobbysalon",
-  description:
-    "Koop handgemaakte creaties en restanten rechtstreeks van makers op Hobbysalon",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  return buildRegionalPageMetadata({
+    path: "/creators",
+    decision: marketSeoDecision(resolution),
+  });
+}
 
 type SearchParams = Promise<{
   q?: string;

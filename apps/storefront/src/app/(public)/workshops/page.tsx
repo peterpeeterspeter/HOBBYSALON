@@ -24,7 +24,9 @@ import {
   sanitizeAgendaSearchQuery,
 } from "@/lib/workshops/workshop-discovery-helpers";
 import { getLocationPreference } from "@/lib/location/preference";
+import { buildRegionalPageMetadata } from "@/lib/markets/regional-seo";
 import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listWorkshopCategories } from "@/lib/platform/queries/workshop-categories";
 import { listDiscoveryWorkshops } from "@/lib/platform/queries/workshops";
@@ -39,10 +41,13 @@ import {
   parseWorkshopCodeList,
 } from "@/lib/platform/workshop-taxonomy";
 
-export const metadata: Metadata = {
-  title: "Workshops | Hobbysalon",
-  description: "Vind een workshop die bij je past — dichtbij of online",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  return buildRegionalPageMetadata({
+    path: "/workshops",
+    decision: marketSeoDecision(resolution),
+  });
+}
 
 type SearchParams = Promise<{
   q?: string;
