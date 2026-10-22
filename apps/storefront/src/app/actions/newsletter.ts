@@ -12,6 +12,7 @@ import {
   isNewsletterEmailConfigured,
   sendNewsletterEmail,
 } from "@/lib/newsletter/resend";
+import { getRequestPublicOrigin } from "@/lib/markets/request";
 
 export type NewsletterActionState = {
   success: boolean;
@@ -36,7 +37,9 @@ async function subscribeToLeadMagnet(
   sourcePath: string
 ): Promise<NewsletterActionState> {
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
-  const siteUrl = getNewsletterSiteUrl();
+  // Prefer the request host (.be / .nl); fall back to NEXT_PUBLIC_SITE_URL.
+  const siteUrl =
+    (await getRequestPublicOrigin().catch(() => null)) ?? getNewsletterSiteUrl();
   if (!confirmationSecret || !siteUrl || !isNewsletterEmailConfigured()) {
     return {
       success: false,
