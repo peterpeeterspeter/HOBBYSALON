@@ -86,6 +86,20 @@ async function renderHomePage(data, reject = false) {
         ignoredResidenceCountry: null,
       }),
     },
+    "@/lib/markets/seo-policy": {
+      marketSeoDecision: () => ({
+        index: true,
+        follow: true,
+        publishHreflang: false,
+        canonicalOrigin: "https://www.hobbysalon.be",
+        htmlLang: "nl-BE",
+        ogLocale: "nl_BE",
+        marketCode: "BE",
+      }),
+    },
+    "@/lib/markets/regional-seo": {
+      buildRegionalPageMetadata: () => ({}),
+    },
     "@/lib/profile/resumable-saved-project-service": { listResumableSavedProjects: async () => {
       forbidden.push("authenticated profile lookup"); throw new Error("Guest fixture must not load profile");
     } },

@@ -39,7 +39,6 @@ export function marketSeoDecision(
   resolution: MarketResolution,
   env: Record<string, string | undefined> = process.env
 ): MarketSeoDecision {
-  const nlEnabled = isNlMarketEnabled(env);
   const market = resolution.market;
   const trusted = resolution.trustedHost && !resolution.preview;
 
