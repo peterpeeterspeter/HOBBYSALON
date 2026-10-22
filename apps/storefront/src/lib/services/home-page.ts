@@ -330,6 +330,8 @@ async function loadMakeItems(): Promise<HomeMakeItem[]> {
 async function loadCatalogRail(
   catalogScope: "merchant" | "maker_p2p"
 ): Promise<MaterialsCatalogItem[]> {
+  // Shared BE/NL catalog: same published products on both domains.
+  // Shipping methods and costs are validated at Medusa checkout.
   const { products } = await listMaterialsCatalog({
     catalog_scope: catalogScope,
     sort: "recommended",
@@ -395,8 +397,6 @@ async function loadMakersBlock(
 
 async function loadHomePageData(marketCode: MarketCode): Promise<HomePageData> {
   const totalStartMs = Date.now();
-  // Changeset C owns NL product delivery. Keep NL product rails empty for now.
-  const loadProducts = marketCode !== "NL";
 
   const [
     featuredEvents,
@@ -424,16 +424,8 @@ async function loadHomePageData(marketCode: MarketCode): Promise<HomePageData> {
     ),
     settledValue(loadMakeItems(), [], "make-items"),
     settledValue(resolveHomeJourney(), null, "journey"),
-    settledValue(
-      loadProducts ? loadCatalogRail("merchant") : Promise.resolve([]),
-      [],
-      "materials"
-    ),
-    settledValue(
-      loadProducts ? loadCatalogRail("maker_p2p") : Promise.resolve([]),
-      [],
-      "makersmarkt"
-    ),
+    settledValue(loadCatalogRail("merchant"), [], "materials"),
+    settledValue(loadCatalogRail("maker_p2p"), [], "makersmarkt"),
   ]);
 
   const [domainsWithLiveContent, makers] = await Promise.all([

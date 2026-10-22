@@ -71,7 +71,9 @@ describe("shared redirect policy at both auth boundaries", () => {
     expect(await consumeAuthNextPath()).toBe("/cart?x=1");
     expect(mocks.set).toHaveBeenLastCalledWith(AUTH_NEXT_COOKIE, "", expect.objectContaining({ maxAge: 0 }));
     expect(await consumeAuthNextPath("/fallback")).toBe("/fallback");
-    expect(buildAuthConfirmUrl("/cart?x=1#items")).toBe("https://site.example/auth/confirm");
+    expect(await buildAuthConfirmUrl("/cart?x=1#items", "https://site.example")).toBe(
+      "https://site.example/auth/confirm"
+    );
   });
   it("clears unsafe persisted next paths and rejects legacy unsafe cookies", async () => {
     await persistAuthNextPath("/\\evil.example");

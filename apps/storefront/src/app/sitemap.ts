@@ -1,7 +1,13 @@
 import type { MetadataRoute } from "next";
 import { listPublishedNewsletterIssueSlugs } from "@/lib/newsletter/issues";
 import { createPlatformClient } from "@/lib/platform/client";
-import { getSiteUrl } from "@/lib/seo";
+import { REGIONAL_LANDING_PATHS } from "@/lib/markets/regional-seo";
+import { getRequestMarket } from "@/lib/markets/request";
+import {
+  isNlSeoPublished,
+  marketSeoDecision,
+} from "@/lib/markets/seo-policy";
+import { absoluteUrl } from "@/lib/seo";
 import { getAllTools } from "@/lib/tools/registry";
 
 export const dynamic = "force-dynamic";
@@ -9,8 +15,9 @@ export const revalidate = 3600;
 
 const ARTICLE_PAGE_SIZE = 1000;
 
-const STATIC_PATHS = [
-  "/",
+/** Belgian indexable static routes (existing surface + regional landings). */
+const BE_STATIC_PATHS = [
+  ...REGIONAL_LANDING_PATHS,
   "/crochet",
   "/knitting",
   "/card-making",
@@ -40,8 +47,8 @@ type SitemapArticle = {
   created_at: string;
 };
 
-function sitemapUrl(path: string): string {
-  return new URL(path, `${getSiteUrl()}/`).toString().replace(/\/$/, "");
+function sitemapUrl(path: string, origin: string): string {
+  return absoluteUrl(path, origin).replace(/\/$/, "") || origin;
 }
 
 async function listPublishedArticles(): Promise<SitemapArticle[]> {
@@ -70,15 +77,36 @@ async function listPublishedArticles(): Promise<SitemapArticle[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticEntries: MetadataRoute.Sitemap = STATIC_PATHS.map((path) => ({
-    url: sitemapUrl(path),
-    changeFrequency: path === "/" ? "daily" : "weekly",
+  const resolution = await getRequestMarket();
+  const seo = marketSeoDecision(resolution);
+  const origin = seo.canonicalOrigin;
+
+  // NL host: only regional landings, and only after controlled launch.
+  if (seo.marketCode === "NL") {
+    if (!isNlSeoPublished() || !seo.index) {
+      return [];
+    }
+    return REGIONAL_LANDING_PATHS.map((path) => ({
+      url: sitemapUrl(path, origin),
+      changeFrequency: path === "/" ? ("daily" as const) : ("weekly" as const),
+      priority: path === "/" ? 1 : 0.9,
+    }));
+  }
+
+  // Untrusted / preview hosts must not publish an indexable sitemap.
+  if (!seo.index) {
+    return [];
+  }
+
+  const staticEntries: MetadataRoute.Sitemap = BE_STATIC_PATHS.map((path) => ({
+    url: sitemapUrl(path, origin),
+    changeFrequency: path === "/" ? ("daily" as const) : ("weekly" as const),
     priority: path === "/" ? 1 : 0.9,
   }));
 
   const articles = await listPublishedArticles();
   const articleEntries: MetadataRoute.Sitemap = articles.map((article) => ({
-    url: sitemapUrl(`/artikel/${article.slug}`),
+    url: sitemapUrl(`/artikel/${article.slug}`, origin),
     lastModified:
       article.updated_at ?? article.published_at ?? article.created_at,
     changeFrequency: "weekly",
@@ -86,7 +114,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const toolEntries: MetadataRoute.Sitemap = getAllTools().map((tool) => ({
-    url: sitemapUrl(`/tools/${tool.slug}`),
+    url: sitemapUrl(`/tools/${tool.slug}`, origin),
     changeFrequency: "monthly",
     priority: 0.7,
   }));
@@ -96,7 +124,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
   const newsletterEntries: MetadataRoute.Sitemap = newsletterIssues.map(
     (issue) => ({
-      url: sitemapUrl(`/nieuwsbrief/${issue.slug}`),
+      url: sitemapUrl(`/nieuwsbrief/${issue.slug}`, origin),
       lastModified: issue.published_at,
       changeFrequency: "monthly" as const,
       priority: 0.6,

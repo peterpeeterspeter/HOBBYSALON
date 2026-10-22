@@ -12,7 +12,9 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/container";
 import { getAuthUser } from "@/lib/auth/session";
 import { homeHeroCopy } from "@/lib/markets/discovery-preference";
+import { buildRegionalPageMetadata } from "@/lib/markets/regional-seo";
 import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
 import {
   getHomePageData,
   homeWeekendAgendaHref,
@@ -22,15 +24,19 @@ import { absoluteUrl } from "@/lib/seo";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: "Hobbysalon | Creatief platform voor België en Nederland",
-  description:
-    "Vind een creatief uitje, workshop, maker of stap-voor-stap project in België en Nederland.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  return buildRegionalPageMetadata({
+    path: "/",
+    decision: marketSeoDecision(resolution),
+  });
+}
 
 export default async function HomePage() {
-  const { market } = await getRequestMarket();
-  const marketCode = market.marketCode;
+  const resolution = await getRequestMarket();
+  const seo = marketSeoDecision(resolution);
+  const marketCode = resolution.market.marketCode;
+  const origin = seo.canonicalOrigin;
   const hero = homeHeroCopy(marketCode);
   const data = await getHomePageData(marketCode).catch(() => ({
     domainsWithLiveContent: [],
@@ -59,8 +65,8 @@ export default async function HomePage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Hobbysalon",
-    url: absoluteUrl("/"),
-    logo: absoluteUrl("/logo.png"),
+    url: absoluteUrl("/", origin),
+    logo: absoluteUrl("/logo.png", origin),
     description:
       "Creatief platform voor workshops, makers, hobbywinkels, evenementen en creatieve inspiratie in België en Nederland.",
   };
@@ -69,12 +75,12 @@ export default async function HomePage() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Hobbysalon",
-    url: absoluteUrl("/"),
+    url: absoluteUrl("/", origin),
     potentialAction: {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: absoluteUrl("/zoeken?q={search_term_string}"),
+        urlTemplate: absoluteUrl("/zoeken?q={search_term_string}", origin),
       },
       "query-input": "required name=search_term_string",
     },

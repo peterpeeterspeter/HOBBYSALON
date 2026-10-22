@@ -30,11 +30,39 @@ const productionAttemptEnv = {
   NODE_ENV: "production",
 };
 
-test("ENABLE_NL_MARKET stays off in production even when set to true", () => {
+const productionLaunchEnv = {
+  ENABLE_NL_MARKET: "true",
+  ALLOW_NL_MARKET_IN_PRODUCTION: "true",
+  VERCEL_ENV: "production",
+  NODE_ENV: "production",
+};
+
+test("ENABLE_NL_MARKET stays off in production unless ALLOW_NL_MARKET_IN_PRODUCTION is true", () => {
   assert.equal(isNlMarketEnabled(offEnv), false);
   assert.equal(isNlMarketEnabled(productionAttemptEnv), false);
+  assert.equal(
+    isNlMarketEnabled({
+      ...productionAttemptEnv,
+      ALLOW_NL_MARKET_IN_PRODUCTION: "1",
+    }),
+    false
+  );
+  assert.equal(isNlMarketEnabled(productionLaunchEnv), true);
   assert.equal(isNlMarketEnabled(onPreviewEnv), true);
   assert.equal(isNlMarketEnabled({}), false);
+});
+
+test("NL indexing stays off while MarketConfig.NL is preparing even if production launch flags are set", () => {
+  assert.equal(MARKETS.NL.rollout, "preparing");
+  assert.equal(MARKETS.NL.indexing, "noindex");
+  const resolved = resolveMarketFromHeaders({
+    host: "hobbysalon.nl",
+    env: productionLaunchEnv,
+  });
+  assert.equal(resolved.market.marketCode, "NL");
+  const seo = marketSeoDecision(resolved, productionLaunchEnv);
+  assert.equal(seo.index, false);
+  assert.equal(seo.publishHreflang, false);
 });
 
 test("MarketConfig separates country from locales", () => {
@@ -222,9 +250,61 @@ test("existing Belgian SEO helpers keep the BE origin and locale", () => {
       path: "/workshops",
       description: "Ontdek workshops",
     });
-    assert.equal(meta.alternates?.canonical, "/workshops");
+    assert.equal(
+      meta.alternates?.canonical,
+      "https://www.hobbysalon.be/workshops"
+    );
     assert.equal(meta.openGraph?.locale, "nl_BE");
     assert.equal(meta.openGraph?.url, "https://www.hobbysalon.be/workshops");
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = previous;
+  }
+});
+
+test("BE trusted host indexes while ENABLE_NL_MARKET is off", () => {
+  const resolved = resolveMarketFromHeaders({
+    host: "www.hobbysalon.be",
+    env: offEnv,
+  });
+  const seo = marketSeoDecision(resolved, offEnv);
+  assert.equal(seo.index, true);
+  assert.equal(seo.follow, true);
+  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.canonicalOrigin, MARKETS.BE.canonicalOrigin);
+  assert.equal(seo.htmlLang, "nl-BE");
+  assert.equal(seo.ogLocale, "nl_BE");
+});
+
+test("NL preparing never publishes hreflang or indexes even with flag on", () => {
+  assert.equal(MARKETS.NL.rollout, "preparing");
+  assert.equal(MARKETS.NL.indexing, "noindex");
+  const resolved = resolveMarketFromHeaders({
+    host: "hobbysalon.nl",
+    env: onPreviewEnv,
+  });
+  const seo = marketSeoDecision(resolved, onPreviewEnv);
+  assert.equal(seo.index, false);
+  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.canonicalOrigin, MARKETS.NL.canonicalOrigin);
+  assert.equal(seo.htmlLang, "nl-NL");
+});
+
+test("articles without market origin keep BE canonical on absolute form", () => {
+  const previous = process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  try {
+    const meta = buildPageMetadata({
+      title: "Artikel",
+      path: "/artikel/voorbeeld",
+      description: "BE artikel",
+      type: "article",
+    });
+    assert.equal(
+      meta.alternates?.canonical,
+      "https://www.hobbysalon.be/artikel/voorbeeld"
+    );
+    assert.equal(meta.alternates?.languages, undefined);
   } finally {
     if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
     else process.env.NEXT_PUBLIC_SITE_URL = previous;

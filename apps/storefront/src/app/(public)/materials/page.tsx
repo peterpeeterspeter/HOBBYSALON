@@ -36,12 +36,17 @@ import {
 } from "@/lib/commerce/medusa/products";
 import { medusaAmountToCents } from "@/lib/commerce/money";
 import { publicAssetUrl } from "@/lib/media/public-asset-url";
+import { buildRegionalPageMetadata } from "@/lib/markets/regional-seo";
+import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
 
-export const metadata: Metadata = {
-  title: "Hobbymaterialen | Hobbysalon",
-  description:
-    "Vind de juiste materialen voor je project: garen, klei, verf en meer",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  return buildRegionalPageMetadata({
+    path: "/materials",
+    decision: marketSeoDecision(resolution),
+  });
+}
 
 type SearchParams = Promise<{
   q?: string;

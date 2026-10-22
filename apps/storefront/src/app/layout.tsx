@@ -3,7 +3,15 @@ import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthHashRedirect } from "@/components/auth/AuthHashRedirect";
-import { getSiteUrl, DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_HEIGHT, DEFAULT_OG_IMAGE_WIDTH } from "@/lib/seo";
+import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
+import {
+  DEFAULT_OG_IMAGE,
+  DEFAULT_OG_IMAGE_ALT,
+  DEFAULT_OG_IMAGE_HEIGHT,
+  DEFAULT_OG_IMAGE_WIDTH,
+  getSiteUrl,
+} from "@/lib/seo";
 
 const quicksand = localFont({
   src: [
@@ -59,56 +67,62 @@ const lato = localFont({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
-    template: "%s | Hobbysalon",
-  },
-  description:
-    "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
-  metadataBase: new URL(getSiteUrl()),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    title:
-      "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
-    description:
-      "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
-    url: "/",
-    siteName: "Hobbysalon",
-    locale: "nl_BE",
-    images: [
-      {
-        url: DEFAULT_OG_IMAGE,
-        width: DEFAULT_OG_IMAGE_WIDTH,
-        height: DEFAULT_OG_IMAGE_HEIGHT,
-        alt: DEFAULT_OG_IMAGE_ALT,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title:
-      "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
-    description:
-      "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
-    images: [DEFAULT_OG_IMAGE],
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  const seo = marketSeoDecision(resolution);
+  const site = seo.canonicalOrigin || getSiteUrl();
 
-export default function RootLayout({
+  return {
+    title: {
+      default: "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
+      template: "%s | Hobbysalon",
+    },
+    description:
+      "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
+    metadataBase: new URL(site),
+    // No root canonical — child pages own their path so `/` does not cascade.
+    openGraph: {
+      type: "website",
+      title:
+        "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
+      description:
+        "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
+      siteName: "Hobbysalon",
+      locale: seo.ogLocale,
+      images: [
+        {
+          url: DEFAULT_OG_IMAGE,
+          width: DEFAULT_OG_IMAGE_WIDTH,
+          height: DEFAULT_OG_IMAGE_HEIGHT,
+          alt: DEFAULT_OG_IMAGE_ALT,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title:
+        "Hobbysalon | Creatief platform voor workshops, makers en inspiratie",
+      description:
+        "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
+      images: [DEFAULT_OG_IMAGE],
+    },
+    robots: {
+      index: seo.index,
+      follow: seo.follow,
+    },
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const resolution = await getRequestMarket();
+  const seo = marketSeoDecision(resolution);
+
   return (
-    <html lang="nl" className={`${quicksand.variable} ${lato.variable}`}>
+    <html lang={seo.htmlLang} className={`${quicksand.variable} ${lato.variable}`}>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <AuthHashRedirect />
         <Script

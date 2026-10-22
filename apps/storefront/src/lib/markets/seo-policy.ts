@@ -8,7 +8,9 @@ import type { MarketResolution } from "./resolve";
 
 export type MarketSeoDecision = {
   index: boolean;
-  publishHreflang: false;
+  follow: boolean;
+  /** Reciprocal nl-BE / nl-NL only when NL is launched (flag + live + index). */
+  publishHreflang: boolean;
   /** Never an unknown host. Falls back to the Belgian origin when untrusted. */
   canonicalOrigin: string;
   htmlLang: string;
@@ -16,30 +18,48 @@ export type MarketSeoDecision = {
   marketCode: MarketCode;
 };
 
+/** NL sitemap / hreflang / indexing only after an explicit config + flag launch. */
+export function isNlSeoPublished(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  return (
+    isNlMarketEnabled(env) &&
+    MARKETS.NL.indexing === "index" &&
+    MARKETS.NL.rollout === "live"
+  );
+}
+
 /**
- * Existing Belgian pages keep using seo.ts. This policy is for future market
- * wiring only. While ENABLE_NL_MARKET is off, NL never indexes and never
- * publishes hreflang. An untrusted host never becomes a canonical origin.
+ * Belgian pages keep indexing while ENABLE_NL_MARKET is off.
+ * NL never indexes or publishes hreflang until the flag is on outside
+ * production and MarketConfig.NL is switched to live + index.
+ * An untrusted host never becomes a canonical origin.
  */
 export function marketSeoDecision(
   resolution: MarketResolution,
   env: Record<string, string | undefined> = process.env
 ): MarketSeoDecision {
-  const nlEnabled = isNlMarketEnabled(env);
   const market = resolution.market;
-  const isNl = market.marketCode === "NL";
+  const trusted = resolution.trustedHost && !resolution.preview;
 
-  const index =
-    nlEnabled &&
-    resolution.trustedHost &&
-    !resolution.preview &&
+  const beIndexes =
+    trusted &&
+    market.marketCode === "BE" &&
     market.indexing === "index" &&
-    market.rollout === "live" &&
-    !isNl;
+    market.rollout === "live";
+
+  const nlIndexes =
+    trusted &&
+    market.marketCode === "NL" &&
+    isNlSeoPublished(env);
+
+  const index = beIndexes || nlIndexes;
+  const publishHreflang = isNlSeoPublished(env) && trusted;
 
   return {
     index,
-    publishHreflang: false,
+    follow: true,
+    publishHreflang,
     canonicalOrigin: resolution.trustedHost
       ? market.canonicalOrigin
       : MARKETS.BE.canonicalOrigin,
