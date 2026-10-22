@@ -30,11 +30,39 @@ const productionAttemptEnv = {
   NODE_ENV: "production",
 };
 
-test("ENABLE_NL_MARKET stays off in production even when set to true", () => {
+const productionLaunchEnv = {
+  ENABLE_NL_MARKET: "true",
+  ALLOW_NL_MARKET_IN_PRODUCTION: "true",
+  VERCEL_ENV: "production",
+  NODE_ENV: "production",
+};
+
+test("ENABLE_NL_MARKET stays off in production unless ALLOW_NL_MARKET_IN_PRODUCTION is true", () => {
   assert.equal(isNlMarketEnabled(offEnv), false);
   assert.equal(isNlMarketEnabled(productionAttemptEnv), false);
+  assert.equal(
+    isNlMarketEnabled({
+      ...productionAttemptEnv,
+      ALLOW_NL_MARKET_IN_PRODUCTION: "1",
+    }),
+    false
+  );
+  assert.equal(isNlMarketEnabled(productionLaunchEnv), true);
   assert.equal(isNlMarketEnabled(onPreviewEnv), true);
   assert.equal(isNlMarketEnabled({}), false);
+});
+
+test("NL indexing stays off while MarketConfig.NL is preparing even if production launch flags are set", () => {
+  assert.equal(MARKETS.NL.rollout, "preparing");
+  assert.equal(MARKETS.NL.indexing, "noindex");
+  const resolved = resolveMarketFromHeaders({
+    host: "hobbysalon.nl",
+    env: productionLaunchEnv,
+  });
+  assert.equal(resolved.market.marketCode, "NL");
+  const seo = marketSeoDecision(resolved, productionLaunchEnv);
+  assert.equal(seo.index, false);
+  assert.equal(seo.publishHreflang, false);
 });
 
 test("MarketConfig separates country from locales", () => {

@@ -193,7 +193,7 @@ Confirm these before cutting over traffic:
    - `VENDOR_CORS` and `AUTH_CORS` with `https://verkoper.hobbysalon.be`
    - `PLATFORM_SUPABASE_URL`, `PLATFORM_SUPABASE_SERVICE_ROLE_KEY`, `PLATFORM_SUPABASE_ANON_KEY` (seller auth exchange)
    - Stripe, Resend, and real `JWT_SECRET` / `COOKIE_SECRET`
-   - See `docs/markets/nl-live-checklist.md` before pointing production traffic at `.nl`
+   - See `docs/markets/nl-live-checklist.md` for `.nl` CORS / Supabase allowlist (Cloudflare 301 stays on until launch)
 4. **Redeploy backend** after `.env` changes using the full approval command in
    section 4 (a bare `./deploy.sh` is deliberately refused).
 5. **Seller auth backfill** (one-time, after platform Supabase env is set):

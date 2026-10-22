@@ -54,15 +54,19 @@ export function ogLocaleFromLocale(locale: string): string {
 }
 
 /**
- * ENABLE_NL_MARKET stays false in production until launch.
- * Only the exact value "true" turns NL on, and never when VERCEL_ENV is production.
- * When off, the switch is hidden and NL publication/indexing stay off.
+ * ENABLE_NL_MARKET gates the NL market switch and host resolution.
+ * Only the exact value "true" turns it on.
+ * In Vercel production it stays off unless ALLOW_NL_MARKET_IN_PRODUCTION is
+ * also exactly "true" (separate, explicit launch approval). Indexing still
+ * requires MarketConfig.NL rollout=live and indexing=index.
  */
 export function isNlMarketEnabled(
   env: Record<string, string | undefined> = process.env
 ): boolean {
   if (env.ENABLE_NL_MARKET !== "true") return false;
-  if (env.VERCEL_ENV === "production") return false;
+  if (env.VERCEL_ENV === "production") {
+    return env.ALLOW_NL_MARKET_IN_PRODUCTION === "true";
+  }
   return true;
 }
 

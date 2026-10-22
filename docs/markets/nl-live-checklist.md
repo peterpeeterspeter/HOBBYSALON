@@ -1,48 +1,59 @@
-# Hobbysalon.nl — live checklist
+# Hobbysalon.nl — productiechecklist (domeinconfiguratie)
 
-Both domains use the **same** Vercel storefront project, Supabase project, and Medusa API (`api.hobbysalon.be`). Do not create a second backend.
+Beide domeinen gebruiken **dezelfde** Vercel-storefront, hetzelfde Supabase-project en dezelfde Medusa-API (`api.hobbysalon.be`). Geen tweede backend.
 
-## Vercel — domain koppeling
+NL blijft uitgeschakeld tot aparte lanceringgoedkeuring. Cloudflare 301 `.nl` → `.be` blijft voorlopig actief.
 
-1. Storefront project → **Domains**: add `hobbysalon.nl` and `www.hobbysalon.nl`.
-2. Point DNS (at the registrar / Cloudflare DNS-only) to Vercel as instructed in the Domains UI.
-3. Confirm TLS is issued for both hosts.
-4. Keep existing `www.hobbysalon.be` / `hobbysalon.be` unchanged.
-5. Env (same project, both hosts):
-   - `NEXT_PUBLIC_SUPABASE_URL` / anon key — unchanged (shared)
-   - `MEDUSA_BACKEND_URL=https://api.hobbysalon.be` — unchanged
-   - `NEXT_PUBLIC_SITE_URL=https://www.hobbysalon.be` — keep as Belgian fallback for SEO helpers and emails outside a request
-   - Do **not** set `ENABLE_NL_MARKET=true` on Production until the launch steps below
+## Vercel — beide domeinen op één storefront
 
-## Cloudflare — redirect uitschakelen
+1. Domains: `hobbysalon.nl` en `www.hobbysalon.nl` toevoegen (naast bestaande `.be`).
+2. DNS naar Vercel zoals in de Domains-UI (registrar of Cloudflare DNS).
+3. TLS voor beide hosts bevestigen.
+4. Gedeelde env (ongewijzigd voor backends):
+   - `NEXT_PUBLIC_SUPABASE_URL` / anon key
+   - `MEDUSA_BACKEND_URL=https://api.hobbysalon.be`
+   - `NEXT_PUBLIC_SITE_URL=https://www.hobbysalon.be` (Belgische fallback)
+5. Productie: **niet** `ENABLE_NL_MARKET=true` zetten zonder `ALLOW_NL_MARKET_IN_PRODUCTION=true` én expliciete goedkeuring.
+6. Indexering blijft uit zolang `MARKETS.NL` `preparing` / `noindex` is (codeconfig, aparte launch-PR).
 
-1. Find the rule that redirects `hobbysalon.nl` → `hobbysalon.be` (or similar).
-2. Disable or delete that redirect **after** Vercel serves `.nl` correctly.
-3. Prefer DNS-only (grey cloud) or proxied without path redirects; avoid forcing `.nl` → `.be`.
-4. Smoke-test `https://hobbysalon.nl/` returns the storefront (not a 301 to `.be`).
+## Cloudflare — redirect voorlopig laten staan
+
+1. De bestaande 301 van `hobbysalon.nl` → `hobbysalon.be` **niet** uitzetten in deze fase.
+2. Domeinkoppeling en auth/CORS kunnen alvast klaarstaan achter de redirect.
+3. Redirect pas later uitzetten bij goedgekeurde NL-lancering (aparte stap).
 
 ## Supabase Auth — redirect allowlist
 
-Add (Authentication → URL configuration):
+Toevoegen onder Authentication → URL configuration (nu al mogelijk; schaadt `.be` niet):
 
 - `https://hobbysalon.nl/auth/confirm`
 - `https://www.hobbysalon.nl/auth/confirm`
-- Keep existing `https://www.hobbysalon.be/auth/confirm` (and apex if used)
+- Bestaande `https://www.hobbysalon.be/auth/confirm` behouden
 
-Site URL may stay `https://www.hobbysalon.be`; confirm links are built per request host.
+Site URL mag `https://www.hobbysalon.be` blijven. Confirm/reset-links volgen het request-host.
 
-## Medusa / VPS CORS
+## Medusa / VPS — CORS
 
-On the API server `.env`, include `.nl` in `STORE_CORS`, `AUTH_CORS`, and `ADMIN_CORS` (see `deploy/vps/.env.example`), then redeploy the backend with the normal approval flow.
+In `deploy/vps/.env` (voorbeeld: `.env.example`):
 
-## Gecontroleerde NL-lancering (apart van deze PR)
+- `STORE_CORS` / `AUTH_CORS` / `ADMIN_CORS`: `https://hobbysalon.nl`, `https://www.hobbysalon.nl`
+- Bestaande `.be` en `verkoper.hobbysalon.be` behouden
+- Backend herdeployen via het normale goedkeuringsproces
 
-1. Staging: `ENABLE_NL_MARKET=true` with `VERCEL_ENV=preview` — verify auth confirm/reset stay on `.nl`, SEO noindex while `MARKETS.NL` is `preparing`.
-2. Code/config launch (explicit approval): allow `ENABLE_NL_MARKET` in production (today it is hard-blocked when `VERCEL_ENV=production`), set `MARKETS.NL` to `rollout: "live"` and `indexing: "index"`, then set `ENABLE_NL_MARKET=true` on Production.
-3. Re-check sitemap/robots/hreflang on `.nl` after that change.
+## Gecontroleerde NL-lancering (later, aparte goedkeuring)
 
-## Niet doen bij domeinkoppeling
+1. Staging: `ENABLE_NL_MARKET=true` (preview) — auth-links op `.nl`, SEO nog noindex.
+2. Productie pas na goedkeuring:
+   - `ENABLE_NL_MARKET=true`
+   - `ALLOW_NL_MARKET_IN_PRODUCTION=true`
+   - `MARKETS.NL` → `rollout: "live"`, `indexing: "index"` (codewijziging)
+   - Cloudflare 301 uitzetten
+3. Sitemap / robots / hreflang op `.nl` nalopen.
 
-- Geen tweede Supabase- of Medusa-project
-- Geen wijziging aan checkout, iDEAL, voorraad of verzendlogica
-- Geen automatische merge/deploy vanuit deze checklist
+## Niet doen in deze changeset
+
+- Geen merge of deployment
+- Geen DNS- of Cloudflare-wijzigingen uitvoeren
+- Geen databasewijzigingen
+- Geen tweede Supabase/Medusa-project
+- Geen cross-domain SSO
