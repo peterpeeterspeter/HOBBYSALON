@@ -53,7 +53,7 @@ function normalizePreferred(
  * When preferredCountryCode is set, each location-aware type fetches local
  * rows before PER_TYPE_LIMIT, then fills with other matches. Articles stay
  * the Belgian publication set (no new country filter / canonical).
- * Products are not labeled as NL-deliverable (sales_country_codes = changeset C).
+ * Products use the shared BE/NL catalog; shipping is validated at checkout.
  */
 export async function searchAll(
   rawQuery: string,
