@@ -67,11 +67,35 @@ async function renderHomePage(data, reject = false) {
     "@/components/seo/JsonLd": { JsonLd: "JsonLd" },
     "@/components/ui/container": { Container: "Container" },
     "@/lib/auth/session": { getAuthUser: async () => { calls.push("auth"); return null; } },
+    "@/lib/markets/discovery-preference": {
+      homeHeroCopy: marketCode => marketCode === "NL"
+        ? {
+            title: "Ontdek creatieve workshops, hobbywinkels en materialen in Nederland",
+            intro: "Vind een creatief uitje, workshop, maker of project in Nederland — Belgisch aanbod blijft ook vindbaar.",
+          }
+        : {
+            title: "Zin om iets moois te maken?",
+            intro: "Vind een creatief uitje, workshop, maker of project in België en Nederland.",
+          },
+    },
+    "@/lib/markets/request": {
+      getRequestMarket: async () => ({
+        market: { marketCode: "BE" },
+        trustedHost: true,
+        preview: false,
+        ignoredResidenceCountry: null,
+      }),
+    },
     "@/lib/profile/resumable-saved-project-service": { listResumableSavedProjects: async () => {
       forbidden.push("authenticated profile lookup"); throw new Error("Guest fixture must not load profile");
     } },
     "@/lib/services/home-page": {
-      getHomePageData: async () => { calls.push("home-data"); if (reject) throw new Error("fixture home-data failure"); return data; },
+      getHomePageData: async marketCode => {
+        calls.push("home-data");
+        assert.equal(marketCode, "BE");
+        if (reject) throw new Error("fixture home-data failure");
+        return data;
+      },
       homeWeekendAgendaHref: () => "/agenda?weekend=fixture",
     },
     "@/lib/seo": { absoluteUrl: path => `https://offline.invalid${path}` },

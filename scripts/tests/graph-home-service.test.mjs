@@ -42,6 +42,8 @@ async function load(options={}){
   '@/lib/services/home-router-helpers':'lib/services/home-router-helpers.ts',
   // Real helpers: home-router/home-page import agendaInstantMs + isUpcomingOrOngoingToday.
   '@/lib/agenda/agenda-helpers':'lib/agenda/agenda-helpers.ts',
+  // Pure market preference + home cache key helpers (no network / clients).
+  '@/lib/markets/discovery-preference':'lib/markets/discovery-preference.ts',
  };
  const modules=new Map();
  const moduleFor=name=>{
@@ -52,6 +54,7 @@ async function load(options={}){
   modules.set(name,mod);return mod;
  };
  // Prelink shared module to avoid VM's concurrent diamond linking limitation.
+ await moduleFor('@/lib/markets/discovery-preference').link(moduleFor);
  await moduleFor('@/lib/agenda/agenda-helpers').link(moduleFor);
  await moduleFor('@/lib/services/home-router-helpers').link(moduleFor);
  await moduleFor('@/lib/services/home-journey').link(moduleFor);
@@ -73,9 +76,10 @@ test('actual homepage service consumes strongest actual journey and preserves ne
  assert.ok(f.calls.some(c=>c[0]==='perf'&&c[2]===1));
 });
 test('actual shared cache contract stays account-free, stable and receives no caller identity',async()=>{
- const f=await load();assert.deepEqual(f.cache,[{keys:['home-page-data-v8'],settings:{revalidate:300,tags:['home-page']}}]);
+ const f=await load();assert.deepEqual(f.cache,[{keys:['home-page-data-v9'],settings:{revalidate:300,tags:['home-page']}}]);
  const first=await f.run();assert.deepEqual(await f.run(),first);
- assert.ok(f.calls.filter(c=>c[0]==='cache-invoke').every(c=>c[1]===0));
+ // marketCode is a cache argument (isolates BE/NL); never a caller/account identity.
+ assert.ok(f.calls.filter(c=>c[0]==='cache-invoke').every(c=>c[1]===1));
 });
 test('actual service owns unexpected journey hydration fallback without losing other homepage blocks',async()=>{
  const f=await load({rejectHydration:true});const result=await f.run();

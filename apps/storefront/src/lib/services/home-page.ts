@@ -3,6 +3,11 @@ import {
   isUpcomingOrOngoingToday,
   resolveAgendaDatePreset,
 } from "@/lib/agenda/agenda-helpers";
+import {
+  HOME_PAGE_CACHE_KEY,
+  homePageCacheArgs,
+} from "@/lib/markets/discovery-preference";
+import type { MarketCode } from "@/lib/markets/config";
 import { createPlatformClient } from "@/lib/platform/client";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
 import {
@@ -166,8 +171,13 @@ async function loadConfirmedEventMakers(
   return result;
 }
 
-async function loadFeaturedEventsBlock(): Promise<HomeEventTeaser[]> {
-  const { events } = await listAgendaEvents({ upcoming_only: true });
+async function loadFeaturedEventsBlock(
+  marketCode: MarketCode
+): Promise<HomeEventTeaser[]> {
+  const { events } = await listAgendaEvents({
+    upcoming_only: true,
+    preferred_country_code: marketCode,
+  });
   const cleaned = events.filter(
     (event) => !isLikelyTestHomeContent(event.title, event.slug)
   );
@@ -344,7 +354,8 @@ function isEligibleHomeMaker(creator: CreatorDirectoryItem): boolean {
 }
 
 async function loadMakersBlock(
-  featuredEvents: HomeEventTeaser[]
+  featuredEvents: HomeEventTeaser[],
+  marketCode: MarketCode
 ): Promise<CreatorDirectoryItem[]> {
   const rosterIds = [
     ...new Set(featuredEvents.flatMap((e) => e.makers.map((m) => m.id))),
@@ -352,6 +363,7 @@ async function loadMakersBlock(
 
   const directory = await listCreatorsDirectory({
     sort: "recommended",
+    preferred_country_code: marketCode,
     limit: 48,
   });
 
@@ -381,8 +393,10 @@ async function loadMakersBlock(
   return [...fromAgenda, ...rotated];
 }
 
-async function loadHomePageData(): Promise<HomePageData> {
+async function loadHomePageData(marketCode: MarketCode): Promise<HomePageData> {
   const totalStartMs = Date.now();
+  // Changeset C owns NL product delivery. Keep NL product rails empty for now.
+  const loadProducts = marketCode !== "NL";
 
   const [
     featuredEvents,
@@ -392,10 +406,11 @@ async function loadHomePageData(): Promise<HomePageData> {
     materials,
     makersmarkt,
   ] = await Promise.all([
-    settledValue(loadFeaturedEventsBlock(), [], "agenda"),
+    settledValue(loadFeaturedEventsBlock(marketCode), [], "agenda"),
     settledValue(
       listDiscoveryWorkshops({
         sort: "soon",
+        preferred_country_code: marketCode,
         limit: WORKSHOP_TEASER_LIMIT,
       }).then((r) =>
         r.workshops.filter(
@@ -409,8 +424,16 @@ async function loadHomePageData(): Promise<HomePageData> {
     ),
     settledValue(loadMakeItems(), [], "make-items"),
     settledValue(resolveHomeJourney(), null, "journey"),
-    settledValue(loadCatalogRail("merchant"), [], "materials"),
-    settledValue(loadCatalogRail("maker_p2p"), [], "makersmarkt"),
+    settledValue(
+      loadProducts ? loadCatalogRail("merchant") : Promise.resolve([]),
+      [],
+      "materials"
+    ),
+    settledValue(
+      loadProducts ? loadCatalogRail("maker_p2p") : Promise.resolve([]),
+      [],
+      "makersmarkt"
+    ),
   ]);
 
   const [domainsWithLiveContent, makers] = await Promise.all([
@@ -419,7 +442,7 @@ async function loadHomePageData(): Promise<HomePageData> {
       [],
       "domains"
     ),
-    settledValue(loadMakersBlock(featuredEvents), [], "makers"),
+    settledValue(loadMakersBlock(featuredEvents, marketCode), [], "makers"),
   ]);
 
   logServerPerf("home-page", {
@@ -481,12 +504,16 @@ async function withTimeoutFallback<T>(
   }
 }
 
+/**
+ * marketCode is both a cache key segment and a callback argument so concurrent
+ * BE/NL requests never share a module-level last-market or a single payload.
+ */
 const getHomePageDataCached = unstable_cache(
-  async (): Promise<HomePageData> => {
+  async (marketCode: MarketCode): Promise<HomePageData> => {
     try {
       return normalizeHomePageData(
         await withTimeoutFallback(
-          loadHomePageData(),
+          loadHomePageData(marketCode),
           HOME_PAGE_FETCH_TIMEOUT_MS,
           EMPTY_HOME_PAGE_DATA
         )
@@ -495,15 +522,18 @@ const getHomePageDataCached = unstable_cache(
       return EMPTY_HOME_PAGE_DATA;
     }
   },
-  ["home-page-data-v8"],
+  [HOME_PAGE_CACHE_KEY],
   {
     revalidate: 60 * 5,
     tags: ["home-page"],
   }
 );
 
-export async function getHomePageData(): Promise<HomePageData> {
-  return normalizeHomePageData(await getHomePageDataCached());
+export async function getHomePageData(
+  marketCode: MarketCode = "BE"
+): Promise<HomePageData> {
+  const { marketCode: code } = homePageCacheArgs(marketCode);
+  return normalizeHomePageData(await getHomePageDataCached(code));
 }
 
 /** Exported for hero weekend CTA — Europe/Brussels via agenda helpers. */
