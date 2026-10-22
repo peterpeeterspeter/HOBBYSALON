@@ -13,6 +13,9 @@ import type { User } from "@supabase/supabase-js";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { getUserRegistrationContext } from "@/lib/platform/queries/user-registration";
 import { resolveDashboardCapabilities } from "@/lib/auth/dashboard-access";
+import { isNlMarketEnabled } from "@/lib/markets/config";
+import { getRequestMarket } from "@/lib/markets/request";
+import { MarketCountrySwitch } from "@/components/shared/MarketCountrySwitch";
 
 function displayNameFromUser(user: User): string | null {
   const meta = user.user_metadata ?? {};
@@ -32,6 +35,8 @@ export async function Header() {
   const user = await getAuthUser();
   const hasSession = Boolean(user);
   const displayName = user ? displayNameFromUser(user) : null;
+  const showMarketSwitch = isNlMarketEnabled();
+  const marketResolution = showMarketSwitch ? await getRequestMarket() : null;
 
   let aanbodNav: { href: string; label: string } | null = null;
   if (user) {
@@ -117,6 +122,9 @@ export async function Header() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {showMarketSwitch && marketResolution ? (
+            <MarketCountrySwitch currentCode={marketResolution.market.marketCode} />
+          ) : null}
           <Link href="/cart" className={iconBtnClass} aria-label="Winkelwagen">
             <ShoppingCart size={20} aria-hidden />
           </Link>
