@@ -11,6 +11,8 @@ import { HomeProvidersCta } from "@/components/home/HomeProvidersCta";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/container";
 import { getAuthUser } from "@/lib/auth/session";
+import { homeHeroCopy } from "@/lib/markets/discovery-preference";
+import { getRequestMarket } from "@/lib/markets/request";
 import {
   getHomePageData,
   homeWeekendAgendaHref,
@@ -27,7 +29,10 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const data = await getHomePageData().catch(() => ({
+  const { market } = await getRequestMarket();
+  const marketCode = market.marketCode;
+  const hero = homeHeroCopy(marketCode);
+  const data = await getHomePageData(marketCode).catch(() => ({
     domainsWithLiveContent: [],
     featuredEvents: [],
     journey: null,
@@ -86,6 +91,8 @@ export default async function HomePage() {
       <HomeHero
         weekendHref={homeWeekendAgendaHref()}
         imageSrc={heroImage}
+        title={hero.title}
+        intro={hero.intro}
       />
 
       {resumableProject ? (

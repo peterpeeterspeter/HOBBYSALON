@@ -107,6 +107,8 @@ async function loadHome(options = {}) {
     "@/lib/creators/creators-directory-helpers": "lib/creators/creators-directory-helpers.ts",
     "@/lib/agenda/agenda-helpers": "lib/agenda/agenda-helpers.ts",
     "@/lib/services/home-router-helpers": "lib/services/home-router-helpers.ts",
+    // Pure ranking helpers pulled in by workshops/creators discovery queries.
+    "@/lib/markets/discovery-preference": "lib/markets/discovery-preference.ts",
   };
   const aliases = {
     "../client": "@/lib/platform/client",

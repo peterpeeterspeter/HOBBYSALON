@@ -22,6 +22,7 @@ import {
   ArticleCard,
 } from "@/components/cards";
 import { AgendaEventRow } from "@/components/events/AgendaEventRow";
+import { getRequestMarket } from "@/lib/markets/request";
 import { searchAll } from "@/lib/services/search-page";
 import { getAuthUser } from "@/lib/auth/session";
 
@@ -59,7 +60,10 @@ export default async function SearchPage({
   const { q = "", type = "all" } = await searchParams;
   const query = q.trim();
   const hasQuery = query.length >= 2;
-  const results = await searchAll(query);
+  const { market } = await getRequestMarket();
+  const results = await searchAll(query, {
+    preferredCountryCode: market.marketCode,
+  });
 
   const counts = {
     all: results.total,
