@@ -10,9 +10,20 @@ import { TrackedLink } from "./TrackedLink";
 type HomeHeroProps = {
   weekendHref: string;
   imageSrc?: string | null;
+  title?: string;
+  intro?: string;
 };
 
-export function HomeHero({ weekendHref, imageSrc }: HomeHeroProps) {
+const DEFAULT_TITLE = "Zin om iets moois te maken?";
+const DEFAULT_INTRO =
+  "Vind een creatief uitje, workshop, maker of project in België en Nederland.";
+
+export function HomeHero({
+  weekendHref,
+  imageSrc,
+  title = DEFAULT_TITLE,
+  intro = DEFAULT_INTRO,
+}: HomeHeroProps) {
   const src = imageSrc?.trim() || LANDING_IMAGES.hero;
   const isLocal = src.startsWith("/");
 
@@ -47,11 +58,10 @@ export function HomeHero({ weekendHref, imageSrc }: HomeHeroProps) {
             Hobbysalon
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.1] tracking-[-0.035em] text-white sm:text-5xl lg:text-6xl">
-            Zin om iets moois te maken?
+            {title}
           </h1>
           <p className="mt-4 max-w-xl text-lg leading-relaxed text-white/90">
-            Vind een creatief uitje, workshop, maker of project in België en
-            Nederland.
+            {intro}
           </p>
 
           <form
