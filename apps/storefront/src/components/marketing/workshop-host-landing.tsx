@@ -233,7 +233,7 @@ function WorkshopHostLanding() {
               3 gratis
             </p>
             <h2 className="mt-3 font-[family-name:var(--font-heading)] text-2xl font-bold text-white md:text-3xl">
-              workshops tot 1 november
+              workshops tot 1 december
             </h2>
             <p className="mx-auto mt-5 max-w-[54ch] text-base leading-relaxed text-white/75 md:text-lg">
               {copy.pricing.body}

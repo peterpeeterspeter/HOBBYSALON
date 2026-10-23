@@ -329,7 +329,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       {
         id: "listing_likelihood",
         label:
-          "Een workshopvermelding op Hobbysalon: tot 1 november mag je er 3 gratis plaatsen (blijven gratis). Extra vermeldingen kosten €9,99 voor twee maanden zichtbaar. Hobbysalon rekent geen commissie per deelnemer. Hoe waarschijnlijk is het dat u dit zou gebruiken?",
+          "Een workshopvermelding op Hobbysalon: tot 1 december mag je er 3 gratis plaatsen (blijven gratis). Extra vermeldingen kosten €9,99 voor twee maanden zichtbaar. Hobbysalon rekent geen commissie per deelnemer. Hoe waarschijnlijk is het dat u dit zou gebruiken?",
         kind: "single",
         options: LIKELIHOOD_OPTIONS,
       },

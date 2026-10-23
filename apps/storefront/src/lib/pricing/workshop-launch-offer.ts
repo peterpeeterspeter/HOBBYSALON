@@ -2,12 +2,12 @@
  * Workshopgever launch offer — single source of truth for cutoff, free cap,
  * paid fee, and Dutch marketing/dashboard copy.
  *
- * Launch window: until 1 November 2026 (Europe/Brussels). Up to 3 active
+ * Launch window: until 1 December 2026 (Europe/Brussels). Up to 3 active
  * workshops are free and stay free after the cutoff. Extra / new listings
  * cost €9,99 for 2 months of visibility.
  */
 
-export const WORKSHOP_LAUNCH_ENDS_AT = new Date("2026-11-01T00:00:00+01:00");
+export const WORKSHOP_LAUNCH_ENDS_AT = new Date("2026-12-01T00:00:00+01:00");
 
 export const WORKSHOP_FREE_LISTING_CAP = 3;
 
@@ -59,10 +59,10 @@ export function isWorkshopListingPubliclyVisible(input: {
 
 export const WORKSHOP_LAUNCH_COPY = {
   /** Short badge / route card title during launch */
-  offerHeadline: "Lanceraanbod: 3 workshops gratis tot 1 november",
+  offerHeadline: "Lanceraanbod: 3 workshops gratis tot 1 december",
   /** Dashboard banner lead */
   offerBody:
-    "Tot 1 november 2026 mag je tot 3 workshops gratis plaatsen. Die drie blijven daarna gratis. Extra vermeldingen kosten €9,99 en blijven 2 maanden zichtbaar.",
+    "Tot 1 december 2026 mag je tot 3 workshops gratis plaatsen. Die drie blijven daarna gratis. Extra vermeldingen kosten €9,99 en blijven 2 maanden zichtbaar.",
   /** After-launch price line used on marketing pages */
   afterLaunchPrice:
     "Daarna €9,99 per extra vermelding, 2 maanden zichtbaar. Je 3 lanceringworkshops blijven gratis.",
