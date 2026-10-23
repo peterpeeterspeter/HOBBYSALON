@@ -7,6 +7,11 @@ import {
   resolveCreatorIntentFilter,
   sanitizeAgendaSearchQuery,
 } from "@/lib/creators/creators-directory-helpers";
+import {
+  applyHardCountryFilter,
+  normalizeCountryCode,
+  rankByPreferredCountry,
+} from "@/lib/markets/discovery-preference";
 import { createPlatformClient } from "../client";
 import type { Creator } from "@/types/platform";
 
@@ -220,6 +225,10 @@ export type ListCreatorsDirectoryFilters = {
   /** Legacy URL param compatibility */
   creatorType?: string;
   place?: string;
+  /** Hard filter: only this country. */
+  country_code?: string;
+  /** Soft preference: physical local first; others remain. */
+  preferred_country_code?: string;
   sort?: "recommended" | "newest";
   limit?: number;
   offset?: number;
@@ -233,6 +242,7 @@ export async function listCreatorsDirectory(
 ): Promise<{
   creators: CreatorDirectoryItem[];
   totalCount: number;
+  localCount: number;
   domainIdsWithCreators: string[];
   placeCoverage: { hasReliablePlaceFilter: boolean };
   uniqueCities: string[];
@@ -265,11 +275,13 @@ export async function listCreatorsDirectory(
       .order("display_name", { ascending: true });
   }
 
+  // Fetch before country preference / pagination so local rows are not truncated.
   const { data, error } = await query.limit(500);
   if (error) {
     return {
       creators: [],
       totalCount: 0,
+      localCount: 0,
       domainIdsWithCreators: [],
       placeCoverage: { hasReliablePlaceFilter: false },
       uniqueCities: [],
@@ -356,6 +368,14 @@ export async function listCreatorsDirectory(
     );
   }
 
+  const hardCountry = normalizeCountryCode(filters?.country_code);
+  const preferredCountry = normalizeCountryCode(
+    filters?.preferred_country_code
+  );
+  if (hardCountry) {
+    creators = applyHardCountryFilter(creators, hardCountry);
+  }
+
   const items: CreatorDirectoryItem[] = creators.map((creator) => {
     const domainNames = domainNamesByCreator.get(creator.id) ?? [];
     const domainIds = domainIdsByCreator.get(creator.id) ?? [];
@@ -378,19 +398,30 @@ export async function listCreatorsDirectory(
     };
   });
 
-  const totalCount = items.length;
+  let rankedItems = items;
+  let localCount = 0;
+  if (preferredCountry && !hardCountry) {
+    const ranked = rankByPreferredCountry(items, preferredCountry);
+    rankedItems = ranked.ranked;
+    localCount = ranked.localCount;
+  } else if (hardCountry) {
+    localCount = items.length;
+  }
+
+  const totalCount = rankedItems.length;
   const offset = Math.max(0, filters?.offset ?? 0);
   const limit = filters?.limit;
   const page =
     typeof limit === "number" && limit > 0
-      ? items.slice(offset, offset + limit)
+      ? rankedItems.slice(offset, offset + limit)
       : offset > 0
-        ? items.slice(offset)
-        : items;
+        ? rankedItems.slice(offset)
+        : rankedItems;
 
   return {
     creators: page,
     totalCount,
+    localCount,
     domainIdsWithCreators,
     placeCoverage,
     uniqueCities,

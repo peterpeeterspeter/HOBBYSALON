@@ -13,6 +13,11 @@ import {
   type WorkshopNextSession,
 } from "@/lib/workshops/workshop-discovery-helpers";
 import { isWorkshopListingPubliclyVisible } from "@/lib/pricing/workshop-launch-offer";
+import {
+  isPhysicalLocalListing,
+  normalizeCountryCode,
+  rankByPreferredCountry,
+} from "@/lib/markets/discovery-preference";
 
 function isWorkshopFeeVisible(workshop: Workshop, now = new Date()): boolean {
   return isWorkshopListingPubliclyVisible({
@@ -35,7 +40,6 @@ function getWorkshopLocalityScore(
 ): number {
   let score = 0;
   const workshopCity = normalizeLocationValue(workshop.city);
-  const workshopCountry = normalizeLocationValue(workshop.country_code);
 
   if (preferredCity && workshopCity) {
     if (workshopCity === preferredCity) {
@@ -48,7 +52,11 @@ function getWorkshopLocalityScore(
     }
   }
 
-  if (preferredCountryCode && workshopCountry === preferredCountryCode) {
+  // Country boost only for physical in-market listings (not online/hybrid).
+  if (
+    preferredCountryCode &&
+    isPhysicalLocalListing(workshop, preferredCountryCode)
+  ) {
     score += 25;
   }
   if (workshop.is_featured) {
@@ -384,6 +392,8 @@ export async function listDiscoveryWorkshops(
 ): Promise<{
   workshops: WorkshopDiscoveryItem[];
   totalCount: number;
+  /** Physical in-market count when preferred_country_code is set (soft ranking). */
+  localCount: number;
   domainIds: string[];
 }> {
   const supabase = createPlatformClient();
@@ -421,7 +431,7 @@ export async function listDiscoveryWorkshops(
 
   const { data: sessionRows, error: sessionError } = await sessionQuery;
   if (sessionError || !sessionRows?.length) {
-    return { workshops: [], totalCount: 0, domainIds: [] };
+    return { workshops: [], totalCount: 0, localCount: 0, domainIds: [] };
   }
 
   const nextByWorkshop = pickNextSessionByWorkshop(
@@ -436,7 +446,7 @@ export async function listDiscoveryWorkshops(
   );
 
   if (nextByWorkshop.size === 0) {
-    return { workshops: [], totalCount: 0, domainIds: [] };
+    return { workshops: [], totalCount: 0, localCount: 0, domainIds: [] };
   }
 
   const workshopIds = [...nextByWorkshop.keys()];
@@ -555,15 +565,33 @@ export async function listDiscoveryWorkshops(
     );
   }
 
-  const totalCount = items.length;
+  // Soft market preference: local physical first; other countries stay visible.
+  // Hard country_code filter already narrowed the set — skip re-ranking.
+  const hardCountry = normalizeCountryCode(filters?.country_code);
+  const preferredCountry = normalizeCountryCode(
+    filters?.preferred_country_code
+  );
+  let rankedItems = items;
+  let localCount = 0;
+  if (preferredCountry && !hardCountry) {
+    const ranked = rankByPreferredCountry(items, preferredCountry);
+    rankedItems = ranked.ranked;
+    localCount = ranked.localCount;
+  } else if (hardCountry) {
+    localCount = items.filter((w) =>
+      isPhysicalLocalListing(w, hardCountry)
+    ).length;
+  }
+
+  const totalCount = rankedItems.length;
   const offset = Math.max(0, filters?.offset ?? 0);
   const limit = filters?.limit;
   const page =
     typeof limit === "number" && limit > 0
-      ? items.slice(offset, offset + limit)
+      ? rankedItems.slice(offset, offset + limit)
       : offset > 0
-        ? items.slice(offset)
-        : items;
+        ? rankedItems.slice(offset)
+        : rankedItems;
 
-  return { workshops: page, totalCount, domainIds };
+  return { workshops: page, totalCount, localCount, domainIds };
 }

@@ -189,9 +189,11 @@ Confirm these before cutting over traffic:
 1. **DNS** — `api.hobbysalon.be` A record points to the VPS public IPv4 (not an old host).
 2. **TLS** — `sudo certbot --nginx -d api.hobbysalon.be`, then `curl https://api.hobbysalon.be/health`.
 3. **VPS `.env`** — copy values from `.env.example`, including:
+   - `STORE_CORS` / `AUTH_CORS` / `ADMIN_CORS` with `https://www.hobbysalon.be`, `https://hobbysalon.nl` (and www variants)
    - `VENDOR_CORS` and `AUTH_CORS` with `https://verkoper.hobbysalon.be`
    - `PLATFORM_SUPABASE_URL`, `PLATFORM_SUPABASE_SERVICE_ROLE_KEY`, `PLATFORM_SUPABASE_ANON_KEY` (seller auth exchange)
    - Stripe, Resend, and real `JWT_SECRET` / `COOKIE_SECRET`
+   - See `docs/markets/nl-live-checklist.md` for `.nl` CORS / Supabase allowlist (Cloudflare 301 stays on until launch)
 4. **Redeploy backend** after `.env` changes using the full approval command in
    section 4 (a bare `./deploy.sh` is deliberately refused).
 5. **Seller auth backfill** (one-time, after platform Supabase env is set):

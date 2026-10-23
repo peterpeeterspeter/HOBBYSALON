@@ -7,8 +7,8 @@ import {
   LOCATION_COUNTRY_COOKIE,
   LOCATION_COOKIE_MAX_AGE,
   sanitizeLocationCity,
-  sanitizeLocationCountryCode,
 } from "@/lib/location/preference";
+import { countryCookieUpdate } from "@/lib/location/preference-update";
 
 function getSafeNextPath(referer: string | null): string {
   if (!referer) return "/";
@@ -34,9 +34,11 @@ export async function updateLocationPreferenceAction(
   formData: FormData
 ): Promise<void> {
   const city = sanitizeLocationCity(formData.get("city")?.toString() ?? null);
-  const countryCode = sanitizeLocationCountryCode(
-    formData.get("country_code")?.toString() ?? null
-  );
+  const hasCountryField = formData.has("country_code");
+  const countryUpdate = countryCookieUpdate({
+    hasCountryField,
+    submittedCountry: formData.get("country_code")?.toString() ?? null,
+  });
   const cookieStore = await cookies();
 
   if (city) {
@@ -51,15 +53,15 @@ export async function updateLocationPreferenceAction(
     cookieStore.delete(LOCATION_CITY_COOKIE);
   }
 
-  if (countryCode) {
-    cookieStore.set(LOCATION_COUNTRY_COOKIE, countryCode, {
+  if (countryUpdate.action === "set") {
+    cookieStore.set(LOCATION_COUNTRY_COOKIE, countryUpdate.value, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: LOCATION_COOKIE_MAX_AGE,
       path: "/",
     });
-  } else {
+  } else if (countryUpdate.action === "delete") {
     cookieStore.delete(LOCATION_COUNTRY_COOKIE);
   }
 

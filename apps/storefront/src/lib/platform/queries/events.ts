@@ -8,6 +8,11 @@ import {
   sanitizeAgendaSearchQuery,
   startOfTodayIso,
 } from "@/lib/agenda/agenda-helpers";
+import {
+  isPhysicalLocalListing,
+  normalizeCountryCode,
+  rankByPreferredCountry,
+} from "@/lib/markets/discovery-preference";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -26,7 +31,6 @@ function getEventLocalityScore(
 ): number {
   let score = 0;
   const eventCity = normalizeLocationValue(event.city);
-  const eventCountry = normalizeLocationValue(event.country_code);
 
   if (preferredCity && eventCity) {
     if (eventCity === preferredCity) {
@@ -36,7 +40,18 @@ function getEventLocalityScore(
     }
   }
 
-  if (preferredCountryCode && eventCountry === preferredCountryCode) {
+  // Country boost only when the event is a physical in-market listing.
+  if (
+    preferredCountryCode &&
+    isPhysicalLocalListing(
+      {
+        country_code: event.country_code,
+        format_type:
+          event.event_type?.toLowerCase() === "online" ? "online" : "in_person",
+      },
+      preferredCountryCode
+    )
+  ) {
     score += 25;
   }
 
@@ -126,10 +141,10 @@ async function resolveDomainEventIds(
  */
 export async function listAgendaEvents(
   filters?: ListAgendaEventsFilters
-): Promise<{ events: Event[]; totalCount: number }> {
+): Promise<{ events: Event[]; totalCount: number; localCount: number }> {
   const domainEventIds = await resolveDomainEventIds(filters?.domain_id);
   if (domainEventIds === "empty") {
-    return { events: [], totalCount: 0 };
+    return { events: [], totalCount: 0, localCount: 0 };
   }
 
   const supabase = createPlatformClient();
@@ -166,7 +181,7 @@ export async function listAgendaEvents(
   }
 
   const { data, error } = await query;
-  if (error) return { events: [], totalCount: 0 };
+  if (error) return { events: [], totalCount: 0, localCount: 0 };
 
   let events = (data ?? []) as Event[];
 
@@ -209,7 +224,8 @@ export async function listAgendaEvents(
   const preferredCountryCode = normalizeLocationValue(
     filters?.preferred_country_code
   );
-  const hasHardPlace = Boolean(place || filters?.country_code);
+  const hardCountry = normalizeCountryCode(filters?.country_code);
+  const hasHardPlace = Boolean(place || hardCountry);
   if ((preferredCity || preferredCountryCode) && !hasHardPlace) {
     events = [...events].sort((a, b) => {
       const scoreDelta =
@@ -218,6 +234,32 @@ export async function listAgendaEvents(
       if (scoreDelta !== 0) return scoreDelta;
       return a.starts_at.localeCompare(b.starts_at);
     });
+  }
+
+  const preferred = normalizeCountryCode(filters?.preferred_country_code);
+  let localCount = 0;
+  if (preferred && !hardCountry) {
+    const withFormat = events.map((event) => ({
+      ...event,
+      format_type:
+        event.event_type?.toLowerCase() === "online" ? "online" : "in_person",
+    }));
+    const ranked = rankByPreferredCountry(withFormat, preferred);
+    events = ranked.ranked.map(({ format_type: _ft, ...event }) => event as Event);
+    localCount = ranked.localCount;
+  } else if (hardCountry) {
+    localCount = events.filter((event) =>
+      isPhysicalLocalListing(
+        {
+          country_code: event.country_code,
+          format_type:
+            event.event_type?.toLowerCase() === "online"
+              ? "online"
+              : "in_person",
+        },
+        hardCountry
+      )
+    ).length;
   }
 
   const totalCount = events.length;
@@ -230,7 +272,7 @@ export async function listAgendaEvents(
         ? events.slice(offset)
         : events;
 
-  return { events: page, totalCount };
+  return { events: page, totalCount, localCount };
 }
 
 export async function listEvents(filters?: ListEventsFilters): Promise<Event[]> {

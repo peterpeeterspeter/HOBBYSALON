@@ -20,16 +20,21 @@ import {
   sanitizeAgendaSearchQuery,
 } from "@/lib/agenda/agenda-helpers";
 import { getLocationPreference } from "@/lib/location/preference";
+import { buildRegionalPageMetadata } from "@/lib/markets/regional-seo";
+import { getRequestMarket } from "@/lib/markets/request";
+import { marketSeoDecision } from "@/lib/markets/seo-policy";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
 import { listAgendaEvents } from "@/lib/platform/queries/events";
 import { pickEventListingHero } from "@/lib/platform/queries/listing-featured-hero";
 import { createPlatformClient } from "@/lib/platform/client";
 
-export const metadata: Metadata = {
-  title: "Agenda | Hobbysalon",
-  description:
-    "Handmade markten, hobbybeurzen, pop-ups en workshops bij jou in de buurt",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const resolution = await getRequestMarket();
+  return buildRegionalPageMetadata({
+    path: "/agenda",
+    decision: marketSeoDecision(resolution),
+  });
+}
 
 type SearchParams = Promise<{
   q?: string;
@@ -93,7 +98,10 @@ export default async function AgendaPage({
   const params = await searchParams;
   const pageRaw = Number.parseInt(params.page || "1", 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-  const locationPreference = await getLocationPreference();
+  const [locationPreference, { market }] = await Promise.all([
+    getLocationPreference(),
+    getRequestMarket(),
+  ]);
 
   const q = sanitizeAgendaSearchQuery(params.q) ?? undefined;
   // Place for this search only — never auto-write preferences.
@@ -129,8 +137,8 @@ export default async function AgendaPage({
       to_date: dateRange?.to,
       upcoming_only: true,
       preferred_city: !near ? locationPreference.city ?? undefined : undefined,
-      preferred_country_code: !near
-        ? locationPreference.countryCode ?? undefined
+      preferred_country_code: !params.country
+        ? market.marketCode
         : undefined,
       limit: PAGE_SIZE,
       offset,
