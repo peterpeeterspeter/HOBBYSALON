@@ -3,16 +3,16 @@ import test from "node:test";
 // @ts-expect-error Node's TypeScript test runner requires the extension.
 import { WORKSHOP_FREE_LISTING_CAP, WORKSHOP_LAUNCH_ENDS_AT, WORKSHOP_LISTING_FEE_CENTS, WORKSHOP_PAID_VISIBILITY_MONTHS, canGrantWorkshopLaunchFreeSlot, isWorkshopLaunchWindowOpen, isWorkshopListingPubliclyVisible, paidWorkshopListingExpiresAt } from "./workshop-launch-offer.ts";
 
-test("launch window is open before 1 November 2026 Brussels", () => {
-  assert.equal(isWorkshopLaunchWindowOpen(new Date("2026-10-31T23:59:59+01:00")), true);
-  assert.equal(isWorkshopLaunchWindowOpen(new Date("2026-11-01T00:00:00+01:00")), false);
-  // 00:00 UTC on 1 Nov is already after Brussels midnight (23:00 UTC previous day).
-  assert.equal(isWorkshopLaunchWindowOpen(new Date("2026-11-01T00:00:00+00:00")), false);
+test("launch window is open before 1 December 2026 Brussels", () => {
+  assert.equal(isWorkshopLaunchWindowOpen(new Date("2026-11-30T23:59:59+01:00")), true);
+  assert.equal(isWorkshopLaunchWindowOpen(new Date("2026-12-01T00:00:00+01:00")), false);
+  // 00:00 UTC on 1 Dec is already after Brussels midnight (23:00 UTC previous day).
+  assert.equal(isWorkshopLaunchWindowOpen(new Date("2026-12-01T00:00:00+00:00")), false);
 });
 
 test("free slots only during launch and under the cap of 3", () => {
-  const during = new Date("2026-10-15T12:00:00+02:00");
-  const after = new Date("2026-11-02T12:00:00+01:00");
+  const during = new Date("2026-11-15T12:00:00+01:00");
+  const after = new Date("2026-12-02T12:00:00+01:00");
   assert.equal(canGrantWorkshopLaunchFreeSlot(0, during), true);
   assert.equal(canGrantWorkshopLaunchFreeSlot(2, during), true);
   assert.equal(canGrantWorkshopLaunchFreeSlot(3, during), false);
@@ -29,7 +29,7 @@ test("paid listing expires after two months", () => {
 });
 
 test("public visibility rules for launch_free, paid, unpaid", () => {
-  const now = new Date("2026-11-01T12:00:00.000Z");
+  const now = new Date("2026-12-01T12:00:00.000Z");
   assert.equal(
     isWorkshopListingPubliclyVisible({
       is_active: true,
@@ -43,7 +43,7 @@ test("public visibility rules for launch_free, paid, unpaid", () => {
     isWorkshopListingPubliclyVisible({
       is_active: true,
       listing_fee_status: "paid",
-      listing_expires_at: "2026-12-01T00:00:00.000Z",
+      listing_expires_at: "2027-01-01T00:00:00.000Z",
       now,
     }),
     true
@@ -78,5 +78,5 @@ test("public visibility rules for launch_free, paid, unpaid", () => {
 });
 
 test("launch end constant matches plan cutoff", () => {
-  assert.equal(WORKSHOP_LAUNCH_ENDS_AT.toISOString(), "2026-10-31T23:00:00.000Z");
+  assert.equal(WORKSHOP_LAUNCH_ENDS_AT.toISOString(), "2026-11-30T23:00:00.000Z");
 });

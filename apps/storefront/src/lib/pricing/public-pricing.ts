@@ -162,11 +162,11 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
   },
   {
     id: "workshop",
-    title: "Workshopgever — 3 gratis tot 1 november, daarna €9,99 / 2 maanden",
+    title: "Workshopgever — 3 gratis tot 1 december, daarna €9,99 / 2 maanden",
     description:
       "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
     features: [
-      "Tot 1 november: max. 3 workshops gratis (blijven gratis)",
+      "Tot 1 december: max. 3 workshops gratis (blijven gratis)",
       "Daarna €9,99 per extra vermelding, 2 maanden zichtbaar (excl. btw)",
       "Tot drie sessiedata in één vermelding",
       "Geen commissie per deelnemer",
@@ -220,7 +220,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   },
   {
     audience: "Workshopgever",
-    now: "Lanceraanbod: 3 workshops gratis tot 1 november (blijven gratis)",
+    now: "Lanceraanbod: 3 workshops gratis tot 1 december (blijven gratis)",
     expansion:
       "Extra vermeldingen €9,99 / 2 maanden (excl. btw); promotie — binnenkort",
     benefit: "Prominentere plaatsing en meetbaar resultaat",
@@ -261,7 +261,7 @@ export const PRICING_PAGE_FAQ: PricingFaqItem[] = [
   {
     question: "Moet ik een abonnement nemen?",
     answer:
-      "Nee. Contentmakers publiceren gratis, makers werken met credits, organisatoren staan gratis in de kalender, workshopgevers starten met een lanceraanbod (3 gratis tot 1 november) en betalen daarna per extra vermelding, en winkels betalen in de basis alleen commissie bij verkoop.",
+      "Nee. Contentmakers publiceren gratis, makers werken met credits, organisatoren staan gratis in de kalender, workshopgevers starten met een lanceraanbod (3 gratis tot 1 december) en betalen daarna per extra vermelding, en winkels betalen in de basis alleen commissie bij verkoop.",
   },
   {
     question: "Wat kan ik gratis doen op Hobbysalon?",
@@ -334,19 +334,19 @@ export const WORKSHOP_OFFER: PublicPricingOffer = {
   audience: "Workshopgevers",
   title: "Workshopvermelding",
   priceLabel: "3 gratis",
-  periodLabel: "tot 1 november · daarna €9,99 / 2 maanden",
+  periodLabel: "tot 1 december · daarna €9,99 / 2 maanden",
   status: "confirmed",
   description:
     "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
   features: [
-    "Tot 1 november: max. 3 workshops gratis (blijven gratis)",
+    "Tot 1 december: max. 3 workshops gratis (blijven gratis)",
     "Extra vermeldingen: €9,99 voor 2 maanden zichtbaar",
     "Tot drie sessiedata in één vermelding",
     "Geen commissie per deelnemer",
   ],
   href: "/register/creator?focus=workshopgever",
   ctaLabel: "Plaats je workshop",
-  finePrint: "Lanceraanbod tot 1 november 2026.",
+  finePrint: "Lanceraanbod tot 1 december 2026.",
 };
 
 export const HOBBYBEURZEN_OFFER: PublicPricingOffer = {
@@ -570,9 +570,9 @@ export const MAKERS_PAGE = {
 } as const;
 
 export const WORKSHOP_PAGE = {
-  metaTitle: "Workshops aanbieden | 3 gratis tot 1 november",
+  metaTitle: "Workshops aanbieden | 3 gratis tot 1 december",
   metaDescription:
-    "Zet je workshop op de kaart bij hobbyisten die gericht zoeken. Tot 1 november 3 workshops gratis (blijven gratis). Extra vermeldingen €9,99 voor 2 maanden. Geen commissie per deelnemer.",
+    "Zet je workshop op de kaart bij hobbyisten die gericht zoeken. Tot 1 december 3 workshops gratis (blijven gratis). Extra vermeldingen €9,99 voor 2 maanden. Geen commissie per deelnemer.",
   headline: "Zet je workshop op de kaart",
   /** Short hero line (viewport budget) */
   heroSubheadline:
@@ -618,8 +618,8 @@ export const WORKSHOP_PAGE = {
     body: "De sessiedata worden vastgelegd op het moment van publiceren en kunnen daarna niet meer worden aangepast. Neem datums, tijden en locatie dus rustig door voor je op publiceren klikt. Bij een fout moet de vermelding opnieuw worden aangemaakt.",
   },
   pricing: {
-    title: "Lanceraanbod: 3 workshops gratis tot 1 november",
-    body: "Tot 1 november 2026 mag je tot 3 workshops gratis plaatsen. Die drie blijven daarna gratis. Extra vermeldingen kosten €9,99 en blijven 2 maanden zichtbaar. Geen commissie per deelnemer.",
+    title: "Lanceraanbod: 3 workshops gratis tot 1 december",
+    body: "Tot 1 december 2026 mag je tot 3 workshops gratis plaatsen. Die drie blijven daarna gratis. Extra vermeldingen kosten €9,99 en blijven 2 maanden zichtbaar. Geen commissie per deelnemer.",
   },
 } as const;
 
@@ -778,7 +778,7 @@ export const WORKSHOP_FAQ: PricingFaqItem[] = [
   {
     question: "Nemen jullie commissie op mijn workshops?",
     answer:
-      "Nee. Tot 1 november 2026 mag je tot 3 workshops gratis plaatsen (die blijven gratis). Extra vermeldingen kosten €9,99 voor twee maanden zichtbaar. Er is geen commissie per deelnemer.",
+      "Nee. Tot 1 december 2026 mag je tot 3 workshops gratis plaatsen (die blijven gratis). Extra vermeldingen kosten €9,99 voor twee maanden zichtbaar. Er is geen commissie per deelnemer.",
   },
   {
     question: "Moet ik een boekingssysteem van Hobbysalon gebruiken?",
