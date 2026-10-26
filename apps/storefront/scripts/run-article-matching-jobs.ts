@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env";
 import { runArticleMatchingJobs, type MatchingRpc } from "../src/lib/content/article-matching-jobs";
 import type { CatalogRead } from "../src/lib/content/article-catalog-pipeline";
+import { createPrivateArticleSidecarReader, loadArticleSidecarPlanner, ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
 
 type Args = {help:boolean;maxJobs:number;maxCatalogBatches:number;envFile?:string};
 export function parseWorkerArgs(argv: string[]): Args {
@@ -41,7 +42,7 @@ async function fileEnv(file: string, required = false): Promise<Record<string,st
     throw new Error("Cannot read worker environment file");
   }
 }
-const TABLES = new Set(["articles","products","workshops","events","event_domains","entity_links"]);
+const TABLES = new Set(["articles","products","workshops","events","event_domains","entity_links","graph_article_reviews"]);
 const RPCS = new Set(["graph_claim_matching_jobs","graph_article_fingerprint","graph_propose_article_suggestions","graph_release_matching_job","graph_fanout_matching_job"]);
 /** Explicit transport, no SDK/auth fallback, redirects or retries. Never print URLs or bodies. */
 export function createWorkerTransport(supabaseUrl: string, key: string): {read:CatalogRead;rpc:MatchingRpc} {
@@ -75,10 +76,11 @@ export function createWorkerTransport(supabaseUrl: string, key: string): {read:C
   };
   return {read,rpc};
 }
-export async function main(argv = process.argv.slice(2), environment: Record<string,string | undefined> = process.env): Promise<void> {
+export async function main(argv = process.argv.slice(2), environment: Record<string,string | undefined> = process.env,
+  manifestSha256: string = ARTICLE_SIDECAR_RELEASE.manifestSha256): Promise<void> {
   const args = parseWorkerArgs(argv);
   if (args.help) {
-    console.log("Single article matching worker run (pending proposals only; never auto-approves). Usage: [--max-jobs N (default 5, max 20)] [--max-catalog-batches N (default 4, max 20)] [--env-file PATH]. Lease: 120 seconds. Requires SUPABASE_SERVICE_ROLE_KEY. Without --env-file, reads storefront .env/.env.local plus process environment. No daemon/scheduling; catalog row count and total run time are not bounded by these job limits.");
+    console.log("Single article matching worker run (pending proposals only; never auto-approves). Usage: [--max-jobs N (default 5, max 20)] [--max-catalog-batches N (default 4, max 20)] [--env-file PATH]. Loads the pinned private article sidecar before claiming jobs. Stale, unpublished, missing, blocked or incomplete metadata produces no proposals. Lease: 120 seconds. Requires SUPABASE_SERVICE_ROLE_KEY. Without --env-file, reads storefront .env/.env.local plus process environment. No daemon/scheduling; catalog row count and total run time are not bounded by these job limits.");
     return;
   }
   const dir = path.dirname(fileURLToPath(import.meta.url));
@@ -91,8 +93,9 @@ export async function main(argv = process.argv.slice(2), environment: Record<str
   const url = resolveSupabaseUrl(env);
   const key = env.SUPABASE_SERVICE_ROLE_KEY; // NEVER fall back to an anonymous key.
   if (!url || !key) throw new Error("Worker requires Supabase URL and service-role key");
-  const result = await runArticleMatchingJobs({...createWorkerTransport(url,key),maxJobs:args.maxJobs,maxCatalogBatches:args.maxCatalogBatches});
-  console.log(JSON.stringify({...result,readScope:"service-role; all eligible catalog owners; existing links both directions; terminal reviews enforced by proposal RPC"}));
+  const plan = await loadArticleSidecarPlanner(createPrivateArticleSidecarReader(url,key),manifestSha256);
+  const result = await runArticleMatchingJobs({...createWorkerTransport(url,key),plan,maxJobs:args.maxJobs,maxCatalogBatches:args.maxCatalogBatches});
+  console.log(JSON.stringify({...result,sidecarRelease:ARTICLE_SIDECAR_RELEASE.prefix,readScope:"service-role; pinned private sidecar; current article body; eligible catalog; existing links and all review decisions"}));
   if (result.failed || result.lost) process.exitCode = 1;
 }
 // Import is inert: only direct entrypoint invocation performs work.

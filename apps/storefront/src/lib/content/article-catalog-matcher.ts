@@ -16,6 +16,8 @@ export type ArticleMatchInput = {
   bodyMarkdown?: string | null;
   domainId: string | null;
   materialTitles: string[];
+  /** Sidecar mode: only individually scoped explicit needs may qualify products. */
+  materialMode?: "explicit";
 };
 
 export type ArticleCatalogMatch = {
@@ -289,6 +291,10 @@ function recordKey(candidate: CatalogCandidate): string {
     candidate.domainIds]);
 }
 
+function explicitMaterialText(value: string): string {
+  return value.replace(/\bacrylverf\b/gi,"acryl verf").replace(/\bkralen\b/gi,"kraal");
+}
+
 /**
  * Deterministic discovery recommendations only. `textual` is not verified material
  * compatibility and never proposes a required/optional role. No IO or input mutation.
@@ -304,13 +310,15 @@ export function matchArticleCatalog(
     .map(source => ({ ...source, topics: topicTokens(source.original) }));
   const body = articleBody(input.bodyMarkdown ?? "");
   const secondary = topicTokens(body.prose, true);
-  const required = requirements([...new Set([...input.materialTitles, ...body.lines])]);
+  const required = requirements([...new Set(input.materialMode === "explicit"
+    ? input.materialTitles.map(explicitMaterialText) : [...input.materialTitles, ...body.lines])]);
   const byKey = new Map<string, ArticleCatalogMatch>();
 
   for (const candidate of candidates) {
     const key = `${candidate.targetType}:${candidate.targetId}`;
     if (existingKeys?.has(key)) continue;
-    const productText = text([candidate.title, candidate.description ?? ""].join("\n"), "catalogus");
+    const productDescription = [candidate.title,candidate.description ?? ""].join("\n");
+    const productText = text(input.materialMode === "explicit" ? explicitMaterialText(productDescription) : productDescription, "catalogus");
     const candidateTitle = text(candidate.title, "catalogustitel");
     const candidateTopics = new Set([...topicTokens(candidate.title), ...topicTokens(candidate.description ?? "", true)]);
     const evidence: string[] = [];
@@ -332,17 +340,26 @@ export function matchArticleCatalog(
     }
     let compatibility: ArticleCatalogMatch["compatibility"] = "unknown";
     if (candidate.targetType === "product") {
+      if (input.materialMode === "explicit" && candidate.productType !== "supply" && candidate.productType !== "destash") continue;
       const overlap = intersection(secondary, candidateTopics).filter(token => !seenTopic.has(token));
       if (overlap.length) {
         score += overlap.length * 5;
         evidence.push(`Onderwerp (artikeltekst): ${overlap.join(", ")} → ${candidate.title}`);
       }
       if (candidate.productType === "supply" || candidate.productType === "destash") {
-        const material = materialEvidence(required, candidate, productText);
+        const identity = tokens(explicitMaterialText(candidate.title));
+        const identityKinds = kinds(identity);
+        // "Acrylic paint for paper" is paint, never a paper supply. Descriptions
+        // must not lend a substrate/component identity to the actual product.
+        const scoped = input.materialMode === "explicit" ? required.filter(requirement =>
+          identityKinds.size ? intersection(requirement.kinds,identityKinds).length > 0
+            : intersection(requirement.tokens,new Set(intersection(identity,COMPOSITIONS))).length > 0) : required;
+        const material = materialEvidence(scoped, candidate, productText);
         if (material.rejected) continue;
+        if (input.materialMode === "explicit" && material.score === 0) continue;
         score += material.score;
         evidence.push(...material.evidence);
-        if (material.textual) compatibility = "textual";
+        if (material.textual && input.materialMode !== "explicit") compatibility = "textual";
       }
     }
     if (!score) continue;

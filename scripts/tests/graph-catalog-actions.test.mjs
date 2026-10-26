@@ -3,11 +3,12 @@ import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
+import {sidecarFixture} from './graph-sidecar-fixture.mjs';
 const root=new URL('../../',import.meta.url);
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', C='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 async function fixture(options={}) {
   const reads=[],writes=[],revalidated=[],rpcs=[],timeline=[];
-  const tables={articles:[{id:A,author_creator_id:C,slug:'mandje'}],products:[{id:'p',title:'Haaknaald 6 mm',product_type:'supply',domain_id:null,status:'active',is_active:true,creator_id:'other'}],workshops:[],events:[],event_domains:[],entity_links:options.links??[]};
+  const tables={articles:[{id:A,author_creator_id:C,slug:'mandje'}],products:[{id:'p',title:'Haaknaald 6 mm',product_type:'supply',domain_id:null,status:'active',is_active:true,creator_id:'other'}],workshops:[],events:[],event_domains:[],entity_links:options.links??[],graph_article_reviews:options.reviews??[]};
   function from(table) {
     const q={columns:'*',filters:[],op:null,payload:null,start:0,end:Infinity,
       select(columns){this.columns=columns;return this;},eq(key,value){this.filters.push([key,value]);return this;},
@@ -38,16 +39,20 @@ async function fixture(options={}) {
     if(name==='graph_propose_article_suggestions')return {data:options.invalidCount?'bad':options.dismissed?0:args.p_proposals.length,error:options.insertError||options.stale?{message:'failed'}:null};
     throw Error('Unexpected RPC');
   };
-  const collaborators={createPlatformClient:()=>({from,rpc}),getAuthUser:async()=>({id:'user'}),getCreatorByUserId:async()=>({id:C}),
+  let sidecarPlanner;
+  const collaborators={createPlatformClient:()=>({from,rpc}),getArticleSidecarPlanner:async()=>{if(options.sidecarError)throw Error('Storage unavailable');return sidecarPlanner;},getAuthUser:async()=>({id:'user'}),getCreatorByUserId:async()=>({id:C}),
     isAuthorableArticleType:()=>true,revalidatePath:p=>revalidated.push(p),
     redirect(location){const e=Error('redirect');e.digest='NEXT_REDIRECT;';e.location=location;throw e;}};
-  const context=vm.createContext({FormData,Error,Date,URL,URLSearchParams,fetch:tripwire}); const cache=new Map();
+  const context=vm.createContext({FormData,Error,Date,URL,URLSearchParams,TextDecoder,Uint8Array,fetch:tripwire}); const cache=new Map();
   async function real(path) {
     if(cache.has(path)) return cache.get(path);
     const src=stripTypeScriptTypes(readFileSync(new URL(path,root),'utf8'));
     const mod=new vm.SourceTextModule(src,{context,identifier:path});cache.set(path,mod);
     const bindings=new Map([...src.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)].map(m=>[m[2],m[1].split(',').map(s=>s.trim()).filter(Boolean)]));
     await mod.link(async spec=>{
+      if(spec.startsWith('node:')) {
+        const builtin=await import(spec);return new vm.SyntheticModule(Object.keys(builtin),function(){for(const [n,v]of Object.entries(builtin))this.setExport(n,v);},{context});
+      }
       if(spec==='@/lib/dashboard/return-path') return real('apps/storefront/src/lib/dashboard/return-path.ts');
       if(spec==='@/lib/profile/creator-maker-path') return real('apps/storefront/src/lib/profile/creator-maker-path.ts');
       if(spec==='@/lib/content/article-catalog-pipeline') return real('apps/storefront/src/lib/content/article-catalog-pipeline.ts');
@@ -61,8 +66,12 @@ async function fixture(options={}) {
   // Source modules are real; only SDK/auth/framework boundaries are synthetic.
   await real('apps/storefront/src/lib/content/article-catalog-pipeline.ts');
   await real('apps/storefront/src/lib/content/article-matching-jobs.ts');
+  const semantic=await real('apps/storefront/src/lib/content/article-sidecar-matching.ts');await semantic.evaluate();
+  const data=sidecarFixture([{id:A,body_markdown:'## Materialen\n- Haaknaald 6 mm'}]);
+  if(options.metadataPatch)Object.assign(data.rows[0],options.metadataPatch);
+  sidecarPlanner=semantic.namespace.createArticleSidecarPlanner(data.bundle);
   const mod=await real('apps/storefront/src/app/actions/dashboard.ts');await mod.evaluate();
-  const form=new FormData();for(const [k,v] of Object.entries({id:A,title:'Mandje haken',slug:'mandje',article_type:'tutorial',body_markdown:'## Materialen\n- Haaknaald 6 mm'}))form.set(k,v);
+  const form=new FormData();for(const [k,v] of Object.entries({id:A,title:'Mandje haken',slug:'mandje',article_type:'tutorial',body_markdown:'## Materialen\n- Haaknaald 6 mm',is_published:'on'}))form.set(k,v);
   const invoke=async action=>{try{await mod.namespace[action](form);}catch(e){assert.ok(e.digest?.startsWith('NEXT_REDIRECT'));return e.location;}};
   return {reads,writes,revalidated,rpcs,timeline,tables,update:()=>invoke('updateArticleAction'),create:()=>invoke('createArticleAction')};
 }
@@ -76,7 +85,7 @@ test('actual article update uses entire catalog and atomic RPC, never deletes pr
   assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);
   const insert=f.rpcs.find(r=>r.name==='graph_propose_article_suggestions');assert.ok(insert);
   assert.equal(insert.args.p_proposals[0].target_entity_id,'p');assert.equal(insert.args.p_proposals[0].proposed_relation,'related_product');
-  assert.equal(insert.args.p_proposals[0].matcher_version,'article-catalog-v1');assert.ok(insert.args.p_proposals[0].evidence.length);
+  assert.equal(insert.args.p_proposals[0].matcher_version,'article-sidecar-v1');assert.ok(insert.args.p_proposals[0].evidence.sidecar.requirements.length);
   assert.equal(insert.args.p_article_id,A);assert.equal(insert.args.p_fingerprint,'fixture-fingerprint');
   assert.ok(f.timeline.indexOf('save')<f.timeline.indexOf('rpc:graph_article_fingerprint'));
   assert.ok(f.timeline.indexOf('rpc:graph_article_fingerprint')<f.timeline.lastIndexOf('read:articles'));
@@ -87,6 +96,19 @@ test('existing pending nomination survives ordinary article update without dupli
   const f=await fixture({links:[{id:'l',source_entity_type:'article',source_entity_id:A,target_entity_type:'product',target_entity_id:'p',relation_type:'suggested_auto'}]});
   await f.update();assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);
   assert.equal(f.rpcs.filter(r=>r.name==='graph_propose_article_suggestions').length,0);
+});
+test('existing terminal review without a visible link is never nominated again',async()=>{
+  const f=await fixture({reviews:[{article_id:A,target_entity_type:'product',target_entity_id:'p',state:'dismissed'}]});
+  await f.update();assert.ok(f.reads.some(r=>r.table==='graph_article_reviews'));
+  assert.equal(f.rpcs.filter(r=>r.name==='graph_propose_article_suggestions').length,0);
+});
+test('dashboard save uses sidecar quality gate and does not fall back on Storage failure',async()=>{
+  const f=await fixture({metadataPatch:{gaps:['Incomplete construction']}});const location=await f.update();
+  assert.ok(new URL(location,'http://fixture.invalid').searchParams.get('success').includes('inhoudelijke controle'));
+  assert.equal(f.rpcs.filter(r=>r.name==='graph_propose_article_suggestions').length,0);
+  const failure=await fixture({sidecarError:true});assert.ok((await failure.update()).includes('error='));
+  assert.equal(failure.writes.filter(w=>w.table==='articles').length,1);
+  assert.equal(failure.rpcs.filter(r=>r.name==='graph_propose_article_suggestions').length,0);
 });
 test('actual article creation preserves profile tab and success parameters after atomic proposals',async()=>{
   const f=await fixture();const location=await f.create();const url=new URL(location,'http://fixture.invalid');

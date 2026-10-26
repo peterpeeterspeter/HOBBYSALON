@@ -1,4 +1,4 @@
-import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogArticle, type CatalogRead } from "./article-catalog-pipeline";
+import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogArticle, type CatalogRead, type ArticleSuggestionPlanner } from "./article-catalog-pipeline";
 
 /** No environment, SDK, scheduler or network capability: callers explicitly supply both ports. */
 export type MatchingRpc = (name: string, args: Record<string, unknown>) => Promise<unknown>;
@@ -11,9 +11,9 @@ export function toArticleProposalPayload(suggestion: Suggestion) {
     sort_order: suggestion.row.sort_order,
     proposed_relation: suggestion.proposedRelation,
     score: suggestion.score,
-    evidence: [...suggestion.evidence],
+    evidence: suggestion.sidecarEvidence ? {signals:[...suggestion.evidence],sidecar:suggestion.sidecarEvidence} : [...suggestion.evidence],
     compatibility: suggestion.compatibility,
-    matcher_version: "article-catalog-v1" as const,
+    matcher_version: suggestion.sidecarEvidence ? "article-sidecar-v1" as const : "article-catalog-v1" as const,
   };
 }
 export type ArticleProposalPayload = ReturnType<typeof toArticleProposalPayload>;
@@ -22,13 +22,15 @@ export type MatchingJob = {
   revision: number; claimed_revision: number; lease_token: string;
   lease_until: string; status: "running"; attempts: number;
 };
-export type MatchingOutcome = { kind: "article" | "catalog"; outcome: "completed" | "failed" | "deferred" | "lost"; inserted: number };
+export type MatchingOutcome = { kind: "article" | "catalog"; outcome: "completed" | "failed" | "deferred" | "lost"; inserted: number; sidecarState?: string };
 export type MatchingRunResult = {
   claimed: number; completed: number; failed: number; deferred: number; lost: number; inserted: number;
   outcomes: MatchingOutcome[];
 };
 export type MatchingWorkerOptions = {
   read: CatalogRead; rpc: MatchingRpc; maxJobs?: number; maxCatalogBatches?: number; pageSize?: number; now?: Date;
+  /** Runtime entrypoints supply the pinned sidecar planner; tests can exercise the legacy pure core. */
+  plan?: ArticleSuggestionPlanner;
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -58,16 +60,16 @@ function claimedJob(response: unknown): MatchingJob | null {
   return {...job} as MatchingJob;
 }
 async function readArticle(read: CatalogRead, id: string): Promise<CatalogArticle> {
-  const rows = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id",
+  const rows = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id,is_published",
     equals:{id},order:["id"],offset:0,limit:1});
   if (!Array.isArray(rows) || rows.length !== 1 || !object(rows[0]) || rows[0].id !== id
-    || typeof rows[0].title !== "string"
+    || typeof rows[0].title !== "string" || typeof rows[0].is_published !== "boolean"
     || ["excerpt", "body_markdown", "domain_id"].some(key => rows[0][key] !== null && typeof rows[0][key] !== "string")) {
     throw new Error("Article unavailable");
   }
   // Detached primitive snapshot. Never reread content after capturing its fence.
   return {id,title:rows[0].title,excerpt:rows[0].excerpt as string | null,
-    body_markdown:rows[0].body_markdown as string | null,domain_id:rows[0].domain_id as string | null};
+    body_markdown:rows[0].body_markdown as string | null,domain_id:rows[0].domain_id as string | null,is_published:rows[0].is_published};
 }
 /**
  * Single bounded run, claims one at a time. SQL owns decisions, revision fencing,
@@ -102,6 +104,7 @@ export async function runArticleMatchingJobs(options: MatchingWorkerOptions): Pr
     let inserted = 0;
     let finishAttempted = false;
     let partial = false;
+    let sidecarState: string | undefined;
     try {
       if (job.kind === "catalog") {
         let done = false;
@@ -128,11 +131,18 @@ export async function runArticleMatchingJobs(options: MatchingWorkerOptions): Pr
         if (typeof fingerprint !== "string" || !fingerprint.length) throw new Error("Invalid article fingerprint");
         const article = await readArticle(options.read, job.article_id!);
         const catalog = await loadArticleCatalog(options.read, {pageSize,now:options.now});
-        const keys = await loadArticleExistingKeys(options.read, article.id, {pageSize});
-        const proposals = planArticleSuggestions(article, catalog, keys).map(toArticleProposalPayload);
-        inserted = count(await options.rpc("graph_propose_article_suggestions", {
-          p_article_id:article.id,p_fingerprint:fingerprint,p_proposals:proposals,
-        }), proposals.length);
+        const keys = await loadArticleExistingKeys(options.read, article.id, {pageSize,includeReviews:!!options.plan});
+        const plan = options.plan ? await options.plan(article,catalog,keys) : null;
+        sidecarState = plan?.state;
+        if (options.plan && (!plan || !Array.isArray(plan.suggestions)
+          || (plan.state !== "ready_for_review" && plan.suggestions.length))) throw new Error("Invalid sidecar plan");
+        const suggestions = options.plan ? plan!.suggestions : planArticleSuggestions(article,catalog,keys);
+        const proposals = suggestions.map(toArticleProposalPayload);
+        if (!options.plan || proposals.length) {
+          inserted = count(await options.rpc("graph_propose_article_suggestions", {
+            p_article_id:article.id,p_fingerprint:fingerprint,p_proposals:proposals,
+          }), proposals.length);
+        }
         // Count known committed nominations even if a later finish loses its lease.
         finishAttempted = true;
         outcome = await release(job, "success");
@@ -147,7 +157,7 @@ export async function runArticleMatchingJobs(options: MatchingWorkerOptions): Pr
     }
     result.inserted += inserted;
     result[outcome]++;
-    result.outcomes.push({kind:job.kind,outcome,inserted});
+    result.outcomes.push({kind:job.kind,outcome,inserted,...(sidecarState ? {sidecarState} : {})});
     // Partial fanout retains its SQL cursor/backoff. Do not immediately reclaim it.
     if (partial) break;
   }

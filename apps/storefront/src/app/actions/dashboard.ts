@@ -37,8 +37,9 @@ import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { resolveArticleSuggestionRelation } from "@/lib/content/article-suggestion-relation";
-import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
+import { loadArticleCatalog, loadArticleExistingKeys, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
 import { toArticleProposalPayload } from "@/lib/content/article-matching-jobs";
+import { getArticleSidecarPlanner } from "@/lib/services/article-sidecar-planner";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
 import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import {
@@ -631,7 +632,7 @@ async function generateArticleLinkSuggestions(input: {
   excerpt: string | null;
   bodyMarkdown: string | null;
   articleDomainId: string | null;
-}): Promise<void> {
+}): Promise<{state:string;inserted:number}> {
   const supabase = createPlatformClient();
   const read: CatalogRead = async (request) => {
     let query = supabase.from(request.table).select(request.columns);
@@ -659,19 +660,21 @@ async function generateArticleLinkSuggestions(input: {
   if (fingerprintError || typeof fingerprint !== "string" || !fingerprint.length) {
     throw new Error("Laden van link-suggesties mislukt.");
   }
-  const articles = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id",
+  const articles = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id,is_published",
     equals:{id:input.articleId},order:["id"],offset:0,limit:1});
   const article = articles[0];
-  if (articles.length !== 1 || article?.id !== input.articleId || typeof article.title !== "string"
+  if (articles.length !== 1 || article?.id !== input.articleId || typeof article.title !== "string" || typeof article.is_published !== "boolean"
     || ["excerpt","body_markdown","domain_id"].some(key => article[key] !== null && typeof article[key] !== "string")) {
     throw new Error("Laden van het opgeslagen artikel mislukt.");
   }
   const candidates = await loadArticleCatalog(read);
-  const existingKeys = await loadArticleExistingKeys(read, input.articleId);
-  const proposals = planArticleSuggestions({id:input.articleId,title:article.title,
+  const existingKeys = await loadArticleExistingKeys(read, input.articleId,{includeReviews:true});
+  const plan = await getArticleSidecarPlanner();
+  const planned = await plan({id:input.articleId,title:article.title,
     excerpt:article.excerpt as string | null,body_markdown:article.body_markdown as string | null,
-    domain_id:article.domain_id as string | null},candidates,existingKeys).map(toArticleProposalPayload);
-  if (!proposals.length) return;
+    domain_id:article.domain_id as string | null,is_published:article.is_published},candidates,existingKeys);
+  const proposals = planned.suggestions.map(toArticleProposalPayload);
+  if (!proposals.length) return {state:planned.state,inserted:0};
   // The private unique pair, review memory and transaction live in the RPC, not a
   // read-then-insert snapshot. Never fall back to direct entity_links insertion.
   const { data: inserted, error } = await supabase.rpc("graph_propose_article_suggestions", {
@@ -681,13 +684,15 @@ async function generateArticleLinkSuggestions(input: {
     || inserted < 0 || inserted > proposals.length) {
     throw new Error("Artikel opgeslagen, maar link-suggesties opslaan is mislukt.");
   }
+  return {state:planned.state,inserted};
 }
 
 // This runs only after the article mutation returned its persisted ID.
 // Proposal errors must not disguise a committed save as a failed article creation.
-async function refreshSavedArticleSuggestions(input: Parameters<typeof generateArticleLinkSuggestions>[0]): Promise<void> {
+async function refreshSavedArticleSuggestions(input: Parameters<typeof generateArticleLinkSuggestions>[0]): Promise<{state:string;inserted:number}> {
   let failed = false;
-  try { await generateArticleLinkSuggestions(input); }
+  let result = {state:"unavailable",inserted:0};
+  try { result = await generateArticleLinkSuggestions(input); }
   catch (error) {
     if (isNextRedirectError(error)) throw error;
     failed = true;
@@ -700,6 +705,15 @@ async function refreshSavedArticleSuggestions(input: Parameters<typeof generateA
       error: "De link-suggesties konden niet worden vernieuwd. Bewerk het opgeslagen artikel om opnieuw te proberen; maak geen nieuw artikel aan.",
     }));
   }
+  return result;
+}
+
+function articleSuggestionSuccess(result: {state:string;inserted:number}, updated = false): string {
+  const saved = updated ? "Artikel bijgewerkt." : "Artikel opgeslagen.";
+  if (result.state === "unpublished") return `${saved} Je artikel staat als concept.`;
+  if (result.state !== "ready_for_review") return `${saved} Voor link-suggesties is nog inhoudelijke controle nodig.`;
+  if (!result.inserted) return `${saved} Er zijn geen nieuwe link-suggesties.`;
+  return updated ? "Artikel bijgewerkt. Suggesties vernieuwd." : "Artikel opgeslagen met link-suggesties.";
 }
 
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
@@ -1347,11 +1361,11 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Aanmaken van artikel mislukt.");
     }
 
-    await refreshSavedArticleSuggestions({
+    const suggestions = await refreshSavedArticleSuggestions({
       articleId: article.id, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel opgeslagen met link-suggesties." }));
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: articleSuggestionSuccess(suggestions) }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1402,11 +1416,11 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
 
     // Preserve retained human-link rows and pending proposals on ordinary saves.
     // Private RPC/trigger decisions keep rejected nominations suppressed.
-    await refreshSavedArticleSuggestions({
+    const suggestions = await refreshSavedArticleSuggestions({
       articleId, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel bijgewerkt. Suggesties vernieuwd." }));
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: articleSuggestionSuccess(suggestions,true) }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

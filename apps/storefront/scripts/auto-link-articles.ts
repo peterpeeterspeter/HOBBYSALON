@@ -4,6 +4,7 @@ import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env";
 import { loadArticleCatalog, loadArticleExistingKeys, loadCatalogArticles, planArticleSuggestions, type CatalogRead } from "../src/lib/content/article-catalog-pipeline";
+import { createPrivateArticleSidecarReader, loadArticleSidecarPlanner, ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
 
 // Read-only by design. The dashboard save action may insert pending nominations;
 // this tool has no write flag, SDK client, automatic approval or delete path.
@@ -32,16 +33,20 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 async function readEnvFile(file: string): Promise<Record<string,string | undefined>> {
-  try { return parseEnv(await readFile(file,"utf8")); }
+  try {
+    const entries = Object.entries(parseEnv(await readFile(file,"utf8")));
+    if (entries.some(([,value])=>typeof value !== "string")) throw new Error("Invalid environment value");
+    return Object.fromEntries(entries) as Record<string,string>;
+  }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
     throw new Error("Cannot read environment file");
   }
 }
-async function main(): Promise<void> {
-  const args=parseArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2), manifestSha256: string = ARTICLE_SIDECAR_RELEASE.manifestSha256): Promise<void> {
+  const args=parseArgs(argv);
   if (args.help) {
-    console.log("Read-only article catalog matcher. Usage: [--dry-run] [--limit N] [--author-creator-id UUID] [--env-file PATH]. No database writes; output is a JSON review report, not confirmed links.");
+    console.log("Read-only article sidecar matcher. Usage: [--dry-run] [--limit N] [--author-creator-id UUID] [--env-file PATH]. Requires a service-role key to download the pinned private sidecar and read review memory. No database writes; output is a JSON review report, not confirmed links.");
     return;
   }
   const dir=path.dirname(fileURLToPath(import.meta.url));
@@ -50,7 +55,7 @@ async function main(): Promise<void> {
   };
   const env={...fileEnv,...process.env};
   const supabaseUrl=resolveSupabaseUrl(env);
-  const key=env.SUPABASE_SERVICE_ROLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key=env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !key) throw new Error("Missing Supabase environment variables");
   let base: URL;
   try { base=new URL(supabaseUrl); } catch { throw new Error("Invalid Supabase URL"); }
@@ -74,15 +79,21 @@ async function main(): Promise<void> {
     if (!Array.isArray(data) || data.some(row=>!row || typeof row!=="object" || Array.isArray(row))) throw new Error(`Invalid catalog response (${request.table})`);
     return data;
   };
+  const plan = await loadArticleSidecarPlanner(createPrivateArticleSidecarReader(supabaseUrl,key),manifestSha256);
   const articles=await loadCatalogArticles(read,{authorCreatorId:args.authorCreatorId,limit:args.limit});
   const catalog=articles.length ? await loadArticleCatalog(read) : [];
   const proposals: ReturnType<typeof planArticleSuggestions>=[];
+  const sidecarStates: Record<string,number> = {};
   for (const article of articles) {
-    const keys=await loadArticleExistingKeys(read,article.id);
-    proposals.push(...planArticleSuggestions(article,catalog,keys));
+    const keys=await loadArticleExistingKeys(read,article.id,{includeReviews:true});
+    const result = await plan(article,catalog,keys);
+    sidecarStates[result.state] = (sidecarStates[result.state] ?? 0) + 1;
+    proposals.push(...result.suggestions);
   }
   console.log(JSON.stringify({mode:"dry-run",writes:0,articlesScanned:articles.length,catalogCandidates:catalog.length,
-    visibility:env.SUPABASE_SERVICE_ROLE_KEY ? "service-role read; eligible catalog" : "anonymous read; coverage depends on RLS",
+    visibility:"service-role read; pinned private sidecar; eligible catalog and complete review decisions",sidecarStates,
     proposals,notice:"Voorstellen ter menselijke bevestiging; tekstuele overeenkomst is geen geverifieerde compatibiliteit of vereist materiaal."},null,2));
 }
-main().catch(error=>{console.error(error instanceof Error ? error.message : "Dry-run failed");process.exitCode=1;});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(()=>{console.error("Article sidecar dry-run failed; verify configuration and pinned private release.");process.exitCode=1;});
+}
