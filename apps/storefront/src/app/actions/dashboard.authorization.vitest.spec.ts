@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { articleBodySha256, type SidecarBundle } from "@/lib/content/article-metadata-sidecar";
+import { createArticleSidecarPlanner } from "@/lib/content/article-sidecar-matching";
 
 type Row = Record<string, unknown>;
 type Query = { table: string; operation: string; filters: Array<[string, unknown]> };
@@ -15,6 +17,7 @@ const h = vi.hoisted(() => ({
   rpc: vi.fn(),
   upload: vi.fn(),
   revalidate: vi.fn(),
+  sidecarPlanner: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidate }));
@@ -24,6 +27,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("@/lib/platform/client", () => ({ createPlatformClient: () => ({ from: h.from, rpc: h.rpc }) }));
+vi.mock("@/lib/services/article-sidecar-planner", () => ({ getArticleSidecarPlanner: h.sidecarPlanner }));
 vi.mock("@/lib/auth/session", () => ({ getAuthUser: async () => h.user }));
 vi.mock("@/lib/platform/queries/creators", () => ({
   getCreatorByUserId: async () => h.creator,
@@ -72,6 +76,30 @@ const PRODUCT = "22222222-2222-4222-8222-222222222222";
 const CHILD = "33333333-3333-4333-8333-333333333333";
 const ARTICLE = "44444444-4444-4444-8444-444444444444";
 const DOMAIN = "55555555-5555-4555-8555-555555555555";
+const ARTICLE_BODY = "Garen";
+
+// Replace only private Storage I/O; authorization and semantic matching stay real.
+function articleSidecarFixture(): SidecarBundle {
+  return {
+    datasetVersion: "hobbysalon-semantic-v1", createdAt: "2026-10-26T14:00:00Z",
+    manifestSha256: "f".repeat(64), manifestTrust: "independently_pinned_digest", verifiedFiles: [],
+    articles: [{
+      article_id: ARTICLE, source_sha256: articleBodySha256(ARTICLE_BODY), summary: "Garen nodig",
+      content_kind: "full_tutorial", crafts: [], techniques: [], themes: [], audience: [], projects: [], tools: [], gaps: [],
+      materials: [{ label: "garen", role: "required", specifications: null, project_labels: [], evidence: ARTICLE_BODY,
+        evidence_span: { start: 0, end: ARTICLE_BODY.length, unit: "unicode_codepoints" } }],
+      source: { is_published: true }, quality_routing: {
+        automatic_recommendation_blocked: false, automatic_publication_allowed: false,
+        has_extraction_gaps: false, requires_gap_review_before_matching: false, reasons: [],
+      },
+    }],
+    catalogQualifications: [PRODUCT, "old-product", "approved-product"].map(product_id => ({
+      product_id, source_sha256: "e".repeat(64), candidate_retrieval_eligible: true,
+      material_match_eligible: true, automatic_compatibility_confirmed: false, semantic_product_kind: "material", gaps: [],
+      source: { title: "Knitting yarn", product_type: "supply", domain_id: DOMAIN },
+    })),
+  };
+}
 
 /** Minimal Supabase boundary: filters affect actual fixture rows and writes.
  * Unselected mutations intentionally return null data, like PostgREST.
@@ -163,6 +191,7 @@ beforeEach(() => {
     throw new Error(`Unexpected RPC: ${name}`);
   });
   h.upload.mockResolvedValue("https://cdn.example.test/gallery.jpg");
+  h.sidecarPlanner.mockResolvedValue(createArticleSidecarPlanner(articleSidecarFixture()));
   h.rows = {
     projects: [{ id: PROJECT, slug: "test-project", created_by_user_id: "user-owner" }],
     project_gallery_images: [{ id: CHILD, project_id: PROJECT, image_url: "original" }],
@@ -252,7 +281,8 @@ it("allows a public project association without granting gallery edit rights", a
   expect(h.rows.project_gallery_images).toHaveLength(1);
 });
 
-const articleFields = { id: ARTICLE, title: "Knitting yarn", article_type: "tutorial", domain_id: DOMAIN };
+const articleFields = { id: ARTICLE, title: "Knitting yarn", article_type: "tutorial", domain_id: DOMAIN,
+  body_markdown: ARTICLE_BODY, is_published: "on" };
 describe("article recommendation authorization", () => {
   it.each(["foreign author", "missing article", "zero-row owner update"])("does not touch recommendations on %s", async (scenario) => {
     if (scenario === "foreign author") h.rows.articles[0].author_creator_id = "foreign-creator";
@@ -263,6 +293,7 @@ describe("article recommendation authorization", () => {
     expect(h.rows).toEqual(original);
     expect(h.queries.filter(item => item.table !== "articles")).toEqual([]);
     expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.sidecarPlanner).not.toHaveBeenCalled();
     expect(h.revalidate).not.toHaveBeenCalled();
   });
 
@@ -273,7 +304,24 @@ describe("article recommendation authorization", () => {
     expect(h.rows).toEqual(original);
     expect(h.queries.filter(item => item.table !== "articles")).toEqual([]);
     expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.sidecarPlanner).not.toHaveBeenCalled();
     expect(h.revalidate).not.toHaveBeenCalled();
+  });
+
+  it.each<{ fields: Record<string, string>; message: string }>([
+    { fields: { is_published: "" }, message: "Artikel bijgewerkt. Je artikel staat als concept." },
+    { fields: { body_markdown: ARTICLE_BODY + " gewijzigd" }, message: "Artikel bijgewerkt. Voor link-suggesties is nog inhoudelijke controle nodig." },
+  ])("saves gated content without proposing or claiming refreshed suggestions: $message", async ({ fields, message }) => {
+    const originalLinks = structuredClone(h.rows.entity_links);
+    const location = new URL(await run(updateArticleAction, { ...articleFields, ...fields }), "https://fixture.invalid");
+    expect(location.searchParams.get("success")).toBe(message);
+    expect(location.searchParams.has("error")).toBe(false);
+    expect(h.sidecarPlanner).toHaveBeenCalledOnce();
+    expect(h.rpc.mock.calls).toEqual([["graph_article_fingerprint", { p_article_id: ARTICLE }]]);
+    expect(writes()).toEqual([{
+      table: "articles", operation: "update", filters: [["id", ARTICLE], ["author_creator_id", "creator-owner"]],
+    }]);
+    expect(h.rows.entity_links).toEqual(originalLinks);
   });
 
   it("proposes recommendations atomically after an owner-matched update without changing retained links", async () => {
@@ -297,10 +345,15 @@ describe("article recommendation authorization", () => {
         p_article_id: ARTICLE, p_fingerprint: "fixture-fingerprint", p_proposals: [{
           target_entity_type: "product", target_entity_id: PRODUCT,
           weight: expect.any(Number), sort_order: 1, proposed_relation: "related_product",
-          score: expect.any(Number), evidence: expect.arrayContaining([
-            "Onderwerp (titel): Knitting yarn → Knitting yarn (garen)",
+          score: expect.any(Number), evidence: { signals: expect.arrayContaining([
+            "Materiaal: garen → Knitting yarn (garen)",
             "Aanbeveling; materiaalcompatibiliteit onbekend.",
-          ]), compatibility: "unknown", matcher_version: "article-catalog-v1",
+          ]), sidecar: {
+            dataset_version: "hobbysalon-semantic-v1", source_sha256: articleBodySha256(ARTICLE_BODY),
+            content_kind: "full_tutorial", automatic_publication_allowed: false,
+            requirements: [{ label: "garen", role: "required", specifications: null, project_labels: [], evidence: ARTICLE_BODY }],
+            catalog: { snapshot_sha256: "e".repeat(64), semantic_product_kind: "material", unknowns: [] },
+          } }, compatibility: "unknown", matcher_version: "article-sidecar-v1",
         }],
       }],
     ]);
