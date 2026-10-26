@@ -17,6 +17,8 @@
     "migrate:project-ownership": "npx tsx scripts/run-migrate-project-ownership.ts",
     "import:wordpress:articles": "node --experimental-strip-types scripts/import-wordpress-articles.ts",
     "auto-link:articles": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/auto-link-articles.ts",
+    "match:articles": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/run-article-matching-jobs.ts",
+    "check:article-sidecar": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/check-article-metadata-sidecar.ts",
     "import:free-crochet:articles": "node --experimental-strip-types scripts/import-free-crochet-patterns.ts",
     "import:ravelry:patterns": "node --experimental-strip-types scripts/import-ravelry-patterns.ts"
   },
