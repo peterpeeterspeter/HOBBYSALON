@@ -6,6 +6,8 @@ type EntityLinkBlockProps = {
   emptyMessage?: string;
   isEmpty?: boolean;
   className?: string;
+  /** Max columns on large screens. Default 2. */
+  columns?: 2 | 3;
 };
 
 export function EntityLinkBlock({
@@ -14,6 +16,7 @@ export function EntityLinkBlock({
   emptyMessage = "Binnenkort beschikbaar",
   isEmpty = false,
   className,
+  columns = 2,
 }: EntityLinkBlockProps) {
   return (
     <section className={cn("py-12 md:py-16", className)}>
@@ -25,7 +28,12 @@ export function EntityLinkBlock({
           {emptyMessage}
         </p>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 sm:gap-8">{children}</div>
+        <div
+          className={cn(
+            "grid gap-6 sm:grid-cols-2 sm:gap-8",
+            columns === 3 && "lg:grid-cols-3",
+          )}
+        >{children}</div>
       )}
     </section>
   );
