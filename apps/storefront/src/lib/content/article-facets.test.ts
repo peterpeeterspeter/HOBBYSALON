@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { facetsFromMetadata, normalizeFacetValue } from "./article-facets.ts";
+import { audienceBucket, canonicalizeCorpus, facetsFromMetadata, facetStem, normalizeFacetValue } from "./article-facets.ts";
 
 test("normalizeFacetValue merges case and spacing", () => {
   assert.equal(normalizeFacetValue("  Haken  Amigurumi "), "haken amigurumi");
@@ -23,4 +23,29 @@ test("facetsFromMetadata dedupes labels per facet", () => {
     themes: [],
     audience: ["beginners"],
   });
+});
+
+test("facetStem joins Dutch plural and inflection forms", () => {
+  assert.equal(facetStem("stokjes"), facetStem("stokje"));
+  assert.equal(facetStem("bloemen"), facetStem("bloem"));
+  assert.equal(facetStem("vasten"), facetStem("vaste"));
+  assert.notEqual(facetStem("haken"), facetStem("breien"));
+});
+
+test("audienceBucket maps free text to fixed levels", () => {
+  assert.equal(audienceBucket("Beginners die recht breien"), "beginners");
+  assert.equal(audienceBucket("gevorderde beginner"), "gevorderde beginners");
+  assert.equal(audienceBucket("ervaren hakers"), "gevorderden");
+  assert.equal(audienceBucket("kinderen vanaf 6 jaar"), "kinderen");
+  assert.equal(audienceBucket("volwassenen"), null);
+});
+
+test("canonicalizeCorpus picks the most frequent form", () => {
+  const base = { content_kind: null, crafts: [], themes: [], audience: [] };
+  const out = canonicalizeCorpus([
+    { ...base, techniques: ["stokje"] },
+    { ...base, techniques: ["stokje"] },
+    { ...base, techniques: ["stokjes", "vasten"] },
+  ]);
+  assert.deepEqual(out[2].techniques, ["stokje", "vasten"]);
 });
