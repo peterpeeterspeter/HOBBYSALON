@@ -20,7 +20,8 @@
     "match:articles": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/run-article-matching-jobs.ts",
     "check:article-sidecar": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/check-article-metadata-sidecar.ts",
     "import:free-crochet:articles": "node --experimental-strip-types scripts/import-free-crochet-patterns.ts",
-    "import:ravelry:patterns": "node --experimental-strip-types scripts/import-ravelry-patterns.ts"
+    "import:ravelry:patterns": "node --experimental-strip-types scripts/import-ravelry-patterns.ts",
+    "sync:article-facets": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/sync-article-facets.ts"
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.11.3",
