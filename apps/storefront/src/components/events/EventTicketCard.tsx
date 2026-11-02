@@ -37,7 +37,7 @@ export function EventTicketCard({
   allowExternalTickets = false,
 }: EventTicketCardProps) {
   const isFree =
-    event.ticket_price_cents == null || event.ticket_price_cents <= 0;
+    event.ticket_price_cents === 0;
   const hasExternalTickets =
     allowExternalTickets &&
     event.ticketing_mode === "external_link" &&
@@ -59,7 +59,9 @@ export function EventTicketCard({
 
       {/* Price */}
       <div className="flex items-baseline gap-2 px-6 pt-5">
-        {isFree ? (
+        {event.ticket_price_cents == null ? (
+          <span className="text-lg font-semibold text-[var(--muted)]">Entree niet vermeld</span>
+        ) : isFree ? (
           <span className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[var(--accent)]">
             Gratis
           </span>
@@ -93,7 +95,7 @@ export function EventTicketCard({
           </span>
         ) : (
           <span className="inline-flex min-h-[var(--touch-target-min)] w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--border)] px-6 py-3 font-semibold text-[var(--muted)]">
-            Tickets binnenkort beschikbaar
+            Bekijk de organisator voor entree-informatie
           </span>
         )}
         <a

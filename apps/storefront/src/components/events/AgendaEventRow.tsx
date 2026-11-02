@@ -1,3 +1,4 @@
+import { eventDisplayTimeZone } from "@/lib/agenda/event-presentation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { DateDisplay } from "@/components/domain/date-display";
@@ -28,7 +29,7 @@ export function AgendaEventRow({ event, className }: AgendaEventRowProps) {
       )}
     >
       <div className="font-[family-name:var(--font-heading)] text-lg font-bold leading-tight text-[var(--accent)] sm:text-xl">
-        <DateDisplay date={event.starts_at} format="short" />
+        <DateDisplay timeZone={eventDisplayTimeZone(event.id)} date={event.starts_at} format="short" />
       </div>
       <div className="flex min-w-0 items-start gap-4">
         {event.featured_image_url ? (

@@ -1,3 +1,4 @@
+import { formatEventDateParts, eventPriceLabel } from "@/lib/agenda/event-presentation";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Clock, MapPin, Tag } from "lucide-react";
@@ -58,31 +59,6 @@ function productImageUrl(product: Product): string | null {
   return product.featured_image_url?.trim() || null;
 }
 
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const dayMonthFmt = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long" });
-const timeFmt = new Intl.DateTimeFormat("nl-NL", { hour: "2-digit", minute: "2-digit" });
-
-function formatDateParts(startsAt: string, endsAt: string) {
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  const sameDay = start.toDateString() === end.toDateString();
-  const sameYear = start.getFullYear() === end.getFullYear();
-
-  const dateLabel = sameDay
-    ? dateFmt.format(start)
-    : `${sameYear ? dayMonthFmt.format(start) : dateFmt.format(start)} – ${dateFmt.format(end)}`;
-
-  return {
-    dateLabel,
-    timeLabel: `${timeFmt.format(start)} – ${timeFmt.format(end)}`,
-    isMultiDay: !sameDay,
-  };
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const { event } = await getEventPageData(slug);
@@ -141,15 +117,13 @@ export default async function EventPage({ params }: Props) {
       : false;
 
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
-  const { dateLabel, timeLabel, isMultiDay } = formatDateParts(
+  const { dateLabel, timeLabel, isMultiDay } = formatEventDateParts(
+    event.id,
     event.starts_at,
     event.ends_at
   );
   const locationLabel = event.location_name ?? event.city ?? null;
-  const isFree = event.ticket_price_cents == null || event.ticket_price_cents <= 0;
-  const priceLabel = isFree
-    ? "Gratis toegang"
-    : `€${((event.ticket_price_cents as number) / 100).toFixed(2)}`;
+  const priceLabel = eventPriceLabel(event.ticket_price_cents);
 
   const eventJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
