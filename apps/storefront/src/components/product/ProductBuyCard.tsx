@@ -17,11 +17,6 @@ type ProductBuyCardProps = {
 
 const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
 
-const TYPE_LABELS: Record<string, string> = {
-  handmade: "Handgemaakt",
-  destash: "Restant materiaal",
-};
-
 /**
  * Sticky panel on the product detail page: type, price and either an
  * add-to-cart flow (merchant supply, or a legacy Medusa-linked maker
@@ -44,12 +39,8 @@ export function ProductBuyCard({
       padding="lg"
       className="rounded-2xl border-[var(--accent)]/25 bg-[var(--section-highlight)] shadow-[var(--shadow-md)]"
     >
-      <span className="text-sm font-semibold text-[var(--accent)]">
-        {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
-      </span>
-
       {price && !hasCart && (
-        <div className="mt-4">
+        <div className="mb-6">
           <PriceDisplay
             amount={price.amount}
             currencyCode={price.currency_code}
@@ -63,7 +54,7 @@ export function ProductBuyCard({
         </div>
       )}
 
-      <div className="mt-6">
+      <div>
         {hasCart ? (
           <ProductPurchaseControls
             key={selectedVariantId ? `variant:${selectedVariantId}` : "default"}
