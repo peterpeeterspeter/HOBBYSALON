@@ -42,28 +42,28 @@ export function ProductBuyCard({
     <CardShell
       variant="default"
       padding="lg"
-      className="rounded-[1.25rem] border-[var(--accent)]/25 bg-[var(--section-highlight)] shadow-[var(--shadow-md)]"
+      className="rounded-2xl border-[var(--accent)]/25 bg-[var(--section-highlight)] shadow-[var(--shadow-md)]"
     >
       <span className="text-sm font-semibold text-[var(--accent)]">
         {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
       </span>
 
       {price && !hasCart && (
-        <div className="mt-3">
+        <div className="mt-4">
           <PriceDisplay
             amount={price.amount}
             currencyCode={price.currency_code}
             size="lg"
           />
           {isMakerListing && (
-            <p className="mt-1 text-xs text-[var(--muted)]">
+            <p className="mt-2 text-sm text-[var(--muted)]">
               Richtprijs. Aankoop via de maker
             </p>
           )}
         </div>
       )}
 
-      <div className="mt-5">
+      <div className="mt-6">
         {hasCart ? (
           <ProductPurchaseControls
             key={selectedVariantId ? `variant:${selectedVariantId}` : "default"}
@@ -86,16 +86,16 @@ export function ProductBuyCard({
         )}
       </div>
 
-      <div className="mt-5 flex flex-col gap-2 border-t border-[var(--border)] pt-4 text-[13px] text-[var(--muted)]">
+      <div className="mt-6 flex flex-col gap-3 border-t border-[var(--border)] pt-6 text-sm text-[var(--muted)]">
         {hasCart ? (
           <>
-            <span className="flex items-center gap-2">
-              <Truck size={14} className="text-[var(--accent)]" aria-hidden />
+            <span className="flex items-center gap-3">
+              <Truck size={18} className="text-[var(--accent)]" aria-hidden />
               Verzonden door {creator?.display_name ?? "de verkoper"}
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-3">
               <ShieldCheck
-                size={14}
+                size={18}
                 className="text-[var(--accent)]"
                 aria-hidden
               />
@@ -104,27 +104,27 @@ export function ProductBuyCard({
           </>
         ) : (
           <>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-3">
               <MessageCircle
-                size={14}
+                size={18}
                 className="text-[var(--accent)]"
                 aria-hidden
               />
               Contacteer {creator?.display_name ?? "de maker"} rechtstreeks
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-3">
               <ShieldCheck
-                size={14}
+                size={18}
                 className="text-[var(--accent)]"
                 aria-hidden
               />
-              Geen checkout via Hobbysalon — jullie regelen de deal zelf
+              Geen checkout via Hobbysalon. Jullie regelen de deal zelf
             </span>
           </>
         )}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         <FavoriteToggleButton
           entityType="product"
           entityId={product.id}
