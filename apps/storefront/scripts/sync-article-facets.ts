@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import {
-  articleBodySha256, createStorageSidecarReader, loadArticleMetadataSidecar,
+  articleBodySha256, createLocalSidecarReader, createStorageSidecarReader, loadArticleMetadataSidecar,
 } from "../src/lib/content/article-metadata-sidecar";
 import { ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
 import { facetsFromMetadata } from "../src/lib/content/article-facets";
@@ -28,9 +28,14 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (!url || !key) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   const client = createClient(url, key, { auth: { persistSession: false } });
 
+  // --bundle-dir reads a local copy of the release. The pinned manifest
+  // hash is still enforced, so only the exact release is accepted.
+  const dirIdx = argv.indexOf("--bundle-dir");
   const bucket = client.storage.from(ARTICLE_SIDECAR_RELEASE.bucket);
   const bundle = await loadArticleMetadataSidecar(
-    createStorageSidecarReader((p) => bucket.download(p), ARTICLE_SIDECAR_RELEASE.prefix),
+    dirIdx >= 0
+      ? createLocalSidecarReader(path.resolve(argv[dirIdx + 1]))
+      : createStorageSidecarReader((p) => bucket.download(p), ARTICLE_SIDECAR_RELEASE.prefix),
     { expectedManifestSha256: ARTICLE_SIDECAR_RELEASE.manifestSha256 },
   );
   const byId = new Map(bundle.articles.map((m) => [m.article_id, m]));

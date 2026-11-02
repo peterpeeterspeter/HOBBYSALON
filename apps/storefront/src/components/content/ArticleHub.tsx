@@ -33,6 +33,8 @@ type Group = {
 /** Facet values with fewer hits than this are noise, not a useful filter. */
 const MIN_HITS = 3;
 const VISIBLE_OPTIONS = 8;
+/** Long tails (160+ techniques) overwhelm the panel; keep the top values. */
+const MAX_OPTIONS = 24;
 
 function hrefWith(
   basePath: string,
@@ -54,6 +56,7 @@ function facetOptions(facets: FacetCount[], facet: string, label: (v: string) =>
   return facets
     .filter((row) => row.facet === facet && row.n >= MIN_HITS)
     .sort((a, b) => b.n - a.n || a.value.localeCompare(b.value, "nl-BE"))
+    .slice(0, MAX_OPTIONS)
     .map((row) => ({ value: row.value, label: label(row.value), n: row.n }));
 }
 
