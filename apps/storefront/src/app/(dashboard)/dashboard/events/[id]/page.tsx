@@ -232,7 +232,7 @@ export default async function EditEventPage({ params, searchParams }: Props) {
           allowExternalTickets={Boolean(commercial.allowExternalLinks)}
           typeCostLabel={
             gating && !event.is_active
-              ? (type) => ` (${getEventCreditCost(type)} credits)`
+              ? (type) => ` (${getEventCreditCost(type)} tegoedpunten)`
               : undefined
           }
         />

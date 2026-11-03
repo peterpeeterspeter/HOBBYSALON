@@ -25,9 +25,9 @@ export async function sendProductInquiryCreatorEmail(input: {
     subject: `Nieuwe aanvraag voor “${input.productTitle}”`,
     html: `
       <p>Hallo ${escapeHtml(input.creatorName)},</p>
-      <p>Er is een nieuwe aanvraag binnengekomen voor je plaatsing.</p>
+      <p>Er is een nieuwe aanvraag binnengekomen voor je creatie.</p>
       <ul>
-        <li><strong>Plaatsing:</strong> <a href="${productUrl}">${escapeHtml(input.productTitle)}</a></li>
+        <li><strong>Creatie:</strong> <a href="${productUrl}">${escapeHtml(input.productTitle)}</a></li>
         <li><strong>Naam:</strong> ${escapeHtml(input.inquirerName)}</li>
         <li><strong>E-mail:</strong> ${escapeHtml(input.inquirerEmail)}</li>
       </ul>

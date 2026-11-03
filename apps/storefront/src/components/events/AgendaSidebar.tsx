@@ -20,7 +20,7 @@ function FilterBlock({ title, children }: FilterBlockProps) {
 }
 
 const EVENT_TYPE_OPTIONS = [
-  { value: "handmade_market", label: "Handmade markt" },
+  { value: "handmade_market", label: "Ambachtelijke markt" },
   { value: "hobby_fair", label: "Hobbybeurs" },
   { value: "pop_up", label: "Pop-up" },
   { value: "open_atelier", label: "Open atelier" },
@@ -60,14 +60,14 @@ export function AgendaSidebar({
       <form method="GET" action="/agenda">
         {params.sort ? <input type="hidden" name="sort" value={params.sort} /> : null}
 
-        <FilterBlock title="Domein">
+        <FilterBlock title="Hobby">
           <Select
             id="domain"
             name="domain"
-            placeholder="Alle domeinen"
+            placeholder="Alle hobby's"
             options={domains.map((d) => ({ value: d.id, label: d.name }))}
             defaultValue={params.domain ?? ""}
-            aria-label="Domein"
+            aria-label="Hobby"
           />
         </FilterBlock>
 

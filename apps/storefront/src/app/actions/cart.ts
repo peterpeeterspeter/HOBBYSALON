@@ -112,7 +112,7 @@ export async function addBundleToCartAction(
   }
 
   if (items.some((item) => typeof item.variant_id !== "string" || !item.variant_id.trim())) {
-    return { success: false, message: "Eén of meer bundelitems hebben geen geldige variant" };
+    return { success: false, message: "Een of meer producten in deze bundel zijn niet meer beschikbaar." };
   }
 
   const validItems: BundleLineInput[] = items.map((item) => ({

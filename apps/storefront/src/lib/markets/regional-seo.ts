@@ -85,12 +85,12 @@ const LANDING_COPY: Record<
     BE: {
       title: "Agenda | Hobbysalon",
       description:
-        "Handmade markten, hobbybeurzen, pop-ups en workshops bij jou in de buurt",
+        "Ambachtelijke markten, hobbybeurzen, pop-ups en workshops bij jou in de buurt",
     },
     NL: {
       title: "Agenda in Nederland | Hobbysalon",
       description:
-        "Handmade markten, hobbybeurzen en workshops in Nederland — Belgische events blijven vindbaar",
+        "Ambachtelijke markten, hobbybeurzen en workshops in Nederland — Belgische events blijven vindbaar",
     },
   },
 };

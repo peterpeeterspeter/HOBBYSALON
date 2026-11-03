@@ -14,7 +14,7 @@ import {
 
 export const MAKER_LANDING: AudienceLandingConfig = {
   eyebrow: "Hobbysalon voor makers",
-  headline: ["Verkoop je handmade werk.", "Zonder commissie."],
+  headline: ["Verkoop je zelfgemaakte werk.", "Zonder commissie."],
   subheadline: MAKERS_PAGE.heroSubheadline,
   cta: MAKERS_PAGE.primaryCta,
   heroImage: LANDING_IMAGES.domainPottery,
@@ -23,7 +23,7 @@ export const MAKER_LANDING: AudienceLandingConfig = {
   showcase: {
     title: MAKERS_PAGE.adTypes.title,
     items: [
-      { ...MAKERS_PAGE.adTypes.items[0], image: LANDING_IMAGES.craftsGrid, alt: "Handgemaakte creaties op tafel" },
+      { ...MAKERS_PAGE.adTypes.items[0], image: LANDING_IMAGES.craftsGrid, alt: "Zelfgemaakte creaties op tafel" },
       { ...MAKERS_PAGE.adTypes.items[1], image: LANDING_IMAGES.domainSewing, alt: "Stof en naaimateriaal uit eigen voorraad" },
     ],
     note: MAKERS_PAGE.adTypes.note,

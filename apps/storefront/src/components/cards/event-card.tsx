@@ -14,7 +14,7 @@ type EventCardProps = {
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  handmade_market: "Handmade markt",
+  handmade_market: "Ambachtelijke markt",
   hobby_fair: "Hobbybeurs",
   pop_up: "Pop-up",
   open_atelier: "Open atelier",

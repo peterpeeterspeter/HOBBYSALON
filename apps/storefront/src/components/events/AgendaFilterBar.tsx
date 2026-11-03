@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export const AGENDA_EVENT_TYPE_OPTIONS = [
-  { value: "handmade_market", label: "Handmade markt" },
+  { value: "handmade_market", label: "Ambachtelijke markt" },
   { value: "hobby_fair", label: "Hobbybeurs" },
   { value: "pop_up", label: "Pop-up" },
   { value: "open_atelier", label: "Open atelier" },

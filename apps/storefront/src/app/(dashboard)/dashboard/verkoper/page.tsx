@@ -84,7 +84,7 @@ export default async function VerkoperHandoffPage() {
           <h1 className="text-xl font-semibold mb-2">Verkopersportaal</h1>
           <p className="text-sm text-[var(--muted)] mb-4">
             {linkResult.error ??
-              "Je merchant-winkel kon niet gekoppeld worden. Probeer het later opnieuw."}
+              "Je winkel kon niet gekoppeld worden. Probeer het later opnieuw."}
           </p>
           <p className="text-sm">
             <Link href="/dashboard/verkoper" className="text-[var(--accent)] underline">

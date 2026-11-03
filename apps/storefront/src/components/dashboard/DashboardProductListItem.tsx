@@ -4,8 +4,8 @@ import { AspectImage } from "@/components/ui/aspect-image";
 import type { Product } from "@/types/platform";
 
 const PRODUCT_TYPE_LABELS: Record<string, string> = {
-  handmade: "Handmade",
-  destash: "Destash",
+  handmade: "Zelf gemaakt",
+  destash: "Overschot",
   supply: "Benodigdheden",
 };
 

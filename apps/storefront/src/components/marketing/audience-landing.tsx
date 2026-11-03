@@ -18,7 +18,7 @@ export type AudienceLandingConfig = {
   heroImage: string;
   proof: readonly string[];
   steps: { title: string; items: readonly { title: string; body: string }[] };
-  /** Image cards, for example handmade and destash. */
+  /** Image cards, for example zelfgemaakt and overschot. */
   showcase?: {
     title: string;
     items: readonly { title: string; body: string; image: string; alt: string }[];

@@ -90,7 +90,7 @@ export const SHOP_PAYMENT_PROVIDER_NOTE =
 export const SUPPLIER_COMMISSION_NOTE = SHOP_PRICING_BODY;
 
 export const P2P_COMMISSION_NOTE =
-  "Geen commissie op P2P-verkoop. Je regelt betaling en verzending rechtstreeks met de koper.";
+  "Geen commissie op verkoop tussen particulieren. Je regelt betaling en verzending rechtstreeks met de koper.";
 
 /** Workshop/event listing prices on /prijzen are excl. btw. */
 export const PRIJZEN_LISTING_VAT_NOTE =
@@ -107,7 +107,7 @@ export const PRIJZEN_PAGE = {
   heroLabel: "Prijzen en mogelijkheden",
   heroHeadline: "Ontdek de route die bij jou past",
   heroSubheadline:
-    "Deel creatieve kennis, bied handmade werk aan, promoot workshops en evenementen of verkoop hobbymaterialen. Je betaalt voor wat bij jouw aanbod hoort — niet voor één abonnement dat alles moet dekken.",
+    "Deel creatieve kennis, bied zelfgemaakt werk aan, promoot workshops en evenementen of verkoop hobbymaterialen. Je betaalt voor wat bij jouw aanbod hoort — niet voor één abonnement dat alles moet dekken.",
   primaryCta: { label: "Ontdek de routes", href: "#routes" },
   secondaryCta: { label: "Vergelijk de mogelijkheden", href: "#vergelijking" },
   routesTitle: "Wat wil je aanbieden?",
@@ -115,7 +115,7 @@ export const PRIJZEN_PAGE = {
   comparisonIntro:
     "Je kunt laagdrempelig starten. Uitbreidingen zijn optioneel en lonen pas wanneer je meer bereik of inzicht nodig hebt.",
   comparisonFootnote:
-    'Uitbreiden betekent niet automatisch een abonnement: afhankelijk van je route werk je met credits, een eventpagina, een promotiepakket of een afspraak op maat. Bij "binnenkort" is de functie gepland, maar nog niet beschikbaar.',
+    'Uitbreiden betekent niet automatisch een abonnement: afhankelijk van je route werk je met tegoed, een eventpagina, een promotiepakket of een afspraak op maat. Bij "binnenkort" is de functie gepland, maar nog niet beschikbaar.',
   listingVatNote: PRIJZEN_LISTING_VAT_NOTE,
   howtoTitle: "Hoe werkt de prijsopbouw?",
   faqTitle: "Veelgestelde vragen",
@@ -148,15 +148,15 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
   },
   {
     id: "maker",
-    title: "Maker — 3 gratis advertenties, daarna credits",
+    title: "Maker — 3 gratis advertenties, daarna tegoed",
     description:
-      "Start met drie gratis advertenties voor je handmade werk of destash. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+      "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
     features: [
       "Eerste 3 advertenties gratis",
       "+3 gratis per uitgenodigde vriend, tot 15 extra",
-      "Tot 10 extra met credits",
+      "Tot 10 extra met tegoed",
       "Geen commissie op je verkoop",
-      "Boosts met extra credits",
+      "Uitlichten met extra tegoed",
     ],
     href: "/voor-makers",
     ctaLabel: "Bekijk de mogelijkheden",
@@ -197,7 +197,7 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       SHOP_PRICING_EXAMPLE,
       SHOP_PAYMENT_PROVIDER_NOTE,
       "Productcatalogus met varianten en voorraad",
-      "Checkout, orderbeheer en dagelijkse uitbetaling",
+      "Afrekenen, bestellingen beheren en dagelijkse uitbetaling",
       "Premium zichtbaarheid en analyses: binnenkort",
     ],
     href: "/voor-winkels",
@@ -215,7 +215,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   {
     audience: "Maker",
     now: "Gratis profiel, je eerste 3 advertenties gratis en 3 extra per uitgenodigde vriend",
-    expansion: "Tot 10 extra advertenties en boosts met credits",
+    expansion: "Tot 10 extra advertenties en uitlichten met tegoed",
     benefit:
       "Meer werk tegelijk aanbieden en geselecteerde advertenties tijdelijk hoger in de overzichten",
   },
@@ -246,7 +246,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
 export const PRICING_HOWTO_BLOCKS: PricingHowtoBlock[] = [
   {
     title: "Laagdrempelig beginnen.",
-    text: "Een profiel aanmaken, content publiceren, je eerste drie advertenties plaatsen en je evenement in de kalender zetten is gratis. Verder betaal je per plaatsing, met credits, of alleen wanneer er echt iets verkocht wordt.",
+    text: "Een profiel aanmaken, content publiceren, je eerste drie advertenties plaatsen en je evenement in de kalender zetten is gratis. Verder betaal je per plaatsing, met tegoed, of alleen wanneer er echt iets verkocht wordt.",
   },
   {
     title: "Uitbreiden wanneer het nuttig wordt.",
@@ -262,7 +262,7 @@ export const PRICING_PAGE_FAQ: PricingFaqItem[] = [
   {
     question: "Moet ik een abonnement nemen?",
     answer:
-      "Nee. Contentmakers publiceren gratis, makers werken met credits, organisatoren staan gratis in de kalender, workshopgevers starten met een lanceraanbod (3 gratis tot 1 december) en betalen daarna per extra vermelding, en winkels betalen in de basis alleen commissie bij verkoop.",
+      "Nee. Contentmakers publiceren gratis, makers werken met tegoed, organisatoren staan gratis in de kalender, workshopgevers starten met een lanceraanbod (3 gratis tot 1 december) en betalen daarna per extra vermelding, en winkels betalen in de basis alleen commissie bij verkoop.",
   },
   {
     question: "Wat kan ik gratis doen op Hobbysalon?",
@@ -270,9 +270,9 @@ export const PRICING_PAGE_FAQ: PricingFaqItem[] = [
       "Een profiel aanmaken, tutorials en patronen publiceren, je eerste drie makersadvertenties plaatsen, en je hobbybeurs of makers market in de evenementenkalender zetten. Daar zijn geen kosten aan verbonden.",
   },
   {
-    question: "Wat zijn credits?",
+    question: "Wat is tegoed?",
     answer:
-      "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten worden bij de commerciële lancering getoond.",
+      "Tegoed gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten volgen binnenkort.",
   },
   {
     question: "Kan ik meerdere soorten aanbod publiceren?",
@@ -312,22 +312,22 @@ export const CONTENT_CREATOR_OFFER: PublicPricingOffer = {
 export const P2P_MAKER_OFFER: PublicPricingOffer = {
   id: "handmade",
   audience: "Makers",
-  title: "Handmade en destash",
+  title: "Zelfgemaakt en overschot",
   priceLabel: "3 gratis",
-  periodLabel: "daarna tot 10 extra met credits · geen commissie",
+  periodLabel: "daarna tot 10 extra met tegoed · geen commissie",
   status: "confirmed",
   description:
-    "Start met drie gratis advertenties voor je handmade werk of destash. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+    "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
   features: [
     "Eerste 3 advertenties gratis",
-    "Tot 10 extra met credits",
+    "Tot 10 extra met tegoed",
     "Geen commissie op je verkoop",
-    "Boosts met extra credits",
+    "Uitlichten met extra tegoed",
   ],
   href: "/register/creator?focus=maker",
   ctaLabel: "Maak je makersprofiel",
   finePrint:
-    "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
+    "De tegoedpakketten en tarieven volgen binnenkort.",
 };
 
 export const WORKSHOP_OFFER: PublicPricingOffer = {
@@ -369,7 +369,7 @@ export const HOBBYBEURZEN_OFFER: PublicPricingOffer = {
   ],
   href: "/register/creator?focus=organizer",
   ctaLabel: "Bespreek een eventpagina",
-  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
+  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog niet online betalen.",
 };
 
 export const MAKERS_MARKET_OFFER: PublicPricingOffer = {
@@ -391,7 +391,7 @@ export const MAKERS_MARKET_OFFER: PublicPricingOffer = {
   ],
   href: "/register/creator?focus=organizer",
   ctaLabel: "Bespreek een eventpagina",
-  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
+  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog niet online betalen.",
 };
 
 export const SUPPLIER_OFFER: PublicPricingOffer = {
@@ -406,12 +406,12 @@ export const SUPPLIER_OFFER: PublicPricingOffer = {
     SHOP_PRICING_EXAMPLE,
     SHOP_PAYMENT_PROVIDER_NOTE,
     "Productcatalogus met varianten en voorraad",
-    "Checkout, orderbeheer en dagelijkse uitbetaling",
+    "Afrekenen, bestellingen beheren en dagelijkse uitbetaling",
     "Premium zichtbaarheid en analyses: binnenkort",
   ],
   href: "/register/merchant",
   ctaLabel: "Meld je winkel aan",
-  finePrint: "Geen instapkosten, geen listinglimiet, geen minimumduur.",
+  finePrint: "Geen instapkosten, geen limiet op het aantal advertenties, geen minimumduur.",
 };
 
 export const SUPPLIER_PREMIUM_NOTE: PublicPricingOffer = {
@@ -501,10 +501,10 @@ export const CONTENT_PAGE = {
 } as const;
 
 export const MAKERS_PAGE = {
-  metaTitle: "Handmade en destash verkopen | Makers",
+  metaTitle: "Zelfgemaakt werk en overschot verkopen | Makers",
   metaDescription:
-    "Maak gratis een makersprofiel en plaats je eerste drie advertenties zonder te betalen. Tot 10 extra met credits. Geen commissie op je verkoop. Geen btw-nummer nodig bij aanmaken.",
-  headline: "Verkoop je handmade werk. Zonder commissie.",
+    "Maak gratis een makersprofiel en plaats je eerste drie advertenties zonder te betalen. Tot 10 extra met tegoed. Geen commissie op je verkoop. Geen btw-nummer nodig bij aanmaken.",
+  headline: "Verkoop je zelfgemaakte werk. Zonder commissie.",
   /** Short hero line (viewport budget) */
   heroSubheadline:
     "Gratis profiel en drie gratis advertenties. Kopers nemen rechtstreeks contact met jou op, en wat je verkoopt houd je volledig zelf.",
@@ -534,11 +534,11 @@ export const MAKERS_PAGE = {
     title: "Wat kun je verkopen?",
     items: [
       {
-        title: "Handmade",
+        title: "Zelfgemaakt",
         body: "Je eigen creaties. Gehaakt, genaaid, gedraaid, geschilderd of gesoldeerd: alles wat je met de hand maakt.",
       },
       {
-        title: "Destash",
+        title: "Overschot",
         body: "De wol die de verkeerde kleur bleek, stofrestjes, kralen of gereedschap dat je niet meer gebruikt. Voor jou overschot, voor iemand anders precies wat die zocht.",
       },
     ],
@@ -557,13 +557,13 @@ export const MAKERS_PAGE = {
     },
     paid: {
       label: "Daarna",
-      title: "Je betaalt per plaatsing, met credits",
+      title: "Je betaalt per plaatsing, met tegoed",
       items: [
-        "Tot 10 extra advertenties met credits",
-        "Een advertentie verlengen of boosten kan ook met credits",
+        "Tot 10 extra advertenties met tegoed",
+        "Een advertentie verlengen of uitlichten kan ook met tegoed",
         "Geen abonnement en geen vaste kost: niets als je even niets verkoopt",
       ],
-      note: "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
+      note: "De tegoedpakketten en tarieven volgen binnenkort.",
     },
     commission: "Op je verkoop rekent Hobbysalon nooit commissie.",
     pricesLink: { label: "Bekijk alle prijzen", href: "/prijzen" },
@@ -604,7 +604,7 @@ export const MAKERS_PAGE = {
     {
       question: "Wat gebeurt er na mijn 3 gratis advertenties?",
       answer:
-        "Je kunt tot 10 extra advertenties plaatsen met credits. Je betaalt per plaatsing, zonder abonnement. Of je nodigt vrienden uit: per vriend die zich registreert, krijgen jullie allebei 3 extra gratis advertenties.",
+        "Je kunt tot 10 extra advertenties plaatsen met tegoed. Je betaalt per plaatsing, zonder abonnement. Of je nodigt vrienden uit: per vriend die zich registreert, krijgen jullie allebei 3 extra gratis advertenties.",
     },
     {
       question: "Hoe weet ik dat iemand interesse heeft?",
@@ -612,7 +612,7 @@ export const MAKERS_PAGE = {
     },
     {
       question: "Kan ik ook materiaal verkopen dat ik niet meer gebruik?",
-      answer: "Ja. Dat heet destash: garen, stof, kralen of gereedschap uit je eigen voorraad.",
+      answer: "Ja. Dat heet overschot: garen, stof, kralen of gereedschap uit je eigen voorraad.",
     },
   ],
   closing: {
@@ -748,7 +748,7 @@ export const ORGANIZER_PAGE = {
 export const SUPPLIER_PAGE = {
   metaTitle: "Hobbymaterialen verkopen | €0 + 10% commissie",
   metaDescription:
-    "Verkoop professionele hobbymaterialen via Hobbysalon. €0 vaste kosten, 10% commissie op de totale verkoopprijs. Geen instapkosten, geen listinglimiet, geen minimumduur.",
+    "Verkoop professionele hobbymaterialen via Hobbysalon. €0 vaste kosten, 10% commissie op de totale verkoopprijs. Geen instapkosten, geen limiet op het aantal advertenties, geen minimumduur.",
   headline: "Verkoop je hobbymaterialen aan een publiek dat weet wat het zoekt",
   /** Short hero line (viewport budget) */
   heroSubheadline:
@@ -764,7 +764,7 @@ export const SUPPLIER_PAGE = {
     example: SHOP_PRICING_EXAMPLE,
     paymentNote: SHOP_PAYMENT_PROVIDER_NOTE,
     finePrint:
-      "Geen instapkosten, geen listinglimiet, geen minimumduur. Verkoop je niets, dan betaal je niets.",
+      "Geen instapkosten, geen limiet op het aantal advertenties, geen minimumduur. Verkoop je niets, dan betaal je niets.",
   },
   features: {
     title: "Wat je krijgt",
@@ -774,8 +774,8 @@ export const SUPPLIER_PAGE = {
         body: "Een volledige productcatalogus met varianten voor kleur, maat en gewicht, voorraadbeheer en je eigen verzendinstellingen.",
       },
       {
-        title: "Checkout en orders",
-        body: "Checkout en orderbeheer binnen Hobbysalon. Je klant rondt de bestelling af zonder de site te verlaten; jij verwerkt en volgt op vanuit je eigen dashboard.",
+        title: "Afrekenen en bestellingen",
+        body: "Afrekenen en bestellingen beheren gebeurt binnen Hobbysalon. Je klant rondt de bestelling af zonder de site te verlaten; jij verwerkt en volgt op vanuit je eigen dashboard.",
       },
       {
         title: "Winkelprofiel",
@@ -797,7 +797,7 @@ export const SUPPLIER_PAGE = {
     body: "Heb je een winkel in de straat en geen webshop? Dan is Hobbysalon je online verkoopkanaal, zonder dat je zelf iets hoeft te bouwen of te onderhouden. Heb je er al een? Dan is dit een extra vindplaats voor je assortiment, gericht op precies de doelgroep die je toch al bedient.",
   },
   onboarding: {
-    title: "Onboarding",
+    title: "Aan de slag",
     body: "Je hoeft je catalogus niet met de hand in te voeren. Bij aanmelding kijken we samen naar de snelste route om je assortiment binnen te halen.",
   },
   comingSoon: {
@@ -815,15 +815,15 @@ export const SUPPLIER_PAGE = {
 /* -------------------------------------------------------------------------- */
 
 export const CREDITS_EXPLANATION = {
-  title: "Wat zijn credits?",
+  title: "Wat is tegoed?",
   paragraphs: [
-    "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten worden bij de commerciële lancering getoond.",
+    "Tegoed gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten volgen binnenkort.",
   ],
 };
 
 export const WHY_DIFFERENT_FORMULAS = {
   title: "Hoe werkt de prijsopbouw?",
-  text: "Een profiel aanmaken, content publiceren, je eerste drie advertenties plaatsen en je evenement in de kalender zetten is gratis. Verder betaal je per plaatsing, met credits, of alleen wanneer er echt iets verkocht wordt.",
+  text: "Een profiel aanmaken, content publiceren, je eerste drie advertenties plaatsen en je evenement in de kalender zetten is gratis. Verder betaal je per plaatsing, met tegoed, of alleen wanneer er echt iets verkocht wordt.",
 };
 
 export const WORKSHOP_FAQ: PricingFaqItem[] = [
@@ -857,19 +857,19 @@ export const MAKERS_FAQ: PricingFaqItem[] = [
   {
     question: "Hoeveel advertenties kan ik tonen?",
     answer:
-      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits.",
+      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met tegoed.",
   },
   {
-    question: "Wat kosten credits?",
+    question: "Wat kost tegoed?",
     answer:
-      "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
+      "De tegoedpakketten en tarieven volgen binnenkort.",
   },
 ];
 
 export const SUPPLIER_FAQ: PricingFaqItem[] = [
   {
     question: "Gaat de klant naar mijn eigen webshop?",
-    answer: "Nee. Verkoop verloopt via Hobbysalon checkout.",
+    answer: "Nee. Je klant rekent af op Hobbysalon.",
   },
   {
     question: "Wat is de commissie?",

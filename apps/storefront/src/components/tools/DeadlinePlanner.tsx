@@ -27,7 +27,7 @@ export function DeadlinePlanner() {
   }
 
   return (
-    <CalculatorCard title="Deadline-planner">
+    <CalculatorCard title="Deadlineplanner">
       <div className="space-y-6">
         <p className="text-sm text-[var(--muted)]">
           Klaar voor Kerstmis? Hoeveel rijen per dag heb je nodig?

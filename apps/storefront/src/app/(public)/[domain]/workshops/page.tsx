@@ -57,7 +57,7 @@ export default async function DomainWorkshopsPage({ params, searchParams }: Prop
       {workshops.length === 0 ? (
         <EmptyState
           title="Nog geen workshops"
-          description="Nog geen workshops in dit domein."
+          description="Nog geen workshops in deze hobby."
           action={{ label: `Terug naar ${domain.name}`, href: `/${domain.slug}` }}
         />
       ) : (

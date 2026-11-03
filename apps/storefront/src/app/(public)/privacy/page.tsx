@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">5. Pinterest API</h2>
+            <h2 className="text-xl font-semibold">5. Pinterest-koppeling</h2>
             <p className="mt-2 text-muted-foreground">
               We gebruiken de Pinterest API v5 om artikelinhoud van onze website
               automatisch te pinnen naar onze Pinterest-boards. Hierbij delen we:

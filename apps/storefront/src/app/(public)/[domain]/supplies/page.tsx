@@ -73,7 +73,7 @@ export default async function DomainSuppliesPage({ params }: Props) {
       {productsWithPrices.length === 0 ? (
         <EmptyState
           title="Nog geen benodigdheden"
-          description="Nog geen benodigdheden in dit domein."
+          description="Nog geen benodigdheden in deze hobby."
           action={{ label: `Terug naar ${domain.name}`, href: `/${domain.slug}` }}
         />
       ) : (

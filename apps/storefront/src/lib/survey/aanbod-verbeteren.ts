@@ -52,7 +52,7 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
 
 export const ROLE_SECTION_TITLES: Record<ActivityType, string> = {
   content: "Content creators",
-  handmade: "P2P-makers",
+  handmade: "Particuliere makers",
   workshop: "Workshops",
   webshop: "Webshops voor creatieve materialen",
   hobbybeurs: "Hobbybeurzen",
@@ -193,7 +193,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       },
       {
         id: "credits_features",
-        label: "Voor welke extra functies zou u eventueel credits gebruiken?",
+        label: "Voor welke extra functies zou u eventueel tegoed gebruiken?",
         kind: "multi",
         options: [
           { value: "ai_schrijven", label: "AI-hulp bij het schrijven" },
@@ -229,7 +229,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       {
         id: "credit_model_appeal",
         label:
-          "Hobbysalon wil makers maximaal 10 actieve advertenties laten plaatsen, zonder commissie op de verkoop. Voor iedere maand zichtbaarheid gebruikt een advertentie 1 credit. Hoe aantrekkelijk vindt u dit model?",
+          "Hobbysalon wil makers maximaal 10 actieve advertenties laten plaatsen, zonder commissie op de verkoop. Voor iedere maand zichtbaarheid gebruikt een advertentie 1 tegoedpunt. Hoe aantrekkelijk vindt u dit model?",
         kind: "scale",
         scaleMin: 1,
         scaleMax: 5,
@@ -238,7 +238,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       },
       {
         id: "credit_price",
-        label: "Wat vindt u een redelijke prijs voor voldoende credits om 10 advertenties één maand zichtbaar te houden?",
+        label: "Wat vindt u een redelijke prijs voor voldoende tegoed om 10 advertenties één maand zichtbaar te houden?",
         kind: "single",
         options: [
           { value: "minder_dan_1", label: "Minder dan €1" },
@@ -268,7 +268,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
       },
       {
         id: "visibility_credits",
-        label: "Voor welke extra zichtbaarheid zou u credits gebruiken?",
+        label: "Voor welke extra zichtbaarheid zou u tegoed gebruiken?",
         kind: "multi",
         options: [
           { value: "categorie", label: "Bovenaan in een categorie" },
@@ -277,7 +277,7 @@ export const ROLE_SECTIONS: RoleSection[] = [
           { value: "nieuwsbrief", label: "Promotie in de nieuwsbrief" },
           { value: "social", label: "Promotie via sociale media" },
           { value: "ai", label: "AI-foto's of AI-beschrijvingen" },
-          { value: "geen", label: "Ik zou geen extra credits gebruiken" },
+          { value: "geen", label: "Ik zou geen extra tegoed gebruiken" },
         ],
       },
       {
