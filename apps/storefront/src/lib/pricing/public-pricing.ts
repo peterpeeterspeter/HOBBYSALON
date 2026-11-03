@@ -97,7 +97,7 @@ export const SHOP_PAYMENT_PROVIDER_NOTE =
 export const SUPPLIER_COMMISSION_NOTE = SHOP_PRICING_BODY;
 
 export const P2P_COMMISSION_NOTE =
-  "Geen commissie op verkoop tussen particulieren. Je regelt betaling en verzending rechtstreeks met de koper.";
+  "Geen commissie op je verkoop. Je regelt betaling en verzending rechtstreeks met de koper.";
 
 /** Workshop/event listing prices on /prijzen are excl. btw. */
 export const PRIJZEN_LISTING_VAT_NOTE =
@@ -568,7 +568,7 @@ export const MAKERS_PAGE = {
         body: "De wol die de verkeerde kleur bleek, stofrestjes, kralen of gereedschap dat je niet meer gebruikt. Voor jou overschot, voor iemand anders precies wat die zocht.",
       },
     ],
-    note: "Deze markt is er voor particuliere hobbyisten, niet voor professionele verkopers. Dat houdt het aanbod persoonlijk, en daarom kijken kopers hier graag rond.",
+    note: "Iedereen die zelf maakt is welkom: hobbyisten en makers met een eigen zaak. Verkoop je vooral materialen uit voorraad? Dan past de route voor winkels beter.",
   },
   offer: {
     title: "Wat kost het?",
@@ -625,7 +625,7 @@ export const MAKERS_PAGE = {
     },
     {
       question: "Heb ik een btw-nummer nodig?",
-      answer: "Nee. Om een profiel aan te maken en te verkopen als particuliere hobbyist heb je geen btw-nummer nodig.",
+      answer: "Nee. Als hobbyist heb je geen btw-nummer nodig. Heb je een eigen zaak, dan ben je ook welkom.",
     },
     {
       question: "Wat gebeurt er na mijn 3 gratis advertenties?",

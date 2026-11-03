@@ -17,8 +17,8 @@ export const ABOUT_HOBBYSALON = {
       body: "Tutorials, patronen, projecten en praktische gidsen, geschreven voor wie echt met de handen werkt.",
     },
     {
-      title: "Een makersmarkt voor particulieren",
-      body: "Niet voor professionele verkopers, maar voor hobbyisten die iets zelfgemaakts willen aanbieden of hun overschot aan materialen een tweede leven willen geven. Garen dat toch niet de juiste kleur was, een kast vol stof, een gehaakte deken te veel.",
+      title: "Een makersmarkt voor wie zelf maakt",
+      body: "Voor hobbyisten en kleine makers die iets zelfgemaakts willen aanbieden of hun overschot aan materialen een tweede leven willen geven. Garen dat toch niet de juiste kleur was, een kast vol stof, een gehaakte deken te veel.",
     },
     {
       title: "Creatieve workshops",
