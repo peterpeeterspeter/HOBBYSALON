@@ -144,17 +144,6 @@ export function resolveCategoryChipIds(options: {
   return options.allCategoryIdsOrdered.filter((id) => present.has(id));
 }
 
-export const MATERIALS_SHORTCUTS: Array<{
-  label: string;
-  /** Match against category name (case-insensitive substring). */
-  nameIncludes: string[];
-}> = [
-  { label: "Garen & wol", nameIncludes: ["garen", "wol"] },
-  { label: "Klei & keramiek", nameIncludes: ["klei", "keramiek", "boetseer"] },
-  { label: "Verf & tekenen", nameIncludes: ["verf", "teken", "schilder"] },
-  { label: "Papier & kaarten", nameIncludes: ["papier", "kaart"] },
-  { label: "Stoffen & naaien", nameIncludes: ["stof", "naai"] },
-];
 
 /** Platform `condition_type` values (schema), Dutch labels for the filter UI. */
 export const MATERIALS_CONDITION_OPTIONS = [
