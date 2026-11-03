@@ -150,9 +150,10 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
     id: "maker",
     title: "Maker — 3 gratis advertenties, daarna credits",
     description:
-      "Start met drie gratis advertenties voor je handmade werk of destash. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+      "Start met drie gratis advertenties voor je handmade werk of destash. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
     features: [
       "Eerste 3 advertenties gratis",
+      "+3 gratis per uitgenodigde vriend, tot 15 extra",
       "Tot 10 extra met credits",
       "Geen commissie op je verkoop",
       "Boosts met extra credits",
@@ -213,7 +214,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   },
   {
     audience: "Maker",
-    now: "Gratis profiel en je eerste 3 advertenties gratis",
+    now: "Gratis profiel, je eerste 3 advertenties gratis en 3 extra per uitgenodigde vriend",
     expansion: "Tot 10 extra advertenties en boosts met credits",
     benefit:
       "Meer werk tegelijk aanbieden en geselecteerde advertenties tijdelijk hoger in de overzichten",
@@ -316,7 +317,7 @@ export const P2P_MAKER_OFFER: PublicPricingOffer = {
   periodLabel: "daarna tot 10 extra met credits · geen commissie",
   status: "confirmed",
   description:
-    "Start met drie gratis advertenties voor je handmade werk of destash. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+    "Start met drie gratis advertenties voor je handmade werk of destash. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
   features: [
     "Eerste 3 advertenties gratis",
     "Tot 10 extra met credits",
@@ -562,6 +563,7 @@ export const MAKERS_PAGE = {
       "Gratis profiel",
       "Geen btw-nummer nodig bij aanmaken",
       "Eerste 3 advertenties gratis",
+      "+3 gratis per uitgenodigde vriend, tot 15 extra",
       "Tot 10 extra met credits",
       "Geen commissie op je verkoop",
       "Je regelt de verkoop rechtstreeks met je koper",

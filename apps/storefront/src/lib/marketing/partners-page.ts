@@ -36,9 +36,10 @@ export const PARTNERS_PAGE = {
       role: "Maker",
       priceLabel: "3 gratis advertenties, daarna credits",
       description:
-        "Start met drie gratis advertenties voor je handmade werk of destash. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+        "Start met drie gratis advertenties voor je handmade werk of destash. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
       features: [
         "Eerste 3 advertenties gratis",
+        "+3 gratis per uitgenodigde vriend, tot 15 extra",
         "Tot 10 extra met credits",
         "Geen commissie op je verkoop",
         "Boosts met extra credits",
