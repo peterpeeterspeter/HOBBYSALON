@@ -174,7 +174,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       </div>
 
       <MobileBuyBar
-        price={price}
+        title={product.title}
         label={
           product.product_type === "supply" || product.medusa_product_id
             ? "Bestellen"

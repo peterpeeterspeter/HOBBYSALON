@@ -116,6 +116,11 @@ export function ProductPurchaseControls({
               </option>
             ))}
           </select>
+          {selectedVariant?.title && (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Geselecteerd: {selectedVariant.title}
+            </p>
+          )}
         </div>
       )}
 

@@ -83,7 +83,7 @@ async function loadPage(kind, edges, options = {}) {
     "@/lib/platform/queries/products": {
       getProductBySlug: async slug => products.find(row => row.slug === slug) ?? null,
       listProductsByIds: byIds(products.filter(row => row.is_active && row.status === "active")),
-      listProductsByCreator: async () => [], listProductsByDomain: async () => [],
+      listProductsByCreator: async () => [], listProductsByDomain: async () => [], listProductsByCategory: async () => [],
     },
     "@/lib/platform/queries/articles": {
       getArticleBySlug: async slug => articles.find(row => row.slug === slug) ?? null,
