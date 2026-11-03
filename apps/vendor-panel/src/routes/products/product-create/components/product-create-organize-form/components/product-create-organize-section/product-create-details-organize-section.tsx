@@ -10,6 +10,7 @@ import { useComboboxData } from "../../../../../../../hooks/use-combobox-data"
 import { fetchQuery } from "../../../../../../../lib/client"
 import { ProductCreateSchemaType } from "../../../../types"
 import { CategoryCombobox } from "../../../../../common/components/category-combobox"
+import { MaterialCategorySelect } from "../../../../../common/components/material-category-select"
 
 type ProductCreateOrganizationSectionProps = {
   form: UseFormReturn<ProductCreateSchemaType>
@@ -94,6 +95,21 @@ export const ProductCreateOrganizationSection = ({
           }}
         />
       </div>
+      <Form.Field
+        control={form.control}
+        name="material_category_id"
+        render={({ field }) => (
+          <Form.Item>
+            <Form.Control>
+              <MaterialCategorySelect
+                value={field.value}
+                onChange={(next) => field.onChange(next ?? "")}
+              />
+            </Form.Control>
+            <Form.ErrorMessage />
+          </Form.Item>
+        )}
+      />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Form.Field
           control={form.control}

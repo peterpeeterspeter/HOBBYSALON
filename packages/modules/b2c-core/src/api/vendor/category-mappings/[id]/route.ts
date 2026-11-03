@@ -13,6 +13,7 @@ import {
   serializeCategoryMapping,
   type CategoryMappingRow,
 } from '../utils'
+import { assertMaterialCategoryId } from '../../../../shared/platform/material-categories'
 
 const getOwnedMapping = async (
   knex: Knex,
@@ -80,18 +81,7 @@ export const PUT = async (
 
   const updates = req.validatedBody
   if (updates.domain_id) {
-    const domain = await knex('product_category')
-      .select('id')
-      .where('id', updates.domain_id)
-      .whereNull('deleted_at')
-      .first()
-
-    if (!domain) {
-      throw new MedusaError(
-        MedusaError.Types.INVALID_DATA,
-        `Domain category ${updates.domain_id} was not found`
-      )
-    }
+    await assertMaterialCategoryId(updates.domain_id)
   }
 
   const updatePayload: Record<string, unknown> = {

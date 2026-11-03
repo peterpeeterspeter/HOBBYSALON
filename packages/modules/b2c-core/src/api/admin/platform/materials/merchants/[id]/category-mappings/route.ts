@@ -4,6 +4,7 @@ import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import { ContainerRegistrationKeys, MedusaError } from '@medusajs/framework/utils'
 
 import { normalizeSourceCategory } from '../../../../../../vendor/category-mappings/utils'
+import { assertMaterialCategoryId } from '../../../../../../../shared/platform/material-categories'
 
 type CreateMappingBody = {
   source_category?: string
@@ -65,15 +66,7 @@ export const POST = async (
     throw new MedusaError(MedusaError.Types.NOT_FOUND, `Merchant ${sellerId} not found`)
   }
 
-  const category = await knex('product_category')
-    .select('id')
-    .where('id', domainId)
-    .whereNull('deleted_at')
-    .first()
-
-  if (!category) {
-    throw new MedusaError(MedusaError.Types.INVALID_DATA, `domain_id ${domainId} not found`)
-  }
+  await assertMaterialCategoryId(domainId)
 
   const id = `mcm_${randomUUID().replace(/-/g, '').slice(0, 24)}`
   const now = new Date()
