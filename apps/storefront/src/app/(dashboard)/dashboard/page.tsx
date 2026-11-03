@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import { CalendarDays, Mail, Store } from "lucide-react";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
+import { ReferralCard } from "@/components/dashboard/ReferralCard";
+import { getReferralSummary } from "@/lib/referrals/referrals";
+import { getRequestPublicOrigin } from "@/lib/markets/request";
 import {
   formatDashboardDate,
   getDashboardContext,
@@ -41,6 +44,9 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
   const { user, creator, registrationContext, caps } = await getDashboardContext("/dashboard");
 
   const firstName = (creator?.display_name ?? "").trim().split(" ")[0];
+  const [referral, origin] = caps.canManageProducts
+    ? await Promise.all([getReferralSummary(user.id), getRequestPublicOrigin()])
+    : [null, null];
   const hasInboxSources =
     caps.canManageProducts || caps.canDraftWorkshops || caps.canDraftEvents;
 
@@ -263,6 +269,14 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
         ) : null}
 
         <aside className="space-y-6">
+          {referral && origin ? (
+            <ReferralCard
+              inviteUrl={`${origin}/uitnodiging/${referral.code}`}
+              rewarded={referral.rewarded}
+              remaining={referral.remaining}
+              freeListings={referral.freeListings}
+            />
+          ) : null}
           {upcoming.length > 0 ? (
             <section
               aria-labelledby="binnenkort-titel"
