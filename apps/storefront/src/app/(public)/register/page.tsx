@@ -1,3 +1,5 @@
+import { readReferralCookie } from "@/lib/referrals/referrals";
+import { REFERRAL_REWARD_LISTINGS } from "@/lib/referrals/referral-rules";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -45,6 +47,8 @@ export default async function RegisterPage({ searchParams }: Props) {
     redirect(legacyRedirect);
   }
 
+  const invited = Boolean(await readReferralCookie());
+
   const loginHref = nextPath
     ? `/login?next=${encodeURIComponent(nextPath)}`
     : "/login";
@@ -61,6 +65,16 @@ export default async function RegisterPage({ searchParams }: Props) {
             in je buurt.
           </p>
         </header>
+
+        {invited ? (
+          <p
+            role="status"
+            className="mb-6 rounded-2xl border border-[var(--accent)]/40 bg-[var(--section-highlight)] px-5 py-4 text-lg text-[var(--foreground)]"
+          >
+            Je bent uitgenodigd. Bevestig na het registreren je e-mailadres, dan krijgen jij en
+            je vriend allebei {REFERRAL_REWARD_LISTINGS} extra gratis advertenties.
+          </p>
+        ) : null}
 
         <CardShell
           variant="default"

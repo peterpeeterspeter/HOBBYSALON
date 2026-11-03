@@ -97,12 +97,17 @@ export async function canCreateHandmadeListing(
   usesCredits: boolean,
   includedFree: number,
   activeProductCount: number
-): Promise<{ allowed: boolean; reason?: string }> {
+): Promise<{ allowed: boolean; reason?: string; free?: boolean }> {
   if (!usesCredits) {
     if (activeProductCount >= includedFree) {
       return { allowed: false, reason: "Je hebt het maximum aantal actieve producten bereikt." };
     }
     return { allowed: true };
+  }
+
+  // Free makers: the first active listings (base 3 + referral bonus) cost nothing.
+  if (activeProductCount < includedFree) {
+    return { allowed: true, free: true };
   }
 
   const balance = await getCreditBalance(creatorId);
