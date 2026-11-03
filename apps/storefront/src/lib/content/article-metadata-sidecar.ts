@@ -123,6 +123,11 @@ export function createStorageSidecarReader(
   };
 }
 
+/** Per-row check for importers: the fixed safety contract, or null. */
+export function checkArticleMetadataRow(value: unknown): ArticleMetadata | null {
+  try { return validateMetadata(value, 0); } catch { return null; }
+}
+
 /** Fixed safety contract is deliberately independent of the bundle's schema. */
 function validateMetadata(value: unknown, line: number): ArticleMetadata {
   const fail = () => { throw new Error(`Invalid sidecar metadata safety contract at line ${line}`); };
@@ -167,7 +172,17 @@ function validateMetadata(value: unknown, line: number): ArticleMetadata {
 /** All manifest-declared files are read back and byte/hash checked, without a row cap. */
 export async function loadArticleMetadataSidecar(
   read: SidecarReadFile,
-  options: { expectedManifestSha256?: string } = {},
+  options: {
+    expectedManifestSha256?: string;
+    /**
+     * Article metadata from the database instead of article_metadata.jsonl.
+     * Every other declared file is still read and hash checked against the
+     * pinned manifest; each row still passes the fixed safety contract.
+     * A function is called only after the manifest digest check passes; when
+     * it returns undefined the file is used.
+     */
+    articleRows?: unknown[] | (() => Promise<unknown[] | undefined>);
+  } = {},
 ): Promise<SidecarBundle> {
   const manifestBytes = await read("manifest.json");
   const manifestSha256 = bytesSha256(manifestBytes);
@@ -184,9 +199,14 @@ export async function loadArticleMetadataSidecar(
   let schemaBytes: Uint8Array | undefined;
   let catalogBytes: Uint8Array | undefined;
   let policyBytes: Uint8Array | undefined;
+  const articleRows = typeof options.articleRows === "function"
+    ? await options.articleRows()
+    : options.articleRows;
+  const fromRows = articleRows !== undefined;
   for (const [path, spec] of Object.entries(files)) {
     safePath(path);
     ensure(path !== "manifest.json" && object(spec) && typeof spec.sha256 === "string" && SHA256.test(spec.sha256) && Number.isSafeInteger(spec.bytes) && Number(spec.bytes) >= 0, "Invalid sidecar manifest file entry");
+    if (fromRows && path === "article_metadata.jsonl") continue;
     let bytes: Uint8Array;
     try { bytes = await read(path); } catch { throw new Error(`Unable to read declared sidecar file: ${path}`); }
     ensure(bytes.byteLength === spec.bytes && bytesSha256(bytes) === spec.sha256, `Sidecar integrity mismatch: ${path}`);
@@ -198,22 +218,31 @@ export async function loadArticleMetadataSidecar(
   }
   const schema = parseJson(schemaBytes!, "article_metadata.schema.json");
   ensure(object(schema) && schema.type === "object" && object(schema.properties) && strings(schema.required) && ["article_id", "source_sha256", "materials", "tools", "projects", "gaps"].every(key => (schema.required as string[]).includes(key)), "Invalid metadata schema contract");
-  let text: string;
-  try { text = new TextDecoder("utf-8", { fatal: true }).decode(metadataBytes); }
-  catch { throw new Error("Invalid UTF-8 in article_metadata.jsonl"); }
-  // Permit a single trailing newline; embedded blank lines are malformed records.
-  const lines = text.replace(/\r?\n$/, "").split(/\r?\n/);
   const articles: ArticleMetadata[] = [];
   const ids = new Set<string>();
-  for (const [index, line] of lines.entries()) {
-    let value: unknown;
-    try { value = JSON.parse(line); } catch { throw new Error(`Malformed metadata JSON at line ${index + 1}`); }
-    const row = validateMetadata(value, index + 1);
-    ensure(!ids.has(row.article_id), `Duplicate sidecar article ID at line ${index + 1}`);
-    ids.add(row.article_id);
-    articles.push(row);
+  if (fromRows) {
+    for (const [index, value] of articleRows!.entries()) {
+      const row = validateMetadata(value, index + 1);
+      ensure(!ids.has(row.article_id), `Duplicate sidecar article ID at line ${index + 1}`);
+      ids.add(row.article_id);
+      articles.push(row);
+    }
+  } else {
+    let text: string;
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(metadataBytes); }
+    catch { throw new Error("Invalid UTF-8 in article_metadata.jsonl"); }
+    // Permit a single trailing newline; embedded blank lines are malformed records.
+    const lines = text.replace(/\r?\n$/, "").split(/\r?\n/);
+    for (const [index, line] of lines.entries()) {
+      let value: unknown;
+      try { value = JSON.parse(line); } catch { throw new Error(`Malformed metadata JSON at line ${index + 1}`); }
+      const row = validateMetadata(value, index + 1);
+      ensure(!ids.has(row.article_id), `Duplicate sidecar article ID at line ${index + 1}`);
+      ids.add(row.article_id);
+      articles.push(row);
+    }
+    ensure(articles.length === manifest.article_count, "Manifest article count mismatch");
   }
-  ensure(articles.length === manifest.article_count, "Manifest article count mismatch");
   let catalogQualifications: CatalogQualification[] | undefined;
   if (catalogBytes) {
     const text = new TextDecoder("utf-8",{fatal:true}).decode(catalogBytes);

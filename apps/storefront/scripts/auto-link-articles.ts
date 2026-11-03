@@ -4,7 +4,7 @@ import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env";
 import { loadArticleCatalog, loadArticleExistingKeys, loadCatalogArticles, planArticleSuggestions, type CatalogRead } from "../src/lib/content/article-catalog-pipeline";
-import { createPrivateArticleSidecarReader, loadArticleSidecarPlanner, ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
+import { createPrivateArticleSidecarReader, loadArticleSidecarPlanner, readStoredArticleMetadataRows, ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
 
 // Read-only by design. The dashboard save action may insert pending nominations;
 // this tool has no write flag, SDK client, automatic approval or delete path.
@@ -79,7 +79,11 @@ export async function main(argv = process.argv.slice(2), manifestSha256: string 
     if (!Array.isArray(data) || data.some(row=>!row || typeof row!=="object" || Array.isArray(row))) throw new Error(`Invalid catalog response (${request.table})`);
     return data;
   };
-  const plan = await loadArticleSidecarPlanner(createPrivateArticleSidecarReader(supabaseUrl,key),manifestSha256);
+  // Article rows come from public.article_metadata when it has rows, so an
+  // in-place republish of the bucket file cannot break matching.
+  // Read only after the pinned manifest check passes.
+  const plan = await loadArticleSidecarPlanner(createPrivateArticleSidecarReader(supabaseUrl,key),manifestSha256,
+    async () => (await readStoredArticleMetadataRows(supabaseUrl,key)) ?? undefined);
   const articles=await loadCatalogArticles(read,{authorCreatorId:args.authorCreatorId,limit:args.limit});
   const catalog=articles.length ? await loadArticleCatalog(read) : [];
   const proposals: ReturnType<typeof planArticleSuggestions>=[];
