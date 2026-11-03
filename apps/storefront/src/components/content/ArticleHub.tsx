@@ -3,8 +3,9 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { ArticleCard } from "@/components/cards";
 import { getArticleTypeVisitorLabel } from "@/lib/content/article-display";
 import { getDifficultyMeta } from "@/lib/content/difficulty";
-import { CONTENT_KIND_LABELS, facetLabel } from "@/lib/content/article-facets";
+import { facetLabel } from "@/lib/content/article-facets";
 import {
+  HOBBY_SCOPED_KEYS,
   HUB_PAGE_SIZE,
   HUB_PARAM_KEYS,
   type ArticleHubFilters,
@@ -21,13 +22,14 @@ type Props = {
   results: { article: Article; domainName: string | null }[];
   total: number;
   facets: FacetCount[];
-  domains: { slug: string; name: string }[];
 };
 
 type Group = {
   param: HubParam;
   title: string;
   options: { value: string; label: string; n?: number }[];
+  /** Params to drop when this filter changes. */
+  clears?: readonly HubParam[];
 };
 
 /** Facet values with fewer hits than this are noise, not a useful filter. */
@@ -52,54 +54,66 @@ function hrefWith(
   return qs ? `${basePath}?${qs}` : basePath;
 }
 
-function facetOptions(facets: FacetCount[], facet: string, label: (v: string) => string) {
+function facetOptions(
+  facets: FacetCount[],
+  facet: string,
+  label: (row: FacetCount) => string,
+  minHits = MIN_HITS,
+  bySort = false,
+) {
   return facets
-    .filter((row) => row.facet === facet && row.n >= MIN_HITS)
-    .sort((a, b) => b.n - a.n || a.value.localeCompare(b.value, "nl-BE"))
+    .filter((row) => row.facet === facet && row.n >= minHits)
+    .sort((a, b) =>
+      bySort
+        ? (a.sort ?? 999) - (b.sort ?? 999)
+        : b.n - a.n || a.value.localeCompare(b.value, "nl-BE"),
+    )
     .slice(0, MAX_OPTIONS)
-    .map((row) => ({ value: row.value, label: label(row.value), n: row.n }));
+    .map((row) => ({ value: row.value, label: label(row), n: row.n }));
 }
 
-function buildGroups(kind: Props["kind"], facets: FacetCount[], domains: Props["domains"]): Group[] {
+/** Always visible: hobby, level and (for articles) kind. */
+function basicGroups(kind: Props["kind"], facets: FacetCount[], filters: ArticleHubFilters): Group[] {
   const groups: Group[] = [
-    { param: "hobby", title: "Hobby", options: facetOptions(facets, "craft", facetLabel) },
-  ];
-  if (groups[0].options.length === 0 && domains.length > 0) {
-    groups[0] = {
+    {
       param: "domain",
       title: "Hobby",
-      options: domains.map((d) => ({ value: d.slug, label: d.name })),
-    };
-  }
-  groups.push(
+      options: facetOptions(facets, "domain", (r) => r.label ?? r.value, 1, true),
+      clears: HOBBY_SCOPED_KEYS,
+    },
     {
       param: "niveau",
       title: "Niveau",
-      options: facetOptions(facets, "difficulty", (v) => getDifficultyMeta(v)?.label ?? v),
+      options: facetOptions(facets, "niveau", (r) => getDifficultyMeta(r.value)?.label ?? r.value, 1),
     },
-    { param: "techniek", title: "Techniek", options: facetOptions(facets, "technique", facetLabel) },
-    { param: "thema", title: "Thema", options: facetOptions(facets, "theme", facetLabel) },
-    { param: "voor", title: "Voor wie", options: facetOptions(facets, "audience", facetLabel) },
-  );
+  ];
   if (kind === "articles") {
     groups.push(
       {
-        param: "soort",
-        title: "Soort uitleg",
-        options: facetOptions(facets, "content_kind", (v) => CONTENT_KIND_LABELS[v] ?? v),
-      },
-      {
         param: "type",
         title: "Soort artikel",
-        options: facetOptions(facets, "article_type", getArticleTypeVisitorLabel),
+        options: facetOptions(facets, "type", (r) => getArticleTypeVisitorLabel(r.value), 1),
       },
     );
   }
-  return groups.filter((group) => group.options.length > 1);
+  return groups.filter((group) => group.options.length > 1 || Boolean(filters[group.param]));
 }
 
-export function ArticleHub({ kind, basePath, filters, results, total, facets, domains }: Props) {
-  const groups = buildGroups(kind, facets, domains);
+/** Only after a hobby is chosen: values come from that hobby's articles. */
+function hobbyGroups(facets: FacetCount[], filters: ArticleHubFilters): Group[] {
+  return [
+    { param: "techniek" as const, title: "Techniek", options: facetOptions(facets, "techniek", (r) => facetLabel(r.value)) },
+    { param: "thema" as const, title: "Thema", options: facetOptions(facets, "thema", (r) => facetLabel(r.value)) },
+    { param: "voor" as const, title: "Voor wie", options: facetOptions(facets, "voor", (r) => facetLabel(r.value), 1) },
+  ].filter((group) => group.options.length > 1 || Boolean(filters[group.param]));
+}
+
+export function ArticleHub({ kind, basePath, filters, results, total, facets }: Props) {
+  const basic = basicGroups(kind, facets, filters);
+  const scoped = filters.domain ? hobbyGroups(facets, filters) : [];
+  const groups = [...basic, ...scoped];
+  const hobbyName =
+    facets.find((row) => row.facet === "domain" && row.value === filters.domain)?.label ?? null;
   const page = filters.pagina ?? 1;
   const pageCount = Math.max(1, Math.ceil(total / HUB_PAGE_SIZE));
 
@@ -126,9 +140,25 @@ export function ArticleHub({ kind, basePath, filters, results, total, facets, do
 
   const filterPanel = (
     <div className="flex flex-col gap-8">
-      {groups.map((group) => (
+      {basic.map((group) => (
         <FilterGroup key={group.param} group={group} basePath={basePath} filters={filters} />
       ))}
+      {filters.domain ? (
+        scoped.length > 0 ? (
+          <div className="flex flex-col gap-8 rounded-2xl border border-[var(--border)] bg-[var(--section-alt)] p-4">
+            <p className="text-lg font-semibold text-[var(--foreground)]">
+              Verfijn binnen {hobbyName ?? "deze hobby"}
+            </p>
+            {scoped.map((group) => (
+              <FilterGroup key={group.param} group={group} basePath={basePath} filters={filters} />
+            ))}
+          </div>
+        ) : null
+      ) : (
+        <p className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-3 text-base text-[var(--muted)]">
+          Kies een hobby. Dan kun je ook filteren op techniek, thema en voor wie.
+        </p>
+      )}
     </div>
   );
 
@@ -202,7 +232,12 @@ export function ArticleHub({ kind, basePath, filters, results, total, facets, do
               {active.map((chip) => (
                 <li key={chip.param}>
                   <Link
-                    href={hrefWith(basePath, filters, { [chip.param]: undefined })}
+                    href={hrefWith(basePath, filters, {
+                      [chip.param]: undefined,
+                      ...(chip.param === "domain"
+                        ? Object.fromEntries(HOBBY_SCOPED_KEYS.map((key) => [key, undefined]))
+                        : {}),
+                    })}
                     className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--accent)] bg-[var(--section-highlight)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--card)]"
                     aria-label={`Verwijder filter ${chip.label}`}
                   >
@@ -294,6 +329,7 @@ function FilterGroup({
       <li key={option.value}>
         <Link
           href={hrefWith(basePath, filters, {
+            ...Object.fromEntries((group.clears ?? []).map((key) => [key, undefined])),
             [group.param]: isActive ? undefined : option.value,
             pagina: undefined,
           })}

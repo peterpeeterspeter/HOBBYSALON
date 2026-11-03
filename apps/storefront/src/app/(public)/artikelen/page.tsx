@@ -31,7 +31,7 @@ export default async function ArticlesHubPage({ searchParams }: Props) {
   const filters = parseHubFilters(await searchParams);
   const [{ articles, total }, facets, domains] = await Promise.all([
     listArticleHub(false, filters),
-    listArticleFacetCounts(false),
+    listArticleFacetCounts(false, filters),
     listActiveDomains(),
   ]);
   const links = await listArticleDomainLinks(articles.map((article) => article.id));
@@ -75,7 +75,6 @@ export default async function ArticlesHubPage({ searchParams }: Props) {
           results={results}
           total={total}
           facets={facets}
-          domains={domains.map((d) => ({ slug: d.slug, name: d.name }))}
         />
       </Container>
     </>
