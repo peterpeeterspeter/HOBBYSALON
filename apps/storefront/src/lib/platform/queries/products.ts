@@ -767,3 +767,42 @@ export async function listMaterialsFacets(filters: {
   }));
 }
 
+
+export type MakerMarketFacetCount = {
+  facet: "type" | "domain" | "category" | "seller" | "price" | "condition" | "featured";
+  value: string;
+  label: string | null;
+  sort: number | null;
+  n: number;
+};
+
+/** Counts per filter for /creators; each facet uses every other active filter. */
+export async function listMakerMarketFacets(filters: {
+  product_type?: "handmade" | "destash";
+  domain_id?: string;
+  category_id?: string;
+  creator_id?: string;
+  price_min_cents?: number;
+  price_max_cents?: number;
+  condition?: string;
+  featured?: boolean;
+  q?: string;
+}): Promise<MakerMarketFacetCount[]> {
+  const term = sanitizeAgendaSearchQuery(filters.q);
+  const { data, error } = await createPlatformClient().rpc("maker_market_facets", {
+    p_type: filters.product_type ?? null,
+    p_domain: filters.domain_id ?? null,
+    p_category: filters.category_id ?? null,
+    p_seller: filters.creator_id ?? null,
+    p_price_min: filters.price_min_cents ?? null,
+    p_price_max: filters.price_max_cents ?? null,
+    p_condition: filters.condition ?? null,
+    p_featured: Boolean(filters.featured),
+    p_q: term || null,
+  });
+  if (error || !Array.isArray(data)) return [];
+  return (data as Array<Omit<MakerMarketFacetCount, "n"> & { n: number | string }>).map((row) => ({
+    ...row,
+    n: Number(row.n),
+  }));
+}
