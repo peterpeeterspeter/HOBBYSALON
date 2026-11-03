@@ -46,7 +46,7 @@ export async function ensureCreatorSellerLinked(
     return {
       ok: false,
       sellerId: null,
-      error: "E-mailadres ontbreekt voor creator seller provisioning.",
+      error: "Je e-mailadres ontbreekt. Vul het in en probeer opnieuw.",
     };
   }
 
@@ -66,7 +66,7 @@ export async function ensureCreatorSellerLinked(
       sellerId: null,
       error:
         provisionResult.error ??
-        "Creator seller kon niet worden aangemaakt in Medusa.",
+        "Je verkopersaccount kon niet worden aangemaakt.",
     };
   }
 
@@ -82,7 +82,7 @@ export async function ensureCreatorSellerLinked(
       sellerId: null,
       error:
         linkResult.errors.join(", ") ||
-        "Creator seller kon niet aan je account gekoppeld worden.",
+        "Je verkopersaccount kon niet aan je account gekoppeld worden.",
     };
   }
 

@@ -167,13 +167,13 @@ export async function provisionMerchantSeller(
 
 export function formatMerchantProvisionError(error?: string): string {
   if (!error) {
-    return "Merchant-profiel aanmaken mislukt.";
+    return "Verkopersprofiel aanmaken mislukt.";
   }
 
   const normalized = error.toLowerCase();
 
   if (normalized.includes("missing medusa_admin_api_token")) {
-    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+    return "Registreren als verkoper is tijdelijk niet mogelijk. Probeer later opnieuw.";
   }
 
   if (
@@ -188,7 +188,7 @@ export function formatMerchantProvisionError(error?: string): string {
     normalized.includes("merchant provisioning failed (401)") ||
     normalized.includes("merchant provisioning failed (403)")
   ) {
-    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+    return "Registreren als verkoper is tijdelijk niet mogelijk. Probeer later opnieuw.";
   }
 
   if (normalized.includes("(403)")) {
@@ -196,7 +196,7 @@ export function formatMerchantProvisionError(error?: string): string {
   }
 
   if (normalized.includes("(404)")) {
-    return "Merchant-registratie is tijdelijk niet beschikbaar. Probeer later opnieuw.";
+    return "Registreren als verkoper is tijdelijk niet mogelijk. Probeer later opnieuw.";
   }
 
   if (
@@ -211,5 +211,5 @@ export function formatMerchantProvisionError(error?: string): string {
     return "Controleer je e-mailadres en probeer opnieuw.";
   }
 
-  return "Merchant-profiel aanmaken mislukt. Probeer opnieuw of gebruik een ander e-mailadres.";
+  return "Verkopersprofiel aanmaken mislukt. Probeer opnieuw of gebruik een ander e-mailadres.";
 }

@@ -70,7 +70,7 @@ export function ProductDomainCategoryFields({
           htmlFor="product-domain-id"
           className="text-sm font-medium text-[var(--foreground)]"
         >
-          Domein{domainRequired ? " *" : ""}
+          Hobby{domainRequired ? " *" : ""}
         </label>
         <select
           id="product-domain-id"
@@ -80,7 +80,7 @@ export function ProductDomainCategoryFields({
           onChange={(event) => handleDomainChange(event.target.value)}
           className="min-h-[44px] w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
         >
-          <option value="">Selecteer domein</option>
+          <option value="">Kies een hobby</option>
           {domainOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -104,7 +104,7 @@ export function ProductDomainCategoryFields({
           className="min-h-[44px] w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="">
-            {domainId ? "Selecteer categorie" : "Kies eerst een domein"}
+            {domainId ? "Selecteer categorie" : "Kies eerst een hobby"}
           </option>
           {categoryOptions.map((category) => (
             <option key={category.id} value={category.id}>
@@ -115,9 +115,9 @@ export function ProductDomainCategoryFields({
         <p className="text-xs text-[var(--muted)]">
           {domainId
             ? categoryOptions.length > 0
-              ? "Alleen categorieën van het gekozen domein."
-              : "Geen categorieën voor dit domein."
-            : "Kies eerst een domein."}
+              ? "Alleen categorieën van de gekozen hobby."
+              : "Geen categorieën voor deze hobby."
+            : "Kies eerst een hobby."}
         </p>
       </div>
     </>

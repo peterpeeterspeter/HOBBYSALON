@@ -124,7 +124,7 @@ export function WorkshopsSidebar({
       value: cat.id,
       label: params.domain
         ? cat.name
-        : `${domainNameById.get(cat.domain_id) ?? "Domein"} — ${cat.name}`,
+        : `${domainNameById.get(cat.domain_id) ?? "Hobby"} — ${cat.name}`,
     }));
 
   return (
@@ -143,17 +143,17 @@ export function WorkshopsSidebar({
           />
         </FilterBlock>
 
-        <FilterBlock title="Domein">
+        <FilterBlock title="Hobby">
           <Select
             id="domain"
             name="domain"
-            placeholder="Alle domeinen"
+            placeholder="Alle hobby's"
             options={domains.map((domain) => ({
               value: domain.id,
               label: domain.name,
             }))}
             defaultValue={params.domain ?? ""}
-            aria-label="Domein"
+            aria-label="Hobby"
           />
           {categoryOptions.length > 0 ? (
             <div className="mt-3">

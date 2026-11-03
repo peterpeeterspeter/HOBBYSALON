@@ -44,7 +44,7 @@ export const STATIC_LINKS = {
     { href: "/creators", label: "Makersmarkt" },
   ],
   inspiratie: [
-    { href: "/artikelen", label: "Artikelen & tutorials" },
+    { href: "/artikelen", label: "Artikelen en handleidingen" },
     { href: "/patronen", label: "Patronen" },
     { href: "/tools", label: "Hobbytools" },
   ],
@@ -59,11 +59,11 @@ export const STATIC_LINKS = {
 export const FOOTER_SECTIONS = {
   ontdekken: [
     { href: "/workshops", label: "Workshops" },
-    { href: "/agenda", label: "Evenementen" },
+    { href: "/agenda", label: "Agenda" },
     { href: "/materials", label: "Materialen" },
     { href: "/creators", label: "Makersmarkt" },
     { href: "/patronen", label: "Patronen" },
-    { href: "/tools", label: "Tools" },
+    { href: "/tools", label: "Hobbytools" },
   ],
   meedoen: [
     { href: "/voor-hobbyisten", label: "Iets moois maken" },

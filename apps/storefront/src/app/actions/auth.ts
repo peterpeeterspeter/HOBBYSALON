@@ -436,7 +436,7 @@ export async function registerMerchantAction(
       success: true,
       message: onboarding?.pendingApproval
         ? `${onboarding.message} Bevestig ook je e-mail voordat je inlogt.`
-        : "Controleer je e-mail en bevestig je merchant-account voordat je inlogt.",
+        : "Controleer je e-mail en bevestig je verkopersaccount voordat je inlogt.",
     };
   }
 
@@ -530,7 +530,7 @@ export async function onboardMerchantForLoggedInUserAction(
           success: false,
           message:
             linkResult.error ??
-            "Merchant-winkel koppelen mislukt. Probeer opnieuw.",
+            "Je winkel koppelen aan je account is mislukt. Probeer opnieuw.",
         };
       }
     }

@@ -13,11 +13,11 @@ import type { Product } from "@/types/platform";
 
 export const CREATION_TYPE_OPTIONS = [
   { value: "handmade", label: "Zelf gemaakt" },
-  { value: "destash", label: "Materiaal dat ik niet meer gebruik" },
+  { value: "destash", label: "Overschot: materiaal dat ik niet meer gebruik" },
 ];
 
 export const CREATION_CONDITION_OPTIONS = [
-  { value: "handmade", label: "Handgemaakt" },
+  { value: "handmade", label: "Zelf gemaakt (nieuw)" },
   { value: "new", label: "Nieuw" },
   { value: "made_to_order", label: "Wordt op bestelling gemaakt" },
   { value: "used", label: "Gebruikt" },

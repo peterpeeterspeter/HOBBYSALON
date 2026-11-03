@@ -140,7 +140,7 @@ export function NewsletterSignupForm({
         >
           <option value="">Interesse</option>
           <option value="workshop">Workshops</option>
-          <option value="handmade">Handmade</option>
+          <option value="handmade">Zelfgemaakt werk</option>
           <option value="supply">Benodigdheden</option>
           <option value="event">Events</option>
           <option value="article">Artikelen</option>

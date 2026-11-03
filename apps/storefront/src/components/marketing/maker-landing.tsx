@@ -84,7 +84,7 @@ function MakerLanding() {
               <div className="relative aspect-[5/4] overflow-hidden rounded-[var(--radius)] bg-[var(--section-alt)]">
                 <Image
                   src={LANDING_IMAGES.domainSewing}
-                  alt="Handmade werk klaar voor de makersmarkt"
+                  alt="Zelfgemaakt werk klaar voor de makersmarkt"
                   fill
                   sizes="(max-width: 1024px) 100vw, 42vw"
                   className="object-cover"

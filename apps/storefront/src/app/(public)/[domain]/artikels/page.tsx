@@ -41,7 +41,7 @@ export default async function DomainArticlesPage({ params }: Props) {
       {articles.length === 0 ? (
         <EmptyState
           title="Nog geen artikelen"
-          description="Nog geen artikelen in dit domein."
+          description="Nog geen artikelen in deze hobby."
           action={{ label: `Terug naar ${domain.name}`, href: `/${domain.slug}` }}
         />
       ) : (

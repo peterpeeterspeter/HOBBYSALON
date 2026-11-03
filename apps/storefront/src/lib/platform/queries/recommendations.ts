@@ -617,11 +617,11 @@ async function buildPersonalizedRecommendations(
     if (projectBoost > 0.2) reasons.push("Gelinkt aan je favorieten");
     if (domainBoost > 0.2) {
       if (hasFavoriteSignals) {
-        reasons.push("Past bij je favoriete domeinen");
+        reasons.push("Past bij je favoriete hobby's");
       } else if (hasInterestSignals) {
         reasons.push("Past bij je profielinteresses");
       } else {
-        reasons.push("Past bij populaire domeinen");
+        reasons.push("Past bij populaire hobby's");
       }
     }
     if (recentInteractionCount > 0 && reasons.length > 0) {

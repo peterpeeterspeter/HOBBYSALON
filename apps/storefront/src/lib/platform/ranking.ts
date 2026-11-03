@@ -92,7 +92,10 @@ export async function createVisibilityBoost(input: {
     .select("id")
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("Visibility boost insert failed", error);
+    return { ok: false, error: "Uitlichten is mislukt." };
+  }
   return { ok: true, id: data.id };
 }
 

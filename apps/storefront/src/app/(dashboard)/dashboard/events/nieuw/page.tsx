@@ -39,7 +39,7 @@ export default async function NewEventPage({ searchParams }: Props) {
           creatorId={creator.id}
           canPublish={caps.canPublishEvents}
           allowExternalTickets={Boolean(commercial.allowExternalLinks)}
-          typeCostLabel={gating ? (type) => ` (${getEventCreditCost(type)} credits)` : undefined}
+          typeCostLabel={gating ? (type) => ` (${getEventCreditCost(type)} tegoedpunten)` : undefined}
         />
         <FormActions>
           <Button type="submit" size="lg">

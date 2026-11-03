@@ -17,7 +17,7 @@ type DomainPillsProps = {
 
 /**
  * Horizontal scrolling domain pills with thumbnail preview.
- * Replaces the grid of identical cards for the "Populaire domeinen" section.
+ * Replaces the grid of identical cards for the "Populaire hobby's" section.
  * Each pill shows a circular image + domain name for quick scanning.
  */
 function DomainPills({ domains, className }: DomainPillsProps) {

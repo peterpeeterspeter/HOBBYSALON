@@ -89,7 +89,7 @@ export default async function ProfileProjectEditPage({ params, searchParams }: P
           <form action={updateProjectAction} encType="multipart/form-data" className="mt-4 space-y-4">
             <input type="hidden" name="project_id" value={project.id} />
             <Input name="title" label="Titel *" required defaultValue={project.title} />
-            <Input name="slug" label="Slug" defaultValue={project.slug} />
+            <Input name="slug" label="Webadres" defaultValue={project.slug} />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
                 Korte beschrijving

@@ -39,7 +39,7 @@ export const CREATOR_TYPES: Array<{
   },
   {
     value: "content_creator",
-    label: "Content maker",
+    label: "Contentmaker",
     description: "Je schrijft tutorials en inspiratie-artikels.",
   },
   {

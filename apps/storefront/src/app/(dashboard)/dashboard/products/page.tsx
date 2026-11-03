@@ -14,7 +14,7 @@ export default async function ProductsRedirectPage({ searchParams }: Props) {
   if (type === "credits" || checkout) {
     let target = "/dashboard/instellingen";
     if (checkout === "pending") {
-      target = withFlash(target, "success", "Betaling ontvangen. Je credits staan zo op je saldo.");
+      target = withFlash(target, "success", "Betaling ontvangen. Je tegoed staat zo op je saldo.");
     } else if (checkout === "cancelled") {
       target = withFlash(target, "error", "Betaling geannuleerd. Er is niets aangerekend.");
     }

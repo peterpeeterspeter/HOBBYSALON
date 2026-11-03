@@ -21,7 +21,7 @@ export function ActiveFilterChips({ chips, clearHref }: ActiveFilterChipsProps) 
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      <span className="shrink-0 text-[13px] font-semibold text-[var(--muted)]">Filters:</span>
+      <span className="shrink-0 text-[13px] font-semibold text-[var(--muted)]">Filter:</span>
       {chips.map((chip) => (
         <Link
           key={chip.label}

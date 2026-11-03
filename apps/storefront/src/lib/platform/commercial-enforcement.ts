@@ -217,7 +217,7 @@ export async function enforceEventPublishCredits(
   if (balance < cost) {
     return {
       ok: false,
-      error: `Onvoldoende credits. Dit eventtype kost ${cost} credits, je hebt er ${balance}.`,
+      error: `Onvoldoende tegoed. Dit soort event kost ${cost} tegoedpunten, je hebt er ${balance}.`,
     };
   }
 
@@ -278,7 +278,7 @@ export async function purchaseSpotlightBoostAction(input: {
   // Ownership assertion: the boosted entity must belong to the paying creator.
   if (input.entityType === "creator") {
     if (input.entityId !== input.creatorId) {
-      return { ok: false, error: "Je kunt alleen je eigen profiel boosten." };
+      return { ok: false, error: "Je kunt alleen je eigen profiel uitlichten." };
     }
   } else {
     const supabase = createPlatformClient();
@@ -300,7 +300,7 @@ export async function purchaseSpotlightBoostAction(input: {
     if (ownedError || !owned) {
       return {
         ok: false,
-        error: "Deze entiteit bestaat niet of is niet van jou.",
+        error: "Dit onderdeel bestaat niet of is niet van jou.",
       };
     }
   }
@@ -337,7 +337,7 @@ export async function purchaseSpotlightBoostAction(input: {
     });
     return {
       ok: false,
-      error: created.error ?? "Boost kon niet worden aangemaakt; credits teruggezet.",
+      error: "Uitlichten is mislukt. Je tegoed is teruggezet.",
     };
   }
 

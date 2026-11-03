@@ -60,7 +60,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const FAVORITE_LABELS: Record<EntityType, string> = {
-  domain: "Domeinen",
+  domain: "Hobby's",
   creator: "Makers",
   product: "Producten",
   workshop: "Workshops",
@@ -254,8 +254,8 @@ export default async function ProfilePage({ searchParams }: Props) {
         >
           <p className="text-lg font-semibold text-amber-950">
             {newInquiryCount === 1
-              ? "1 nieuwe aanvraag voor jouw plaatsingen"
-              : `${newInquiryCount} nieuwe aanvragen voor jouw plaatsingen`}
+              ? "1 nieuwe aanvraag voor jouw creaties"
+              : `${newInquiryCount} nieuwe aanvragen voor jouw creaties`}
           </p>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-amber-900/80">
             Open je inbox om te antwoorden via e-mail. Jullie regelen de
