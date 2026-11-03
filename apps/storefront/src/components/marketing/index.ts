@@ -59,7 +59,6 @@ export { WorkshopHostLanding } from "./workshop-host-landing";
 export { RevealOnView } from "./reveal-on-view";
 export type { RevealOnViewProps } from "./reveal-on-view";
 
-export { AboutHobbysalonSection } from "./about-hobbysalon-section";
 
 export { PartnersLanding } from "./partners-landing";
 
