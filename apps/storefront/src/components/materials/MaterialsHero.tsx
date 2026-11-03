@@ -17,7 +17,7 @@ export function MaterialsHero({
   return (
     <ListingHeroBand
       title="Vind de juiste materialen voor je project"
-      lead="Filter materialen op materiaal, merk, kleur of techniek."
+      lead="Kies een categorie of zoek wat je nodig hebt."
       imageSrc={LANDING_IMAGES.craftsGrid}
       size="compact"
       footer={<ListingSearchEverywhereHint query={defaultQuery} />}

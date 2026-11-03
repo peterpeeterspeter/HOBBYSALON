@@ -21,6 +21,7 @@ import {
   VendorCreateProductType,
   VendorGetProductParamsType
 } from './validators'
+import { assertMaterialCategoryInMetadata } from '../../../shared/platform/material-categories'
 
 /**
  * @oas [get] /vendor/products
@@ -166,6 +167,7 @@ export const POST = async (
     req.validatedBody
 
   const { type_id: _ignoredTypeId, ...productBody } = validatedBody
+  await assertMaterialCategoryInMetadata(productBody.metadata)
   const supplyTypeId = await resolveVendorDefaultProductTypeId(query)
 
   const mergedImages = mergeVariantImages(productBody.images, variants_images)

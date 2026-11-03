@@ -144,6 +144,9 @@ export type PriceParse =
  * Parses EU and US price notations: "6,95", "€ 6,95", "7,5 EUR", "1.234,50",
  * "1,234.50", "1234.5". Never silently mis-reads thousand separators.
  */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const parsePrice = (raw: string | undefined | null): PriceParse => {
   if (raw === undefined || raw === null) {
     return { ok: false, reason: 'empty' }
@@ -435,7 +438,15 @@ export const normalizeProductList = ({
       const n = toNumber(head.get(dim))
       if (n !== undefined) product[dim] = n
     }
-    if (resolvedCategoryId) product.categories = [{ id: resolvedCategoryId }]
+    if (resolvedCategoryId) {
+      // A UUID is a platform material category (mapping target); it reaches
+      // /materials through metadata. Other ids are Medusa categories.
+      if (UUID_RE.test(resolvedCategoryId)) {
+        product.metadata = { platform_category_id: resolvedCategoryId }
+      } else {
+        product.categories = [{ id: resolvedCategoryId }]
+      }
+    }
     const tagIds = parseIdList(head.get('tag_ids'))
     if (tagIds?.length) product.tags = tagIds.map((id) => ({ id }))
     const salesChannelIds = parseIdList(head.get('sales_channel_ids'))

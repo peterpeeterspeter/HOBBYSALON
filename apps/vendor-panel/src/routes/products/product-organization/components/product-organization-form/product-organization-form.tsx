@@ -15,6 +15,10 @@ import {
 import { useUpdateProduct } from "../../../../../hooks/api/products"
 import { useComboboxData } from "../../../../../hooks/use-combobox-data"
 import { fetchQuery } from "../../../../../lib/client"
+import {
+  MATERIAL_CATEGORY_KEY,
+  MaterialCategorySelect,
+} from "../../../common/components/material-category-select"
 
 type ProductOrganizationFormProps = {
   product: ExtendedAdminProduct
@@ -23,6 +27,7 @@ type ProductOrganizationFormProps = {
 const ProductOrganizationSchema = zod.object({
   collection_id: zod.string().nullable(),
   category_ids: zod.string().nullable(),
+  material_category_id: zod.string().nullable(),
   // category_ids: zod.array(zod.string()),
   tag_ids: zod.array(zod.string()),
 })
@@ -83,6 +88,9 @@ export const ProductOrganizationForm = ({
     defaultValues: {
       collection_id: product.collection_id ?? "",
       category_ids: product.categories?.[0]?.id || "",
+      material_category_id:
+        (product.metadata?.[MATERIAL_CATEGORY_KEY] as string | undefined) ??
+        null,
       tag_ids: product.tags?.map((t) => t.id) || [],
     },
     schema: ProductOrganizationSchema,
@@ -98,6 +106,10 @@ export const ProductOrganizationForm = ({
         collection_id: data.collection_id ? data.collection_id : undefined,
         categories: data.category_ids ? [{ id: data.category_ids }] : [],
         tags: data.tag_ids?.map((t) => ({ id: t })) ?? [],
+        metadata: {
+          ...(product.metadata ?? {}),
+          [MATERIAL_CATEGORY_KEY]: data.material_category_id || null,
+        },
       },
       {
         onSuccess: ({ product }) => {
@@ -120,6 +132,21 @@ export const ProductOrganizationForm = ({
       <KeyboundForm onSubmit={handleSubmit} className="flex h-full flex-col">
         <RouteDrawer.Body>
           <div className="flex h-full flex-col gap-y-4">
+            <Form.Field
+              control={form.control}
+              name="material_category_id"
+              render={({ field }) => (
+                <Form.Item>
+                  <Form.Control>
+                    <MaterialCategorySelect
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </Form.Control>
+                  <Form.ErrorMessage />
+                </Form.Item>
+              )}
+            />
             <Form.Field
               control={form.control}
               name="collection_id"

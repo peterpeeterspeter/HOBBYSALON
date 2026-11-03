@@ -125,7 +125,7 @@ export default async function CreatorsPage({
   const offset = (page - 1) * PAGE_SIZE;
 
   const [allCategories, sellerOptions, domainOptions] = await Promise.all([
-    listSupplyCategoryOptions(),
+    listSupplyCategoryOptions({ catalog: "listing" }),
     listMaterialsSellerOptions({ catalog_scope: "maker_p2p" }),
     listMaterialsDomainOptions({ catalog_scope: "maker_p2p" }),
   ]);

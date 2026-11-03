@@ -16,6 +16,7 @@ import {
   VendorUpdateProductType,
 } from "../validators";
 import { ProductUpdateRequestUpdatedEvent } from "@mercurjs/framework";
+import { assertMaterialCategoryInMetadata } from "../../../../shared/platform/material-categories";
 
 /**
  * @oas [get] /vendor/products/{id}
@@ -121,6 +122,7 @@ export const POST = async (
   const { additional_data, ...update } = req.validatedBody;
   // Product type is platform-owned; merchants may only set category/tags/collection.
   const { type_id: _ignoredTypeId, ...safeUpdate } = update;
+  await assertMaterialCategoryInMetadata(safeUpdate.metadata);
 
   const { result } = await updateProductsWorkflow(req.scope).run({
     input: {

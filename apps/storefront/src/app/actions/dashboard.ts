@@ -217,24 +217,37 @@ async function parseWorkshopTaxonomyFields(
   };
 }
 
+/**
+ * Shop products (supply) use the material taxonomy (catalog = 'material',
+ * no hobby). Maker listings use the per hobby categories (catalog =
+ * 'listing') and the category must belong to the chosen hobby.
+ */
 async function assertProductCategoryMatchesDomain(
   categoryId: string | null,
-  domainId: string | null
+  domainId: string | null,
+  productType: string
 ): Promise<void> {
   if (!categoryId) return;
-  if (!domainId) {
+  const isSupply = productType === "supply" || productType === "supplies";
+  if (!isSupply && !domainId) {
     throw new Error("Kies eerst een hobby voor de categorie.");
   }
   const supabase = createPlatformClient();
   const { data, error } = await supabase
     .from("product_categories")
-    .select("id, domain_id")
+    .select("id, domain_id, catalog")
     .eq("id", categoryId)
     .maybeSingle();
   if (error || !data) {
     throw new Error("Ongeldige categorie.");
   }
-  if (data.domain_id !== domainId) {
+  if (isSupply) {
+    if (data.catalog !== "material") {
+      throw new Error("Kies een materiaalcategorie voor dit product.");
+    }
+    return;
+  }
+  if (data.catalog === "material" || data.domain_id !== domainId) {
     throw new Error("Deze categorie hoort niet bij de gekozen hobby.");
   }
 }
@@ -1563,7 +1576,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
     try {
-      await assertProductCategoryMatchesDomain(categoryId, domainId);
+      await assertProductCategoryMatchesDomain(categoryId, domainId, productType);
     } catch (error) {
       fail(
         returnPath,
@@ -1701,7 +1714,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
     );
     try {
-      await assertProductCategoryMatchesDomain(categoryId, domainId);
+      await assertProductCategoryMatchesDomain(categoryId, domainId, productType);
     } catch (error) {
       fail(
         returnPath,
