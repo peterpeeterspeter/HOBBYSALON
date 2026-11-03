@@ -33,6 +33,13 @@ export type PricingRouteCard = {
   ctaLabel: string;
   /** Optional senior-friendly clarification under the feature list */
   note?: string;
+  /** Who this route is for, shown above the card title. */
+  role: string;
+  /** The price in a few characters, shown large. */
+  price: string;
+  priceNote: string;
+  /** Direct sign up for this route. */
+  start: { label: string; href: string };
 };
 
 export type PricingComparisonRow = {
@@ -105,12 +112,11 @@ export const PRIJZEN_PAGE = {
   metaDescription:
     "Vergelijk de formules voor contentmakers, makers, workshopgevers, organisatoren en hobbymaterialenwinkels. Begin gratis of betaal alleen voor wat je publiceert.",
   heroLabel: "Prijzen en mogelijkheden",
-  heroHeadline: "Ontdek de route die bij jou past",
+  heroHeadline: "Gratis beginnen. Betalen voor wat je extra wil.",
   heroSubheadline:
-    "Deel creatieve kennis, bied zelfgemaakt werk aan, promoot workshops en evenementen of verkoop hobbymaterialen. Je betaalt voor wat bij jouw aanbod hoort — niet voor één abonnement dat alles moet dekken.",
-  primaryCta: { label: "Ontdek de routes", href: "#routes" },
-  secondaryCta: { label: "Vergelijk de mogelijkheden", href: "#vergelijking" },
-  routesTitle: "Wat wil je aanbieden?",
+    "Een profiel, content en je eerste advertenties of workshops kosten niets. Kies wat je wil aanbieden en zie meteen wat het kost.",
+  heroChipsLabel: "Wat wil je doen?",
+  routesTitle: "Prijzen per route",
   comparisonTitle: "Basis of extra zichtbaarheid?",
   comparisonIntro:
     "Je kunt laagdrempelig starten. Uitbreidingen zijn optioneel en lonen pas wanneer je meer bereik of inzicht nodig hebt.",
@@ -119,9 +125,9 @@ export const PRIJZEN_PAGE = {
   listingVatNote: PRIJZEN_LISTING_VAT_NOTE,
   howtoTitle: "Hoe werkt de prijsopbouw?",
   faqTitle: "Veelgestelde vragen",
-  closingTitle: "Klaar om jouw aanbod zichtbaar te maken?",
+  closingTitle: "Nog niet zeker welke route bij je past?",
   closingDescription:
-    "Kies je route. Op elke detailpagina vind je de volledige uitleg en de eerste stap.",
+    "Op elke pagina vind je de volledige uitleg, voorbeelden en antwoorden op de meest gestelde vragen.",
   closingLinks: [
     { label: "Content delen", href: "/voor-contentmakers" },
     { label: "Verkopen als maker", href: "/voor-makers" },
@@ -134,7 +140,11 @@ export const PRIJZEN_PAGE = {
 export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
   {
     id: "content",
-    title: "Contentmaker — gratis publiceren",
+    role: "Contentmaker",
+    title: "Tutorials en patronen delen",
+    price: "Gratis",
+    priceNote: "en dat blijft zo",
+    start: { label: "Word contentmaker", href: "/register/creator?focus=maker" },
     description:
       "Deel tutorials, patronen, projecten en reviews. Hobbysalon herkent de materialen in je content en koppelt ze aan producten, zodat lezers meteen verder kunnen.",
     features: [
@@ -144,11 +154,15 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Verdienen via affiliate en digitale patronen: binnenkort",
     ],
     href: "/voor-contentmakers",
-    ctaLabel: "Bekijk de mogelijkheden",
+    ctaLabel: "Meer uitleg",
   },
   {
     id: "maker",
-    title: "Maker — 3 gratis advertenties, daarna tegoed",
+    role: "Maker",
+    title: "Zelfgemaakt werk en overschot verkopen",
+    price: "3 gratis",
+    priceNote: "advertenties, daarna per plaatsing met tegoed",
+    start: { label: "Maak je makersprofiel", href: "/register/creator?focus=maker" },
     description:
       "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
     features: [
@@ -159,11 +173,15 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Uitlichten met extra tegoed",
     ],
     href: "/voor-makers",
-    ctaLabel: "Bekijk de mogelijkheden",
+    ctaLabel: "Meer uitleg",
   },
   {
     id: "workshop",
-    title: "Workshopgever — 3 gratis tot 1 december, daarna €9,99 / 2 maanden",
+    role: "Workshopgever",
+    title: "Workshops aanbieden",
+    price: "3 gratis",
+    priceNote: "workshops tot 1 december, daarna €9,99 per vermelding (excl. btw)",
+    start: { label: "Plaats je workshop", href: "/register/creator?focus=workshopgever" },
     description:
       "Presenteer je workshop met foto's, sessiedata, locatie, prijs en materialen. Deelnemers schrijven zich rechtstreeks bij jou in.",
     features: [
@@ -173,11 +191,15 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Geen commissie per deelnemer",
     ],
     href: "/voor-workshopgevers",
-    ctaLabel: "Bekijk de mogelijkheden",
+    ctaLabel: "Meer uitleg",
   },
   {
     id: "organizer",
-    title: "Organisator — gratis in de kalender, uitgebreid vanaf €50",
+    role: "Organisator",
+    title: "Een hobbybeurs of makersmarkt aankondigen",
+    price: "Gratis",
+    priceNote: "in de kalender, eventpagina vanaf €50 (excl. btw)",
+    start: { label: "Zet je evenement in de kalender", href: "/register/creator?focus=organizer" },
     description:
       "Zet je hobbybeurs of makers market gratis in de evenementenkalender. Wil je meer dan datum en locatie tonen, dan kies je een eventpagina.",
     features: [
@@ -187,11 +209,15 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Promotie op maat tijdens de pilot",
     ],
     href: "/voor-organisatoren",
-    ctaLabel: "Bekijk de mogelijkheden",
+    ctaLabel: "Meer uitleg",
   },
   {
     id: "supplier",
-    title: "Hobbymaterialenwinkel — €0 vaste kosten, 10% commissie",
+    role: "Winkel",
+    title: "Hobbymaterialen verkopen",
+    price: "€0",
+    priceNote: "vaste kosten, 10% commissie alleen bij verkoop",
+    start: { label: "Meld je winkel aan", href: "/register/merchant" },
     description: SHOP_PRICING_BODY,
     features: [
       SHOP_PRICING_EXAMPLE,
@@ -201,7 +227,7 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       "Premium zichtbaarheid en analyses: binnenkort",
     ],
     href: "/voor-winkels",
-    ctaLabel: "Bekijk de mogelijkheden",
+    ctaLabel: "Meer uitleg",
   },
 ];
 
@@ -209,7 +235,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   {
     audience: "Contentmaker",
     now: "Gratis tutorials, patronen, reviews en video's publiceren",
-    expansion: "Digitale patronen verkopen en affiliate-inkomsten — binnenkort",
+    expansion: "Digitale patronen verkopen en affiliate-inkomsten, binnenkort",
     benefit: "Je verdient mee aan de materialen en patronen bij je content",
   },
   {
@@ -223,7 +249,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
     audience: "Workshopgever",
     now: "Lanceraanbod: 3 workshops gratis tot 1 december (blijven gratis)",
     expansion:
-      "Extra vermeldingen €9,99 / 2 maanden (excl. btw); promotie — binnenkort",
+      "Extra vermeldingen €9,99 / 2 maanden (excl. btw); promotie volgt binnenkort",
     benefit: "Prominentere plaatsing en meetbaar resultaat",
   },
   {
@@ -237,7 +263,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   {
     audience: "Hobbymaterialenwinkel",
     now: "€0 vaste kosten, 10% commissie op de totale verkoopprijs (incl. btw en verzending)",
-    expansion: "Premium zichtbaarheid en analyses — binnenkort",
+    expansion: "Premium zichtbaarheid en analyses, binnenkort",
     benefit:
       "Betaalkosten voor de winkel (tarieven van onze betaalprovider); dagelijkse uitbetaling",
   },

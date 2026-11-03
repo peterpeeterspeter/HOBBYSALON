@@ -55,12 +55,12 @@ function PricingClosingLinks({
           <p className="mt-4 text-lg leading-relaxed text-[var(--muted)]">
             {description}
           </p>
-          <ul className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-3">
+          <ul className="mt-8 flex flex-wrap gap-3">
             {links.map((link) => (
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="inline-flex min-h-12 items-center text-base font-semibold text-[var(--accent)] hover:underline"
+                  className="inline-flex min-h-12 items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-5 text-lg font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   {link.label}
                 </Link>

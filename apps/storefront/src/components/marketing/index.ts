@@ -1,5 +1,3 @@
-export { MarketingHero } from "./marketing-hero";
-export type { MarketingHeroProps } from "./marketing-hero";
 
 export { MarketingSectionHeader } from "./marketing-section-header";
 export type { MarketingSectionHeaderProps } from "./marketing-section-header";
