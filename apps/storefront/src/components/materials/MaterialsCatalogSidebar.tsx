@@ -98,7 +98,7 @@ export function MaterialsCatalogSidebar({
             aria-label="Prijs"
           />
           <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-            Op basis van de vermelde listingprijs. Webshopprijzen zonder listingprijs
+            Op basis van de vermelde prijs. Producten zonder vermelde prijs
             vallen buiten deze filter.
           </p>
         </div>

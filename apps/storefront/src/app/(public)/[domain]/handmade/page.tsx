@@ -69,8 +69,8 @@ export default async function DomainHandmadePage({ params }: Props) {
       {productsWithPrices.length === 0 ? (
         <EmptyState
           title="Nog geen handgemaakte producten"
-          description="Nog geen handgemaakte producten in dit domein."
-          action={{ label: "Terug naar domein", href: `/${domain.slug}` }}
+          description="Nog geen handgemaakte producten in deze hobby."
+          action={{ label: "Terug naar de hobby", href: `/${domain.slug}` }}
         />
       ) : (
         <GridLayout cols={4} gap="lg">

@@ -61,7 +61,7 @@ export async function completeMerchantOnboarding(
     });
     return {
       ok: false,
-      message: "Merchant-aanvraag indienen mislukt.",
+      message: "Je aanvraag als verkoper indienen is mislukt.",
       pendingApproval: false,
     };
   }

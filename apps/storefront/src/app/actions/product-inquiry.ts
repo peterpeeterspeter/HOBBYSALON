@@ -42,7 +42,7 @@ export async function submitProductInquiry(
       .maybeSingle();
 
     if (productError || !product) {
-      return { success: false, message: "Plaatsing niet gevonden." };
+      return { success: false, message: "Dit product is niet gevonden." };
     }
 
     const { error } = await supabase.from("product_inquiries").insert({
@@ -122,7 +122,7 @@ export async function updateProductInquiryStatusAction(
 
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
-    fail("/dashboard", "Geen creator-profiel.");
+    fail("/dashboard", "Je hebt nog geen maker-pagina.");
   }
 
   const inquiryId = String(formData.get("id") ?? "");

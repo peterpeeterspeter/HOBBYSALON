@@ -109,7 +109,7 @@ export function ProductBuyCard({
                 className="text-[var(--accent)]"
                 aria-hidden
               />
-              Geen checkout via Hobbysalon. Jullie regelen de deal zelf
+              Je betaalt niet via Hobbysalon. Jullie spreken de verkoop zelf af
             </span>
           </>
         )}

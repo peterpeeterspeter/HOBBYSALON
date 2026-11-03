@@ -129,7 +129,7 @@ export async function ensureMerchantCreatorProfile(
     const existingUserId = bySlug[0].user_id as string | null;
     if (existingUserId && existingUserId !== input.userId) {
       errors.push(
-        `Merchant-creator slug ${preferredSlug} is al gekoppeld aan een andere gebruiker.`
+        `Het webadres ${preferredSlug} is al in gebruik door een andere gebruiker.`
       );
       return { ok: false, creatorId: null, errors };
     }
@@ -185,7 +185,7 @@ export async function ensureMerchantCreatorProfile(
     return {
       ok: false,
       creatorId: null,
-      errors: [insertError?.message ?? "Merchant-creator kon niet worden aangemaakt."],
+      errors: ["Je verkopersprofiel kon niet worden aangemaakt."],
     };
   }
 

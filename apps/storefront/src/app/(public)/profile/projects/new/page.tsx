@@ -45,7 +45,7 @@ export default async function ProfileProjectsNewPage({
         )}
         <form action={createProjectAction} encType="multipart/form-data" className="space-y-4">
           <Input name="title" label="Titel *" required placeholder="Bijv. Gebreide sjaal voor beginners" />
-          <Input name="slug" label="Slug (optioneel)" placeholder="Wordt automatisch gegenereerd uit titel" />
+          <Input name="slug" label="Webadres (optioneel)" placeholder="Wordt automatisch gemaakt uit de titel" />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">
               Korte beschrijving

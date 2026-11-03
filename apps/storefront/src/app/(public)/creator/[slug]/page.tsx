@@ -30,7 +30,7 @@ const CREATOR_TYPE_LABELS: Record<string, string> = {
   maker: "Maker",
   workshopgever: "Workshopgever",
   supplier: "Leverancier",
-  content_creator: "Content maker",
+  content_creator: "Contentmaker",
   organizer: "Organisator",
 };
 

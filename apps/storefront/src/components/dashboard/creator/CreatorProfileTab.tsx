@@ -62,7 +62,7 @@ export function CreatorProfileTab({
               defaultValue={creator?.email ?? accountEmail}
             />
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Hierop ontvang je aanvragen van bezoekers over je plaatsingen.
+              Hierop ontvang je aanvragen van bezoekers over je creaties.
             </p>
           </div>
           <Input

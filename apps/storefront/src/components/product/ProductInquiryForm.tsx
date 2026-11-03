@@ -59,7 +59,7 @@ export function ProductInquiryForm({
         Vraag stellen aan {creatorName}
       </h3>
       <p className="text-sm text-[var(--muted)]">
-        Dit is een plaatsing, geen webshop-checkout. Stuur een bericht om te
+        Je koopt dit rechtstreeks bij de maker. Stuur een bericht om te
         kopen of meer te weten.
       </p>
       <div>

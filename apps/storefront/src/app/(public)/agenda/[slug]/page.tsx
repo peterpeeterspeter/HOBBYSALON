@@ -25,7 +25,7 @@ import type { Creator, Product } from "@/types/platform";
 type Props = { params: Promise<{ slug: string }> };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  handmade_market: "Handmade markt",
+  handmade_market: "Ambachtelijke markt",
   hobby_fair: "Hobbybeurs",
   pop_up: "Pop-up",
   open_atelier: "Open atelier",
@@ -36,7 +36,7 @@ const CREATOR_TYPE_LABELS: Record<string, string> = {
   maker: "Maker",
   workshopgever: "Workshopgever",
   supplier: "Leverancier",
-  content_creator: "Content maker",
+  content_creator: "Contentmaker",
   organizer: "Organisator",
 };
 

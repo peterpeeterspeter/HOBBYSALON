@@ -197,14 +197,14 @@ async function parseWorkshopTaxonomyFields(
 
   if (categoryId) {
     if (!domainId) {
-      throw new Error("Kies eerst een domein voor de subcategorie.");
+      throw new Error("Kies eerst een hobby voor de subcategorie.");
     }
     const category = await getWorkshopCategoryById(categoryId);
     if (!category || !category.is_active) {
       throw new Error("Ongeldige subcategorie.");
     }
     if (category.domain_id !== domainId) {
-      throw new Error("Subcategorie hoort niet bij het gekozen domein.");
+      throw new Error("Deze subcategorie hoort niet bij de gekozen hobby.");
     }
   }
 
@@ -223,7 +223,7 @@ async function assertProductCategoryMatchesDomain(
 ): Promise<void> {
   if (!categoryId) return;
   if (!domainId) {
-    throw new Error("Kies eerst een domein voor de categorie.");
+    throw new Error("Kies eerst een hobby voor de categorie.");
   }
   const supabase = createPlatformClient();
   const { data, error } = await supabase
@@ -235,7 +235,7 @@ async function assertProductCategoryMatchesDomain(
     throw new Error("Ongeldige categorie.");
   }
   if (data.domain_id !== domainId) {
-    throw new Error("Categorie hoort niet bij het gekozen domein.");
+    throw new Error("Deze categorie hoort niet bij de gekozen hobby.");
   }
 }
 
@@ -321,7 +321,7 @@ async function getRequiredCreatorProfile(loginNext = "/dashboard") {
 
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
-    throw new Error("Maak eerst een creator-profiel aan.");
+    throw new Error("Maak eerst je maker-pagina aan.");
   }
 
   return { user, creator };
@@ -414,7 +414,7 @@ async function getRequiredCreator() {
     .eq("user_id", user.id);
 
   if (sellerLinkError) {
-    throw new Error("Kon creator-seller koppeling niet ophalen.");
+    throw new Error("Je verkoopgegevens konden niet worden geladen. Probeer het opnieuw.");
   }
 
   const preferredLink =
@@ -429,9 +429,9 @@ async function getRequiredCreator() {
     );
 
     if (!ensured.ok || !ensured.sellerId) {
+      console.error("Creator seller link failed", ensured.error);
       throw new Error(
-        ensured.error ??
-          "Creator seller ontbreekt. Neem contact op met Hobbysalon."
+        "Je verkopersaccount is nog niet klaar. Neem contact op met Hobbysalon."
       );
     }
 
@@ -807,7 +807,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
           code: error.code,
           message: error.message,
         });
-        fail(CREATOR_MAKER_PATH, "Opslaan van creator-profiel mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je maker-pagina kon niet worden opgeslagen.");
       }
 
       const domainSyncError = await syncCreatorDomains(
@@ -816,7 +816,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         supabase
       );
       if (domainSyncError) {
-        fail(CREATOR_MAKER_PATH, "Opslaan van hobby-domeinen mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je hobby's konden niet worden opgeslagen.");
       }
     } else {
       const { data: insertedRows, error } = await supabase
@@ -830,7 +830,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
           code: error?.code,
           message: error?.message,
         });
-        fail(CREATOR_MAKER_PATH, "Aanmaken van creator-profiel mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je maker-pagina kon niet worden aangemaakt.");
       }
 
       const domainSyncError = await syncCreatorDomains(
@@ -839,7 +839,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         supabase
       );
       if (domainSyncError) {
-        fail(CREATOR_MAKER_PATH, "Opslaan van hobby-domeinen mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je hobby's konden niet worden opgeslagen.");
       }
     }
 
@@ -853,7 +853,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         userId: user.id,
         message: roleSyncError,
       });
-      fail(CREATOR_MAKER_PATH, "Creator-rol kon niet worden opgeslagen.");
+      fail(CREATOR_MAKER_PATH, "Je rol kon niet worden opgeslagen.");
     }
 
     revalidatePath("/dashboard");
@@ -861,7 +861,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     revalidatePath("/dashboard/pagina");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
-    ok(CREATOR_MAKER_PATH, "Creator-profiel opgeslagen.");
+    ok(CREATOR_MAKER_PATH, "Maker-pagina opgeslagen.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1578,7 +1578,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     if (productType !== "handmade" && productType !== "destash") {
       fail(
         returnPath,
-        "Voor maker-plaatsingen is enkel type 'handmade' of 'destash' toegestaan."
+        "Kies als soort ‘Zelf gemaakt’ of ‘Overschot’."
       );
     }
     if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
@@ -1634,10 +1634,8 @@ export async function createProductAction(formData: FormData): Promise<void> {
       .single();
 
     if (error || !createdProduct) {
-      fail(
-        returnPath,
-        `Plaatsing aanmaken mislukt. ${error?.message ?? ""}`.trim()
-      );
+      console.error("Create product failed", error);
+      fail(returnPath, "Creatie aanmaken mislukt. Probeer het later opnieuw.");
     }
 
     if (galleryUrls.length > 0) {
@@ -1660,14 +1658,14 @@ export async function createProductAction(formData: FormData): Promise<void> {
     ok(
       successPathAfterCreate(returnPath, "/dashboard/products", createdProduct.id),
       isActive
-        ? "Plaatsing online. Bezoekers kunnen je contacteren via de productpagina."
-        : "Plaatsing opgeslagen als concept. Zet ze op actief om te publiceren."
+        ? "Creatie online. Bezoekers kunnen je contacteren via de productpagina."
+        : "Creatie opgeslagen als concept. Zet ze op actief om te publiceren."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
       returnPath,
-      error instanceof Error ? error.message : "Plaatsing aanmaken mislukt."
+      error instanceof Error ? error.message : "Creatie aanmaken mislukt."
     );
   }
 }
@@ -1755,7 +1753,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       if (productType !== "handmade") {
         fail(
           returnPath,
-          "Medusa creator-producten ondersteunen momenteel enkel type 'handmade'."
+          "Voor producten in je webshop kan je alleen ‘Zelf gemaakt’ kiezen."
         );
       }
 
@@ -1795,10 +1793,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       });
 
       if (!result.ok) {
-        fail(
-          returnPath,
-          result.error ?? "Product bijwerken via Medusa mislukt."
-        );
+        console.error("Creator product update failed", result.error);
+        fail(returnPath, "Product bijwerken mislukt. Probeer het later opnieuw.");
       }
 
       revalidatePath("/dashboard/products");
@@ -1840,7 +1836,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail(returnPath, "Plaatsing bijwerken mislukt.");
+      fail(returnPath, "Creatie bijwerken mislukt.");
     }
 
     if (galleryUrls.length > 0) {
@@ -1870,7 +1866,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok(returnPath, "Plaatsing bijgewerkt.");
+    ok(returnPath, "Creatie bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1897,10 +1893,8 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
         isActive: false,
       });
       if (!result.ok) {
-        fail(
-          returnPath,
-          result.error ?? "Product depubliceren via Medusa mislukt."
-        );
+        console.error("Creator product unpublish failed", result.error);
+        fail(returnPath, "Product depubliceren mislukt. Probeer het later opnieuw.");
       }
     }
 
@@ -1914,12 +1908,12 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail(returnPath, "Plaatsing depubliceren mislukt.");
+      fail(returnPath, "Creatie depubliceren mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok(returnPath, "Plaatsing gedeactiveerd.");
+    ok(returnPath, "Creatie gedeactiveerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1944,10 +1938,8 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
         medusaProductId,
       });
       if (!result.ok) {
-        fail(
-          returnPath,
-          result.error ?? "Product verwijderen via Medusa mislukt."
-        );
+        console.error("Creator product delete failed", result.error);
+        fail(returnPath, "Product verwijderen mislukt. Probeer het later opnieuw.");
       }
     }
 
@@ -1979,7 +1971,8 @@ export async function completeCreatorOrderAction(formData: FormData): Promise<vo
     const orderId = parseRequiredString(formData, "order_id");
     const result = await completeCreatorOrder(sellerId, orderId);
     if (!result.ok) {
-      fail("/dashboard/orders", result.error ?? "Order afronden mislukt.");
+      console.error("Complete order failed", result.error);
+      fail("/dashboard/orders", "Bestelling afronden mislukt. Probeer het later opnieuw.");
     }
 
     revalidatePath("/dashboard/orders");
@@ -1999,7 +1992,8 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
     const orderId = parseRequiredString(formData, "order_id");
     const result = await cancelCreatorOrder(sellerId, orderId);
     if (!result.ok) {
-      fail("/dashboard/orders", result.error ?? "Order annuleren mislukt.");
+      console.error("Cancel order failed", result.error);
+      fail("/dashboard/orders", "Bestelling annuleren mislukt. Probeer het later opnieuw.");
     }
 
     revalidatePath("/dashboard/orders");
@@ -3105,13 +3099,13 @@ export async function purchaseSpotlightBoostFormAction(
     });
 
     if (!result.ok) {
-      fail(CREATOR_MAKER_PATH, result.error ?? "Spotlight aankoop mislukt.");
+      fail(CREATOR_MAKER_PATH, result.error ?? "Uitlichten mislukt.");
     }
 
     revalidatePath("/profile");
 
     revalidatePath("/dashboard/pagina");
-    ok(CREATOR_MAKER_PATH, "Spotlight geactiveerd.");
+    ok(CREATOR_MAKER_PATH, "Je aanbod wordt nu uitgelicht.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -3136,7 +3130,7 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
       fail("/dashboard/products", "Meld je eerst aan.");
     }
     if (!(await isModerator(user.id))) {
-      fail("/dashboard/products", "Alleen moderators kunnen credits handmatig toekennen.");
+      fail("/dashboard/products", "Alleen moderators kunnen tegoed handmatig toekennen.");
     }
 
     const targetCreatorId = parseRequiredString(formData, "creator_id");
@@ -3145,7 +3139,7 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
 
     const targetCreator = await getCreatorById(targetCreatorId);
     if (!targetCreator) {
-      fail("/dashboard/products", "Creator niet gevonden.");
+      fail("/dashboard/products", "Maker niet gevonden.");
     }
 
     const supabase = createPlatformClient();
@@ -3157,7 +3151,7 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
       .maybeSingle();
 
     if (!pack) {
-      fail("/dashboard/products", "Creditpakket niet gevonden.");
+      fail("/dashboard/products", "Tegoedpakket niet gevonden.");
     }
 
     const result = await addCredits(targetCreatorId, pack.credits, "manual_adjustment", {
@@ -3167,13 +3161,13 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
     });
 
     if (!result.ok) {
-      fail("/dashboard/products", result.error ?? "Credits toevoegen mislukt.");
+      fail("/dashboard/products", result.error ?? "Tegoed toevoegen mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     ok(
       "/dashboard/products",
-      `${pack.credits} credits handmatig toegekend aan ${targetCreator.display_name} (${pack.name}).`
+      `${pack.credits} tegoedpunten handmatig toegekend aan ${targetCreator.display_name} (${pack.name}).`
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;

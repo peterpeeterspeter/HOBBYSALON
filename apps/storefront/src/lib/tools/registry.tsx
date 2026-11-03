@@ -369,7 +369,7 @@ const TOOLS: ToolEntry[] = [
   },
   {
     slug: "deadline-planner",
-    title: "Deadline-planner",
+    title: "Deadlineplanner",
     description:
       "Klaar voor Kerstmis? Hoeveel rijen per dag nodig?",
     category: "planning",
@@ -414,7 +414,7 @@ const TOOLS: ToolEntry[] = [
   },
   {
     slug: "granny-square-planner",
-    title: "Granny square planner",
+    title: "Planner voor granny squares",
     description:
       "Hoeveel squares en border voor een deken van X bij Y cm?",
     category: "haken",

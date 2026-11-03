@@ -23,7 +23,7 @@ async function requireCreatorForCheckout(): Promise<{ id: string }> {
   }
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
-    fail("Maak eerst je creator-profiel aan.");
+    fail("Maak eerst je maker-pagina aan.");
   }
   return creator;
 }
@@ -38,7 +38,7 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
   const creator = await requireCreatorForCheckout();
   const packCode = formData.get("pack_code")?.toString()?.trim();
   if (!packCode) {
-    fail("Ongeldig creditpakket.");
+    fail("Ongeldig tegoedpakket.");
   }
 
   const supabase = createPlatformClient();
@@ -50,7 +50,7 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
     .maybeSingle();
 
   if (!pack) {
-    fail("Creditpakket niet gevonden.");
+    fail("Tegoedpakket niet gevonden.");
   }
 
   const stripe = getStripeClient();
@@ -69,8 +69,8 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
             currency: pack.currency_code.toLowerCase(),
             unit_amount: pack.price_cents,
             product_data: {
-              name: `Hobbysalon listing credits — ${pack.name}`,
-              description: `${pack.credits} credits`,
+              name: `Hobbysalon advertentietegoed — ${pack.name}`,
+              description: `${pack.credits} tegoedpunten`,
             },
           },
           quantity: 1,

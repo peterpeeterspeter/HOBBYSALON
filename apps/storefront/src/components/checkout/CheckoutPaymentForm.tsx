@@ -100,16 +100,17 @@ function PaymentFormInner({
           options={{ layout: "tabs" }}
           onLoadError={(e) => {
             const err = (e as { error?: { message?: string; type?: string } }).error;
-            const msg =
-              err?.message ??
-              "Betalingselement kon niet worden geladen. Controleer de Stripe-configuratie (zelfde account voor backend en storefront).";
+            const msg = err?.message ?? "";
             const isTerminal =
-              typeof msg === "string" &&
-              (msg.includes("terminal state") || msg.includes("terminale status"));
+              msg.includes("terminal state") || msg.includes("terminale status");
             if (process.env.NODE_ENV === "development") {
               console.error("[PaymentElement loaderror]", err ?? e);
             }
-            setLoadError(isTerminal ? "De vorige betalingssessie is verlopen. Klik op Opnieuw laden." : msg);
+            setLoadError(
+              isTerminal
+                ? "De vorige betaling is verlopen. Klik op Opnieuw laden."
+                : "De betaling kon niet worden geladen. Probeer het later opnieuw."
+            );
             if (isTerminal && onTerminalError) {
               onTerminalError();
             }

@@ -85,7 +85,7 @@ export default async function DashboardOrdersPage({ searchParams }: Props) {
       {!sellerId ? (
         <EmptyState
           title="Geen winkel gekoppeld"
-          description="Koppel eerst je verkopersprofiel via het Verkopersportaal of maak een creator-shop aan om bestellingen te zien."
+          description="Koppel eerst je verkopersprofiel via het Verkopersportaal of open je eigen winkel om bestellingen te zien."
         />
       ) : orders.length === 0 ? (
         <EmptyState

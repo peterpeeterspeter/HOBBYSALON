@@ -30,7 +30,7 @@ export const REGISTRATION_INTEREST_OPTIONS: Array<{
   },
   {
     value: "handmade",
-    label: "Handmade creaties",
+    label: "Zelfgemaakte creaties",
     description: "Ontdek unieke creaties van lokale makers.",
   },
   {
