@@ -150,9 +150,10 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
     id: "maker",
     title: "Maker — 3 gratis advertenties, daarna tegoed",
     description:
-      "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
+      "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
     features: [
       "Eerste 3 advertenties gratis",
+      "+3 gratis per uitgenodigde vriend, tot 15 extra",
       "Tot 10 extra met tegoed",
       "Geen commissie op je verkoop",
       "Uitlichten met extra tegoed",
@@ -196,7 +197,7 @@ export const PRICING_ROUTE_CARDS: PricingRouteCard[] = [
       SHOP_PRICING_EXAMPLE,
       SHOP_PAYMENT_PROVIDER_NOTE,
       "Productcatalogus met varianten en voorraad",
-      "Checkout, orderbeheer en dagelijkse uitbetaling",
+      "Afrekenen, bestellingen beheren en dagelijkse uitbetaling",
       "Premium zichtbaarheid en analyses: binnenkort",
     ],
     href: "/voor-winkels",
@@ -213,7 +214,7 @@ export const PRICING_COMPARISON_ROWS: PricingComparisonRow[] = [
   },
   {
     audience: "Maker",
-    now: "Gratis profiel en je eerste 3 advertenties gratis",
+    now: "Gratis profiel, je eerste 3 advertenties gratis en 3 extra per uitgenodigde vriend",
     expansion: "Tot 10 extra advertenties en uitlichten met tegoed",
     benefit:
       "Meer werk tegelijk aanbieden en geselecteerde advertenties tijdelijk hoger in de overzichten",
@@ -316,7 +317,7 @@ export const P2P_MAKER_OFFER: PublicPricingOffer = {
   periodLabel: "daarna tot 10 extra met tegoed · geen commissie",
   status: "confirmed",
   description:
-    "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
+    "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
   features: [
     "Eerste 3 advertenties gratis",
     "Tot 10 extra met tegoed",
@@ -368,7 +369,7 @@ export const HOBBYBEURZEN_OFFER: PublicPricingOffer = {
   ],
   href: "/register/creator?focus=organizer",
   ctaLabel: "Bespreek een eventpagina",
-  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
+  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog niet online betalen.",
 };
 
 export const MAKERS_MARKET_OFFER: PublicPricingOffer = {
@@ -390,7 +391,7 @@ export const MAKERS_MARKET_OFFER: PublicPricingOffer = {
   ],
   href: "/register/creator?focus=organizer",
   ctaLabel: "Bespreek een eventpagina",
-  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog geen checkout.",
+  finePrint: "Pilotprijs — registreren en aanbod bekijken, nog niet online betalen.",
 };
 
 export const SUPPLIER_OFFER: PublicPricingOffer = {
@@ -405,7 +406,7 @@ export const SUPPLIER_OFFER: PublicPricingOffer = {
     SHOP_PRICING_EXAMPLE,
     SHOP_PAYMENT_PROVIDER_NOTE,
     "Productcatalogus met varianten en voorraad",
-    "Checkout, orderbeheer en dagelijkse uitbetaling",
+    "Afrekenen, bestellingen beheren en dagelijkse uitbetaling",
     "Premium zichtbaarheid en analyses: binnenkort",
   ],
   href: "/register/merchant",
@@ -562,6 +563,7 @@ export const MAKERS_PAGE = {
       "Gratis profiel",
       "Geen btw-nummer nodig bij aanmaken",
       "Eerste 3 advertenties gratis",
+      "+3 gratis per uitgenodigde vriend, tot 15 extra",
       "Tot 10 extra met tegoed",
       "Geen commissie op je verkoop",
       "Je regelt de verkoop rechtstreeks met je koper",
@@ -817,7 +819,7 @@ export const MAKERS_FAQ: PricingFaqItem[] = [
 export const SUPPLIER_FAQ: PricingFaqItem[] = [
   {
     question: "Gaat de klant naar mijn eigen webshop?",
-    answer: "Nee. Verkoop verloopt via Hobbysalon checkout.",
+    answer: "Nee. Je klant rekent af op Hobbysalon.",
   },
   {
     question: "Wat is de commissie?",

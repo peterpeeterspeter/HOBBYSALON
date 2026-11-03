@@ -83,6 +83,10 @@ vi.mock("./listing-credits", () => ({
   getEventCreditCost: (_c: unknown, _t: unknown) => 1,
 }));
 
+vi.mock("@/lib/referrals/referrals", () => ({
+  getFreeMakerListingsForCreator: async () => 3,
+}));
+
 vi.mock("./ranking", () => ({
   createVisibilityBoost: async (input: {
     entityType: string;

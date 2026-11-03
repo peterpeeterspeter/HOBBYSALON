@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getFreeMakerListingsForCreator } from "@/lib/referrals/referrals";
 import type { Creator } from "@/types/platform";
 import {
   canUseExternalBookingLink,
@@ -174,11 +175,14 @@ export async function enforceHandmadePublishCredits(
 
   const entitlements = await getCreatorCommercialEntitlements(creatorId, creatorTypes);
   const allowance = getHandmadeListingAllowance(entitlements);
-  const activeCount = await countActiveHandmadeProducts(creatorId);
+  const [activeCount, freeListings] = await Promise.all([
+    countActiveHandmadeProducts(creatorId),
+    allowance.usesCredits ? getFreeMakerListingsForCreator(creatorId) : Promise.resolve(0),
+  ]);
   const check = await canCreateHandmadeListing(
     creatorId,
     allowance.usesCredits,
-    allowance.includedFree,
+    allowance.usesCredits ? freeListings : allowance.includedFree,
     activeCount
   );
 
@@ -186,7 +190,7 @@ export async function enforceHandmadePublishCredits(
     return { ok: false, error: check.reason };
   }
 
-  if (allowance.usesCredits) {
+  if (allowance.usesCredits && !check.free) {
     const result = await consumeCredits(
       creatorId,
       LISTING_CREDIT_COSTS.handmadeListing,

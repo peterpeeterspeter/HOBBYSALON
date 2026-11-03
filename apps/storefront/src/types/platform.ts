@@ -253,6 +253,12 @@ export type Article = {
   seo_description: string | null;
   created_at: string;
   updated_at: string;
+  /** Filter facets, synced from the metadata sidecar. */
+  content_kind?: string | null;
+  crafts?: string[];
+  techniques?: string[];
+  themes?: string[];
+  audience?: string[];
 };
 
 export type Project = {

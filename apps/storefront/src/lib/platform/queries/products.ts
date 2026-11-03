@@ -23,7 +23,8 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
 export async function listProductsByDomain(
   domainId: string,
-  productType?: "handmade" | "supply"
+  productType?: "handmade" | "supply",
+  limit?: number
 ): Promise<Product[]> {
   const supabase = createPlatformClient();
   let q = supabase
@@ -37,7 +38,9 @@ export async function listProductsByDomain(
     q = q.eq("product_type", productType);
   }
 
-  const { data, error } = await q.order("is_featured", { ascending: false });
+  q = q.order("is_featured", { ascending: false });
+  if (limit) q = q.limit(limit);
+  const { data, error } = await q;
 
   if (error) return [];
   return (data ?? []) as Product[];
@@ -52,6 +55,25 @@ export async function listProductsByCreator(creatorId: string): Promise<Product[
     .eq("is_active", true)
     .eq("status", "active")
     .order("is_featured", { ascending: false });
+
+  if (error) return [];
+  return (data ?? []) as Product[];
+}
+
+export async function listProductsByCategory(
+  categoryId: string,
+  limit = 12
+): Promise<Product[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("category_id", categoryId)
+    .eq("is_active", true)
+    .eq("status", "active")
+    .order("is_featured", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) return [];
   return (data ?? []) as Product[];

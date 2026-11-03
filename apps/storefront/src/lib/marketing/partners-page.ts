@@ -36,9 +36,10 @@ export const PARTNERS_PAGE = {
       role: "Maker",
       priceLabel: "3 gratis advertenties, daarna tegoed",
       description:
-        "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
+        "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
       features: [
         "Eerste 3 advertenties gratis",
+        "+3 gratis per uitgenodigde vriend, tot 15 extra",
         "Tot 10 extra met tegoed",
         "Geen commissie op je verkoop",
         "Uitlichten met extra tegoed",

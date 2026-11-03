@@ -5,6 +5,7 @@ import { exactEurVariantPrice } from "@/lib/commerce/variant-price";
 import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard, ProjectCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { ProductBuyCard } from "@/components/product/ProductBuyCard";
+import { MobileBuyBar } from "@/components/product/MobileBuyBar";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageLayout } from "@/components/layout/page-layout";
 import { AspectImage } from "@/components/ui/aspect-image";
@@ -99,7 +100,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
   ];
 
   return (
-    <PageLayout breadcrumbs={breadcrumbs} size="wide" className="pb-16 md:pb-24">
+    <PageLayout breadcrumbs={breadcrumbs} size="wide" className="pb-32 md:pb-24">
       <JsonLd data={productJsonLd} />
 
       {/* Product: gallery left, info and buy card right */}
@@ -159,6 +160,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
             )}
           </header>
 
+          <div id="bestellen" className="scroll-mt-24">
           <ProductBuyCard
             product={product}
             creator={creator}
@@ -167,8 +169,18 @@ export default async function ProductPage({ params, searchParams }: Props) {
             selectedVariantId={selectedVariantId}
             isFavorite={productIsFavorite}
           />
+          </div>
         </div>
       </div>
+
+      <MobileBuyBar
+        title={product.title}
+        label={
+          product.product_type === "supply" || product.medusa_product_id
+            ? "Bestellen"
+            : "Contacteer de maker"
+        }
+      />
 
       {/* Details: full width below the product */}
       {(product.description || creator) && (
@@ -193,6 +205,18 @@ export default async function ProductPage({ params, searchParams }: Props) {
             </section>
           )}
         </div>
+      )}
+
+      {data.similarProducts.length > 0 && (
+        <EntityLinkBlock
+          title="Dit product vind je vast ook wel leuk"
+          isEmpty={false}
+          columns={4}
+        >
+          {data.similarProducts.map((similar) => (
+            <ProductCard key={similar.id} product={similar} />
+          ))}
+        </EntityLinkBlock>
       )}
 
       {data.relatedWorkshops.length > 0 && (

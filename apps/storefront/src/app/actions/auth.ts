@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/session";
 import { turnstileErrorMessage } from "@/lib/auth/turnstile";
 import { createPlatformClient } from "@/lib/platform/client";
+import { readReferralCookie } from "@/lib/referrals/referrals";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
@@ -194,7 +195,7 @@ export async function registerAction(
     email,
     password,
     effectiveNextPath,
-    undefined,
+    await referralSignupMetadata(),
     captcha.token
   );
 
@@ -363,7 +364,7 @@ export async function registerMerchantAction(
     email,
     password,
     requestedNextPath,
-    undefined,
+    await referralSignupMetadata(),
     captcha.token
   );
 
@@ -722,4 +723,10 @@ export async function updatePasswordAction(
     defaultPath: "/profile",
   });
   redirect(redirectPath);
+}
+
+/** Sign up metadata with the invite code; the confirm trigger rewards it. */
+async function referralSignupMetadata(): Promise<Record<string, unknown> | undefined> {
+  const code = await readReferralCookie();
+  return code ? { referral_code: code } : undefined;
 }
