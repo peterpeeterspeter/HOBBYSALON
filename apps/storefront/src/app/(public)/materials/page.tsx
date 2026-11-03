@@ -8,26 +8,23 @@ import {
 } from "@/components/materials/ActiveFilterChips";
 import { MaterialsPagination } from "@/components/materials/MaterialsPagination";
 import { MaterialsHero } from "@/components/materials/MaterialsHero";
-import { MaterialsShortcutChips } from "@/components/materials/MaterialsShortcutChips";
-import { MaterialsCategoryNav } from "@/components/materials/MaterialsCategoryNav";
-import { MaterialsCatalogSidebar } from "@/components/materials/MaterialsCatalogSidebar";
+import { MaterialsCategoryBrowser } from "@/components/materials/MaterialsCategoryBrowser";
+import { MaterialsFilterPanel, type FilterGroup } from "@/components/materials/MaterialsFilterPanel";
 import { MaterialsCatalogToolbar } from "@/components/materials/MaterialsCatalogToolbar";
 import { MaterialsProductCard } from "@/components/materials/MaterialsProductCard";
 import { MaterialsAfterResults } from "@/components/materials/MaterialsAfterResults";
 import {
   MATERIALS_PRICE_BAND_OPTIONS,
-  MATERIALS_SHORTCUTS,
-  resolveCategoryChipIds,
   resolveMaterialsPriceBand,
   sanitizeAgendaSearchQuery,
 } from "@/lib/materials/materials-catalog-helpers";
 import { listLatestArticles } from "@/lib/platform/queries/articles";
 import {
   listMaterialsCatalog,
-  listMaterialsDomainOptions,
-  listMaterialsSellerOptions,
+  listMaterialsFacets,
   listSupplyCategoryOptions,
   type MaterialsCatalogItem,
+  type MaterialsFacetCount,
 } from "@/lib/platform/queries/products";
 import { listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import {
@@ -150,25 +147,21 @@ export default async function MaterialsMarketplacePage({
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [allCategories, sellerOptions, domainOptions] = await Promise.all([
-    listSupplyCategoryOptions(),
-    listMaterialsSellerOptions({ catalog_scope: MATERIALS_PAGE_SCOPE }),
-    listMaterialsDomainOptions({ catalog_scope: MATERIALS_PAGE_SCOPE }),
-  ]);
-  const childCats = categoryId
-    ? allCategories.filter((c) => c.parent_id === categoryId)
-    : [];
+  const allCategories = await listSupplyCategoryOptions({ catalog: "material" });
+  // A sub link without its group still works: derive the group from the sub.
+  const subCategory = subId ? allCategories.find((c) => c.id === subId && c.parent_id) : undefined;
+  const groupId = categoryId ?? subCategory?.parent_id ?? undefined;
+  const childCats = groupId ? allCategories.filter((c) => c.parent_id === groupId) : [];
 
-  const categoryFilter =
-    subId
-      ? { category_id: subId }
-      : categoryId && childCats.length > 0
-        ? { category_parent_id: categoryId }
-        : categoryId
-          ? { category_id: categoryId }
-          : {};
+  const categoryFilter = subCategory
+    ? { category_id: subCategory.id }
+    : groupId && childCats.length > 0
+      ? { category_parent_id: groupId }
+      : groupId
+        ? { category_id: groupId }
+        : {};
 
-  const [catalogResult, tutorialArticles] = await Promise.all([
+  const [catalogResult, facets, tutorialArticles] = await Promise.all([
     listMaterialsCatalog({
       q,
       ...categoryFilter,
@@ -182,177 +175,114 @@ export default async function MaterialsMarketplacePage({
       limit: PAGE_SIZE,
       offset,
     }),
+    listMaterialsFacets({
+      catalog_scope: MATERIALS_PAGE_SCOPE,
+      group_id: groupId,
+      sub_id: subCategory?.id,
+      domain_id: domainId,
+      creator_id: sellerId,
+      price_min_cents: priceBand?.minCents,
+      price_max_cents: priceBand?.maxCents,
+      featured,
+      q,
+    }),
     listLatestArticles(3),
   ]);
 
-  const { products, totalCount, categoryIdsWithSupply } = catalogResult;
+  const { products, totalCount } = catalogResult;
   const productsWithPrices = await enrichPagePrices(products);
   const hasNextPage = offset + PAGE_SIZE < totalCount;
 
-  const rootCategories = allCategories.filter((c) => !c.parent_id);
-  const orderedRoots =
-    rootCategories.length > 0
-      ? rootCategories
-      : allCategories.filter(
-          (c) => !allCategories.some((p) => p.id === c.parent_id)
-        );
-
-  const chipIds = resolveCategoryChipIds({
-    categoryIdsWithSupply,
-    selectedCategoryId: categoryId,
-    allCategoryIdsOrdered: orderedRoots.map((c) => c.id),
-  });
-  const navCategories =
-    chipIds.length > 0
-      ? orderedRoots.filter((c) => chipIds.includes(c.id))
-      : orderedRoots.slice(0, 12);
-
-  const baseForShortcuts = {
-    q,
-    domain: domainId,
-    seller: sellerId,
-    price: priceBand?.key,
-    featured: featured ? "1" : undefined,
-    sort: sort === "recommended" ? undefined : sort,
-  };
-
-  const shortcuts = MATERIALS_SHORTCUTS.map((shortcut) => {
-    const pool = [...navCategories, ...allCategories];
-    const match = pool.find((cat) =>
-      shortcut.nameIncludes.some((needle) =>
-        cat.name.toLowerCase().includes(needle)
-      )
-    );
-    if (!match) return null;
-    return {
-      label: shortcut.label,
-      href: buildMaterialsHref(baseForShortcuts, {
-        category: match.id,
-        page: undefined,
-      }),
-      active: categoryId === match.id,
-    };
-  }).filter(Boolean) as Array<{
-    label: string;
-    href: string;
-    active?: boolean;
-  }>;
-
   const current: Record<string, string | undefined> = {
     q,
-    category: categoryId,
-    sub: subId,
+    category: groupId,
+    sub: subCategory?.id,
     domain: domainId,
     seller: sellerId,
     price: priceBand?.key,
     featured: featured ? "1" : undefined,
     sort: sort === "recommended" ? undefined : sort,
   };
-
   const buildHref = (overrides: Record<string, string | undefined>) =>
-    buildMaterialsHref(current, overrides);
-  const hrefForCategory = (id?: string) =>
-    buildMaterialsHref(current, {
-      category: id,
-      sub: undefined,
-      page: undefined,
-    });
-  const hrefForSub = (id?: string) =>
-    buildMaterialsHref(current, { sub: id, page: undefined });
+    buildMaterialsHref(current, { page: undefined, ...overrides });
+  const hrefForGroup = (id?: string) => buildHref({ category: id, sub: undefined });
+  const hrefForSub = (id?: string) => buildHref({ sub: id });
   const hrefForPage = (target: number) =>
-    buildMaterialsHref(current, {
-      page: target > 1 ? String(target) : undefined,
-    });
+    buildMaterialsHref(current, { page: target > 1 ? String(target) : undefined });
 
+  const facet = (name: MaterialsFacetCount["facet"]) =>
+    facets
+      .filter((row) => row.facet === name && row.n > 0)
+      .sort((a, b) => (a.sort ?? 999) - (b.sort ?? 999) || b.n - a.n || (a.label ?? "").localeCompare(b.label ?? "", "nl-BE"));
+  const groupRows = facet("group");
+  const subRows = facet("sub");
+  const groups = groupRows.map((row) => ({ id: row.value, label: row.label ?? "", n: row.n }));
+  const activeGroupRow = groupId ? groupRows.find((row) => row.value === groupId) : undefined;
+  const activeGroupCategory = groupId ? allCategories.find((c) => c.id === groupId) : undefined;
+  const activeGroup = activeGroupCategory
+    ? { id: activeGroupCategory.id, label: activeGroupCategory.name, n: activeGroupRow?.n ?? 0 }
+    : null;
+  const subs = subRows.map((row) => ({ id: row.value, label: row.label ?? "", n: row.n }));
+
+  const filterGroups: FilterGroup[] = [
+    {
+      title: "Hobby",
+      options: facet("domain").map((row) => ({
+        value: row.value,
+        label: row.label ?? "",
+        n: row.n,
+        active: row.value === domainId,
+        href: buildHref({ domain: row.value === domainId ? undefined : row.value }),
+      })),
+    },
+    {
+      title: "Prijs",
+      options: MATERIALS_PRICE_BAND_OPTIONS.flatMap((band) => {
+        const row = facets.find((r) => r.facet === "price" && r.value === band.value);
+        if (!row || row.n === 0) return [];
+        const active = priceBand?.key === band.value;
+        return [{ value: band.value, label: band.label, n: row.n, active, href: buildHref({ price: active ? undefined : band.value }) }];
+      }),
+    },
+    {
+      title: "Winkel",
+      options: facet("seller")
+        .sort((a, b) => b.n - a.n || (a.label ?? "").localeCompare(b.label ?? "", "nl-BE"))
+        .map((row) => ({
+          value: row.value,
+          label: row.label ?? "",
+          n: row.n,
+          active: row.value === sellerId,
+          href: buildHref({ seller: row.value === sellerId ? undefined : row.value }),
+        })),
+    },
+  ].filter((group) => group.options.length > 1 || group.options.some((option) => option.active));
+  const featuredRow = facets.find((row) => row.facet === "featured");
+
+  const labelOf = (rows: MaterialsFacetCount[], id?: string) => rows.find((r) => r.value === id)?.label ?? undefined;
   const chips: FilterChip[] = [];
-  if (q) {
-    chips.push({
-      label: `Zoek: ${q}`,
-      removeHref: buildMaterialsHref(current, { q: undefined, page: undefined }),
-    });
-  }
-  if (categoryId) {
-    chips.push({
-      label:
-        allCategories.find((c) => c.id === categoryId)?.name ?? "Categorie",
-      removeHref: buildMaterialsHref(current, {
-        category: undefined,
-        sub: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  if (subId) {
-    chips.push({
-      label: allCategories.find((c) => c.id === subId)?.name ?? "Subcategorie",
-      removeHref: buildMaterialsHref(current, {
-        sub: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  if (domainId) {
-    chips.push({
-      label:
-        domainOptions.find((d) => d.value === domainId)?.label ?? "Hobby",
-      removeHref: buildMaterialsHref(current, {
-        domain: undefined,
-        page: undefined,
-      }),
-    });
-  }
-  if (sellerId) {
-    chips.push({
-      label:
-        sellerOptions.find((s) => s.value === sellerId)?.label ?? "Verkoper",
-      removeHref: buildMaterialsHref(current, {
-        seller: undefined,
-        page: undefined,
-      }),
-    });
-  }
+  if (q) chips.push({ label: `Zoek: ${q}`, removeHref: buildHref({ q: undefined }) });
+  if (activeGroup) chips.push({ label: activeGroup.label, removeHref: buildHref({ category: undefined, sub: undefined }) });
+  if (subCategory) chips.push({ label: subCategory.name, removeHref: buildHref({ sub: undefined }) });
+  if (domainId) chips.push({ label: labelOf(facets.filter((r) => r.facet === "domain"), domainId) ?? "Hobby", removeHref: buildHref({ domain: undefined }) });
+  if (sellerId) chips.push({ label: labelOf(facets.filter((r) => r.facet === "seller"), sellerId) ?? "Winkel", removeHref: buildHref({ seller: undefined }) });
   if (priceBand) {
     chips.push({
-      label:
-        MATERIALS_PRICE_BAND_OPTIONS.find((b) => b.value === priceBand.key)
-          ?.label ?? "Prijs",
-      removeHref: buildMaterialsHref(current, {
-        price: undefined,
-        page: undefined,
-      }),
+      label: MATERIALS_PRICE_BAND_OPTIONS.find((b) => b.value === priceBand.key)?.label ?? "Prijs",
+      removeHref: buildHref({ price: undefined }),
     });
   }
-  if (featured) {
-    chips.push({
-      label: "Uitgelicht",
-      removeHref: buildMaterialsHref(current, {
-        featured: undefined,
-        page: undefined,
-      }),
-    });
-  }
+  if (featured) chips.push({ label: "Uitgelicht", removeHref: buildHref({ featured: undefined }) });
 
-  const activeCategory = allCategories.find(
-    (c) => c.id === (subId ?? categoryId)
-  );
-  const workshops = activeCategory?.domain_id
-    ? (await listWorkshopsByDomain(activeCategory.domain_id)).slice(0, 4)
-    : [];
-
-  const sidebarCategories = (
-    navCategories.length > 0 ? navCategories : orderedRoots
-  ).map((c) => ({
-    value: c.id,
-    label: c.name,
-  }));
+  const workshops = domainId ? (await listWorkshopsByDomain(domainId)).slice(0, 4) : [];
 
   return (
     <>
       <MaterialsHero
         defaultQuery={params.q}
         hiddenFields={{
-          category: categoryId,
-          sub: subId,
+          category: groupId,
+          sub: subCategory?.id,
           domain: domainId,
           seller: sellerId,
           price: priceBand?.key,
@@ -361,52 +291,30 @@ export default async function MaterialsMarketplacePage({
         }}
       />
 
-      <div className="border-b border-[var(--border)] bg-[var(--section-alt)]">
-        <Container className="py-5 sm:py-6">
-          <MaterialsShortcutChips
-            shortcuts={shortcuts}
-            allHref={buildMaterialsHref(baseForShortcuts, {
-              category: undefined,
-              sub: undefined,
-              page: undefined,
-            })}
-          />
-        </Container>
-      </div>
+      <Container className="py-10 sm:py-12">
+        <MaterialsCategoryBrowser
+          groups={groups}
+          subs={subs}
+          activeGroup={activeGroup}
+          activeSubId={subCategory?.id}
+          hrefForGroup={hrefForGroup}
+          hrefForSub={hrefForSub}
+        />
 
-      <Container className="py-6 sm:py-8">
-        <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
-          <MaterialsCatalogSidebar
-            categoryOptions={sidebarCategories}
-            domainOptions={domainOptions}
-            sellerOptions={sellerOptions}
-            params={{
-              q,
-              category: categoryId,
-              sub: subId,
-              domain: domainId,
-              seller: sellerId,
-              price: priceBand?.key,
-              featured: featured ? "1" : undefined,
-              sort: sort === "recommended" ? undefined : sort,
-            }}
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+          <MaterialsFilterPanel
+            groups={filterGroups}
+            featured={
+              featuredRow
+                ? { n: featuredRow.n, active: featured, href: buildHref({ featured: featured ? undefined : "1" }) }
+                : null
+            }
+            activeCount={chips.length}
+            clearHref="/materials"
           />
 
           <div className="min-w-0 flex-1">
-            <MaterialsCategoryNav
-              categories={navCategories}
-              activeCategoryId={categoryId}
-              hrefForCategory={hrefForCategory}
-              subcategories={childCats}
-              activeSubId={subId}
-              hrefForSub={hrefForSub}
-            />
-
-            <MaterialsCatalogToolbar
-              totalCount={totalCount}
-              activeSort={sort}
-              buildHref={buildHref}
-            />
+            <MaterialsCatalogToolbar totalCount={totalCount} activeSort={sort} buildHref={buildHref} />
 
             <ActiveFilterChips chips={chips} clearHref="/materials" />
 
@@ -424,20 +332,12 @@ export default async function MaterialsMarketplacePage({
               </GridLayout>
             )}
 
-            <MaterialsPagination
-              page={page}
-              hasNextPage={hasNextPage}
-              hrefForPage={hrefForPage}
-            />
+            <MaterialsPagination page={page} hasNextPage={hasNextPage} hrefForPage={hrefForPage} />
 
             <MaterialsAfterResults
               workshops={workshops}
               articles={tutorialArticles}
-              workshopsHref={
-                activeCategory?.domain_id
-                  ? `/workshops?domain=${activeCategory.domain_id}`
-                  : "/workshops"
-              }
+              workshopsHref={domainId ? `/workshops?domain=${domainId}` : "/workshops"}
             />
           </div>
         </div>
