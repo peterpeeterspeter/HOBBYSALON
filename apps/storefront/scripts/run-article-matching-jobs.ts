@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolveSupabaseUrl } from "../src/lib/content/supabase-script-env";
 import { runArticleMatchingJobs, type MatchingRpc } from "../src/lib/content/article-matching-jobs";
 import type { CatalogRead } from "../src/lib/content/article-catalog-pipeline";
-import { createPrivateArticleSidecarReader, loadArticleSidecarPlanner, ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
+import { createPrivateArticleSidecarReader, loadArticleSidecarPlanner, readStoredArticleMetadataRows, ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
 
 type Args = {help:boolean;maxJobs:number;maxCatalogBatches:number;envFile?:string};
 export function parseWorkerArgs(argv: string[]): Args {
@@ -93,7 +93,11 @@ export async function main(argv = process.argv.slice(2), environment: Record<str
   const url = resolveSupabaseUrl(env);
   const key = env.SUPABASE_SERVICE_ROLE_KEY; // NEVER fall back to an anonymous key.
   if (!url || !key) throw new Error("Worker requires Supabase URL and service-role key");
-  const plan = await loadArticleSidecarPlanner(createPrivateArticleSidecarReader(url,key),manifestSha256);
+  // Article rows come from public.article_metadata when it has rows, so an
+  // in-place republish of the bucket file cannot break matching.
+  // Read only after the pinned manifest check passes.
+  const plan = await loadArticleSidecarPlanner(createPrivateArticleSidecarReader(url,key),manifestSha256,
+    async () => (await readStoredArticleMetadataRows(url,key)) ?? undefined);
   const result = await runArticleMatchingJobs({...createWorkerTransport(url,key),plan,maxJobs:args.maxJobs,maxCatalogBatches:args.maxCatalogBatches});
   console.log(JSON.stringify({...result,sidecarRelease:ARTICLE_SIDECAR_RELEASE.prefix,readScope:"service-role; pinned private sidecar; current article body; eligible catalog; existing links and all review decisions"}));
   if (result.failed || result.lost) process.exitCode = 1;

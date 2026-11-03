@@ -507,67 +507,117 @@ export const MAKERS_PAGE = {
   headline: "Verkoop je zelfgemaakte werk. Zonder commissie.",
   /** Short hero line (viewport budget) */
   heroSubheadline:
-    "Gratis profiel, drie gratis advertenties, geen commissie. Kopers nemen rechtstreeks contact met jou op.",
+    "Gratis profiel en drie gratis advertenties. Kopers nemen rechtstreeks contact met jou op, en wat je verkoopt houd je volledig zelf.",
   primaryCta: {
-    label: "Maak je makersprofiel",
+    label: "Maak je gratis makersprofiel",
     href: "/register/creator?focus=maker",
   },
-  secondaryCta: { label: "Alle prijzen", href: "/prijzen" },
-  intro:
-    "Maak gratis een makersprofiel aan en plaats je eerste drie advertenties zonder te betalen: voor je eigen creaties, of voor materiaal uit je voorraad dat je niet meer gebruikt. Je hoeft geen btw-nummer op te geven om een profiel aan te maken, en Hobbysalon neemt geen commissie op je verkoop. Geïnteresseerden nemen rechtstreeks contact met je op; wij staan niet tussen jou en je koper.",
-  howItWorks: {
+  heroProof: ["Geen commissie", "Geen abonnement", "Geen btw-nummer nodig"],
+  steps: {
     title: "Zo werkt het",
-    body: "Je plaatst een advertentie met foto's, beschrijving en vraagprijs. Wie interesse heeft, stuurt je een bericht via je profiel. Prijs, betaling en verzending spreek je onderling af, zoals je dat ook op een makers market zou doen. Wat je verkoopt, houd je volledig zelf.",
+    items: [
+      {
+        title: "Maak je profiel",
+        body: "Een naam, een foto en een paar zinnen over wat je maakt. Een btw-nummer heb je niet nodig.",
+      },
+      {
+        title: "Plaats je advertentie",
+        body: "Foto's, een beschrijving en een vraagprijs. Voor je eigen creaties of voor materiaal dat je niet meer gebruikt.",
+      },
+      {
+        title: "Een koper stuurt je een bericht",
+        body: "Je krijgt een e-mail bij elke aanvraag. Prijs, betaling en verzending spreek je samen af, zoals op een makersmarkt.",
+      },
+    ],
   },
   adTypes: {
-    title: "Twee soorten advertenties",
+    title: "Wat kun je verkopen?",
     items: [
       {
         title: "Zelfgemaakt",
-        body: "Je eigen creaties. Gehaakt, genaaid, gedraaid, geschilderd, gesoldeerd: alles wat je met de hand maakt.",
+        body: "Je eigen creaties. Gehaakt, genaaid, gedraaid, geschilderd of gesoldeerd: alles wat je met de hand maakt.",
       },
       {
         title: "Overschot",
-        body: "De wol die toch de verkeerde kleur bleek, de kast vol stofrestjes, kralen of gereedschap dat je niet meer gebruikt. Voor jou overschot, voor iemand anders precies wat die zocht.",
+        body: "De wol die de verkeerde kleur bleek, stofrestjes, kralen of gereedschap dat je niet meer gebruikt. Voor jou overschot, voor iemand anders precies wat die zocht.",
       },
     ],
-    note: "Deze markt is er voor particuliere hobbyisten, niet voor professionele verkopers. Je hoeft geen btw-nummer op te geven om een profiel aan te maken: je begint met een profiel en een foto. Dat houdt het aanbod persoonlijk, en het is meteen de reden dat kopers hier graag rondkijken.",
+    note: "Deze markt is er voor particuliere hobbyisten, niet voor professionele verkopers. Dat houdt het aanbod persoonlijk, en daarom kijken kopers hier graag rond.",
   },
-  freeStart: {
-    title: "Begin met drie gratis advertenties",
-    body: "Je profiel en je eerste drie advertenties kosten niets. Genoeg om uit te proberen of jouw werk hier zijn publiek vindt, zonder dat je vooraf iets uitgeeft.",
-  },
-  credits: {
-    title: "Uitbreiden met tegoed",
-    body: "Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met tegoed. Je betaalt per plaatsing, niet per maand: geen abonnement, geen vaste kost, en niets als je even niets te verkopen hebt. Ook het verlengen van een aflopende advertentie gaat met tegoed. Verleng je niet, dan verdwijnt de advertentie vanzelf en komt de plek weer vrij.",
-    boost:
-      "Met extra tegoed kun je een advertentie uitlichten. Die verschijnt dan hoger in de overzichten en bij de uitgelichte plaatsingen op relevante pagina's. Handig voor seizoenswerk of veel overschot dat snel weg moet.",
-    note: "De tegoedpakketten en tarieven volgen binnenkort.",
+  offer: {
+    title: "Wat kost het?",
+    free: {
+      label: "Gratis",
+      title: "Je begint zonder iets te betalen",
+      items: [
+        "Je profiel",
+        "Je eerste 3 advertenties",
+        "+3 gratis advertenties per vriend die je uitnodigt, tot 15 extra",
+      ],
+    },
+    paid: {
+      label: "Daarna",
+      title: "Je betaalt per plaatsing, met tegoed",
+      items: [
+        "Tot 10 extra advertenties met tegoed",
+        "Een advertentie verlengen of uitlichten kan ook met tegoed",
+        "Geen abonnement en geen vaste kost: niets als je even niets verkoopt",
+      ],
+      note: "De tegoedpakketten en tarieven volgen binnenkort.",
+    },
+    commission: "Op je verkoop rekent Hobbysalon nooit commissie.",
+    pricesLink: { label: "Bekijk alle prijzen", href: "/prijzen" },
   },
   why: {
     title: "Waarom hier en niet op een algemene marktplaats",
     items: [
       {
         title: "Een publiek dat handwerk kent",
-        body: "De bezoekers van Hobbysalon zijn zelf hobbyist. Ze weten wat merinowol kost, zien aan een foto of een naad netjes is afgewerkt, en zoeken gericht naar materiaal voor het project dat ze in gedachten hebben. Je hoeft niet uit te leggen waarom handwerk tijd kost. Dat weten ze.",
+        body: "De bezoekers van Hobbysalon zijn zelf hobbyist. Ze weten wat merinowol kost en zien aan een foto of een naad netjes is afgewerkt. Je hoeft niet uit te leggen waarom handwerk tijd kost.",
       },
       {
         title: "Je advertentie staat niet alleen",
         body: "Wie een tutorial over amigurumi leest of een haakworkshop bekijkt, kan bij jouw garen of jouw werk uitkomen.",
       },
+      {
+        title: "Een naam die mensen kennen",
+        body: "Hobbysalon organiseerde jarenlang de hobbybeurzen in de Nekkerhal, Antwerp Expo en Xpo Kortrijk. Dezelfde mensen, nu het hele jaar door open.",
+      },
     ],
   },
-  summary: {
-    title: "Kort samengevat",
-    items: [
-      "Gratis profiel",
-      "Geen btw-nummer nodig bij aanmaken",
-      "Eerste 3 advertenties gratis",
-      "+3 gratis per uitgenodigde vriend, tot 15 extra",
-      "Tot 10 extra met tegoed",
-      "Geen commissie op je verkoop",
-      "Je regelt de verkoop rechtstreeks met je koper",
-    ],
+  faqTitle: "Veelgestelde vragen",
+  faq: [
+    {
+      question: "Hoe krijg ik betaald?",
+      answer:
+        "Je spreekt de betaling rechtstreeks met je koper af, bijvoorbeeld via overschrijving of bij afhalen. Hobbysalon zit niet tussen jou en je koper en houdt niets in.",
+    },
+    {
+      question: "Wie regelt de verzending?",
+      answer:
+        "Jij en je koper. Je spreekt samen af of de koper het komt afhalen of dat je het opstuurt, en wie de verzendkosten betaalt.",
+    },
+    {
+      question: "Heb ik een btw-nummer nodig?",
+      answer: "Nee. Om een profiel aan te maken en te verkopen als particuliere hobbyist heb je geen btw-nummer nodig.",
+    },
+    {
+      question: "Wat gebeurt er na mijn 3 gratis advertenties?",
+      answer:
+        "Je kunt tot 10 extra advertenties plaatsen met tegoed. Je betaalt per plaatsing, zonder abonnement. Of je nodigt vrienden uit: per vriend die zich registreert, krijgen jullie allebei 3 extra gratis advertenties.",
+    },
+    {
+      question: "Hoe weet ik dat iemand interesse heeft?",
+      answer: "Elke aanvraag komt binnen als e-mail. Je ziet ze ook in je dashboard.",
+    },
+    {
+      question: "Kan ik ook materiaal verkopen dat ik niet meer gebruik?",
+      answer: "Ja. Dat heet overschot: garen, stof, kralen of gereedschap uit je eigen voorraad.",
+    },
+  ],
+  closing: {
+    title: "Begin vandaag met verkopen",
+    body: "Je profiel en je eerste drie advertenties zijn gratis. Je zit nergens aan vast.",
   },
 } as const;
 

@@ -21,7 +21,8 @@
     "check:article-sidecar": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/check-article-metadata-sidecar.ts",
     "import:free-crochet:articles": "node --experimental-strip-types scripts/import-free-crochet-patterns.ts",
     "import:ravelry:patterns": "node --experimental-strip-types scripts/import-ravelry-patterns.ts",
-    "sync:article-facets": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/sync-article-facets.ts"
+    "sync:article-facets": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/sync-article-facets.ts",
+    "sync:article-metadata": "node --experimental-strip-types --import ./scripts/test-resolver-register.mjs scripts/sync-article-metadata.ts"
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.11.3",

@@ -29,7 +29,7 @@ export default async function PatternsHubPage({ searchParams }: Props) {
   const filters = parseHubFilters(await searchParams);
   const [{ articles, total }, facets, domains] = await Promise.all([
     listArticleHub(true, filters),
-    listArticleFacetCounts(true),
+    listArticleFacetCounts(true, filters),
     listActiveDomains(),
   ]);
   const links = await listArticleDomainLinks(articles.map((article) => article.id));
@@ -81,7 +81,6 @@ export default async function PatternsHubPage({ searchParams }: Props) {
           results={results}
           total={total}
           facets={facets}
-          domains={domains.map((d) => ({ slug: d.slug, name: d.name }))}
         />
       </Container>
     </>

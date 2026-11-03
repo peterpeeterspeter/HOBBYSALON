@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {sidecarFixture} from './graph-sidecar-fixture.mjs';
-import {createArticleSidecarPlanner,createPrivateArticleSidecarReader,loadArticleSidecarPlanner} from '../../apps/storefront/src/lib/content/article-sidecar-matching.ts';
+import {createArticleSidecarPlanner,createPrivateArticleSidecarReader,loadArticleSidecarPlanner,readStoredArticleMetadataRows} from '../../apps/storefront/src/lib/content/article-sidecar-matching.ts';
 import {loadArticleExistingKeys} from '../../apps/storefront/src/lib/content/article-catalog-pipeline.ts';
 import {runArticleMatchingJobs,toArticleProposalPayload} from '../../apps/storefront/src/lib/content/article-matching-jobs.ts';
 
@@ -121,4 +121,29 @@ test('private Storage integration makes authenticated GETs only; verifies pinned
   f.files.set('article_metadata.jsonl',Buffer.from('tampered'));await assert.rejects(loadArticleSidecarPlanner(read,f.manifestSha256),/integrity mismatch/);
   const fail=createPrivateArticleSidecarReader('https://fixture.supabase.co','synthetic-local-key',async()=>{throw Error('synthetic-local-key sensitive response');});
   await assert.rejects(fail('manifest.json'),e=>e.message==='Private sidecar download failed');
+});
+test('database article rows survive an in-place republished metadata file; other pinned files stay checked',async()=>{
+  const f=sidecarFixture([article]);
+  const fetcher=async url=>new Response(f.files.get(String(url).split('v1-2026-10-26/')[1]),{status:200});
+  const read=createPrivateArticleSidecarReader('https://fixture.supabase.co','synthetic-local-key',fetcher);
+  f.files.set('article_metadata.jsonl',Buffer.from('republished in place'));
+  await assert.rejects(loadArticleSidecarPlanner(read,f.manifestSha256),/integrity mismatch/);
+  const planner=await loadArticleSidecarPlanner(read,f.manifestSha256,f.rows);
+  assert.equal((await planner(article,[product],new Set())).suggestions.length,1);
+  // Rows must still pass the fixed safety contract.
+  const {claim_scope,...unsafe}=f.rows[0];
+  await assert.rejects(loadArticleSidecarPlanner(read,f.manifestSha256,[unsafe]),/safety contract/);
+  // A changed schema file is still caught by the pinned manifest.
+  f.files.set('article_metadata.schema.json',Buffer.from('{}'));
+  await assert.rejects(loadArticleSidecarPlanner(read,f.manifestSha256,f.rows),/integrity mismatch/);
+});
+test('stored article rows: authenticated REST GET, paging, null on error or empty table',async()=>{
+  const calls=[];const rows=[{metadata:{a:1}},{metadata:{a:2}}];
+  const ok=async(url,options)=>{calls.push({url:String(url),options});return Response.json(rows);};
+  assert.deepEqual(await readStoredArticleMetadataRows('https://fixture.supabase.co','synthetic-local-key',ok),[{a:1},{a:2}]);
+  assert.ok(calls[0].url.startsWith('https://fixture.supabase.co/rest/v1/article_metadata?select=metadata&order=article_id&offset=0&limit=500'));
+  assert.equal(calls[0].options.method,'GET');assert.equal(calls[0].options.redirect,'error');
+  assert.equal(await readStoredArticleMetadataRows('https://fixture.supabase.co','k',async()=>new Response('',{status:400})),null);
+  assert.equal(await readStoredArticleMetadataRows('https://fixture.supabase.co','k',async()=>Response.json([])),null);
+  assert.equal(await readStoredArticleMetadataRows('https://fixture.supabase.co','k',async()=>{throw Error('down');}),null);
 });

@@ -94,8 +94,8 @@ export function createArticleSidecarPlanner(bundle: SidecarBundle): ArticleSugge
 }
 
 /** Load all declared files before any queue claim. Failed loads can be retried. */
-export async function loadArticleSidecarPlanner(read: SidecarReadFile, expectedManifestSha256: string = ARTICLE_SIDECAR_RELEASE.manifestSha256): Promise<ArticleSuggestionPlanner> {
-  const bundle = await loadArticleMetadataSidecar(read,{expectedManifestSha256});
+export async function loadArticleSidecarPlanner(read: SidecarReadFile, expectedManifestSha256: string = ARTICLE_SIDECAR_RELEASE.manifestSha256, articleRows?: unknown[] | (() => Promise<unknown[] | undefined>)): Promise<ArticleSuggestionPlanner> {
+  const bundle = await loadArticleMetadataSidecar(read,{expectedManifestSha256,articleRows});
   return createArticleSidecarPlanner(bundle);
 }
 
@@ -115,3 +115,34 @@ export function createPrivateArticleSidecarReader(supabaseUrl: string, key: stri
     return {data:{arrayBuffer:async () => bytes},error:null};
   },ARTICLE_SIDECAR_RELEASE.prefix);
 }
+
+/**
+ * Stored rows from public.article_metadata over authenticated REST GET.
+ * Returns null when the table is unreachable or empty; callers then fall
+ * back to the pinned file. Never logs bodies or credentials.
+ */
+export async function readStoredArticleMetadataRows(supabaseUrl: string, key: string, fetcher: typeof fetch = fetch): Promise<unknown[] | null> {
+  let base: URL;
+  try { base = new URL(supabaseUrl); } catch { return null; }
+  const rows: unknown[] = [];
+  try {
+    for (let offset = 0; ; offset += 500) {
+      const url = new URL(`${base.pathname.replace(/\/$/,"")}/rest/v1/article_metadata`,base.origin);
+      url.searchParams.set("select","metadata");
+      url.searchParams.set("order","article_id");
+      url.searchParams.set("offset",String(offset));
+      url.searchParams.set("limit","500");
+      const response = await fetcher(url,{method:"GET",headers:{apikey:key,Authorization:`Bearer ${key}`},redirect:"error",signal:AbortSignal.timeout(15000)});
+      if (!response.ok) return null;
+      const page: unknown = await response.json();
+      if (!Array.isArray(page)) return null;
+      for (const row of page) {
+        if (!row || typeof row !== "object" || !("metadata" in row)) return null;
+        rows.push((row as {metadata: unknown}).metadata);
+      }
+      if (page.length < 500) break;
+    }
+  } catch { return null; }
+  return rows.length ? rows : null;
+}
+

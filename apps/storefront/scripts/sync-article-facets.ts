@@ -1,18 +1,20 @@
 /**
- * Copy public filter facets from the pinned private sidecar into articles.
+ * Copy public filter facets from public.article_metadata into articles.
  * Writes only content_kind, crafts, techniques, themes, audience and the
- * sync stamp. A row is written only when the sidecar hash matches the
- * current body, so stale metadata never reaches the public pages.
+ * sync stamp. A row is written only when the stored hash matches the
+ * current body, so stale metadata never reaches the public pages. Rows
+ * without fresh metadata lose old facets.
+ *
+ * Usage: [--dry-run] [--env-file PATH]. Run `sync:article-metadata` first,
+ * or use it alone: it calls this step at the end.
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { createClient } from "@supabase/supabase-js";
-import {
-  articleBodySha256, createLocalSidecarReader, createStorageSidecarReader, loadArticleMetadataSidecar,
-} from "../src/lib/content/article-metadata-sidecar";
-import { ARTICLE_SIDECAR_RELEASE } from "../src/lib/content/article-sidecar-matching";
+import { articleBodySha256, checkArticleMetadataRow } from "../src/lib/content/article-metadata-sidecar";
+import { listStoredArticleMetadata } from "../src/lib/content/article-metadata-store";
 import { canonicalizeCorpus, facetsFromMetadata } from "../src/lib/content/article-facets";
 
 async function env(file?: string): Promise<Record<string, string | undefined>> {
@@ -28,25 +30,22 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (!url || !key) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   const client = createClient(url, key, { auth: { persistSession: false } });
 
-  // --bundle-dir reads a local copy of the release. The pinned manifest
-  // hash is still enforced, so only the exact release is accepted.
-  const dirIdx = argv.indexOf("--bundle-dir");
-  const bucket = client.storage.from(ARTICLE_SIDECAR_RELEASE.bucket);
-  const bundle = await loadArticleMetadataSidecar(
-    dirIdx >= 0
-      ? createLocalSidecarReader(path.resolve(argv[dirIdx + 1]))
-      : createStorageSidecarReader((p) => bucket.download(p), ARTICLE_SIDECAR_RELEASE.prefix),
-    { expectedManifestSha256: ARTICLE_SIDECAR_RELEASE.manifestSha256 },
-  );
-  const byId = new Map(bundle.articles.map((m) => [m.article_id, m]));
+  const stored = (await listStoredArticleMetadata(client))
+    .map(checkArticleMetadataRow)
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+  const byId = new Map(stored.map((m) => [m.article_id, m]));
   // Merge plural and inflection variants over the whole corpus first.
-  const canonical = canonicalizeCorpus(bundle.articles.map(facetsFromMetadata));
-  const facetsById = new Map(bundle.articles.map((m, i) => [m.article_id, canonical[i]]));
+  const canonical = canonicalizeCorpus(stored.map(facetsFromMetadata));
+  const facetsById = new Map(stored.map((m, i) => [m.article_id, canonical[i]]));
 
-  const stats = { sidecar: byId.size, written: 0, stale: 0, missing: 0, cleared: 0, failed: 0 };
+  const stats = { stored: byId.size, written: 0, stale: 0, missing: 0, cleared: 0, failed: 0 };
   const EMPTY = { content_kind: null, crafts: [], techniques: [], themes: [], audience: [], facets_source_sha256: null, facets_synced_at: null };
   for (let from = 0; ; from += 500) {
-    const { data, error } = await client.from("articles").select("id, body_markdown, facets_source_sha256").order("id").range(from, from + 499);
+    const { data, error } = await client
+      .from("articles")
+      .select("id, body_markdown, facets_source_sha256")
+      .order("id")
+      .range(from, from + 499);
     if (error) throw new Error("Article read failed");
     if (!data?.length) break;
     for (const row of data as { id: string; body_markdown: string | null; facets_source_sha256: string | null }[]) {
@@ -61,17 +60,17 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         }
         continue;
       }
-      if (!meta) continue;
       if (dryRun) { stats.written++; continue; }
       const { error: updateError } = await client.from("articles").update({
         ...facetsById.get(row.id)!,
-        facets_source_sha256: meta.source_sha256,
+        facets_source_sha256: meta!.source_sha256,
         facets_synced_at: new Date().toISOString(),
       }).eq("id", row.id);
       if (updateError) stats.failed++; else stats.written++;
     }
+    if (data.length < 500) break;
   }
-  console.log(JSON.stringify({ dryRun, datasetVersion: bundle.datasetVersion, ...stats }));
+  console.log(JSON.stringify({ step: "facets", dryRun, ...stats }));
   if (stats.failed) process.exitCode = 1;
 }
 

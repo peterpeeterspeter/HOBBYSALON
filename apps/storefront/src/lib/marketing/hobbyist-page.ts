@@ -1,55 +1,66 @@
 /**
- * Copy for /voor-hobbyisten — consumer discovery landing.
+ * Copy for /voor-hobbyisten: consumer discovery landing.
+ * Numbers are not written here; the page counts them live.
  */
 export const HOBBYIST_PAGE = {
   metaTitle: "Voor iedereen die graag iets moois maakt | Hobbysalon",
   metaDescription:
-    "Vind creatieve workshops, artikelen en patronen, plus meer dan 40 hobbytools. Bewaar wat je leuk vindt en maak automatisch een stappenplan. België en Nederland.",
+    "Vind creatieve workshops, patronen, uitleg en gratis hobbytools. Bewaar wat je leuk vindt en maak automatisch een stappenplan. België en Nederland.",
   headline: "Voor iedereen die graag iets moois maakt",
   /** Short hero line (viewport budget) */
   heroSubheadline:
-    "Workshops, materialen, makers en events bij elkaar. Rustig ontdekken, zonder twintig tabbladen.",
-  primaryCta: { label: "Vind een workshop", href: "/workshops" },
-  secondaryCta: { label: "Bekijk creatieve events", href: "/agenda" },
-  intro:
-    "Haken, kaarten maken, breien, naaien, schilderen, sieraden: wat je ook doet, hier vind je alles bij elkaar. Workshops in je buurt, materialen van betrouwbare winkels, werk van andere makers en de agenda van creatieve evenementen.",
+    "Workshops, patronen, materialen en makers bij elkaar. Rustig ontdekken, zonder twintig tabbladen.",
+  /** One primary action on the whole page: pick a hobby. */
+  primaryCta: { label: "Kies je hobby", href: "#hobby" },
+  secondaryCta: { label: "Maak een gratis account", href: "/register" },
+  hobbyPicker: {
+    title: "Waar heb je zin in?",
+    body: "Kies je hobby. Je ziet meteen patronen, uitleg, workshops en materialen die erbij horen.",
+    ideasLabel: (n: number) => (n === 1 ? "1 idee" : `${n} ideeën`),
+  },
   pain: {
     title: "Herken je dit?",
     items: [
       "Je ziet iets moois voorbijkomen op Facebook, maar je vindt het patroon nergens meer terug.",
-      "Je zou graag een workshop volgen: een rustige, waar je niet de enige beginner bent, maar je weet niet waar je moet zoeken.",
-      "Je hebt het garen, maar niet de uitleg. Of de uitleg, maar geen idee waar je dat specifieke garen koopt.",
+      "Je wilt een rustige workshop volgen, waar je niet de enige beginner bent. Maar je weet niet waar je moet zoeken.",
+      "Je hebt het garen, maar niet de uitleg. Of de uitleg, maar je weet niet waar je dat garen koopt.",
       "Je wilt eerst gewoon rondkijken, zonder dat er meteen iets van je gevraagd wordt.",
     ],
     closer: "Daar is Hobbysalon voor.",
   },
   discover: {
-    title: "Alles op één plek",
+    title: "Alles op één plek, en het hangt samen",
+    body: "Lees je een uitleg over een gehaakte deken, dan staat de wol erbij en de winkel die hem verkoopt. Wil je het liever van iemand leren, dan zie je welke workshop dat geeft.",
     items: [
       {
         title: "Workshops",
-        body: "Creatieve workshops in België en Nederland, per techniek en per regio. Je ziet vooraf wat je maakt, wat het kost en wat je meebrengt.",
+        body: "Creatieve workshops in België en Nederland. Je ziet vooraf wat je maakt, wat het kost en wat je meebrengt.",
         href: "/workshops",
+        cta: "Naar workshops",
+      },
+      {
+        title: "Patronen en uitleg",
+        body: "Patronen, tutorials en projectgidsen, geschreven door mensen die het zelf maken.",
+        href: "/patronen",
+        cta: "Naar patronen",
       },
       {
         title: "Materialen",
-        body: "Van gespecialiseerde winkels tot brede assortimenten. Garen, papier, kralen, stof, gereedschap, met voorraad en verzending gewoon zichtbaar.",
+        body: "Garen, papier, kralen, stof en gereedschap van gespecialiseerde winkels, met voorraad en verzending gewoon zichtbaar.",
         href: "/materials",
+        cta: "Naar materialen",
       },
       {
         title: "Makersmarkt",
-        body: "Handgemaakt werk van particuliere makers, en hun overschotten aan materiaal. Vaak precies dat ene kleurtje dat je nog zocht.",
+        body: "Handgemaakt werk van makers en hun overschot aan materiaal. Vaak precies dat ene kleurtje dat je nog zocht.",
         href: "/creators",
+        cta: "Naar de makers",
       },
       {
         title: "Agenda",
-        body: "Hobbybeurzen en makers markets, met datum, locatie en wie er komt te staan.",
+        body: "Hobbybeurzen en makersmarkten, met datum, plaats en wie er staat.",
         href: "/agenda",
-      },
-      {
-        title: "Artikelen en patronen",
-        body: "Ruim 900 tutorials, patronen en projectgidsen, geschreven door mensen die het zelf maken.",
-        href: "/artikelen",
+        cta: "Naar de agenda",
       },
     ],
   },
@@ -71,25 +82,19 @@ export const HOBBYIST_PAGE = {
       },
     ],
     cta: { label: "Naar artikelen en patronen", href: "/artikelen" },
-    secondaryCta: { label: "Mijn projecten", href: "/profile/projects" },
   },
   hobbyTools: {
-    title: "Hobbytools",
-    kicker: "Meer dan 40 tools",
-    body: "Gratis calculators voor stof, garen, quilt, kaarsenwas, hars, kralen en papier. Je vult in wat je wilt maken, en je ziet meteen hoeveel materiaal je nodig hebt. Werkt in je browser, zonder account.",
+    title: "Gratis hobbytools",
+    body: (n: number) =>
+      `${n} rekenhulpen voor stof, garen, quilts, kaarsenwas, hars, kralen en papier. Vul in wat je wilt maken en zie meteen hoeveel materiaal je nodig hebt. Zonder account.`,
     cta: { label: "Alle hobbytools", href: "/tools" },
-  },
-  connected: {
-    title: "En het hangt allemaal samen",
-    body: "Dat is het verschil met los zoeken. Lees je een tutorial over een gehaakte deken, dan staat de wol die je nodig hebt eronder, en de winkel die hem verkoopt. Wil je de techniek liever van iemand leren, dan zie je welke workshop die geeft. En wie graag eens een dag rondsnuffelt, vindt in de agenda de beurs waar die makers samenkomen.",
-    note: "Van eerste idee tot afgewerkt project, zonder dat je zelf de puzzel hoeft te leggen.",
   },
   howItWorks: {
     title: "Hoe het werkt",
     steps: [
       {
         title: "Kies een hobby of zoek op plaats",
-        body: "Ga uit van je techniek (haken, kaarten maken, naaien) of kijk gewoon wat er in je buurt te doen is.",
+        body: "Ga uit van je techniek, zoals haken, kaarten maken of naaien. Of kijk wat er in je buurt te doen is.",
       },
       {
         title: "Ontdek workshops, materialen of events",
@@ -100,7 +105,6 @@ export const HOBBYIST_PAGE = {
         body: "Met een gratis account houd je favorieten bij. Uit een bewaard patroon of artikel kun je meteen een project met stappenplan starten.",
       },
     ],
-    cta: { label: "Naar materialen", href: "/materials" },
   },
   why: {
     title: "Waarom Hobbysalon",
@@ -143,7 +147,7 @@ export const HOBBYIST_PAGE = {
     {
       question: "Wat zijn Hobbytools?",
       answer:
-        "Gratis rekenhulpen voor makers: hoeveel stof, garen, was of kralen je nodig hebt, of hoe groot je quilt wordt. Er zijn er meer dan 40, en je hebt geen account nodig.",
+        "Gratis rekenhulpen voor makers: hoeveel stof, garen, was of kralen je nodig hebt, of hoe groot je quilt wordt. Je hebt er geen account voor nodig.",
     },
     {
       question: "Krijg ik automatisch de nieuwsbrief?",
@@ -170,7 +174,7 @@ export const HOBBYIST_PAGE = {
   closing: {
     title: "Begin met ontdekken",
     body: "Geen haast. Kijk eerst rond, en maak een gratis account wanneer het jou past.",
-    primaryCta: { label: "Bekijk de agenda", href: "/agenda" },
+    primaryCta: { label: "Kies je hobby", href: "#hobby" },
     secondaryCta: { label: "Maak een gratis account", href: "/register" },
   },
 } as const;
