@@ -108,7 +108,7 @@ export async function loadCreatorMakerData(
       supabase
         .from("articles")
         .select(
-          "id,title,slug,excerpt,body_markdown,article_type,domain_id,is_published,updated_at"
+          "id,title,slug,excerpt,body_markdown,article_type,domain_id,is_published,updated_at,featured_image_url,video_url,listing_scope"
         )
         .eq("author_creator_id", creator.id)
         .order("updated_at", { ascending: false })
@@ -179,6 +179,38 @@ export async function loadCreatorMakerData(
 
     const articleIds = dashboardArticles.map((article) => article.id);
     if (articleIds.length > 0) {
+      const [galleryResult, boostResult] = await Promise.all([
+        supabase
+          .from("article_gallery_images")
+          .select("id,article_id,image_url,sort_order")
+          .in("article_id", articleIds)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("visibility_boosts")
+          .select("entity_id,ends_at")
+          .eq("entity_type", "article")
+          .in("entity_id", articleIds)
+          .gt("ends_at", new Date().toISOString()),
+      ]);
+      const galleryRows = (galleryResult.data ?? []) as Array<{
+        id: string;
+        article_id: string;
+        image_url: string;
+      }>;
+      const boostRows = (boostResult.data ?? []) as Array<{ entity_id: string; ends_at: string }>;
+      dashboardArticles = dashboardArticles.map((article) => ({
+        ...article,
+        gallery: galleryRows
+          .filter((row) => row.article_id === article.id)
+          .map(({ id, image_url }) => ({ id, image_url })),
+        promotedUntil:
+          boostRows
+            .filter((row) => row.entity_id === article.id)
+            .map((row) => row.ends_at)
+            .sort()
+            .at(-1) ?? null,
+      }));
+
       const { data: articleLinks } = await supabase
         .from("entity_links")
         .select(

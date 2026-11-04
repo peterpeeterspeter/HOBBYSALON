@@ -270,7 +270,7 @@ export async function grantPremiumPlanBoosts(
 
 export async function purchaseSpotlightBoostAction(input: {
   creatorId: string;
-  entityType: "creator" | "product" | "workshop" | "event";
+  entityType: "creator" | "product" | "workshop" | "event" | "article";
   entityId: string;
   boostType?: "spotlight" | "homepage";
 }): Promise<{ ok: boolean; error?: string }> {
@@ -283,6 +283,25 @@ export async function purchaseSpotlightBoostAction(input: {
   if (input.entityType === "creator") {
     if (input.entityId !== input.creatorId) {
       return { ok: false, error: "Je kunt alleen je eigen profiel uitlichten." };
+    }
+  } else if (input.entityType === "article") {
+    // Only published articles that are listed in the overviews can be
+    // promoted; a profile-only article has nowhere to be shown higher.
+    const supabase = createPlatformClient();
+    const { data: owned, error: ownedError } = await supabase
+      .from("articles")
+      .select("id, listing_scope, is_published")
+      .eq("id", input.entityId)
+      .eq("author_creator_id", input.creatorId)
+      .maybeSingle();
+    if (ownedError || !owned) {
+      return { ok: false, error: "Dit artikel bestaat niet of is niet van jou." };
+    }
+    if (owned.listing_scope !== "hub" || !owned.is_published) {
+      return {
+        ok: false,
+        error: "Alleen gepubliceerde artikelen in het overzicht Inspiratie kun je uitlichten.",
+      };
     }
   } else {
     const supabase = createPlatformClient();

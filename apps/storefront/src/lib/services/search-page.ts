@@ -161,6 +161,7 @@ export async function searchAll(
       .from("articles")
       .select("*")
       .eq("is_published", true)
+      .eq("listing_scope", "hub")
       .or(`title.ilike.${like},excerpt.ilike.${like}`)
       .limit(PER_TYPE_LIMIT),
   ]);

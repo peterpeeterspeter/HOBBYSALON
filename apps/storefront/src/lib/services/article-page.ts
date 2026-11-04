@@ -41,7 +41,23 @@ export type ArticlePageData = {
   relatedCreators: Creator[];
   relatedEvents: Event[];
   communityProjects: CommunityGalleryProject[];
+  /** Extra photos for articles of workshop hosts, shops and editors. */
+  galleryImages?: string[];
 };
+
+/** Gallery photos of one article; an error never breaks the page. */
+async function listArticleGalleryImages(articleId: string): Promise<string[]> {
+  try {
+    const { data } = await createPlatformClient()
+      .from("article_gallery_images")
+      .select("image_url")
+      .eq("article_id", articleId)
+      .order("sort_order", { ascending: true });
+    return ((data ?? []) as Array<{ image_url: string }>).map((row) => row.image_url);
+  } catch {
+    return [];
+  }
+}
 
 async function getGraphProducts(items: OrderedArticleGraphItem[]): Promise<GraphProduct[]> {
   if (!items.length) return [];
@@ -184,9 +200,12 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     )
   );
 
+  const galleryImages = await listArticleGalleryImages(article.id);
+
   return {
     article,
     author: author ?? null,
+    galleryImages,
     sourceMaterials,
     sourceMaterialOffers,
     requiredMaterials,

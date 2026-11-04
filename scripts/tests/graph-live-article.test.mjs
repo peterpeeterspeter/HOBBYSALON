@@ -64,7 +64,7 @@ const edge = (targetId, relation = "related_article", order = 0, extra = {}) => 
 
 async function load(options = {}) {
   const current = { ...mainArticle, ...options.current };
-  const rows = { articles: [current, ...(options.targets ?? companions)], entity_links: options.edges ?? [], products: options.products ?? [] };
+  const rows = { articles: [current, ...(options.targets ?? companions)], entity_links: options.edges ?? [], products: options.products ?? [], article_gallery_images: [] };
   const before = plain(rows);
   const attempts = [];
   const calls = [];

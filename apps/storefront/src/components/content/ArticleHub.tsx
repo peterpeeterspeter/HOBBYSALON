@@ -264,7 +264,16 @@ export function ArticleHub({ kind, basePath, filters, results, total, facets, af
           {results.length > 0 ? (
             <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">
               {results.map(({ article, domainName }) => (
-                <ArticleCard key={article.id} article={article} domainName={domainName} />
+                article.is_promoted ? (
+                  <div key={article.id} className="relative">
+                    <span className="absolute left-3 top-3 z-10 rounded-full bg-[var(--accent)] px-3 py-1 text-sm font-semibold text-[var(--accent-foreground)] shadow-[var(--shadow-md)]">
+                      Uitgelicht
+                    </span>
+                    <ArticleCard article={article} domainName={domainName} />
+                  </div>
+                ) : (
+                  <ArticleCard key={article.id} article={article} domainName={domainName} />
+                )
               ))}
             </div>
           ) : (
