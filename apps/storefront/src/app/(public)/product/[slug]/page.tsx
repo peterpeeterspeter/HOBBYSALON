@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductPageData } from "@/lib/services/product-page";
 import { exactEurVariantPrice } from "@/lib/commerce/variant-price";
+import { productShippingPolicies } from "@/lib/commerce/medusa/shipping";
 import { CreatorCard, WorkshopCard, ArticleCard, EventCard, ProductCard, ProjectCard } from "@/components/cards";
 import { EntityLinkBlock } from "@/components/shared/EntityLinkBlock";
 import { ProductBuyCard } from "@/components/product/ProductBuyCard";
@@ -54,9 +55,12 @@ export default async function ProductPage({ params, searchParams }: Props) {
     ? exactEurVariantPrice(selectedVariant.exact_price)
     : defaultPrice;
   const user = await getAuthUser();
-  const productIsFavorite = user
-    ? await isFavorite(user.id, "product", product.id)
-    : false;
+  const [productIsFavorite, shippingPolicies] = await Promise.all([
+    user ? isFavorite(user.id, "product", product.id) : Promise.resolve(false),
+    product.medusa_product_id
+      ? productShippingPolicies(product.medusa_product_id)
+      : Promise.resolve([]),
+  ]);
   const productImages = [
     ...(product.featured_image_url ? [product.featured_image_url] : []),
     ...galleryImages.filter((url) => url !== product.featured_image_url),
@@ -168,6 +172,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
             variants={variants}
             selectedVariantId={selectedVariantId}
             isFavorite={productIsFavorite}
+            shippingPolicies={shippingPolicies}
           />
           </div>
         </div>
