@@ -8,6 +8,7 @@ import { TwoColumnPageSkeleton } from "../../../components/common/skeleton"
 import { TwoColumnPage } from "../../../components/layout/pages"
 import { useDashboardExtension } from "../../../extensions"
 import LocationsFulfillmentProvidersSection from "./components/location-fulfillment-providers-section/location-fulfillment-providers-section"
+import { ShippingZonesHint } from "../common/components/shipping-guide"
 import { LOCATION_DETAILS_FIELD } from "./constants"
 
 export const LocationDetail = () => {
@@ -51,6 +52,7 @@ export const LocationDetail = () => {
       hasOutlet
     >
       <TwoColumnPage.Main>
+        <ShippingZonesHint />
         <LocationGeneralSection location={location} />
       </TwoColumnPage.Main>
       <TwoColumnPage.Sidebar>
