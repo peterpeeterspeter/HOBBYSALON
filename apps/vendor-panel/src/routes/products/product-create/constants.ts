@@ -66,7 +66,7 @@ export const ProductCreateSchema = z
     collection_id: z.string().optional(),
     shipping_profile_id: z.string().optional(),
     categories: z.array(z.string()),
-    material_category_id: z.string().optional(),
+    material_category_id: z.string().min(1, "Kies een materiaalgroep"),
     tags: z.array(z.string()).optional(),
     sales_channels: z
       .array(
