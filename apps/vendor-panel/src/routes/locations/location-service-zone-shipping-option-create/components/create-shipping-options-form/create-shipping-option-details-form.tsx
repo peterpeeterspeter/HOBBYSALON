@@ -26,6 +26,7 @@ export const CreateShippingOptionDetailsForm = ({
   const { t } = useTranslation();
 
   const isPickup = type === FulfillmentSetType.Pickup;
+  const isManualProvider = form.watch('provider_id') === 'manual_manual';
 
   const shippingProfiles = useComboboxData({
     queryFn: () =>
@@ -109,11 +110,14 @@ export const CreateShippingOptionDetailsForm = ({
                       <RadioGroup.ChoiceBox
                         className="flex-1"
                         value={ShippingOptionPriceType.Calculated}
+                        disabled={isManualProvider}
                         label={t(
                           'stockLocations.shippingOptions.fields.priceType.options.calculated.label'
                         )}
                         description={t(
-                          'stockLocations.shippingOptions.fields.priceType.options.calculated.hint'
+                          isManualProvider
+                            ? 'stockLocations.shippingOptions.fields.priceType.options.calculated.manualHint'
+                            : 'stockLocations.shippingOptions.fields.priceType.options.calculated.hint'
                         )}
                       />
                     </RadioGroup>

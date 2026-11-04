@@ -5,9 +5,15 @@
     "shippingSettings": {
       "type": "object",
       "properties": {
-        "title": { "type": "string" },
-        "threshold": { "type": "string" },
-        "save": { "type": "string" }
+        "title": {
+          "type": "string"
+        },
+        "threshold": {
+          "type": "string"
+        },
+        "save": {
+          "type": "string"
+        }
       }
     },
     "$schema": {
@@ -6166,6 +6172,9 @@
                             },
                             "hint": {
                               "type": "string"
+                            },
+                            "manualHint": {
+                              "type": "string"
                             }
                           },
                           "required": ["label", "hint"],
@@ -6211,6 +6220,9 @@
                 "fulfillmentOption"
               ],
               "additionalProperties": false
+            },
+            "priceRequired": {
+              "type": "string"
             }
           },
           "required": [

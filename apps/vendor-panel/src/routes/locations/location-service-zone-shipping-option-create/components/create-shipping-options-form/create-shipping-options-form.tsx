@@ -117,7 +117,7 @@ export function CreateShippingOptionsForm({
     )!
 
     if (![...currencyPrices, ...regionPrices].length && !isCalculatedPriceType) {
-      toast.error(t("general.error"))
+      toast.error(t("stockLocations.shippingOptions.priceRequired"))
       return
     }
 
