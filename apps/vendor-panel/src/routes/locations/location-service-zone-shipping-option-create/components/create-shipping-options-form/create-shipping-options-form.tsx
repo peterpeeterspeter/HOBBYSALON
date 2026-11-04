@@ -11,6 +11,7 @@ import {
 } from "../../../../../components/modals"
 import { KeyboundForm } from "../../../../../components/utilities/keybound-form"
 import { useCreateShippingOptions } from "../../../../../hooks/api/shipping-options"
+import { useUpdateStockLocationFulfillmentProviders } from "../../../../../hooks/api/stock-locations"
 import { castNumber } from "../../../../../lib/cast-number"
 import {
   FulfillmentSetType,
@@ -32,6 +33,7 @@ enum Tab {
 type CreateShippingOptionFormProps = {
   zone: VendorExtendedAdminServiceZone
   locationId: string
+  enabledProviderIds: string[]
   isReturn?: boolean
   type: FulfillmentSetType
 }
@@ -40,6 +42,7 @@ export function CreateShippingOptionsForm({
   zone,
   isReturn,
   locationId,
+  enabledProviderIds,
   type,
 }: CreateShippingOptionFormProps) {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DETAILS)
@@ -77,7 +80,10 @@ export function CreateShippingOptionsForm({
   const isCalculatedPriceType =
     form.watch("price_type") === ShippingOptionPriceType.Calculated
 
-  const { mutateAsync, isPending: isLoading } = useCreateShippingOptions()
+  const { mutateAsync, isPending: isCreating } = useCreateShippingOptions()
+  const { mutateAsync: updateProviders, isPending: isUpdatingProviders } =
+    useUpdateStockLocationFulfillmentProviders(locationId)
+  const isLoading = isCreating || isUpdatingProviders
 
   const handleSubmit = form.handleSubmit(async (data) => {
     const currencyPrices = Object.entries(data.currency_prices)
@@ -111,8 +117,19 @@ export function CreateShippingOptionsForm({
     )!
 
     if (![...currencyPrices, ...regionPrices].length && !isCalculatedPriceType) {
-      toast.error(t("general.error"))
+      toast.error(t("stockLocations.shippingOptions.priceRequired"))
       return
+    }
+
+    // The portal uses manual fulfillment, including for newly created locations.
+    // Medusa requires that provider to be linked before it accepts an option.
+    if (data.provider_id === "manual_manual" && !enabledProviderIds.includes(data.provider_id)) {
+      try {
+        await updateProviders({ add: [data.provider_id] })
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t("general.error"))
+        return
+      }
     }
 
     await mutateAsync(

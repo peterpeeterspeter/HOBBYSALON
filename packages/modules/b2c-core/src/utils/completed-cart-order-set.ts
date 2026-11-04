@@ -58,7 +58,9 @@ export function assertCompletedCartOrderSet(cart: any, sets: any[], cartId: stri
     quantities(order.items)
     orderItems.push(...order.items)
   }
-  if (!MathBN.eq(total, amount(cart.total))) invalid()
+  // Bind computed totals to Medusa's public numeric DTO, matching persisted payment amounts.
+  // Inclusive VAT can retain residuals such as 80.0000000000000000000041 internally.
+  if (!MathBN.eq(total, amount(cart.total).toNumber())) invalid()
   const wanted = quantities(cart.items), actual = quantities(orderItems)
   if (wanted.size !== actual.size) invalid()
   for (const [variant, quantity] of wanted) {

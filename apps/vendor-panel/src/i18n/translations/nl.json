@@ -1,4 +1,9 @@
 {
+  "shippingSettings": {
+    "title": "Verzending",
+    "threshold": "Gratis verzending vanaf (€)",
+    "save": "Opslaan"
+  },
   "$schema": "./$schema.json",
   "general": {
     "ascending": "Oplopend",
@@ -1638,7 +1643,8 @@
             },
             "calculated": {
               "label": "Berekend",
-              "hint": "De prijs van de verzendoptie wordt berekend door de verzendprovider tijdens het afrekenen."
+              "hint": "De prijs van de verzendoptie wordt berekend door de verzendprovider tijdens het afrekenen.",
+              "manualHint": "Handmatige verzending gebruikt een vaste prijs. Vul het bedrag in bij Prijzen."
             }
           }
         },
@@ -1649,7 +1655,8 @@
         "provider": "Verzendprovider",
         "profile": "Verzendprofiel",
         "fulfillmentOption": "Verzendoptie"
-      }
+      },
+      "priceRequired": "Vul minstens één verzendprijs in. Gebruik 0 voor gratis verzending."
     },
     "serviceZones": {
       "create": {

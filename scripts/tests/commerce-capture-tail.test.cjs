@@ -33,7 +33,7 @@ const tail = require(path.join(utils, 'marketplace-capture.ts'))
 const webhook = require(path.join(root, 'apps/backend/src/utils/marketplace-payment-webhook.ts'))
 const route = require(path.join(root, 'packages/modules/b2c-core/src/api/store/carts/[id]/complete/route.ts'))
 const job = require(path.join(root, 'packages/modules/b2c-core/src/jobs/marketplace-capture-tail-recovery.ts')).default
-const RedisBus = require('/app/node_modules/@medusajs/event-bus-redis/dist/services/event-bus-redis.js').default
+const RedisBus = require(path.join(path.dirname(require.resolve('@medusajs/event-bus-redis')), 'services/event-bus-redis.js')).default
 const NativeOrder = require('@medusajs/order').default.service
 assert.equal(require('@medusajs/payment/package.json').version, '2.11.3')
 const expected = { session_id: 'ps', collection_id: 'pc', intent_id: 'pi', amount: '12.34', currency_code: 'eur' }
@@ -270,3 +270,13 @@ test('real marketplace module discovery lifecycle contains migration; SQL has im
   assert.match(ddl, /WHERE reference = 'capture' AND reference_id IS NOT NULL/)
   assert.ok(!ddl.includes('deleted_at IS NULL'), 'capture tombstones remain dedup evidence')
 })
+
+test('computed VAT residue uses public DTO total while capture snapshot stays exact', async () => {
+  const h = harness(); h.cart.total = '12.340000000000000001';
+  await h.run(); await h.run();
+  assert.equal(h.store.row.snapshot.amount, '12.34');
+  assert.equal(h.store.transactions.length, 1);
+  h.cart.total = '12.35';
+  await assert.rejects(h.run(), /inconsistent|changed/);
+  assert.equal(h.store.transactions.length, 1);
+});

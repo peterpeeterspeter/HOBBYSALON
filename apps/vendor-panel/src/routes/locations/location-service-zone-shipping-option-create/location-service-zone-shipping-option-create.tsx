@@ -51,6 +51,7 @@ export function LocationServiceZoneShippingOptionCreate() {
           zone={zone}
           isReturn={isReturn}
           locationId={location_id!}
+          enabledProviderIds={stock_location?.fulfillment_providers?.map((provider) => provider.id) ?? []}
           type={fulfillmentSet!.type as FulfillmentSetType}
         />
       )}

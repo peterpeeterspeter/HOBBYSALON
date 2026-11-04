@@ -23,6 +23,7 @@ export const CreateShippingOptionDetailsForm = ({
   type
 }: CreateShippingOptionDetailsFormProps) => {
   const isPickup = type === FulfillmentSetType.Pickup;
+  const isManualProvider = form.watch('provider_id') === 'manual_manual';
 
   const shippingProfiles = useComboboxData({
     queryFn: () =>
@@ -111,8 +112,13 @@ export const CreateShippingOptionDetailsForm = ({
                       <RadioGroup.ChoiceBox
                         className="flex-1"
                         value={ShippingOptionPriceType.Calculated}
+                        disabled={isManualProvider}
                         label="Berekende prijs"
-                        description="Een vervoerder berekent de prijs bij het afrekenen. Alleen kiezen als je een koppeling met een vervoerder hebt."
+                        description={
+                          isManualProvider
+                            ? "Niet beschikbaar bij handmatige verzending. Kies Vaste prijs en vul het bedrag in bij Prijs."
+                            : "Een vervoerder berekent de prijs bij het afrekenen. Alleen kiezen als je een koppeling met een vervoerder hebt."
+                        }
                       />
                     </RadioGroup>
                   </Form.Control>

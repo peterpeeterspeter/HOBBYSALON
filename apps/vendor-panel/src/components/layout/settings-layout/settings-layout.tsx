@@ -37,7 +37,11 @@ const useSettingRoutes = (): INavItem[] => {
         to: "/settings/product-tags",
       },
       {
-        label: "Verzending",
+        label: "Gratis verzending",
+        to: "/settings/shipping",
+      },
+      {
+        label: "Verzendopties en locaties",
         to: "/settings/locations",
       },
     ],

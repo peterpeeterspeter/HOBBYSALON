@@ -5,13 +5,15 @@ import {
 } from '@medusajs/framework/utils'
 import { StepResponse, createStep } from '@medusajs/framework/workflows-sdk'
 
+import { cartShippingState } from "../../../shared/shipping/data"
+
 import sellerProduct from '../../../links/seller-product'
 import sellerShippingOption from '../../../links/seller-shipping-option'
 
 export const filterSellerShippingOptionsStep = createStep(
   'filter-seller-shipping-options',
   async (
-    input: { shipping_options: ShippingOptionDTO[]; cart_id: string },
+    input: { shipping_options: ShippingOptionDTO[]; cart_id: string; is_return?: boolean },
     { container }
   ) => {
     const query = container.resolve(ContainerRegistrationKeys.QUERY)
@@ -75,6 +77,13 @@ export const filterSellerShippingOptionsStep = createStep(
           seller_id: relation.seller.id
         }
       })
-    return new StepResponse(optionsAvailable)
+    if (input.is_return) return new StepResponse(optionsAvailable)
+    const state = await cartShippingState(container, input.cart_id)
+    if (state.frozen) return new StepResponse(optionsAvailable)
+    const free = new Set(state.summaries.filter(s => s.available && s.qualified && s.country_code === state.cart.shipping_address?.country_code?.toLowerCase()).flatMap(s => s.shipping_option_ids))
+    return new StepResponse(optionsAvailable.map((option: any) => {
+      if (!free.has(option.id) || option.calculated_price?.calculated_amount == null) return option
+      return { ...option, amount: 0, calculated_price: { ...option.calculated_price, calculated_amount: 0, raw_calculated_amount: { value: '0', precision: option.calculated_price.raw_calculated_amount?.precision ?? 20 } } }
+    }))
   }
 )

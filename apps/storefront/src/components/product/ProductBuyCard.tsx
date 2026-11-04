@@ -1,3 +1,4 @@
+import { productShippingPolicies } from "@/lib/commerce/medusa/shipping";
 import { CardShell } from "@/components/ui/card-shell";
 import { PriceDisplay } from "@/components/domain/price-display";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
@@ -22,7 +23,7 @@ const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
  * add-to-cart flow (merchant supply, or a legacy Medusa-linked maker
  * listing) or a contact/inquire form (maker listing without a cart).
  */
-export function ProductBuyCard({
+export async function ProductBuyCard({
   product,
   creator,
   price,
@@ -30,6 +31,7 @@ export function ProductBuyCard({
   selectedVariantId,
   isFavorite,
 }: ProductBuyCardProps) {
+  const shippingPolicies = product.medusa_product_id ? await productShippingPolicies(product.medusa_product_id) : [];
   const isMakerListing = MAKER_LISTING_TYPES.has(product.product_type);
   const hasCart = !isMakerListing || !!product.medusa_product_id;
 
@@ -77,6 +79,7 @@ export function ProductBuyCard({
         )}
       </div>
 
+      {hasCart && shippingPolicies.map(policy => <p key={policy.country_code} className="mt-4 text-sm text-[var(--muted)]">Gratis standaardverzending {policy.threshold_amount === 0 ? "" : `vanaf ${new Intl.NumberFormat("nl-BE", { style: "currency", currency: "EUR" }).format(policy.threshold_amount)} `}naar {policy.country_code === "be" ? "België" : "Nederland"} bij deze verkoper.</p>)}
       <div className="mt-6 flex flex-col gap-3 border-t border-[var(--border)] pt-6 text-sm text-[var(--muted)]">
         {hasCart ? (
           <>

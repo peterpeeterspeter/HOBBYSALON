@@ -51,6 +51,10 @@ services:
       WORKER_MODE: shared
       COMMERCE_PAYMENTS_ENABLED: "${COMMERCE_PAYMENTS_ENABLED:-false}"
       COMMERCE_PAYOUTS_ENABLED: "${COMMERCE_PAYOUTS_ENABLED:-false}"
+    # Medusa writes generated GraphQL declarations before starting index sync.
+    # Keep this metadata writable without making application code writable.
+    tmpfs:
+      - /app/apps/backend/.medusa/server/.medusa:rw,noexec,nosuid,nodev,uid=1001,gid=1001,mode=0700,size=16m
     volumes:
       # Persist vendor uploads across image rebuilds/redeploys.
       - backend_static:/app/apps/backend/static
