@@ -22,6 +22,8 @@ type Props = {
   results: { article: Article; domainName: string | null }[];
   total: number;
   facets: FacetCount[];
+  /** Shown right under the search field, e.g. matching workshops and products. */
+  afterSearch?: React.ReactNode;
 };
 
 type Group = {
@@ -108,7 +110,7 @@ function hobbyGroups(facets: FacetCount[], filters: ArticleHubFilters): Group[] 
   ].filter((group) => group.options.length > 1 || Boolean(filters[group.param]));
 }
 
-export function ArticleHub({ kind, basePath, filters, results, total, facets }: Props) {
+export function ArticleHub({ kind, basePath, filters, results, total, facets, afterSearch }: Props) {
   const basic = basicGroups(kind, facets, filters);
   const scoped = filters.domain ? hobbyGroups(facets, filters) : [];
   const groups = [...basic, ...scoped];
@@ -195,6 +197,8 @@ export function ArticleHub({ kind, basePath, filters, results, total, facets }: 
           </button>
         </div>
       </form>
+
+      {afterSearch}
 
       <div className="mt-12 grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-12">
         {groups.length > 0 ? (

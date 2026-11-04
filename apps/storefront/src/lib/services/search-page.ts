@@ -89,7 +89,6 @@ export async function searchAll(
     ? supabase
         .from("creators")
         .select("*")
-        .eq("is_active", true)
         .eq("country_code", preferred)
         .or(
           `display_name.ilike.${like},business_name.ilike.${like},bio.ilike.${like}`
@@ -144,7 +143,6 @@ export async function searchAll(
     supabase
       .from("creators")
       .select("*")
-      .eq("is_active", true)
       .or(
         `display_name.ilike.${like},business_name.ilike.${like},bio.ilike.${like}`
       )

@@ -4,6 +4,7 @@ import { ListingHeroBand } from "@/components/shared/ListingHeroBand";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { Container } from "@/components/ui/container";
 import { ArticleHub } from "@/components/content/ArticleHub";
+import { HubAlsoFound } from "@/components/content/HubAlsoFound";
 import { buildContentHubItems } from "@/lib/content/build-content-hub-items";
 import { listArticleDomainLinks } from "@/lib/platform/queries/articles";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
@@ -81,6 +82,7 @@ export default async function PatternsHubPage({ searchParams }: Props) {
           results={results}
           total={total}
           facets={facets}
+          afterSearch={<HubAlsoFound query={filters.q} />}
         />
       </Container>
     </>
