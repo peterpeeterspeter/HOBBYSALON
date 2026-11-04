@@ -8,7 +8,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     shipping_summary: summaries.map(
-      ({ shipping_option_ids, ...summary }) => summary
+      ({ shipping_option_ids: _shipping_option_ids, ...summary }) => summary
     ),
     payment_frozen: frozen
   });
