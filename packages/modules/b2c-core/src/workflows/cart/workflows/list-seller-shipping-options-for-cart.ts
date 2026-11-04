@@ -18,7 +18,8 @@ export const listSellerShippingOptionsForCartWorkflow = createWorkflow(
       { shipping_options, input },
       ({ shipping_options, input }) => ({
         shipping_options,
-        cart_id: input.cart_id
+        cart_id: input.cart_id,
+        is_return: input.is_return
       })
     )
     return new WorkflowResponse(filterSellerShippingOptionsStep(filterPayload))

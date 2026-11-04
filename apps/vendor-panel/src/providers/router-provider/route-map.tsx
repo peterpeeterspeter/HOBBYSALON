@@ -1089,6 +1089,10 @@ export const RouteMap: RouteObject[] = [
             ]
           },
           {
+            path: 'shipping',
+            lazy: () => import('../../routes/shipping-settings')
+          },
+          {
             path: 'locations',
             errorElement: <ErrorBoundary />,
             element: <Outlet />,

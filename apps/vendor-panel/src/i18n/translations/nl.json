@@ -1,4 +1,9 @@
 {
+  "shippingSettings": {
+  "title": "Verzending",
+  "threshold": "Gratis verzending vanaf (€)",
+  "save": "Opslaan"
+},
   "$schema": "./$schema.json",
   "general": {
     "ascending": "Oplopend",

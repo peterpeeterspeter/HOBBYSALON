@@ -583,10 +583,9 @@ export async function initiatePaymentSession(
 /** Complete cart and place order. Returns order_set for Mercur. */
 export async function completeCart(cartId: string) {
   try {
-    const result = await sdk.store.cart.complete(cartId, {
-      fields:
-        "id,orders.*,orders.items.*,orders.shipping_address.*,orders.billing_address.*",
-    });
+    // Mercur returns the formatted order set; Medusa rejects order-set fields
+    // in this native cart endpoint's query validator.
+    const result = await sdk.store.cart.complete(cartId);
     if (result.type === "cart") {
       const err = (result as { error?: { message?: string } }).error;
       return {

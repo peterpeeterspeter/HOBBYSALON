@@ -80,7 +80,7 @@ export function CheckoutShippingStep({
               </span>
               <span className="font-semibold text-[var(--foreground)]">
                 {opt.amount != null
-                  ? formatPrice(opt.amount, currencyCode)
+                  ? opt.amount === 0 ? "Gratis" : formatPrice(opt.amount, currencyCode)
                   : "Berekenen..."}
               </span>
               {isLoading && (

@@ -1,4 +1,9 @@
 {
+  "shippingSettings": {
+  "title": "Shipping",
+  "threshold": "Free shipping from (€)",
+  "save": "Save"
+},
   "$schema": "./$schema.json",
   "general": {
     "ascending": "Ascending",

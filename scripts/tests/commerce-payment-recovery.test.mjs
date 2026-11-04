@@ -71,10 +71,12 @@ function checkout({ sessions = [{ id: "ps_fixture" }], httpStatus = 200,
         if (initiateFails) throw Error("offline initiation failure");
         return { payment_collection: cart.payment_collection };
       } },
-      cart: { complete: async () => {
+      cart: { complete: async (...args) => {
+        assert.equal(args.length, 1, "native completion must omit unsupported order-set query fields");
+        assert.equal(args[0], cart.id);
         calls.completed++;
         return completeFails ? { type: "cart", error: { message: "Afronden mislukt" } }
-          : { type: "order", order_set: { id: "order_fixture" } };
+          : { order_set: { id: "order_fixture" } };
       } },
     } },
     redirect() { throw Error("unexpected redirect"); },
@@ -360,6 +362,7 @@ function middlewareFixture(flag) {
   // never execute while exercising the independent new-session pause policy.
   const unrelated = () => { throw new Error('Unexpected financial-route dispatch'); };
   const context = vm.createContext({ process: { env: { COMMERCE_PAYMENTS_ENABLED: flag } },
+    routeMarketplacePaymentWebhook: unrelated,
     guardNativePaymentRefund: unrelated, guardNativeOrderCancel: unrelated,
     guardFinancialWorkflow: unrelated, defineMiddlewares: (config) => config });
   if (existsSync(new URL(paths.policy, root))) load(source(paths.policy), context, paths.policy);
@@ -397,4 +400,12 @@ test("direct new-session POST remains enabled by default and never gates paid/af
   // confined to provider-session creation and cannot block aftercare or reads.
   assert.equal(routes.filter(entry => entry.middlewares.includes(route.middlewares[0])).length, 1);
   assert.deepEqual(Array.from(route.method), ["POST"]);
+});
+
+test("Mercur completion accepts its real order-set response without unsupported query fields", async () => {
+  const { context, calls } = checkout();
+  const result = await context.completeCart("cart_fixture");
+  assert.equal(result.success, true);
+  assert.equal(result.order_set.id, "order_fixture");
+  assert.equal(calls.completed, 1);
 });

@@ -1,3 +1,5 @@
+import { cartShippingSummary } from "@/lib/commerce/medusa/shipping";
+import { ShippingProgress } from "@/components/cart/ShippingProgress";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { CART_COOKIE_NAME, getCart } from "@/lib/commerce/medusa/cart";
@@ -47,6 +49,7 @@ export default async function CartPage() {
     );
   }
 
+  const shipping = await cartShippingSummary(cartId);
   const currencyCode = (cart as { currency_code?: string }).currency_code ?? "eur";
   const items = (cart.items ?? []) as CartItem[];
   const cartSubtotal = (cart as { subtotal?: number }).subtotal;
@@ -113,6 +116,7 @@ export default async function CartPage() {
         })}
       </div>
 
+      {shipping && <ShippingProgress summaries={shipping.shipping_summary} frozen={shipping.payment_frozen} />}
       <CardShell variant="default" padding="lg" className="mt-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xl font-bold text-[var(--foreground)]">
