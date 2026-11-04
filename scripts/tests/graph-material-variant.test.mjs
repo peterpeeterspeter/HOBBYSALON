@@ -106,6 +106,8 @@ async function fixture({ products = [commerceProduct()], reject = () => false, p
     "@/components/layout/page-layout": { PageLayout: shell },
     "@/components/ui/aspect-image": { AspectImage: ignore },
     "@/components/ui/card-shell": { CardShell: shell },
+    // No seller free shipping policy in these fixtures.
+    "@/lib/commerce/medusa/shipping": { productShippingPolicies: async () => [] },
     "@/components/product/ProductInquiryForm": { ProductInquiryForm: ignore },
     "@/components/shared/FavoriteToggleButton": { FavoriteToggleButton: ignore },
     "lucide-react": { Truck: ignore, ShieldCheck: ignore, MessageCircle: ignore },

@@ -273,7 +273,7 @@ export function CreateShippingOptionsForm({
                 className="w-full max-w-[200px]"
               >
                 <span className="w-full cursor-auto overflow-hidden text-ellipsis whitespace-nowrap">
-                  {t("stockLocations.shippingOptions.create.tabs.details")}
+                  1. Gegevens
                 </span>
               </ProgressTabs.Trigger>
               {!isCalculatedPriceType && (
@@ -283,7 +283,7 @@ export function CreateShippingOptionsForm({
                   className="w-full max-w-[200px]"
                 >
                   <span className="w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                    {t("stockLocations.shippingOptions.create.tabs.prices")}
+                    2. Prijs
                   </span>
                 </ProgressTabs.Trigger>
               )}
@@ -310,7 +310,7 @@ export function CreateShippingOptionsForm({
             <div className="flex items-center justify-end gap-x-2">
               <RouteFocusModal.Close asChild>
                 <Button variant="secondary" size="small">
-                  {t("actions.cancel")}
+                  Annuleren
                 </Button>
               </RouteFocusModal.Close>
               {activeTab === Tab.PRICING || isCalculatedPriceType ? (
@@ -321,7 +321,7 @@ export function CreateShippingOptionsForm({
                   key="submit-btn"
                   type="submit"
                 >
-                  {t("actions.save")}
+                  Opslaan
                 </Button>
               ) : (
                 <Button
@@ -332,7 +332,7 @@ export function CreateShippingOptionsForm({
                   key="continue-btn"
                   type="button"
                 >
-                  {t("actions.continue")}
+                  Verder naar de prijs
                 </Button>
               )}
             </div>

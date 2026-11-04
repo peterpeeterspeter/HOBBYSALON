@@ -35,6 +35,7 @@ enum Tab {
 type TabState = Record<Tab, ProgressStatus>
 
 const SAVE_DRAFT_BUTTON = "save-draft-button"
+const MATERIAL_GROUP_REQUIRED = "Kies een materiaalgroep"
 
 type ProductCreateFormProps = {
   defaultChannel?: HttpTypes.AdminSalesChannel
@@ -114,6 +115,15 @@ export const ProductCreateForm = ({
     if (e?.nativeEvent instanceof SubmitEvent) {
       const submitter = e?.nativeEvent?.submitter as HTMLButtonElement
       isDraftSubmission = submitter.dataset.name === SAVE_DRAFT_BUTTON
+    }
+
+    if (!isDraftSubmission && !values.material_category_id) {
+      form.setError("material_category_id", {
+        type: "required",
+        message: MATERIAL_GROUP_REQUIRED,
+      })
+      setTab(Tab.ORGANIZE)
+      return
     }
 
     const media = values.media || []
@@ -221,6 +231,14 @@ export const ProductCreateForm = ({
     const valid = await form.trigger()
 
     if (!valid) {
+      return
+    }
+
+    if (currentTab === Tab.ORGANIZE && !form.getValues("material_category_id")) {
+      form.setError("material_category_id", {
+        type: "required",
+        message: MATERIAL_GROUP_REQUIRED,
+      })
       return
     }
 

@@ -1,6 +1,5 @@
 import { Heading, Input, RadioGroup, Text } from '@medusajs/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 
 import { Form } from '../../../../../components/common/form';
 import { Combobox } from '../../../../../components/inputs/combobox';
@@ -23,8 +22,6 @@ export const CreateShippingOptionDetailsForm = ({
   zone,
   type
 }: CreateShippingOptionDetailsFormProps) => {
-  const { t } = useTranslation();
-
   const isPickup = type === FulfillmentSetType.Pickup;
   const isManualProvider = form.watch('provider_id') === 'manual_manual';
 
@@ -60,25 +57,34 @@ export const CreateShippingOptionDetailsForm = ({
       <div className="flex w-full max-w-[720px] flex-col gap-y-8 px-6 py-16">
         <div>
           <Heading>
-            {t(
-              `stockLocations.shippingOptions.create.${
-                isPickup ? 'pickup' : isReturn ? 'returns' : 'shipping'
-              }.header`,
-              {
-                zone: zone.name
-              }
-            )}
+            {isPickup
+              ? `Afhaaloptie toevoegen voor ${zone.name}`
+              : isReturn
+                ? `Retouroptie toevoegen voor ${zone.name}`
+                : `Verzendoptie toevoegen voor ${zone.name}`}
           </Heading>
           <Text
             size="small"
             className="text-ui-fg-subtle"
           >
-            {t(
-              `stockLocations.shippingOptions.create.${
-                isReturn ? 'returns' : isPickup ? 'pickup' : 'shipping'
-              }.hint`
-            )}
+            Een verzendoptie is een manier om een bestelling bij je klant te
+            krijgen, met een naam en een prijs. De klant kiest de optie bij het
+            afrekenen.
           </Text>
+        </div>
+
+        <div className="bg-ui-bg-subtle border-ui-border-base flex flex-col gap-y-2 rounded-lg border px-4 py-3">
+          <Text size="small" weight="plus">
+            Zo vul je dit in
+          </Text>
+          <ol className="text-ui-fg-subtle list-decimal pl-5 text-sm">
+            {!isPickup && (
+              <li>Kies bij prijstype “Vaste prijs”, tenzij je een koppeling met een vervoerder hebt.</li>
+            )}
+            <li>Geef de optie een naam die je klant begrijpt, bijvoorbeeld “Pakket België en Nederland”.</li>
+            <li>Kies de verzendgroep. Heb je er maar één, kies dan die.</li>
+            <li>Ga verder en vul de prijs in euro in.</li>
+          </ol>
         </div>
 
         {!isPickup && (
@@ -89,7 +95,7 @@ export const CreateShippingOptionDetailsForm = ({
               return (
                 <Form.Item>
                   <Form.Label>
-                    {t('stockLocations.shippingOptions.fields.priceType.label')}
+                    Prijstype
                   </Form.Label>
                   <Form.Control>
                     <RadioGroup
@@ -100,25 +106,19 @@ export const CreateShippingOptionDetailsForm = ({
                       <RadioGroup.ChoiceBox
                         className="flex-1"
                         value={ShippingOptionPriceType.FlatRate}
-                        label={t(
-                          'stockLocations.shippingOptions.fields.priceType.options.fixed.label'
-                        )}
-                        description={t(
-                          'stockLocations.shippingOptions.fields.priceType.options.fixed.hint'
-                        )}
+                        label="Vaste prijs"
+                        description="De klant betaalt altijd hetzelfde bedrag, bijvoorbeeld €6,95. Kies dit als je niet zeker bent."
                       />
                       <RadioGroup.ChoiceBox
                         className="flex-1"
                         value={ShippingOptionPriceType.Calculated}
                         disabled={isManualProvider}
-                        label={t(
-                          'stockLocations.shippingOptions.fields.priceType.options.calculated.label'
-                        )}
-                        description={t(
+                        label="Berekende prijs"
+                        description={
                           isManualProvider
-                            ? 'stockLocations.shippingOptions.fields.priceType.options.calculated.manualHint'
-                            : 'stockLocations.shippingOptions.fields.priceType.options.calculated.hint'
-                        )}
+                            ? "Niet beschikbaar bij handmatige verzending. Kies Vaste prijs en vul het bedrag in bij Prijs."
+                            : "Een vervoerder berekent de prijs bij het afrekenen. Alleen kiezen als je een koppeling met een vervoerder hebt."
+                        }
                       />
                     </RadioGroup>
                   </Form.Control>
@@ -136,10 +136,11 @@ export const CreateShippingOptionDetailsForm = ({
             render={({ field }) => {
               return (
                 <Form.Item>
-                  <Form.Label>{t('fields.name')}</Form.Label>
+                  <Form.Label>Naam van de verzendoptie</Form.Label>
                   <Form.Control>
-                    <Input {...field} />
+                    <Input {...field} placeholder="Bijvoorbeeld: Pakket België en Nederland" />
                   </Form.Control>
+                  <Form.Hint>Dit ziet je klant bij het afrekenen.</Form.Hint>
                   <Form.ErrorMessage />
                 </Form.Item>
               );
@@ -151,7 +152,7 @@ export const CreateShippingOptionDetailsForm = ({
             render={({ field }) => {
               return (
                 <Form.Item>
-                  <Form.Label>{t('stockLocations.shippingOptions.fields.profile')}</Form.Label>
+                  <Form.Label>Verzendgroep</Form.Label>
                   <Form.Control>
                     <Combobox
                       {...field}
@@ -161,6 +162,9 @@ export const CreateShippingOptionDetailsForm = ({
                       disabled={shippingProfiles.disabled}
                     />
                   </Form.Control>
+                  <Form.Hint>
+                    Voor welke producten geldt deze optie? Kies de groep van die producten.
+                  </Form.Hint>
                   <Form.ErrorMessage />
                 </Form.Item>
               );

@@ -1,4 +1,4 @@
-import { productShippingPolicies } from "@/lib/commerce/medusa/shipping";
+import type { ShippingPolicyNotice } from "@/lib/commerce/medusa/shipping";
 import { CardShell } from "@/components/ui/card-shell";
 import { PriceDisplay } from "@/components/domain/price-display";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
@@ -14,6 +14,8 @@ type ProductBuyCardProps = {
   variants: React.ComponentProps<typeof ProductPurchaseControls>["variants"];
   selectedVariantId?: string;
   isFavorite: boolean;
+  /** Seller free shipping rules, fetched by the page. */
+  shippingPolicies?: ShippingPolicyNotice[];
 };
 
 const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
@@ -23,15 +25,15 @@ const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
  * add-to-cart flow (merchant supply, or a legacy Medusa-linked maker
  * listing) or a contact/inquire form (maker listing without a cart).
  */
-export async function ProductBuyCard({
+export function ProductBuyCard({
   product,
   creator,
   price,
   variants,
   selectedVariantId,
   isFavorite,
+  shippingPolicies = [],
 }: ProductBuyCardProps) {
-  const shippingPolicies = product.medusa_product_id ? await productShippingPolicies(product.medusa_product_id) : [];
   const isMakerListing = MAKER_LISTING_TYPES.has(product.product_type);
   const hasCart = !isMakerListing || !!product.medusa_product_id;
 
