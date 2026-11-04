@@ -59,7 +59,7 @@ export const ProductTagCreateForm = () => {
           <div className="flex w-full max-w-[720px] flex-col gap-y-8">
             <div className="flex flex-col gap-y-1">
               <RouteFocusModal.Title asChild>
-                <Heading>Request Product Tag</Heading>
+                <Heading>Tag aanvragen</Heading>
               </RouteFocusModal.Title>
               <RouteFocusModal.Description asChild>
                 <Text size="small" className="text-ui-fg-subtle">
@@ -94,7 +94,7 @@ export const ProductTagCreateForm = () => {
               </Button>
             </RouteFocusModal.Close>
             <Button size="small" type="submit" isLoading={isPending}>
-              Request
+              Aanvragen
             </Button>
           </div>
         </RouteFocusModal.Footer>

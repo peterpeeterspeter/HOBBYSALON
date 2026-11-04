@@ -82,7 +82,7 @@ const extractPricesFromVariants = (
         : regions.find((r) => r.id === id)?.currency_code
 
     if (!currencyCode) {
-      throw json({ message: "Currency code not found" }, 400)
+      throw json({ message: "Munt niet gevonden" }, 400)
     }
 
     return {

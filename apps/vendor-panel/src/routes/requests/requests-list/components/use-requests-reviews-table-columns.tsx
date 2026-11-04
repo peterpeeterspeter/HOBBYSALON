@@ -14,11 +14,11 @@ export const useRequestsReviewsTableColumns = () => {
   return useMemo(
     () => [
       columnHelper.accessor("data.review_id", {
-        header: "Review",
+        header: "Beoordeling",
         cell: ({ getValue }) => getValue(),
       }),
       columnHelper.accessor("data.reason", {
-        header: "Reason",
+        header: "Reden",
         cell: ({ row }) => {
           const reason =
             row.original?.data.reason && typeof row.original.data.reason === "string" ? row.original.data.reason.split("comment: ")[0] : ""
@@ -27,7 +27,7 @@ export const useRequestsReviewsTableColumns = () => {
         },
       }),
       columnHelper.accessor("created_at", {
-        header: "Date",
+        header: "Datum",
         cell: ({ getValue }) => <DateCell date={getValue()} />,
       }),
       columnHelper.accessor("status", {

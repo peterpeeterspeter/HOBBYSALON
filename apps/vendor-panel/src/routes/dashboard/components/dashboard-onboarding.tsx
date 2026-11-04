@@ -26,19 +26,18 @@ export const DashboardOnboarding = ({
     <Container className="divide-y p-0">
       <div className="flex items-center justify-between px-6 py-4">
         <div>
-          <Heading>Welcome to Mercur marketplace</Heading>
+          <Heading>Welkom bij Hobbysalon</Heading>
           <Text className="text-ui-fg-subtle" size="small">
-            Please complete these steps so you can start selling on the
-            marketplace
+            Doe deze stappen en je kan beginnen verkopen op Hobbysalon.
           </Text>
         </div>
       </div>
       <div className="px-6 py-4">
         <OnboardingRow
-          label="Complete the store information"
+          label="Vul je winkelgegevens in"
           state={store_information}
           link="/settings/store"
-          buttonLabel="Manage"
+          buttonLabel="Invullen"
         />
         {/* <OnboardingRow
           label='Setup Stripe Connect account'
@@ -47,16 +46,16 @@ export const DashboardOnboarding = ({
           buttonLabel='Setup'
         /> */}
         <OnboardingRow
-          label="Setup Locations & Shipping"
+          label="Stel je verzending in"
           state={locations_shipping}
           link="/settings/locations"
-          buttonLabel="Setup"
+          buttonLabel="Instellen"
         />
         <OnboardingRow
-          label="Add products and start selling"
+          label="Zet je eerste product online"
           state={products}
           link="/products/create"
-          buttonLabel="Add"
+          buttonLabel="Toevoegen"
         />
       </div>
     </Container>

@@ -611,7 +611,7 @@ const CostBreakdown = ({
       </>
       {commission && (
         <Cost
-          label={"Commission"}
+          label={"Commissie"}
           value={getLocaleAmount(
             parseFloat(commission.commission_value.amount),
             commission.commission_value.currency_code

@@ -51,7 +51,7 @@ export const AdminChat = () => {
       <Drawer.Content>
         <Drawer.Header>
           <Drawer.Title asChild>
-            <Heading>Chat with admin</Heading>
+            <Heading>Chat met Hobbysalon</Heading>
           </Drawer.Title>
         </Drawer.Header>
         <Drawer.Body className="overflow-y-auto px-4">

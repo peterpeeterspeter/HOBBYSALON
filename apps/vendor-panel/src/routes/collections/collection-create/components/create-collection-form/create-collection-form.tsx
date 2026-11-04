@@ -36,7 +36,7 @@ export const CreateCollectionForm = () => {
     await mutateAsync(data, {
       onSuccess: () => {
         handleSuccess()
-        toast.success("Collection requested successfully")
+        toast.success("Collectie aangevraagd")
       },
       onError: (error) => {
         toast.error(error.message)

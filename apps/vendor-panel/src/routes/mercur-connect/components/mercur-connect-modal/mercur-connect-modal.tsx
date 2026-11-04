@@ -48,15 +48,15 @@ export const MercurConnectModal = ({
             className="line-height-[20px] text-ui-fg-base"
             data-testid={`${testId}-title`}
           >
-            Mercur Connect Feature
+            Extra functie
           </Text>
           <Text
             size="small"
             className="text-ui-fg-subtle"
             data-testid={`${testId}-description`}
           >
-            Your current plan doesn’t include this feature.
-            <span className="block">Please contact your admin to enable it for your account.</span>
+            Deze functie zit niet in je pakket.
+            <span className="block">Neem contact op met Hobbysalon om ze te activeren.</span>
           </Text>
         </Prompt.Description>
       </Prompt.Content>

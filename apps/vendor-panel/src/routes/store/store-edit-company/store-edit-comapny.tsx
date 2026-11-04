@@ -14,7 +14,7 @@ export const StoreEditCompany = () => {
   return (
     <RouteDrawer>
       <RouteDrawer.Header>
-        <Heading>Edit Comapny</Heading>
+        <Heading>Bedrijf bewerken</Heading>
       </RouteDrawer.Header>
       {ready && <EditStoreCompanyForm seller={seller} />}
     </RouteDrawer>

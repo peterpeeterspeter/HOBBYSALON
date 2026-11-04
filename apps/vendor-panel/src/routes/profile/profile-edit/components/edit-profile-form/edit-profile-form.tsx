@@ -160,7 +160,7 @@ export const EditProfileForm = ({ user }: EditProfileProps) => {
                   <Form.Item>
                     <div className="flex flex-col gap-y-2">
                       <div className="flex flex-col gap-y-1">
-                        <Form.Label>Profile picture</Form.Label>
+                        <Form.Label>Profielfoto</Form.Label>
                       </div>
                       <Form.Control>
                         <FileUpload
@@ -184,7 +184,7 @@ export const EditProfileForm = ({ user }: EditProfileProps) => {
               name="name"
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Name</Form.Label>
+                  <Form.Label>Naam</Form.Label>
                   <Form.Control>
                     <Input {...field} />
                   </Form.Control>
@@ -197,7 +197,7 @@ export const EditProfileForm = ({ user }: EditProfileProps) => {
               name="phone"
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Phone</Form.Label>
+                  <Form.Label>Telefoon</Form.Label>
                   <Form.Control>
                     <Input {...field} />
                   </Form.Control>
@@ -210,7 +210,7 @@ export const EditProfileForm = ({ user }: EditProfileProps) => {
               name="bio"
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Bio</Form.Label>
+                  <Form.Label>Over mij</Form.Label>
                   <Form.Control>
                     <Textarea {...field} />
                   </Form.Control>

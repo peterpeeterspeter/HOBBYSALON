@@ -43,9 +43,9 @@ export const Requests = () => {
       <Container className="p-0">
         <div className="flex items-center justify-between px-6 py-4">
           <div>
-            <Heading>Requests</Heading>
+            <Heading>Aanvragen</Heading>
             <Text className="text-ui-fg-subtle" size="small">
-              Check the status of your requests and add new ones
+              Volg je aanvragen op of doe een nieuwe aanvraag
             </Text>
           </div>
         </div>
@@ -54,7 +54,7 @@ export const Requests = () => {
             <Button variant="secondary" className="w-full justify-between py-4">
               <div className="flex gap-4 items-center">
                 <Badge>{collectionRequestCount}</Badge>
-                Collections requests
+                Collectie-aanvragen
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -63,7 +63,7 @@ export const Requests = () => {
             <Button variant="secondary" className="w-full justify-between py-4">
               <div className="flex gap-4 items-center">
                 <Badge>{categoryRequestCount}</Badge>
-                Categories requests
+                Categorie-aanvragen
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -72,7 +72,7 @@ export const Requests = () => {
             <Button variant="secondary" className="w-full justify-between py-4">
               <div className="flex gap-4 items-center">
                 <Badge>{reviewRequestCount}</Badge>
-                Reviews requests
+                Beoordelingsaanvragen
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -81,7 +81,7 @@ export const Requests = () => {
             <Button variant="secondary" className="w-full justify-between py-4">
               <div className="flex gap-4 items-center">
                 <Badge>{ordersRequestsCount}</Badge>
-                Order return requests
+                Retouraanvragen
               </div>
               <TriangleRightMini color="grey" />
             </Button>

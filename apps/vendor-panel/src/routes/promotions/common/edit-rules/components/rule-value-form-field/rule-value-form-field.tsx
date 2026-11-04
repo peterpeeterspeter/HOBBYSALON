@@ -143,7 +143,7 @@ export const RuleValueFormField = ({
                     ref={ref}
                     className="bg-ui-bg-base"
                   >
-                    <Select.Value placeholder="Select Value" />
+                    <Select.Value placeholder="Kies een waarde" />
                   </Select.Trigger>
 
                   <Select.Content>
@@ -168,7 +168,7 @@ export const RuleValueFormField = ({
                 <Combobox
                   {...field}
                   ref={ref}
-                  placeholder="Select Values"
+                  placeholder="Kies waarden"
                   options={options}
                   onChange={onChange}
                   className="bg-ui-bg-base"

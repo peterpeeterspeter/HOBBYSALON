@@ -54,7 +54,7 @@ const CopyPaymentLink = React.forwardRef<any, CopyPaymentLinkProps>(
           ref={ref}
           variant="secondary"
           size="small"
-          aria-label="CopyPaymentLink code snippet"
+          aria-label="Betaallink kopiëren"
           onClick={copyToClipboard}
         >
           {done ? (

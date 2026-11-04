@@ -56,7 +56,7 @@ export const CollectionListTable = () => {
         </div>
         <Link to="/collections/create">
           <Button size="small" variant="secondary">
-            Request Collection
+            Collectie aanvragen
           </Button>
         </Link>
       </div>

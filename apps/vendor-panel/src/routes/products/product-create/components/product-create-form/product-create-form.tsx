@@ -386,7 +386,7 @@ export const ProductCreateForm = ({
               isLoading={isPending}
               className="whitespace-nowrap"
             >
-              Draft
+              Concept
             </Button>
             <PrimaryButton
               tab={tab}

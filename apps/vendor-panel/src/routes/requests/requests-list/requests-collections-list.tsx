@@ -17,13 +17,13 @@ export const RequestsCollectionsList = () => {
       <Container className="divided-y p-0">
         <div className="flex items-center justify-between px-6 py-4">
           <div>
-            <Heading>Collection Requests</Heading>
+            <Heading>Collectie-aanvragen</Heading>
             <Text className="text-ui-fg-subtle" size="small">
-              Your requests to add a new collection
+              Je aanvragen voor een nieuwe collectie
             </Text>
           </div>
           <Button variant="secondary" asChild>
-            <Link to="create">Request Collection</Link>
+            <Link to="create">Collectie aanvragen</Link>
           </Button>
         </div>
         <div className="px-6 py-4">
