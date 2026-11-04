@@ -251,6 +251,9 @@ const Inner = ({
           onChange(localValue, value)
         }}
         onFocus={onFocus}
+        decimalSeparator="."
+        disableGroupSeparators
+        transformRawValue={(rawValue) => rawValue.replace(",", ".")}
         decimalScale={currencyInfo.decimal_digits}
         decimalsLimit={currencyInfo.decimal_digits}
         autoComplete="off"
