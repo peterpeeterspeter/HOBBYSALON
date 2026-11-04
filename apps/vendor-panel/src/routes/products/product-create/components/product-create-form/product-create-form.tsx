@@ -117,7 +117,8 @@ export const ProductCreateForm = ({
     }
 
     const media = values.media || []
-    const payload = { ...values, media: undefined }
+    const { material_category_id: materialCategoryId, ...formValues } = values
+    const payload = { ...formValues, media: undefined }
 
     let uploadedMedia: (HttpTypes.AdminFile & {
       isThumbnail: boolean
@@ -178,6 +179,9 @@ export const ProductCreateForm = ({
         shipping_profile_id: undefined,
         enable_variants: undefined,
         additional_data: undefined,
+        metadata: materialCategoryId
+          ? { platform_category_id: materialCategoryId }
+          : undefined,
         categories: payload.categories.map((cat) => ({
           id: cat,
         })),
