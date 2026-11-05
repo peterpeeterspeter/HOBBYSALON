@@ -218,7 +218,7 @@ const useColumns = () => {
 
           if (isPreselected) {
             return (
-              <Tooltip content="This product is already in the price list">
+              <Tooltip content="Dit product staat al in de prijslijst">
                 {Component}
               </Tooltip>
             )
@@ -226,7 +226,7 @@ const useColumns = () => {
 
           if (isDisabled) {
             return (
-              <Tooltip content="This product has no variants">
+              <Tooltip content="Dit product heeft geen varianten">
                 {Component}
               </Tooltip>
             )

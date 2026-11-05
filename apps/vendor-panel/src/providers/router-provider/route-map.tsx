@@ -49,7 +49,7 @@ export const RouteMap: RouteObject[] = [
             path: '/requests',
             errorElement: <ErrorBoundary />,
             handle: {
-              breadcrumb: () => 'Requests'
+              breadcrumb: () => 'Aanvragen'
             },
             children: [
               {
@@ -65,7 +65,7 @@ export const RouteMap: RouteObject[] = [
               {
                 path: 'categories',
                 handle: {
-                  breadcrumb: () => 'Categories requests'
+                  breadcrumb: () => 'Categorie-aanvragen'
                 },
                 lazy: async () => {
                   const { RequestsCategoriesList } =
@@ -89,7 +89,7 @@ export const RouteMap: RouteObject[] = [
               {
                 path: 'collections',
                 handle: {
-                  breadcrumb: () => 'Collection requests'
+                  breadcrumb: () => 'Collectie-aanvragen'
                 },
                 lazy: async () => {
                   const { RequestsCollectionsList } =
@@ -113,7 +113,7 @@ export const RouteMap: RouteObject[] = [
               {
                 path: 'reviews',
                 handle: {
-                  breadcrumb: () => 'Reviews requests'
+                  breadcrumb: () => 'Beoordelingsaanvragen'
                 },
                 lazy: async () => {
                   const { RequestReviewsList } =
@@ -133,7 +133,7 @@ export const RouteMap: RouteObject[] = [
               {
                 path: 'orders',
                 handle: {
-                  breadcrumb: () => 'Orders requests'
+                  breadcrumb: () => 'Retouraanvragen'
                 },
                 lazy: async () => {
                   const { RequestOrdersList } = await import('../../routes/requests/requests-list');
@@ -178,7 +178,7 @@ export const RouteMap: RouteObject[] = [
             path: '/reviews',
             errorElement: <ErrorBoundary />,
             handle: {
-              breadcrumb: () => 'Reviews'
+              breadcrumb: () => 'Beoordelingen'
             },
             children: [
               {

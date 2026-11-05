@@ -135,7 +135,7 @@ const ProductRowAction = ({
       },
       {
         onSuccess: () => {
-          toast.success("Product removed from price list")
+          toast.success("Product uit de prijslijst gehaald")
         },
         onError: (e) => {
           toast.error(e.message)

@@ -21,7 +21,7 @@ export const MercurConnect = () => {
         ))}
         <MercurConnectItem
           item={{
-            name: 'More comming soon',
+            name: 'Binnenkort meer',
             description:
               'We werken aan meer koppelingen. Vragen? Neem contact op.',
             enabled: false,

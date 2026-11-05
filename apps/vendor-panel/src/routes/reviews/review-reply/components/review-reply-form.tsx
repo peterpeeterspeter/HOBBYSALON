@@ -64,12 +64,12 @@ export const ReviewReplyForm = () => {
     <RouteDrawer>
       <RouteDrawer.Header>
         <RouteDrawer.Title asChild>
-          <Heading>{review?.seller_note ? "Edit Reply" : "Reply"}</Heading>
+          <Heading>{review?.seller_note ? "Antwoord bewerken" : "Reply"}</Heading>
         </RouteDrawer.Title>
         <RouteDrawer.Description>
           {review?.seller_note
-            ? "Edit your reply to customer review."
-            : "Reply to customer review."}
+            ? "Pas je antwoord op de beoordeling aan."
+            : "Antwoord op de beoordeling van je klant."}
         </RouteDrawer.Description>
       </RouteDrawer.Header>
       <RouteDrawer.Form form={form}>
@@ -108,7 +108,7 @@ export const ReviewReplyForm = () => {
           className="px-6"
           isLoading={isPending}
         >
-          {review?.seller_note ? "Save" : "Reply"}
+          {review?.seller_note ? "Opslaan" : "Reply"}
         </Button>
       </RouteDrawer.Footer>
     </RouteDrawer>

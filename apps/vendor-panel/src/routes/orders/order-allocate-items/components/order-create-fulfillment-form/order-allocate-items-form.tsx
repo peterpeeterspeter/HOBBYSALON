@@ -106,7 +106,7 @@ export function OrderAllocateItemsForm({ order }: OrderAllocateItemsFormProps) {
       })
     } catch (e) {
       toast.error(t("general.error"), {
-        description: e instanceof FetchError ? e.message : "An unknown error occurred",
+        description: e instanceof FetchError ? e.message : "Er ging iets mis",
       })
     }
   })

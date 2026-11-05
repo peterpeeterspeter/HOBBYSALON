@@ -117,26 +117,26 @@ export const Notifications = () => {
 
 const NOTIFICATION_TEMPLATES = {
   seller_product_collection_request_accepted_notification:
-    "Your product collection request has been accepted",
+    "Je collectie-aanvraag is goedgekeurd",
   seller_product_collection_request_rejected_notification:
-    "Your product collection request has been rejected",
-  seller_new_order_notification: "You have a new order",
+    "Je collectie-aanvraag is afgewezen",
+  seller_new_order_notification: "Je hebt een nieuwe bestelling",
   seller_product_category_request_accepted_notification:
-    "Your product category request has been accepted",
+    "Je categorie-aanvraag is goedgekeurd",
   seller_product_category_request_rejected_notification:
-    "Your product category request has been rejected",
+    "Je categorie-aanvraag is afgewezen",
   seller_product_tag_request_accepted_notification:
-    "Your product tag request has been accepted",
+    "Je tag-aanvraag is goedgekeurd",
   seller_product_tag_request_rejected_notification:
-    "Your product tag request has been rejected",
+    "Je tag-aanvraag is afgewezen",
   seller_product_type_request_accepted_notification:
-    "Your product type request has been accepted",
+    "Je producttype-aanvraag is goedgekeurd",
   seller_product_type_request_rejected_notification:
-    "Your product type request has been rejected",
+    "Je producttype-aanvraag is afgewezen",
   seller_product_request_accepted_notification:
-    "Your product request has been accepted",
+    "Je product is goedgekeurd",
   seller_product_request_rejected_notification:
-    "Your product request has been rejected",
+    "Je product is afgewezen",
 }
 
 const Notification = ({

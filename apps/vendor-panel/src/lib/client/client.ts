@@ -1,4 +1,5 @@
 import Medusa from '@medusajs/js-sdk';
+import { toDutchServerMessage } from '../server-message';
 
 export const backendUrl = __BACKEND_URL__ ?? '/';
 export const publishableApiKey = __PUBLISHABLE_API_KEY__ ?? '';
@@ -61,7 +62,7 @@ export const importProductsQuery = async (file: File) => {
     return {
       message:
         (payload as { message?: string } | null)?.message ??
-        `Import failed (${response.status})`
+        `Importeren mislukt (${response.status})`
     };
   }
 
@@ -71,7 +72,7 @@ export const importProductsQuery = async (file: File) => {
 export const uploadFilesQuery = async (files: any[]) => {
   const token = getAuthToken();
   if (isTokenExpired(token)) {
-    throw new Error('Unauthorized');
+    throw new Error('Niet aangemeld');
   }
 
   const formData = new FormData();
@@ -93,7 +94,7 @@ export const uploadFilesQuery = async (files: any[]) => {
   if (!response.ok || !payload?.files) {
     throw new Error(
       (payload as { message?: string } | null)?.message ??
-        `Upload failed (${response.status})`
+        `Uploaden mislukt (${response.status})`
     );
   }
 
@@ -159,11 +160,11 @@ export const fetchQuery = async (
 
       throw {
         type: 'NO_PERMISSION',
-        message: errorData.message || 'Unauthorized'
+        message: toDutchServerMessage(errorData.message || 'Unauthorized')
       };
     }
 
-    const error = new Error(errorData.message || 'Server error');
+    const error = new Error(toDutchServerMessage(errorData.message));
     (error as Error & { status: number }).status = response.status;
     throw error;
   }

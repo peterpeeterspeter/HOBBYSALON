@@ -29,7 +29,7 @@ export const AdminChat = () => {
     const other = new Talk.User({
       id: "admin",
       name: "Admin",
-      welcomeMessage: "Hey, how can I help?",
+      welcomeMessage: "Hallo, waarmee kunnen we helpen?",
     })
 
     conversation.setParticipant(other)

@@ -429,7 +429,7 @@ const PrimaryButton = ({
         size="small"
         isLoading={isLoading}
       >
-        Create Product
+        Product aanmaken
       </Button>
     )
   }

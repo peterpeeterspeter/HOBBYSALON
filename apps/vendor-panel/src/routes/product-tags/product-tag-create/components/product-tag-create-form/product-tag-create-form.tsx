@@ -38,7 +38,7 @@ export const ProductTagCreateForm = () => {
       },
       {
         onSuccess: () => {
-          toast.success("Product Tag Requested")
+          toast.success("Tag aangevraagd")
           handleSuccess()
         },
         onError: (error) => {

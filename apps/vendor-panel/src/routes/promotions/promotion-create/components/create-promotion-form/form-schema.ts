@@ -8,8 +8,8 @@ const RuleSchema = z.array(
     operator: z.preprocess(
       (val) => (val === "" ? undefined : val),
       z.enum(["gt", "lt", "eq", "ne", "in", "lte", "gte"], {
-        required_error: "Required field",
-        invalid_type_error: "Required field",
+        required_error: "Verplicht veld",
+        invalid_type_error: "Verplicht veld",
       })
     ),
     values: z.union([

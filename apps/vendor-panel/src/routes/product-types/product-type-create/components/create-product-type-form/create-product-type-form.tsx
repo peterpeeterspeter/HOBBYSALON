@@ -32,7 +32,7 @@ export const CreateProductTypeForm = () => {
     async (values: z.infer<typeof CreateProductTypeSchema>) => {
       await mutateAsync(values, {
         onSuccess: () => {
-          toast.success("Product type requested successfully")
+          toast.success("Producttype aangevraagd")
 
           handleSuccess()
         },

@@ -188,11 +188,11 @@ export const OrderSummarySection = ({
                   {
                     actions: receivableReturns?.map((r) => {
                       let id = r.id
-                      let returnType = "Return"
+                      let returnType = "Retour"
 
                       if (r.exchange_id) {
                         id = r.exchange_id
-                        returnType = "Exchange"
+                        returnType = "Omruiling"
                       }
 
                       if (r.claim_id) {

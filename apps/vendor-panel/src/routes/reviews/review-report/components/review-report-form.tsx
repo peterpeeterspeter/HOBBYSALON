@@ -9,10 +9,10 @@ import { useCreateVendorRequest, useUpdateRequest } from "../../../../hooks/api"
 import { Request } from "../../../../types/request"
 
 const reasonList = [
-  "The review comment is not true",
-  "The review comment is insulting",
-  "The review comment is offensive or vulgar",
-  "Other",
+  "De beoordeling klopt niet",
+  "De beoordeling is beledigend",
+  "De beoordeling is grof of kwetsend",
+  "Andere reden",
 ]
 
 const ReviewReplySchema = z.object({
@@ -103,12 +103,12 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
     <RouteDrawer>
       <RouteDrawer.Header>
         <RouteDrawer.Title asChild>
-          <Heading>{isEditing ? "Edit Request" : "Report Review"}</Heading>
+          <Heading>{isEditing ? "Melding bewerken" : "Beoordeling melden"}</Heading>
         </RouteDrawer.Title>
         <RouteDrawer.Description>
           {isEditing
-            ? "Edit the request to report the review from customer."
-            : "Report review from customer."}
+            ? "Pas je melding over deze beoordeling aan."
+            : "Meld een beoordeling van een klant."}
         </RouteDrawer.Description>
       </RouteDrawer.Header>
       <RouteDrawer.Form form={form}>
@@ -165,7 +165,7 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
           className="px-6"
           isLoading={isPending || isUpdating}
         >
-          {isEditing ? "Update Request" : "Report review"}
+          {isEditing ? "Melding bijwerken" : "Beoordeling melden"}
         </Button>
       </RouteDrawer.Footer>
     </RouteDrawer>
