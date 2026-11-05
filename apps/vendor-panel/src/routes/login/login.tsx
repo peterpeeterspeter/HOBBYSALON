@@ -154,7 +154,7 @@ export const Login = () => {
                 </Alert>
               )}
               <Button className="w-full" type="submit" isLoading={isPending}>
-                Sign In
+                Inloggen
               </Button>
             </form>
           </Form>

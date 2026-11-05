@@ -23,24 +23,24 @@ const getStatusColor = (status: string) => {
 export const useOrderReturnRequestTableColumns = () => {
   return [
     columnHelper.accessor("id", {
-      header: "Order",
+      header: "Bestelling",
       cell: ({ row }) => `#${row.original.order.display_id}`,
     }),
     columnHelper.accessor("order.customer.first_name", {
-      header: "Customer",
+      header: "Klant",
       cell: ({ row }) =>
         `${row.original.order.customer.first_name} ${row.original.order.customer.last_name}`,
     }),
     columnHelper.accessor("order.customer.email", {
-      header: "Customer Email",
+      header: "E-mail klant",
       cell: ({ row }) => row.original.order.customer.email,
     }),
     columnHelper.accessor("customer_note", {
-      header: "Reason",
+      header: "Reden",
       cell: ({ row }) => row.original.customer_note,
     }),
     columnHelper.accessor("created_at", {
-      header: "Date",
+      header: "Datum",
       cell: ({ row }) => <DateCell date={row.original.created_at} />,
     }),
     columnHelper.accessor("status", {

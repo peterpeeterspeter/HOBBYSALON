@@ -34,7 +34,7 @@ export const Shell = ({ children }: PropsWithChildren) => {
       <div className="flex flex-col h-screen">
         {isSuspended && (
           <div className="w-full bg-red-600 text-white p-1 text-center text-sm">
-            Your store is <b>suspended</b>. Please contact support.
+            Je winkel is <b>tijdelijk gesloten</b>. Neem contact op met Hobbysalon.
           </div>
         )}
         <div className="relative flex flex-1 h-full items-start overflow-hidden lg:flex-row">

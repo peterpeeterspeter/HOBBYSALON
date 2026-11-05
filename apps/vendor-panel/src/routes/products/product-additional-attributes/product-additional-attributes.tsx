@@ -21,7 +21,7 @@ export const ProductAdditionalAttributes = () => {
   return (
     <RouteDrawer>
       <RouteDrawer.Header>
-        <Heading level="h2">Edit Additional Attributes</Heading>
+        <Heading level="h2">Extra kenmerken bewerken</Heading>
       </RouteDrawer.Header>
       {isReady ? (
         <ProductAdditionalAttributesForm product={product} attributes={attributes} id={id!} />

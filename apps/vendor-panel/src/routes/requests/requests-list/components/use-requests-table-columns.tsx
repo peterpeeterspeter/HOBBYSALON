@@ -14,15 +14,15 @@ export const useRequestsTableColumns = () => {
   return useMemo(
     () => [
       columnHelper.accessor("data.name", {
-        header: "Title",
+        header: "Titel",
         cell: ({ row }) => row.original.data.title || row.original.data.name,
       }),
       columnHelper.accessor("data.handle", {
-        header: "Handle",
+        header: "URL-naam",
         cell: ({ row }) => row.original.data.handle,
       }),
       columnHelper.accessor("created_at", {
-        header: "Date",
+        header: "Datum",
         cell: ({ getValue }) => <DateCell date={getValue()} />,
       }),
       columnHelper.accessor("status", {

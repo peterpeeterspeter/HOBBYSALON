@@ -138,7 +138,7 @@ export const SelectFilter = ({
                       value={search}
                       onValueChange={setSearch}
                       className="txt-compact-small placeholder:text-ui-fg-muted bg-transparent outline-none"
-                      placeholder="Search"
+                      placeholder="Zoeken"
                     />
                     <div className="flex h-5 w-5 items-center justify-center">
                       <button

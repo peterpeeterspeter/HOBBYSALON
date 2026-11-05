@@ -21,7 +21,7 @@ export const StoreGeneralSection = ({ seller }: { seller: StoreVendor }) => {
               actions: [
                 {
                   icon: <Pencil />,
-                  label: "Edit",
+                  label: "Bewerken",
                   to: "edit",
                 },
               ],
@@ -31,7 +31,7 @@ export const StoreGeneralSection = ({ seller }: { seller: StoreVendor }) => {
       </div>
       <div className="text-ui-fg-subtle grid grid-cols-2 px-6 py-4 items-center">
         <Text size="small" leading="compact" weight="plus">
-          Image
+          Afbeelding
         </Text>
         <ImageAvatar src={seller.photo || "/logo.png"} size={8} rounded />
       </div>
@@ -61,7 +61,7 @@ export const StoreGeneralSection = ({ seller }: { seller: StoreVendor }) => {
       </div>
       <div className="text-ui-fg-subtle grid grid-cols-2 px-6 py-4">
         <Text size="small" leading="compact" weight="plus">
-          Description
+          Omschrijving
         </Text>
         <Text size="small" leading="compact">
           {seller.description || "-"}

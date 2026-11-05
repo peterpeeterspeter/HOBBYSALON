@@ -27,7 +27,7 @@ export const ProductCreateGeneralSection = ({
                 <Form.Item>
                   <Form.Label>{t("products.fields.title.label")}</Form.Label>
                   <Form.Control>
-                    <Input {...field} placeholder="Winter jacket" />
+                    <Input {...field} placeholder="Merinowol, 100 g" />
                   </Form.Control>
                 </Form.Item>
               )
@@ -43,7 +43,7 @@ export const ProductCreateGeneralSection = ({
                     {t("products.fields.subtitle.label")}
                   </Form.Label>
                   <Form.Control>
-                    <Input {...field} placeholder="Warm and cosy" />
+                    <Input {...field} placeholder="Zacht en warm" />
                   </Form.Control>
                 </Form.Item>
               )
@@ -80,7 +80,7 @@ export const ProductCreateGeneralSection = ({
                 {t("products.fields.description.label")}
               </Form.Label>
               <Form.Control>
-                <Textarea {...field} placeholder="A warm and cozy jacket" />
+                <Textarea {...field} placeholder="Zachte merinowol om mee te breien, 100 g per bol." />
               </Form.Control>
             </Form.Item>
           )

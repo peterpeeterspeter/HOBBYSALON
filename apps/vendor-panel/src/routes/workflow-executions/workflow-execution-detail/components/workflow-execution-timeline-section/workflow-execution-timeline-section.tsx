@@ -211,7 +211,7 @@ const Canvas = ({
               onClick={zoomIn}
               type="button"
               disabled={!canZoomIn}
-              aria-label="Zoom in"
+              aria-label="Inzoomen"
               className="disabled:text-ui-fg-disabled transition-fg hover:bg-ui-bg-base-hover active:bg-ui-bg-base-pressed focus-visible:bg-ui-bg-base-pressed border-r p-1 outline-none"
             >
               <PlusMini />
@@ -244,7 +244,7 @@ const Canvas = ({
               onClick={zoomOut}
               type="button"
               disabled={!canZoomOut}
-              aria-label="Zoom out"
+              aria-label="Uitzoomen"
               className="disabled:text-ui-fg-disabled transition-fg hover:bg-ui-bg-base-hover active:bg-ui-bg-base-pressed focus-visible:bg-ui-bg-base-pressed border-r p-1 outline-none"
             >
               <MinusMini />
@@ -253,7 +253,7 @@ const Canvas = ({
           <button
             onClick={resetCanvas}
             type="button"
-            aria-label="Reset canvas"
+            aria-label="Weergave herstellen"
             className="disabled:text-ui-fg-disabled transition-fg hover:bg-ui-bg-base-hover active:bg-ui-bg-base-pressed focus-visible:bg-ui-bg-base-pressed p-1 outline-none"
           >
             <ArrowPathMini />

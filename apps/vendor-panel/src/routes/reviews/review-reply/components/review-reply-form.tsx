@@ -34,7 +34,7 @@ export const ReviewReplyForm = () => {
         },
         {
           onSuccess: () => {
-            toast.success("Reply has been deleted")
+            toast.success("Antwoord verwijderd")
             handleSuccess(`/reviews/${id}`)
           },
           onError: (error) => {
@@ -49,7 +49,7 @@ export const ReviewReplyForm = () => {
         },
         {
           onSuccess: () => {
-            toast.success("Reply has been sent")
+            toast.success("Antwoord verstuurd")
             handleSuccess(`/reviews/${id}`)
           },
           onError: (error) => {
@@ -80,7 +80,7 @@ export const ReviewReplyForm = () => {
             render={({ field }) => {
               return (
                 <Form.Item>
-                  <Form.Label>Comment</Form.Label>
+                  <Form.Label>Opmerking</Form.Label>
                   <Form.Control>
                     <Textarea autoComplete="off" {...field} />
                   </Form.Control>
@@ -99,7 +99,7 @@ export const ReviewReplyForm = () => {
             //@ts-ignore
             onClick={() => handleSubmit({ deleting: true })}
           >
-            Delete reply
+            Antwoord verwijderen
           </Button>
         )}
         <Button

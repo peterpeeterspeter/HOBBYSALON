@@ -40,7 +40,7 @@ export const ProfileGeneralSection = ({ user }: ProfileGeneralSectionProps) => {
       </div>
       <div className="text-ui-fg-subtle grid grid-cols-2 items-center px-6 py-4">
         <Text size="small" leading="compact" weight="plus">
-          Photo
+          Foto
         </Text>
         <ImageAvatar src={photo || "/logo.png"} size={8} rounded />
       </div>
@@ -62,7 +62,7 @@ export const ProfileGeneralSection = ({ user }: ProfileGeneralSectionProps) => {
       </div>
       <div className="grid grid-cols-2 items-center px-6 py-4">
         <Text size="small" leading="compact" weight="plus">
-          Phone
+          Telefoon
         </Text>
         <Text size="small" leading="compact">
           {phone}
@@ -70,7 +70,7 @@ export const ProfileGeneralSection = ({ user }: ProfileGeneralSectionProps) => {
       </div>
       <div className="grid grid-cols-2 items-center px-6 py-4">
         <Text size="small" leading="compact" weight="plus">
-          Bio
+          Over mij
         </Text>
         <Text size="small" leading="compact">
           {bio}

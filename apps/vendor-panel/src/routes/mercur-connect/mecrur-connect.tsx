@@ -23,7 +23,7 @@ export const MercurConnect = () => {
           item={{
             name: 'More comming soon',
             description:
-              'We’re expanding Mercur Connect with new integrations and tools designed to streamline you workflows. Stay tuned – or contact us to learn more.',
+              'We werken aan meer koppelingen. Vragen? Neem contact op.',
             enabled: false,
             icon: <RocketLaunch />,
             provider: 'more'

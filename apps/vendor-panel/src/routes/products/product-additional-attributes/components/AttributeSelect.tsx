@@ -16,7 +16,7 @@ export const AttributeSelect = ({
   return (
     <Select onValueChange={(value) => handleChange(value)} value={field.value}>
       <Select.Trigger className="bg-ui-bg-base">
-        <Select.Value placeholder="Select value" />
+        <Select.Value placeholder="Kies een waarde" />
       </Select.Trigger>
       <Select.Content>
         {values.map(({ id, attribute_id, value }) => (

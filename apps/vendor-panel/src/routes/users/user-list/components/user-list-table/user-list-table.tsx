@@ -89,7 +89,7 @@ const useColumns = () => {
   return useMemo(
     () => [
       columnHelper.accessor("email", {
-        header: "Email",
+        header: "E-mail",
         cell: ({ row }) => {
           return row.original.email
         },
@@ -98,7 +98,7 @@ const useColumns = () => {
         sortDescLabel: t("filters.sorting.alphabeticallyDesc"),
       }),
       columnHelper.accessor("name", {
-        header: "Name",
+        header: "Naam",
         cell: ({ row }) => {
           return row.original.name || "-"
         },

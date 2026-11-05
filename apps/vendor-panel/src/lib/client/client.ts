@@ -41,7 +41,7 @@ if (typeof window !== 'undefined') {
 export const importProductsQuery = async (file: File) => {
   const token = getAuthToken();
   if (isTokenExpired(token)) {
-    return { message: 'Unauthorized' };
+    return { message: 'Niet aangemeld' };
   }
 
   const formData = new FormData();

@@ -60,7 +60,7 @@ export const MercurConnectItem = ({
               size="small"
               data-testid={`${testId}-contact-us-button`}
             >
-              Contact us
+              Neem contact op
             </Button>
           </Link>
         ) : item.enabled && item.href ? (
@@ -69,7 +69,7 @@ export const MercurConnectItem = ({
               color="green"
               data-testid={`${testId}-enabled-badge`}
             >
-              Enabled
+              Actief
             </StatusBadge>
             <Link to={item.href}>
               <Button
@@ -86,7 +86,7 @@ export const MercurConnectItem = ({
             color="green"
             data-testid={`${testId}-enabled-badge`}
           >
-            Enabled
+            Actief
           </StatusBadge>
         ) : (
           <Button
@@ -95,7 +95,7 @@ export const MercurConnectItem = ({
             onClick={() => onOpenPrompt?.(true)}
             data-testid={`${testId}-enable-button`}
           >
-            Enable
+            Activeren
           </Button>
         )}
       </div>

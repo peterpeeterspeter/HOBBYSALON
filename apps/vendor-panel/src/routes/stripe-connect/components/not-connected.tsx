@@ -63,7 +63,7 @@ export const NotConnected = () => {
     <div className="flex items-center justify-center text-center my-32 flex-col">
       <ExclamationCircle />
       <Heading level="h2" className="mt-4">
-        Not connected
+        Nog niet gekoppeld
       </Heading>
       <Text className="text-ui-fg-subtle max-w-md" size="small">
         Voeg uitbetalingsgegevens toe zodat Hobbysalon je kan betalen. Kies je
@@ -71,7 +71,7 @@ export const NotConnected = () => {
       </Text>
       <div className="mt-4 w-56 text-left">
         <Text size="small" className="mb-1.5 block font-medium">
-          Country
+          Land
         </Text>
         <Select
           value={country}
@@ -80,7 +80,7 @@ export const NotConnected = () => {
           }
         >
           <Select.Trigger>
-            <Select.Value placeholder="Select country" />
+            <Select.Value placeholder="Kies een land" />
           </Select.Trigger>
           <Select.Content>
             {PAYOUT_COUNTRIES.map((option) => (
@@ -101,7 +101,7 @@ export const NotConnected = () => {
         className="mt-4"
         onClick={() => void handleConnect()}
       >
-        Connect Stripe
+        Koppel je bankrekening via Stripe
       </Button>
     </div>
   )

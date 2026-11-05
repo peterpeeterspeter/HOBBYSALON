@@ -56,7 +56,7 @@ export const useProductStockColumns = (
       helper.column({
         id: "title",
         name: "Title",
-        header: "Title",
+        header: "Titel",
         cell: (context) => {
           const item = context.row.original
 

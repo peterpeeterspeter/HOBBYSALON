@@ -8,7 +8,7 @@ export const ReviewReport = () => {
 
   const { request, isLoading } = useRequest(id!)
 
-  if (isLoading) return <div>Loading...</div>
+  if (isLoading) return <div>Laden…</div>
 
   return (
     <RouteModalProvider prev={`/reviews/${id}`}>

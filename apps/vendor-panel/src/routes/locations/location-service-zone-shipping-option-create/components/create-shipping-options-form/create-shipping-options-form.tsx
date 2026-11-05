@@ -154,8 +154,8 @@ export function CreateShippingOptionsForm({
         ],
         type: {
           // TODO: FETCH TYPES
-          label: "Type label",
-          description: "Type description",
+          label: "Naam",
+          description: "Omschrijving",
           code: "type-code",
         },
       },
