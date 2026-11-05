@@ -160,7 +160,7 @@ export function buildTree<T extends TreeItem>(
   })
 
   if (!update.id) {
-    throw new Error("Could not find item")
+    throw new Error("Artikel niet gevonden")
   }
 
   return {

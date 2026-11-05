@@ -45,7 +45,7 @@ type CreateRegionFormProps = {
 
 const CreateRegionSchema = zod.object({
   name: zod.string().min(1),
-  currency_code: zod.string().min(2, "Select a currency"),
+  currency_code: zod.string().min(2, "Kies een munt"),
   automatic_taxes: zod.boolean(),
   is_tax_inclusive: zod.boolean(),
   countries: zod.array(zod.object({ code: zod.string(), name: zod.string() })),

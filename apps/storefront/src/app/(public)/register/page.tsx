@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/account-paths";
 import { Container } from "@/components/ui/container";
 import { CardShell } from "@/components/ui/card-shell";
+import { FacebookLoginButton } from "@/components/auth/FacebookLoginButton";
 
 export const metadata: Metadata = {
   title: "Registreren",
@@ -81,6 +82,7 @@ export default async function RegisterPage({ searchParams }: Props) {
           padding="lg"
           className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
+          <FacebookLoginButton nextPath={nextPath || undefined} label="Account maken met Facebook" />
           <RegisterForm
             action={registerAction}
             nextPath={nextPath}

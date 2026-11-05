@@ -86,8 +86,41 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          <section id="facebook" className="scroll-mt-24">
+            <h2 className="text-xl font-semibold">6. Aanmelden met Facebook</h2>
+            <p className="mt-2 text-muted-foreground">
+              Je kan je aanmelden met je Facebook-account. Facebook geeft ons dan
+              alleen je naam, je e-mailadres en je profielfoto. We gebruiken die
+              enkel om je account aan te maken en je aan te melden. We posten
+              niets op Facebook en lezen je vrienden of berichten niet.
+            </p>
+            <h3 className="mt-4 font-semibold">Je gegevens laten verwijderen</h3>
+            <ol className="mt-1 list-decimal space-y-1 pl-5 text-muted-foreground">
+              <li>
+                Stuur een e-mail naar{" "}
+                <a
+                  href="mailto:info@hobbysalon.be?subject=Gegevens%20verwijderen"
+                  className="font-semibold text-[var(--accent)] underline"
+                >
+                  info@hobbysalon.be
+                </a>{" "}
+                met als onderwerp &quot;Gegevens verwijderen&quot; en het
+                e-mailadres van je account.
+              </li>
+              <li>
+                We verwijderen je account en je gegevens binnen 30 dagen en
+                bevestigen dat per e-mail.
+              </li>
+              <li>
+                Je kan de koppeling ook zelf stoppen op Facebook: Instellingen en
+                privacy → Instellingen → Apps en websites → Hobbysalon →
+                Verwijderen.
+              </li>
+            </ol>
+          </section>
+
           <section>
-            <h2 className="text-xl font-semibold">6. Cookies</h2>
+            <h2 className="text-xl font-semibold">7. Cookies</h2>
             <p className="mt-2 text-muted-foreground">
               We gebruiken functionele cookies en Google Analytics cookies. Je kunt
               cookies beheren via je browserinstellingen.
@@ -95,7 +128,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">7. Jouw rechten</h2>
+            <h2 className="text-xl font-semibold">8. Jouw rechten</h2>
             <ul className="mt-2 space-y-1 text-muted-foreground">
               <li>Recht op inzage van je gegevens</li>
               <li>Recht op correctie of verwijdering</li>
@@ -108,7 +141,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">8. Beveiliging</h2>
+            <h2 className="text-xl font-semibold">9. Beveiliging</h2>
             <p className="mt-2 text-muted-foreground">
               We nemen redelijke maatregelen om je gegevens te beschermen tegen
               onbevoegde toegang.
@@ -116,7 +149,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold">9. Contact</h2>
+            <h2 className="text-xl font-semibold">10. Contact</h2>
             <p className="mt-2 text-muted-foreground">
               Vragen over dit privacybeleid? Mail naar:{" "}
               <a

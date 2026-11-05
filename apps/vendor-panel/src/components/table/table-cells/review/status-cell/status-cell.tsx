@@ -9,7 +9,7 @@ export const StatusCell = ({ status }: StatusCellProps) => {
     <div className="flex h-full w-full items-center overflow-hidden">
       <span className="truncate">
         <StatusCell_ color={!status ? "orange" : "green"}>
-          {!status ? "Waiting for reply" : "Replied"}
+          {!status ? "Wacht op antwoord" : "Beantwoord"}
         </StatusCell_>
       </span>
     </div>

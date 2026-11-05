@@ -6,7 +6,7 @@ export type CurrencyInfo = {
   decimal_digits: number
 }
 
-export const currencies: Record<string, CurrencyInfo> = {
+const englishCurrencies: Record<string, CurrencyInfo> = {
   USD: {
     code: "USD",
     name: "US Dollar",
@@ -728,6 +728,25 @@ export const currencies: Record<string, CurrencyInfo> = {
     decimal_digits: 0,
   },
 }
+
+
+// Show currency names in Dutch.
+const dutchCurrencyNames =
+  typeof Intl !== "undefined" && "DisplayNames" in Intl
+    ? new Intl.DisplayNames(["nl"], { type: "currency" })
+    : null
+
+export const currencies: Record<string, CurrencyInfo> = Object.fromEntries(
+  Object.entries(englishCurrencies).map(([code, info]) => {
+    let dutch: string | undefined
+    try {
+      dutch = dutchCurrencyNames?.of(code)
+    } catch {
+      dutch = undefined
+    }
+    return [code, dutch && dutch !== code ? { ...info, name: dutch } : info]
+  })
+)
 
 export function getCurrencySymbol(code: string) {
   return currencies[code.toUpperCase()].symbol_native

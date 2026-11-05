@@ -10,6 +10,7 @@ import AvatarBox from "../../components/common/logo-box/avatar-box"
 import { useDashboardExtension } from "../../extensions"
 import { useSignInWithEmailPass } from "../../hooks/api"
 import { isFetchError } from "../../lib/is-fetch-error"
+import { toDutchServerMessage } from "../../lib/server-message"
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -22,7 +23,7 @@ export const Login = () => {
   const [searchParams] = useSearchParams()
 
   const reason = searchParams.get("reason") || ""
-  const reasonMessage = reason && reason.toLowerCase() === "unauthorized" ? "Session expired" : reason
+  const reasonMessage = reason && reason.toLowerCase() === "unauthorized" ? "Je sessie is verlopen. Log opnieuw in." : reason
 
   const { getWidgets } = useDashboardExtension()
 
@@ -50,7 +51,7 @@ export const Login = () => {
             if (error.status === 401) {
               form.setError("email", {
                 type: "manual",
-                message: error.message,
+                message: toDutchServerMessage(error.message),
               })
 
               return
@@ -59,7 +60,7 @@ export const Login = () => {
 
           form.setError("root.serverError", {
             type: "manual",
-            message: error.message,
+            message: toDutchServerMessage(error.message),
           })
         },
         onSuccess: () => {
@@ -72,7 +73,8 @@ export const Login = () => {
   })
 
   const serverError =
-    form.formState.errors?.root?.serverError?.message || reasonMessage
+    form.formState.errors?.root?.serverError?.message ||
+    (reasonMessage ? toDutchServerMessage(reasonMessage) : reasonMessage)
   const validationError =
     form.formState.errors.email?.message ||
     form.formState.errors.password?.message

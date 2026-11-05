@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import {
   clearAuthSession,
   createEmailSession,
+  getOAuthSignInUrl,
+  isFacebookLoginEnabled,
   getAuthUser,
   persistAuthSession,
   registerEmailUser,
@@ -67,6 +69,26 @@ function parseInterestTypes(formData: FormData): RegistrationInterestType[] {
       (value): value is RegistrationInterestType =>
         ALLOWED_REGISTRATION_INTEREST_TYPES.has(value)
     );
+}
+
+/** Starts Facebook login; Facebook returns the user to /auth/confirm. */
+export async function facebookLoginAction(formData: FormData): Promise<void> {
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
+  const loginPath = (message: string) =>
+    `/login?error=${encodeURIComponent(message)}${
+      requestedNextPath ? `&next=${encodeURIComponent(requestedNextPath)}` : ""
+    }`;
+
+  if (!isFacebookLoginEnabled()) {
+    redirect(loginPath("Aanmelden met Facebook is nog niet beschikbaar."));
+  }
+
+  const { url, error } = await getOAuthSignInUrl("facebook", requestedNextPath);
+  if (error || !url) {
+    console.error("Facebook login start failed:", error);
+    redirect(loginPath("Aanmelden met Facebook lukt nu niet. Probeer het opnieuw of gebruik je e-mailadres."));
+  }
+  redirect(url);
 }
 
 export async function loginAction(

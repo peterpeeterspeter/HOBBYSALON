@@ -68,7 +68,7 @@ export const ReviewGeneralSection = ({
       <div className="px-6 py-4 flex justify-end">
         <Link to={`/reviews/${review.id}/reply`}>
           <Button className="px-6">
-            {review.seller_note ? "Edit Reply" : "Reply"}
+            {review.seller_note ? "Antwoord bewerken" : "Reply"}
           </Button>
         </Link>
       </div>

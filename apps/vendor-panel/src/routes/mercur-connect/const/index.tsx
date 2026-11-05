@@ -14,7 +14,7 @@ export type MercurConnectItemConfig = {
 
 export const mercurConnectItems: MercurConnectItemConfig[] = [
   {
-    name: 'Product Importer',
+    name: 'Producten importeren',
     description:
       'Zet snel veel producten online met een CSV- of Excel-bestand.',
     enabled: true,
