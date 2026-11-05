@@ -71,6 +71,12 @@ export type DashboardArticle = {
   article_type: string;
   domain_id: string | null;
   is_published: boolean;
+  featured_image_url?: string | null;
+  video_url?: string | null;
+  listing_scope?: "hub" | "profile";
+  gallery?: Array<{ id: string; image_url: string }>;
+  /** End of an active promotion, if any. */
+  promotedUntil?: string | null;
 };
 
 export type ArticleEntityLink = {
@@ -146,6 +152,9 @@ export type CreatorProfileTabProps = {
 };
 
 export type CreatorArticlesTabProps = {
+  creatorId: string;
+  /** Workshop host, shop or editor: articles go to the overviews. */
+  canPublishToHub: boolean;
   domains: Domain[];
   articles: DashboardArticle[];
   articleSuggestionsByArticle: Map<string, ArticleEntityLink[]>;

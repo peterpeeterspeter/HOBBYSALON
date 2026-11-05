@@ -2,6 +2,7 @@ import { CreatorDashboardTabs } from "@/components/dashboard/creator/CreatorDash
 import { CreatorDashboardHeader } from "@/components/dashboard/creator/CreatorDashboardHeader";
 import { CreatorProfileTab } from "@/components/dashboard/creator/CreatorProfileTab";
 import { CreatorArticlesTab } from "@/components/dashboard/creator/CreatorArticlesTab";
+import { canPublishArticlesToHub } from "@/lib/content/article-visibility";
 import { CreatorPortfolioTab } from "@/components/dashboard/creator/CreatorPortfolioTab";
 import { CardShell } from "@/components/ui/card-shell";
 import type { CreatorMakerData } from "@/lib/profile/load-creator-maker-data";
@@ -93,6 +94,8 @@ export function CreatorMakerSection({
 
         {activeTab === "artikels" && creator && (
           <CreatorArticlesTab
+            creatorId={creator.id}
+            canPublishToHub={canPublishArticlesToHub(creator)}
             domains={domains}
             articles={dashboardArticles}
             articleSuggestionsByArticle={articleSuggestionsByArticle}

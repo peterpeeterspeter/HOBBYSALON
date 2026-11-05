@@ -27,7 +27,7 @@ async function loadPage(kind, edges, options = {}) {
     workshop_required_products: options.requiredRows ?? [],
     project_product_links: options.projectRows ?? [],
     projects: options.projects ?? [],
-    workshop_sessions: [], workshop_gallery_images: [], product_gallery_images: [],
+    workshop_sessions: [], workshop_gallery_images: [], product_gallery_images: [], article_gallery_images: [],
   };
   const calls = [];
   const attempts = [];

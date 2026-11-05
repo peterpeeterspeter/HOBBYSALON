@@ -89,7 +89,6 @@ export async function searchAll(
     ? supabase
         .from("creators")
         .select("*")
-        .eq("is_active", true)
         .eq("country_code", preferred)
         .or(
           `display_name.ilike.${like},business_name.ilike.${like},bio.ilike.${like}`
@@ -144,7 +143,6 @@ export async function searchAll(
     supabase
       .from("creators")
       .select("*")
-      .eq("is_active", true)
       .or(
         `display_name.ilike.${like},business_name.ilike.${like},bio.ilike.${like}`
       )
@@ -163,6 +161,7 @@ export async function searchAll(
       .from("articles")
       .select("*")
       .eq("is_published", true)
+      .eq("listing_scope", "hub")
       .or(`title.ilike.${like},excerpt.ilike.${like}`)
       .limit(PER_TYPE_LIMIT),
   ]);

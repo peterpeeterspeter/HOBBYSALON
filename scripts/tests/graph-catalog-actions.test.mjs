@@ -57,6 +57,7 @@ async function fixture(options={}) {
       if(spec==='@/lib/profile/creator-maker-path') return real('apps/storefront/src/lib/profile/creator-maker-path.ts');
       if(spec==='@/lib/content/article-catalog-pipeline') return real('apps/storefront/src/lib/content/article-catalog-pipeline.ts');
       if(spec==='@/lib/content/article-matching-jobs') return real('apps/storefront/src/lib/content/article-matching-jobs.ts');
+      if(spec==='@/lib/content/article-visibility') return real('apps/storefront/src/lib/content/article-visibility.ts');
       if(spec.startsWith('.')) return real(new URL(spec+'.ts',new URL(path,root)).href.slice(root.href.length));
       const names=bindings.get(spec);assert.ok(names,`Unknown import ${spec}`);
       return new vm.SyntheticModule(names,function(){for(const n of names)this.setExport(n,collaborators[n]??tripwire);},{context});
