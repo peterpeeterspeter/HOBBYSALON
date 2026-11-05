@@ -8,6 +8,8 @@ import { HomeJourneySection } from "@/components/home/HomeJourneySection";
 import { HomeMakers } from "@/components/home/HomeMakers";
 import { HomeProductRail } from "@/components/home/HomeProductRail";
 import { HomeProvidersCta } from "@/components/home/HomeProvidersCta";
+import { SocialFollowBanner } from "@/components/home/SocialFollowBanner";
+import { SOCIAL_PROFILE_URLS } from "@/config/social";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/container";
 import { getAuthUser } from "@/lib/auth/session";
@@ -69,6 +71,7 @@ export default async function HomePage() {
     logo: absoluteUrl("/logo.png", origin),
     description:
       "Creatief platform voor workshops, makers, hobbywinkels, evenementen en creatieve inspiratie in België en Nederland.",
+    sameAs: SOCIAL_PROFILE_URLS,
   };
 
   const websiteSchema = {
@@ -132,6 +135,8 @@ export default async function HomePage() {
         <HomeAgendaTeaser events={data.featuredEvents} />
 
         {data.journey ? <HomeJourneySection journey={data.journey} /> : null}
+
+        <SocialFollowBanner />
 
         <HomeDiscoverBlock
           workshops={data.upcomingWorkshops}

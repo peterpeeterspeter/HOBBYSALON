@@ -64,7 +64,8 @@ async function operation(container: any, cartId: string, expected?: ExpectedCart
   const sessions = cart.payment_collection.payment_sessions?.filter((s: any) => s.id === payment.payment_session_id)
   if (!sessions || sessions.length !== 1) invalid('Marketplace payment session is ambiguous')
   const session = sessions[0]
-  const total = amount(cart.total)
+  // Preserve exact stored amounts; only computed VAT totals use the public DTO precision.
+  const total = amount(MathBN.convert(amount(cart.total)).toNumber())
   if (!MathBN.gt(total, 0) || payment.payment_collection_id !== collectionId ||
       payment.currency_code !== cart.currency_code || amount(payment.amount) !== total ||
       session.payment_collection_id !== collectionId || session.currency_code !== cart.currency_code ||

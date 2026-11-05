@@ -28,6 +28,7 @@ async function render(projects) {
     "@/components/layout/page-layout": { PageLayout: "PageLayout" },
     "@/components/ui/aspect-image": { AspectImage: "AspectImage" },
     "@/lib/auth/session": { getAuthUser: async () => null },
+    "@/lib/commerce/medusa/shipping": { productShippingPolicies: async () => [] },
     "@/lib/platform/queries/favorites": { isFavorite: () => { forbidden.push("favorites"); throw new Error("forbidden"); } },
     "@/lib/seo": { absoluteUrl: path => `https://offline.invalid${path}`, buildPageMetadata: () => { forbidden.push("metadata"); throw new Error("forbidden"); } },
   };

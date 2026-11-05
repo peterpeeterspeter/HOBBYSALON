@@ -70,9 +70,8 @@ export const FOOTER_SECTIONS = {
     { href: "/voor-contentmakers", label: "Content delen" },
     { href: "/voor-makers", label: "Maker worden" },
     { href: "/voor-workshopgevers", label: "Workshop geven" },
-    { href: "/voor-winkels", label: "Verkopen" },
+    { href: "/voor-winkels", label: "Materialen verkopen" },
     { href: "/voor-organisatoren", label: "Event organiseren" },
-    { href: "/prijzen", label: "Prijzen" },
   ],
   info: [
     { href: "/nieuwsbrief", label: "Nieuwsbrief" },
@@ -83,7 +82,7 @@ export const FOOTER_SECTIONS = {
   ],
   zakelijk: [
     { href: "/partners", label: "Zakelijk samenwerken" },
-    { href: "/prijzen", label: "Prijzen en formules" },
+    { href: "/prijzen", label: "Prijzen" },
     { href: "/adverteren", label: "Adverteren in de nieuwsbrief" },
   ],
 } as const;

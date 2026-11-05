@@ -22,6 +22,8 @@ type Props = {
   results: { article: Article; domainName: string | null }[];
   total: number;
   facets: FacetCount[];
+  /** Shown right under the search field, e.g. matching workshops and products. */
+  afterSearch?: React.ReactNode;
 };
 
 type Group = {
@@ -108,7 +110,7 @@ function hobbyGroups(facets: FacetCount[], filters: ArticleHubFilters): Group[] 
   ].filter((group) => group.options.length > 1 || Boolean(filters[group.param]));
 }
 
-export function ArticleHub({ kind, basePath, filters, results, total, facets }: Props) {
+export function ArticleHub({ kind, basePath, filters, results, total, facets, afterSearch }: Props) {
   const basic = basicGroups(kind, facets, filters);
   const scoped = filters.domain ? hobbyGroups(facets, filters) : [];
   const groups = [...basic, ...scoped];
@@ -196,6 +198,8 @@ export function ArticleHub({ kind, basePath, filters, results, total, facets }: 
         </div>
       </form>
 
+      {afterSearch}
+
       <div className="mt-12 grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-12">
         {groups.length > 0 ? (
           <aside aria-label="Filters">
@@ -260,7 +264,16 @@ export function ArticleHub({ kind, basePath, filters, results, total, facets }: 
           {results.length > 0 ? (
             <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">
               {results.map(({ article, domainName }) => (
-                <ArticleCard key={article.id} article={article} domainName={domainName} />
+                article.is_promoted ? (
+                  <div key={article.id} className="relative">
+                    <span className="absolute left-3 top-3 z-10 rounded-full bg-[var(--accent)] px-3 py-1 text-sm font-semibold text-[var(--accent-foreground)] shadow-[var(--shadow-md)]">
+                      Uitgelicht
+                    </span>
+                    <ArticleCard article={article} domainName={domainName} />
+                  </div>
+                ) : (
+                  <ArticleCard key={article.id} article={article} domainName={domainName} />
+                )
               ))}
             </div>
           ) : (

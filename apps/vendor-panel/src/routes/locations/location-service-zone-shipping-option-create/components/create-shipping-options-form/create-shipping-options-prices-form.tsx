@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { Text } from "@medusajs/ui"
 import { UseFormReturn, useWatch } from "react-hook-form"
 
 import { DataGrid } from "../../../../../components/data-grid"
@@ -126,6 +127,16 @@ export const CreateShippingOptionsPricesForm = ({
         onCloseConditionalPricesModal={onCloseConditionalPricesModal}
       >
         <div className="flex size-full flex-col divide-y overflow-hidden">
+          <div className="px-6 py-3">
+            <Text size="small" weight="plus">
+              Wat kost deze verzendoptie?
+            </Text>
+            <Text size="small" className="text-ui-fg-subtle">
+              {isPickup
+                ? "Afhalen is gratis, dus de prijs staat al op 0."
+                : "Vul in de kolom EUR het bedrag in euro in dat de klant betaalt, bijvoorbeeld 6.95. Laat andere valuta of regio's leeg als je die niet gebruikt."}
+            </Text>
+          </div>
           <DataGrid
             isLoading={isLoading}
             data={data}

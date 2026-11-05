@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: "Aanbieden op Hobbysalon",
   description:
-    "Geef workshops, toon je creaties, organiseer een evenement of bied je winkel aan op Hobbysalon.",
+    "Verkoop zelfgemaakt werk, geef workshops, deel tutorials, organiseer een markt of open je hobbywinkel op Hobbysalon.",
 };
 
 type Props = {
@@ -25,13 +25,13 @@ export default async function RegisterAanbiedenPage({ searchParams }: Props) {
     <div className="bg-[var(--section-alt)]">
       <PageLayout
         title="Aanbieden op Hobbysalon"
-        description="Kies wat je wil doen. Je account is gratis."
+        description="Verkoop, geef les of deel wat je kunt. Je account is gratis."
         size="narrow"
       >
         <AccountChoiceCards
           nextPath={nextPath}
-          title="Wat wil je aanbieden?"
-          lead="Je kunt later altijd iets toevoegen."
+          title="Wat wil je doen?"
+          lead="Kies wat het best bij je past. Later kun je altijd iets toevoegen."
         />
         <p className="mt-6 text-base leading-relaxed text-[var(--muted)]">
           Alleen ontdekken?{" "}
@@ -39,7 +39,7 @@ export default async function RegisterAanbiedenPage({ searchParams }: Props) {
             href={getAccountRegistrationHref("member", nextPath)}
             className="font-semibold text-[var(--accent)] underline underline-offset-4"
           >
-            Maak een gewoon account
+            Maak een gratis account
           </Link>
         </p>
       </PageLayout>

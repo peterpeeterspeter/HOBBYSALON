@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, Package, Presentation, Sparkles } from "lucide-react";
+import { BookOpen, CalendarDays, Package, Presentation, Sparkles } from "lucide-react";
 import {
   getAccountRegistrationHref,
   type AccountRegistrationType,
@@ -19,31 +19,38 @@ const CHOICES: Array<{
   icon: typeof Presentation;
 }> = [
   {
-    type: "workshopgever",
-    title: "Workshops geven",
-    description:
-      "Maak je eigen profiel, publiceer workshops en ontvang aanvragen van geïnteresseerden.",
-    icon: Presentation,
-  },
-  {
     type: "maker",
-    title: "Mijn creaties, tutorials of patronen delen",
+    title: "Zelfgemaakt werk verkopen",
     description:
-      "Toon wat je maakt of deel je kennis, en laat hobbyisten je werk ontdekken.",
+      "Verkoop je eigen creaties of materiaal dat je niet meer gebruikt. Je eerste 3 advertenties zijn gratis, zonder commissie.",
     icon: Sparkles,
   },
   {
-    type: "organizer",
-    title: "Een markt of evenement organiseren",
+    type: "workshopgever",
+    title: "Workshops geven",
     description:
-      "Publiceer je markt, beurs of creatief evenement in de Hobbysalon-agenda.",
+      "Zet je workshops online en ontvang inschrijvingen rechtstreeks. Geen commissie per deelnemer.",
+    icon: Presentation,
+  },
+  {
+    type: "creator",
+    title: "Tutorials of patronen delen",
+    description:
+      "Publiceer je uitleg en patronen onder je eigen naam. Publiceren is gratis.",
+    icon: BookOpen,
+  },
+  {
+    type: "organizer",
+    title: "Een markt of beurs organiseren",
+    description:
+      "Zet je markt, beurs of creatief evenement gratis in de agenda.",
     icon: CalendarDays,
   },
   {
     type: "merchant",
-    title: "Mijn winkel of materialen aanbieden",
+    title: "Een hobbywinkel of webshop",
     description:
-      "Presenteer je winkel en materialen aan een gericht creatief publiek.",
+      "Verkoop je materialen met voorraad, betaling en verzending. 10% commissie plus betaalkosten, alleen als je verkoopt.",
     icon: Package,
   },
 ];

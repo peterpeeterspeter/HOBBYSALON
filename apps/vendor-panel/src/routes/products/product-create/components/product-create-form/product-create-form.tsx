@@ -35,6 +35,7 @@ enum Tab {
 type TabState = Record<Tab, ProgressStatus>
 
 const SAVE_DRAFT_BUTTON = "save-draft-button"
+const MATERIAL_GROUP_REQUIRED = "Kies een materiaalgroep"
 
 type ProductCreateFormProps = {
   defaultChannel?: HttpTypes.AdminSalesChannel
@@ -116,8 +117,18 @@ export const ProductCreateForm = ({
       isDraftSubmission = submitter.dataset.name === SAVE_DRAFT_BUTTON
     }
 
+    if (!isDraftSubmission && !values.material_category_id) {
+      form.setError("material_category_id", {
+        type: "required",
+        message: MATERIAL_GROUP_REQUIRED,
+      })
+      setTab(Tab.ORGANIZE)
+      return
+    }
+
     const media = values.media || []
-    const payload = { ...values, media: undefined }
+    const { material_category_id: materialCategoryId, ...formValues } = values
+    const payload = { ...formValues, media: undefined }
 
     let uploadedMedia: (HttpTypes.AdminFile & {
       isThumbnail: boolean
@@ -178,6 +189,9 @@ export const ProductCreateForm = ({
         shipping_profile_id: undefined,
         enable_variants: undefined,
         additional_data: undefined,
+        metadata: materialCategoryId
+          ? { platform_category_id: materialCategoryId }
+          : undefined,
         categories: payload.categories.map((cat) => ({
           id: cat,
         })),
@@ -217,6 +231,14 @@ export const ProductCreateForm = ({
     const valid = await form.trigger()
 
     if (!valid) {
+      return
+    }
+
+    if (currentTab === Tab.ORGANIZE && !form.getValues("material_category_id")) {
+      form.setError("material_category_id", {
+        type: "required",
+        message: MATERIAL_GROUP_REQUIRED,
+      })
       return
     }
 

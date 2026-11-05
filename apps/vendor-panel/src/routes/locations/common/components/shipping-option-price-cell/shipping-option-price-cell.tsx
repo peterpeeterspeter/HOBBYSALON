@@ -67,6 +67,7 @@ export const ShippingOptionPriceCell = <TData, TValue = any>({
           <DataGridCellContainer
             {...container}
             {...errorProps}
+            showOverlay={false}
             outerComponent={
               <OuterComponent
                 header={header}
@@ -83,6 +84,7 @@ export const ShippingOptionPriceCell = <TData, TValue = any>({
               field={props}
               inputProps={input}
               currencyInfo={currency}
+              label={header}
               onMeasureSymbol={measuredRef}
             />
           </DataGridCellContainer>
@@ -167,13 +169,15 @@ const Inner = ({
   onMeasureSymbol,
   inputProps,
   currencyInfo,
+  label,
 }: {
   field: ControllerRenderProps<any, string>
   onMeasureSymbol: (node: HTMLSpanElement) => void
   inputProps: InputProps
   currencyInfo: CurrencyInfo
+  label: string
 }) => {
-  const { value, onChange: _, onBlur, ref, ...rest } = field
+  const { value, onChange: updateFormValue, onBlur, ref, ...rest } = field
   const {
     ref: inputRef,
     onBlur: onInputBlur,
@@ -198,21 +202,28 @@ const Inner = ({
   )
 
   const [localValue, setLocalValue] = useState<string | number>(value || "")
+  const editingStartValue = useRef(value)
+  const emittedValue = useRef<string | number | undefined>(undefined)
 
   const handleValueChange: CurrencyInputProps["onValueChange"] = (
     value,
     _name,
     _values
   ) => {
-    if (!value) {
-      setLocalValue("")
-      return
-    }
-
-    setLocalValue(value)
+    const nextValue = value ?? ""
+    emittedValue.current = nextValue
+    setLocalValue(nextValue)
+    // Submit can happen while this editor still has focus (Cmd/Ctrl+Enter).
+    // Keep React Hook Form current instead of waiting for blur.
+    updateFormValue(nextValue)
   }
 
   useEffect(() => {
+    const isOwnUpdate = value === emittedValue.current
+    emittedValue.current = undefined
+    if (isOwnUpdate) {
+      return
+    }
     let update = value
 
     // The component we use is a bit fidly when the value is updated externally
@@ -239,6 +250,7 @@ const Inner = ({
       <CurrencyInput
         {...rest}
         {...attributes}
+        aria-label={label}
         ref={combinedRed}
         className="txt-compact-small w-full flex-1 cursor-default appearance-none bg-transparent pl-[60px] text-right outline-none"
         value={localValue || undefined}
@@ -248,9 +260,15 @@ const Inner = ({
           onBlur()
           onInputBlur()
 
-          onChange(localValue, value)
+          onChange(localValue, editingStartValue.current)
         }}
-        onFocus={onFocus}
+        onFocus={() => {
+          editingStartValue.current = value
+          onFocus()
+        }}
+        decimalSeparator="."
+        disableGroupSeparators
+        transformRawValue={(rawValue) => rawValue.replace(",", ".")}
         decimalScale={currencyInfo.decimal_digits}
         decimalsLimit={currencyInfo.decimal_digits}
         autoComplete="off"

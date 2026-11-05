@@ -29,6 +29,8 @@ type MaterialCategorySelectProps = {
   /** Selected material category id: a subcategory, or a group. */
   value: string | null | undefined
   onChange: (value: string | null) => void
+  /** Marks the group as required in the label. */
+  required?: boolean
 }
 
 /**
@@ -38,6 +40,7 @@ type MaterialCategorySelectProps = {
 export const MaterialCategorySelect = ({
   value,
   onChange,
+  required,
 }: MaterialCategorySelectProps) => {
   const { data: groups = [], isLoading } = useMaterialCategories()
 
@@ -51,7 +54,7 @@ export const MaterialCategorySelect = ({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-y-2">
           <Label size="small" weight="plus">
-            Materiaalgroep
+            Materiaalgroep{required ? " *" : ""}
           </Label>
           <Select
             value={group?.id ?? NONE}

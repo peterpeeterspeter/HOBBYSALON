@@ -7,6 +7,8 @@ type MaterialsCatalogToolbarProps = {
   totalCount: number;
   activeSort: MaterialsSort;
   buildHref: (overrides: Record<string, string | undefined>) => string;
+  /** Count text, e.g. "68 creaties"; defaults to materialen. */
+  countLabel?: string;
 };
 
 const SORT_LINKS: Array<{ value: MaterialsSort | undefined; label: string }> = [
@@ -20,9 +22,10 @@ export function MaterialsCatalogToolbar({
   totalCount,
   activeSort,
   buildHref,
+  countLabel,
 }: MaterialsCatalogToolbarProps) {
   const label =
-    totalCount === 1 ? "1 materiaal" : `${totalCount} materialen`;
+    countLabel ?? (totalCount === 1 ? "1 materiaal" : `${totalCount} materialen`);
 
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">

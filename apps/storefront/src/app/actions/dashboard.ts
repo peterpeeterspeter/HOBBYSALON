@@ -24,6 +24,7 @@ import {
 } from "@/lib/commerce/medusa/creator-products";
 import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
 import { requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
+import { canPublishArticlesToHub, toVideoEmbedUrl } from "@/lib/content/article-visibility";
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
@@ -1338,6 +1339,79 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
   }
 }
 
+/**
+ * Media fields of an article form. Only fields the form sends are returned,
+ * so an older form never wipes a stored photo or video.
+ * Gallery and video are for authors who publish to the overviews.
+ */
+async function parseArticleMedia(
+  formData: FormData,
+  creator: { id: string; creator_types?: string[] | null; editorial_publisher?: boolean | null }
+): Promise<{ fields: Record<string, string | null>; galleryUrls: string[]; removeGalleryIds: string[] }> {
+  const fields: Record<string, string | null> = {};
+  const extended = canPublishArticlesToHub(creator);
+
+  if (
+    formData.has("featured_image_file") ||
+    formData.has("featured_image_file_uploaded_url") ||
+    formData.has("featured_image_file_remove")
+  ) {
+    fields.featured_image_url = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_file_uploaded_url",
+      pathPrefix: `creators/${creator.id}/articles`,
+    });
+  }
+
+  if (extended && formData.has("video_url")) {
+    const raw = formData.get("video_url")?.toString().trim() ?? "";
+    if (raw && !toVideoEmbedUrl(raw)) {
+      throw new Error("Gebruik een link van YouTube of Vimeo voor de video.");
+    }
+    fields.video_url = raw || null;
+  }
+
+  const galleryUrls = extended ? parseGalleryImageUrls(formData) : [];
+  const removeGalleryIds = formData
+    .getAll("remove_gallery_image_ids")
+    .map((value) => value.toString())
+    .filter((value) => /^[0-9a-f-]{36}$/i.test(value));
+
+  return { fields, galleryUrls, removeGalleryIds };
+}
+
+/** Adds new gallery photos and removes the ones the author unticked. */
+async function saveArticleGallery(
+  articleId: string,
+  galleryUrls: string[],
+  removeGalleryIds: string[]
+): Promise<void> {
+  const supabase = createPlatformClient();
+  if (removeGalleryIds.length > 0) {
+    await supabase
+      .from("article_gallery_images")
+      .delete()
+      .eq("article_id", articleId)
+      .in("id", removeGalleryIds);
+  }
+  if (galleryUrls.length === 0) return;
+
+  const { count } = await supabase
+    .from("article_gallery_images")
+    .select("id", { head: true, count: "exact" })
+    .eq("article_id", articleId);
+  const existing = count ?? 0;
+  const room = Math.max(0, MAX_GALLERY_IMAGES - existing);
+  const rows = galleryUrls.slice(0, room).map((image_url, index) => ({
+    article_id: articleId,
+    image_url,
+    sort_order: existing + index,
+  }));
+  if (rows.length === 0) return;
+  const { error } = await supabase.from("article_gallery_images").insert(rows);
+  if (error) console.error("Article gallery insert failed:", error);
+}
+
 export async function createArticleAction(formData: FormData): Promise<void> {
   try {
     const { creator } = await getRequiredCreatorProfile();
@@ -1353,10 +1427,13 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Ongeldig artikeltype.");
     }
 
+    const media = await parseArticleMedia(formData, creator);
+
     const supabase = createPlatformClient();
     const { data: article, error } = await supabase
       .from("articles")
       .insert({
+        ...media.fields,
         slug,
         title,
         excerpt,
@@ -1373,6 +1450,8 @@ export async function createArticleAction(formData: FormData): Promise<void> {
     if (error || !article?.id) {
       fail(CREATOR_MAKER_PATH, "Aanmaken van artikel mislukt.");
     }
+
+    await saveArticleGallery(article.id, media.galleryUrls, []);
 
     const suggestions = await refreshSavedArticleSuggestions({
       articleId: article.id, title, excerpt, bodyMarkdown, articleDomainId: domainId,
@@ -1404,10 +1483,13 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Ongeldig artikeltype.");
     }
 
+    const media = await parseArticleMedia(formData, creator);
+
     const supabase = createPlatformClient();
     const { data: article, error } = await supabase
       .from("articles")
       .update({
+        ...media.fields,
         slug,
         title,
         excerpt,
@@ -1426,6 +1508,8 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
     if (error || !article?.id) {
       fail(CREATOR_MAKER_PATH, "Bijwerken van artikel mislukt.");
     }
+
+    await saveArticleGallery(articleId, media.galleryUrls, media.removeGalleryIds);
 
     // Preserve retained human-link rows and pending proposals on ordinary saves.
     // Private RPC/trigger decisions keep rejected nominations suppressed.
@@ -3093,11 +3177,12 @@ export async function purchaseSpotlightBoostFormAction(
 ): Promise<void> {
   try {
     const { creator } = await getRequiredCreatorProfile();
-    const entityType = parseRequiredString(formData, "entity_type") as
-      | "creator"
-      | "product"
-      | "workshop"
-      | "event";
+    const rawEntityType = parseRequiredString(formData, "entity_type");
+    const allowedTypes = ["creator", "product", "workshop", "event", "article"] as const;
+    if (!(allowedTypes as readonly string[]).includes(rawEntityType)) {
+      fail(CREATOR_MAKER_PATH, "Dit kan niet uitgelicht worden.");
+    }
+    const entityType = rawEntityType as (typeof allowedTypes)[number];
     const entityId = parseRequiredUuid(formData, "entity_id");
     const boostType =
       parseOptionalString(formData, "boost_type") === "homepage"
@@ -3118,7 +3203,16 @@ export async function purchaseSpotlightBoostFormAction(
     revalidatePath("/profile");
 
     revalidatePath("/dashboard/pagina");
-    ok(CREATOR_MAKER_PATH, "Je aanbod wordt nu uitgelicht.");
+    if (entityType === "article") {
+      revalidatePath("/artikelen");
+      revalidatePath("/patronen");
+    }
+    ok(
+      CREATOR_MAKER_PATH,
+      entityType === "article"
+        ? "Je artikel staat 7 dagen bovenaan Inspiratie."
+        : "Je aanbod wordt nu uitgelicht."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(

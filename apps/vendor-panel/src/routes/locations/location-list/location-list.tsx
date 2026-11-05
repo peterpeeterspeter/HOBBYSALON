@@ -1,6 +1,5 @@
 import { ShoppingBag } from "@medusajs/icons"
 import { Container, Heading } from "@medusajs/ui"
-import { useTranslation } from "react-i18next"
 import { useLoaderData } from "react-router-dom"
 
 import { useStockLocations } from "../../../hooks/api/stock-locations"
@@ -11,6 +10,7 @@ import { shippingListLoader } from "./loader"
 import { TwoColumnPage } from "../../../components/layout/pages"
 import { useDashboardExtension } from "../../../extensions"
 import { LocationListHeader } from "./components/location-list-header"
+import { ShippingGuide } from "../common/components/shipping-guide"
 import { SidebarLink } from "../../../components/common/sidebar-link/sidebar-link"
 
 export function LocationList() {
@@ -45,6 +45,7 @@ export function LocationList() {
       }}
     >
       <TwoColumnPage.Main>
+        <ShippingGuide />
         <LocationListHeader />
         <div className="flex flex-col gap-3 lg:col-span-2">
           {stockLocations.map((location) => (
@@ -60,20 +61,16 @@ export function LocationList() {
 }
 
 const LinksSection = () => {
-  const { t } = useTranslation()
-
   return (
     <Container className="p-0">
       <div className="flex items-center justify-between px-6 py-4">
-        <Heading level="h2">{t("stockLocations.sidebar.header")}</Heading>
+        <Heading level="h2">Meer verzendinstellingen</Heading>
       </div>
 
       <SidebarLink
         to="/settings/locations/shipping-profiles"
-        labelKey={t("stockLocations.sidebar.shippingProfiles.label")}
-        descriptionKey={t(
-          "stockLocations.sidebar.shippingProfiles.description"
-        )}
+        labelKey="Verzendgroepen"
+        descriptionKey="Alleen nodig als je producten op verschillende manieren verstuurt. Eén soort pakket? Dan sla je dit over."
         icon={<ShoppingBag />}
       />
     </Container>

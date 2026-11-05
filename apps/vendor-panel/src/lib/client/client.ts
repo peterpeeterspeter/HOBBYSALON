@@ -72,7 +72,7 @@ export const importProductsQuery = async (file: File) => {
 export const uploadFilesQuery = async (files: any[]) => {
   const token = getAuthToken();
   if (isTokenExpired(token)) {
-    throw new Error('Niet aangemeld');
+    throw new Error('Je sessie is verlopen. Log opnieuw in via hobbysalon.be/dashboard/verkoper.');
   }
 
   const formData = new FormData();
@@ -92,9 +92,15 @@ export const uploadFilesQuery = async (files: any[]) => {
 
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload?.files) {
+    if (response.status === 401) {
+      throw new Error('Je sessie is verlopen. Log opnieuw in via hobbysalon.be/dashboard/verkoper.');
+    }
+    if (response.status === 413) {
+      throw new Error('De foto is te groot. Gebruik een foto kleiner dan 25 MB.');
+    }
     throw new Error(
       (payload as { message?: string } | null)?.message ??
-        `Uploaden mislukt (${response.status})`
+        `Uploaden mislukt (${response.status}). Probeer het opnieuw.`
     );
   }
 

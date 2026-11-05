@@ -24,20 +24,8 @@ export async function Footer() {
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/55">
             Dé creatieve marketplace voor workshops, handwerk, materialen en hobby-inspiratie in België en Nederland.
           </p>
-          <div className="mt-6 max-w-sm">
-            <p className="mb-2 text-sm font-semibold text-white">
-              Creatieve inspiratie in je inbox
-            </p>
+          <div className="mt-8 max-w-md">
             <NewsletterSignupForm variant="footer" />
-            <p className="mt-3 text-sm text-white/55">
-              Zakelijk?{" "}
-              <Link
-                href="/adverteren"
-                className="font-semibold text-white/80 underline-offset-4 hover:text-white hover:underline"
-              >
-                Adverteren in de nieuwsbrief
-              </Link>
-            </p>
           </div>
         </div>
 

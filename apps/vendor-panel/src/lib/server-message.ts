@@ -4,7 +4,8 @@
  */
 const EXACT: Record<string, string> = {
   "Invalid email or password": "E-mailadres of wachtwoord klopt niet.",
-  Unauthorized: "Je bent niet (meer) aangemeld. Log opnieuw in.",
+  Unauthorized:
+    "Je sessie is verlopen. Log opnieuw in via hobbysalon.be/dashboard/verkoper.",
   "Not allowed": "Dat mag je niet doen.",
   Forbidden: "Dat mag je niet doen.",
   "Identity with email already exists": "Dit e-mailadres is al in gebruik.",

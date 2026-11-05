@@ -107,6 +107,12 @@ function resetTables() {
     products: [{ id: "prod-1", creator_id: CREATOR }],
     workshops: [{ id: "ws-1", creator_id: CREATOR }],
     events: [{ id: "ev-1", organizer_creator_id: CREATOR }],
+    articles: [
+      { id: "art-hub", author_creator_id: CREATOR, listing_scope: "hub", is_published: true },
+      { id: "art-profile", author_creator_id: CREATOR, listing_scope: "profile", is_published: true },
+      { id: "art-draft", author_creator_id: CREATOR, listing_scope: "hub", is_published: false },
+      { id: "art-other", author_creator_id: "creator-B", listing_scope: "hub", is_published: true },
+    ],
   };
   h.selectError = null;
 }
@@ -167,6 +173,41 @@ describe("purchaseSpotlightBoostAction — P1-3 ownership + refund", () => {
 
     expect(result.ok).toBe(false);
     expect(h.consumedCalls).toEqual([]);
+  });
+
+  it("rejects boosting another creator's article before deducting credits", async () => {
+    const result = await purchaseSpotlightBoostAction({
+      creatorId: CREATOR,
+      entityType: "article",
+      entityId: "art-other",
+    });
+    expect(result.ok).toBe(false);
+    expect(h.consumedCalls).toEqual([]);
+  });
+
+  it("rejects boosting a profile-only or unpublished article", async () => {
+    for (const entityId of ["art-profile", "art-draft"]) {
+      const result = await purchaseSpotlightBoostAction({
+        creatorId: CREATOR,
+        entityType: "article",
+        entityId,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/overzicht Inspiratie/);
+    }
+    expect(h.consumedCalls).toEqual([]);
+    expect(h.boostCalls).toEqual([]);
+  });
+
+  it("allows boosting your own published hub article", async () => {
+    const result = await purchaseSpotlightBoostAction({
+      creatorId: CREATOR,
+      entityType: "article",
+      entityId: "art-hub",
+    });
+    expect(result.ok).toBe(true);
+    expect(h.consumedCalls).toHaveLength(1);
+    expect(h.boostCalls[0]).toMatchObject({ entityType: "article", entityId: "art-hub" });
   });
 
   it("allows boosting your own product end-to-end", async () => {

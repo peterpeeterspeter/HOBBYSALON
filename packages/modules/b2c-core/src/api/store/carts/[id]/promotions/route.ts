@@ -1,7 +1,8 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework"
-import { ContainerRegistrationKeys, MedusaError, PromotionActions } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { StoreAddCartPromotionsType } from "@medusajs/medusa/api/store/carts/validators"
-import { updateCartPromotionsWorkflow } from "@medusajs/medusa/core-flows"
+import { refreshCartItemsWorkflow } from "@medusajs/medusa/core-flows"
+import { assertShippingCartMutable } from "../../../../../shared/shipping/data"
 import { validateSellersPromotions } from "../../../../../modules/seller"
 
 export const POST = async (
@@ -18,17 +19,13 @@ export const POST = async (
     if (!validatePromotions.valid) {
       throw new MedusaError(MedusaError.Types.INVALID_DATA, 'Some of the promotion codes are invalid')
     }
-    await updateCartPromotionsWorkflow.run({
-      container: req.scope,
-      input: {
-        cart_id: req.params.id,
-        promo_codes: req.validatedBody.promo_codes,
-        action:
-            req.validatedBody.promo_codes.length > 0
-                ? PromotionActions.ADD
-                : PromotionActions.REPLACE,
-        },
-    })
+    // Keep promotions, shipping and the payment total in one compensating workflow.
+    const state = await assertShippingCartMutable(req.scope, req.params.id)
+    const existingCodes = state.cart.promotions?.map((p: any) => p.code).filter(Boolean) ?? []
+    const promoCodes = req.validatedBody.promo_codes.length
+      ? [...new Set([...existingCodes, ...req.validatedBody.promo_codes])]
+      : []
+    await refreshCartItemsWorkflow(req.scope).run({ input: { cart_id: req.params.id, promo_codes: promoCodes } })
     const {
       data: [cart]
     } = await query.graph({

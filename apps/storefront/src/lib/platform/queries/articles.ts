@@ -40,7 +40,8 @@ export async function listArticlesByDomain(domainId: string): Promise<Article[]>
     .from("articles")
     .select("*")
     .eq("domain_id", domainId)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("listing_scope", "hub");
 
   if (directError) return [];
 
@@ -57,7 +58,8 @@ export async function listArticlesByDomain(domainId: string): Promise<Article[]>
     .from("articles")
     .select("*")
     .in("id", idsToFetch)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("listing_scope", "hub");
 
   if (linkedError) return directArticles;
 
@@ -123,6 +125,7 @@ export async function listLatestArticles(limit = 8): Promise<Article[]> {
     .from("articles")
     .select("*")
     .eq("is_published", true)
+    .eq("listing_scope", "hub")
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -137,6 +140,7 @@ export async function listPublishedContentArticles(limit = 48): Promise<Article[
     .from("articles")
     .select("*")
     .eq("is_published", true)
+    .eq("listing_scope", "hub")
     .neq("article_type", "pattern")
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
@@ -152,6 +156,7 @@ export async function listPublishedPatterns(limit = 48): Promise<Article[]> {
     .from("articles")
     .select("*")
     .eq("is_published", true)
+    .eq("listing_scope", "hub")
     .eq("article_type", "pattern")
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
@@ -169,6 +174,7 @@ export async function listFreeDutchCrochetPatternArticles(
     .from("articles")
     .select("*")
     .eq("is_published", true)
+    .eq("listing_scope", "hub")
     .eq("article_type", "pattern")
     .or("slug.like.gratis-haakpatronen-%,slug.like.ravelry-pattern-%")
     .order("published_at", { ascending: false, nullsFirst: false })

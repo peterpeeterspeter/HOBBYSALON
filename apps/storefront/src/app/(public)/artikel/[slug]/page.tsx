@@ -9,6 +9,7 @@ import { FavoriteToggleButton } from "@/components/shared/FavoriteToggleButton";
 import { StartSavedProjectButton } from "@/components/profile/StartSavedProjectButton";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { MarkdownContent } from "@/components/content/markdown-content";
+import { toVideoEmbedUrl } from "@/lib/content/article-visibility";
 import { DifficultyBadge } from "@/components/content/DifficultyBadge";
 import { PrintArticleButton } from "@/components/content/PrintArticleButton";
 import { CommunityGallery } from "@/components/content/CommunityGallery";
@@ -81,7 +82,9 @@ export default async function ArticlePage({ params }: Props) {
     relatedCreators,
     relatedEvents,
     communityProjects,
+    galleryImages = [],
   } = data;
+  const videoEmbedUrl = toVideoEmbedUrl(article.video_url);
 
   const offersBySourceKey = new Map(sourceMaterialOffers.map(material => [material.key, material.offers]));
   const hasSourceOffers = sourceMaterialOffers.some(material => material.offers.length > 0);
@@ -255,6 +258,47 @@ export default async function ArticlePage({ params }: Props) {
             markdown={article.body_markdown}
             className="prose-article text-[17px]"
           />
+        ) : null}
+
+        {videoEmbedUrl ? (
+          <section aria-label="Video" className="mt-10">
+            <div className="aspect-video overflow-hidden rounded-2xl bg-[var(--section-alt)]">
+              <iframe
+                src={videoEmbedUrl}
+                title={`Video bij ${article.title}`}
+                className="h-full w-full"
+                loading="lazy"
+                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {galleryImages.length > 0 ? (
+          <section aria-labelledby="article-gallery-heading" className="mt-10">
+            <h2
+              id="article-gallery-heading"
+              className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]"
+            >
+              Foto&apos;s
+            </h2>
+            <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {galleryImages.map((url, index) => (
+                <li key={url}>
+                  <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
+                    <img
+                      src={url}
+                      alt={`${article.title}, foto ${index + 1}`}
+                      className="aspect-square w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+                      loading="lazy"
+                    />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
 
         {/* Source materials, separate from linked commerce requirements */}

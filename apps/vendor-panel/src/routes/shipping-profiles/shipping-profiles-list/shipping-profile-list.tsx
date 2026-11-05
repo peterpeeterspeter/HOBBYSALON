@@ -1,5 +1,6 @@
 import { SingleColumnPage } from "../../../components/layout/pages"
 import { useDashboardExtension } from "../../../extensions"
+import { ShippingProfilesHint } from "../../locations/common/components/shipping-guide"
 import { ShippingProfileListTable } from "./components/shipping-profile-list-table"
 
 export const ShippingProfileList = () => {
@@ -12,6 +13,7 @@ export const ShippingProfileList = () => {
         after: getWidgets("shipping_profile.list.after"),
       }}
     >
+      <ShippingProfilesHint />
       <ShippingProfileListTable />
     </SingleColumnPage>
   )
