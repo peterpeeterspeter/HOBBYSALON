@@ -64,6 +64,16 @@ test("browse prefilter keeps family matches even with Dutch 'of' and 'voor'", ()
   assert.deepEqual(kept.sort(), ["p-fill", "p-hook", "p-yarn"]);
 });
 
+test("browse recognizes foam clay materials", () => {
+  const terms = materialBrowseSearchTerms([
+    { title: "Foam clay in je gewenste kleur ( bvb. geel , groen , oranje of roze )" },
+    { title: "Foam clay zwart ( voor het gezichtje )" },
+    { title: "Een rond Isomooi basisfiguurtje" },
+  ]);
+  assert.ok(terms.includes("foam clay"));
+  assert.ok(terms.includes("foam clay basic") || terms.includes("basis"));
+});
+
 test("browse matcher returns up to three shop options per checklist line", () => {
   const candidates = [
     {

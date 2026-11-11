@@ -136,7 +136,14 @@ export async function runArticleMatchingJobs(options: MatchingWorkerOptions): Pr
         sidecarState = plan?.state;
         if (options.plan && (!plan || !Array.isArray(plan.suggestions)
           || (plan.state !== "ready_for_review" && plan.suggestions.length))) throw new Error("Invalid sidecar plan");
-        const suggestions = options.plan ? plan!.suggestions : planArticleSuggestions(article,catalog,keys);
+        // Sidecar gaps/stale/missing metadata should not block public catalog links while
+        // auto-accept is the product policy; explicit blocks and unpublished stay empty.
+        let suggestions = options.plan ? plan!.suggestions : planArticleSuggestions(article,catalog,keys);
+        if (options.plan && !suggestions.length && plan &&
+          ["gap_review_required","missing_metadata","stale"].includes(plan.state)) {
+          suggestions = planArticleSuggestions(article,catalog,keys);
+          sidecarState = `${plan.state}+catalog_fallback`;
+        }
         const proposals = suggestions.map(toArticleProposalPayload);
         if (!options.plan || proposals.length) {
           inserted = count(await options.rpc("graph_propose_article_suggestions", {

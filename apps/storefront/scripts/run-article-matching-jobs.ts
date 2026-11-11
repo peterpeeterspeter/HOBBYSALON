@@ -80,7 +80,7 @@ export async function main(argv = process.argv.slice(2), environment: Record<str
   manifestSha256: string = ARTICLE_SIDECAR_RELEASE.manifestSha256): Promise<void> {
   const args = parseWorkerArgs(argv);
   if (args.help) {
-    console.log("Single article matching worker run (pending proposals only; never auto-approves). Usage: [--max-jobs N (default 5, max 20)] [--max-catalog-batches N (default 4, max 20)] [--env-file PATH]. Loads the pinned private article sidecar before claiming jobs. Stale, unpublished, missing, blocked or incomplete metadata produces no proposals. Lease: 120 seconds. Requires SUPABASE_SERVICE_ROLE_KEY. Without --env-file, reads storefront .env/.env.local plus process environment. No daemon/scheduling; catalog row count and total run time are not bounded by these job limits.");
+    console.log("Single article matching worker run (proposals auto-accepted as public relations). Usage: [--max-jobs N (default 5, max 20)] [--max-catalog-batches N (default 4, max 20)] [--env-file PATH]. Loads the pinned private article sidecar before claiming jobs. Stale, unpublished, missing, blocked or incomplete metadata produces no proposals. Lease: 120 seconds. Requires SUPABASE_SERVICE_ROLE_KEY. Without --env-file, reads storefront .env/.env.local plus process environment. No daemon/scheduling; catalog row count and total run time are not bounded by these job limits.");
     return;
   }
   const dir = path.dirname(fileURLToPath(import.meta.url));

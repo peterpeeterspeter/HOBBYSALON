@@ -206,10 +206,10 @@ test('pipeline preserves suggested_auto, existing-key suppression, eligibility a
   const input = { id: 'article', title: 'Haken', domain_id: 'textiel', body_markdown: '🛒 MATERIALENLIJST\n- Haaknaald 6 mm\n📋 STAP VOOR STAP\nVolg het schema.' };
   const existing = new Set(['product:p0']);
   const results = api.planArticleSuggestions(input, catalog, existing);
-  assert.equal(results.length, 6);
-  assert.equal(results.filter(match => match.row.target_entity_type === 'product').length, 3);
-  assert.equal(results.filter(match => match.row.target_entity_type === 'workshop').length, 2);
-  assert.equal(results.filter(match => match.row.target_entity_type === 'event').length, 1);
+  assert.equal(results.length, 9);
+  assert.equal(results.filter(match => match.row.target_entity_type === 'product').length, 4);
+  assert.equal(results.filter(match => match.row.target_entity_type === 'workshop').length, 3);
+  assert.equal(results.filter(match => match.row.target_entity_type === 'event').length, 2);
   assert.ok(results.every(match => match.row.relation_type === 'suggested_auto' && match.row.weight <= 100));
   assert.ok(results.every(match => ['related_product', 'related'].includes(match.proposedRelation)));
   assert.ok(results.every(match => !['p0', 'domain-only'].includes(match.row.target_entity_id)));

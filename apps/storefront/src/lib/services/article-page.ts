@@ -1,7 +1,7 @@
 import { getArticleBySlug, listArticlesByIds, listArticlesBySlugs, listRecentHubArticlesByDomain } from "@/lib/platform/queries/articles";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { getWorkshopById, listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
-import { listProductsByDomain } from "@/lib/platform/queries/products";
+import { listProductsByCreator, listProductsByDomain } from "@/lib/platform/queries/products";
 import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listApprovedCommunityGalleryForArticle } from "@/lib/platform/queries/projects";
 import { getEntityConnections } from "@/lib/platform/queries/entity-links";
@@ -109,6 +109,38 @@ async function hydrateCreators(ids: string[]): Promise<Creator[]> {
   return rows.filter((row): row is Creator => row != null);
 }
 
+function normalizedTokens(...parts: Array<string | null | undefined>): Set<string> {
+  const text = parts
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]+/g, " ");
+  return new Set(text.split(/\s+/).filter((token) => token.length >= 3));
+}
+
+/** Prefer the author's own shop items that overlap the article title/materials. */
+function rankCreatorProductsForArticle(
+  products: Product[],
+  articleTitle: string,
+  materials: ParsedArticleMaterial[]
+): Product[] {
+  const wanted = normalizedTokens(
+    articleTitle,
+    ...materials.map((material) => material.title)
+  );
+  return [...products].sort((a, b) => {
+    const score = (product: Product) => {
+      const tokens = normalizedTokens(product.title, product.slug);
+      let points = product.is_featured ? 2 : 0;
+      for (const token of tokens) if (wanted.has(token)) points += 3;
+      return points;
+    };
+    return score(b) - score(a) || a.title.localeCompare(b.title, "nl");
+  });
+}
+
 export async function getArticlePageData(slug: string): Promise<ArticlePageData> {
   const article = await getArticleBySlug(slug);
   if (!article) {
@@ -199,14 +231,23 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
   ).length;
   const needDomainArticles = Boolean(article.domain_id) && seededArticleCount < 6;
   const needDomainWorkshops = Boolean(article.domain_id) && graphWorkshops.length < 4;
+  const needAuthorProducts = Boolean(article.author_creator_id) && relatedProducts.length < 8;
   const needDomainProducts = Boolean(article.domain_id) && relatedProducts.length < 8;
 
-  const [domainArticles, domainWorkshops, domainSupplyProducts] = await Promise.all([
+  const [domainArticles, domainWorkshops, authorShopProducts, domainSupplyProducts] = await Promise.all([
     needDomainArticles
       ? listRecentHubArticlesByDomain(article.domain_id!, 8)
       : Promise.resolve([]),
     needDomainWorkshops
       ? listWorkshopsByDomain(article.domain_id!, { limit: 8 })
+      : Promise.resolve([]),
+    needAuthorProducts
+      ? listProductsByCreator(article.author_creator_id!, 24).then((products) => {
+          const ranked = rankCreatorProductsForArticle(products, article.title, sourceMaterials).slice(0, 8);
+          return getGraphProducts(
+            ranked.map((product, index) => ({ id: product.id, sortOrder: index, weight: 0 }))
+          );
+        })
       : Promise.resolve([]),
     needDomainProducts
       ? listProductsByDomain(article.domain_id!, "supply", 8).then((products) =>
@@ -233,10 +274,13 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
       (product) => product.id
     )
   );
-  const relatedShopProducts = [
-    ...relatedProducts,
-    ...domainSupplyProducts.filter((product) => !shownProductIds.has(product.id)),
-  ].slice(0, 8);
+  const relatedShopProducts: GraphProduct[] = [...relatedProducts];
+  for (const product of [...authorShopProducts, ...domainSupplyProducts]) {
+    if (shownProductIds.has(product.id)) continue;
+    shownProductIds.add(product.id);
+    relatedShopProducts.push(product);
+    if (relatedShopProducts.length >= 8) break;
+  }
 
   const creatorsById = new Map(
     [...relatedCreators, author].filter((creator): creator is Creator => creator != null).map(

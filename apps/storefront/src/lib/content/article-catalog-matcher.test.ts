@@ -181,17 +181,17 @@ test("an independent requirement can qualify without unrelated composition contr
   assert.equal(result[0].compatibility, "textual");
 });
 
-test("separate product/workshop/event budgets yield at most 3/2/1, not global saturation", () => {
+test("separate product/workshop/event budgets yield at most 6/3/2, not global saturation", () => {
   const candidates = [
-    ...Array.from({ length: 8 }, (_, i) => candidate({ targetId: `p${i}`, title: "Mandje haken", description: "Haak mandje" })),
-    ...Array.from({ length: 4 }, (_, i) => candidate({ targetType: "workshop", targetId: `w${i}`, title: "Haken" })),
-    ...Array.from({ length: 3 }, (_, i) => candidate({ targetType: "event", targetId: `e${i}`, title: "Haken" })),
+    ...Array.from({ length: 10 }, (_, i) => candidate({ targetId: `p${i}`, title: "Mandje haken", description: "Haak mandje" })),
+    ...Array.from({ length: 5 }, (_, i) => candidate({ targetType: "workshop", targetId: `w${i}`, title: "Haken" })),
+    ...Array.from({ length: 4 }, (_, i) => candidate({ targetType: "event", targetId: `e${i}`, title: "Haken" })),
   ];
   const result = matchArticleCatalog(article(), candidates);
-  assert.equal(result.length, 6);
-  assert.equal(result.filter(m => m.candidate.targetType === "product").length, 3);
-  assert.equal(result.filter(m => m.candidate.targetType === "workshop").length, 2);
-  assert.equal(result.filter(m => m.candidate.targetType === "event").length, 1);
+  assert.equal(result.length, 11);
+  assert.equal(result.filter(m => m.candidate.targetType === "product").length, 6);
+  assert.equal(result.filter(m => m.candidate.targetType === "workshop").length, 3);
+  assert.equal(result.filter(m => m.candidate.targetType === "event").length, 2);
 });
 
 test("existing-key suppression precedes budgets and respects target type", () => {

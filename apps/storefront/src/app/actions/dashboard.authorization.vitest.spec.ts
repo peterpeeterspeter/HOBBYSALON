@@ -332,7 +332,7 @@ describe("article recommendation authorization", () => {
     const location = new URL(await run(updateArticleAction, articleFields), "https://fixture.invalid");
     expect(location.pathname).toBe("/dashboard/pagina");
     expect(location.searchParams.get("tab")).toBe("profiel");
-    expect(location.searchParams.get("success")).toBe("Artikel bijgewerkt. Suggesties vernieuwd.");
+    expect(location.searchParams.get("success")).toBe("Artikel bijgewerkt. Productlinks vernieuwd.");
     expect(location.searchParams.has("error")).toBe(false);
     expect(h.rows.articles[0].title).toBe("Knitting yarn");
     expect(writes()).toEqual([{

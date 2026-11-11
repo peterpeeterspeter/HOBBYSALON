@@ -19,6 +19,8 @@ const SEARCH_FAMILIES = [
   ["garen", "yarn", "wol", "haakgaren", "borduurgaren"],
   ["haaknaald", "crochet hook"],
   ["fiberfill", "vulling", "stuffing"],
+  ["foam clay", "foamclay"],
+  ["foam clay basic", "basisfiguur"],
   ["stopnaald", "darning needle", "tapestry needle"],
   ["meetlint", "measuring tape", "tape measure"],
   ["schaar", "scissors"],

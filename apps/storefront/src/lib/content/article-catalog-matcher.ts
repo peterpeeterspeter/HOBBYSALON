@@ -53,7 +53,7 @@ const STOPWORDS = new Set((
 const COMPOSITIONS = new Set(["katoen", "wol", "acryl", "linnen", "zijde", "polyester", "nylon", "bamboe"]);
 const TOOLS = new Set(["haaknaald", "breinaald", "borduurnaald", "schaar", "penseel"]);
 const MATERIAL_KINDS = new Set(["garen", "stof", "vilt", "koord", "knoop", "verf", "papier", "klei", "kraal", "hout"]);
-const BUDGET: Record<CatalogCandidate["targetType"], number> = { product: 3, workshop: 2, event: 1 };
+const BUDGET: Record<CatalogCandidate["targetType"], number> = { product: 6, workshop: 3, event: 2 };
 
 type Text = { tokens: Set<string>; original: string; source: string };
 type Requirement = Text & { fragment: string; kinds: Set<string> };

@@ -80,7 +80,7 @@ test('actual article update uses entire catalog and atomic RPC, never deletes pr
   const f=await fixture();const location=await f.update();
   const url=new URL(location,'http://fixture.invalid');
   assert.equal(url.pathname,'/dashboard/pagina');assert.equal(url.searchParams.get('tab'),'profiel');
-  assert.equal(url.searchParams.get('success'),'Artikel bijgewerkt. Suggesties vernieuwd.');
+  assert.equal(url.searchParams.get('success'),'Artikel bijgewerkt. Productlinks vernieuwd.');
   assert.equal(url.searchParams.has('error'),false);
   assert.equal(f.writes.filter(w=>w.op==='delete').length,0);
   assert.equal(f.writes.filter(w=>w.table==='entity_links').length,0);
@@ -114,7 +114,7 @@ test('dashboard save uses sidecar quality gate and does not fall back on Storage
 test('actual article creation preserves profile tab and success parameters after atomic proposals',async()=>{
   const f=await fixture();const location=await f.create();const url=new URL(location,'http://fixture.invalid');
   assert.equal(url.pathname,'/dashboard/pagina');assert.equal(url.searchParams.get('tab'),'profiel');
-  assert.equal(url.searchParams.get('success'),'Artikel opgeslagen met link-suggesties.');
+  assert.equal(url.searchParams.get('success'),'Artikel opgeslagen met productlinks.');
   assert.equal(url.searchParams.has('error'),false);
   assert.equal(f.writes.length,1);assert.equal(f.writes[0].table,'articles');assert.equal(f.writes[0].op,'insert');
   assert.deepEqual(f.rpcs.map(r=>r.name),['graph_article_fingerprint','graph_propose_article_suggestions']);
