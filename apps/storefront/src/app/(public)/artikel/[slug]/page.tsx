@@ -23,6 +23,9 @@ import {
   buildFaqSchema,
   buildHowToSchema,
 } from "@/lib/schema";
+import { buildArticleBreadcrumbTrail } from "@/lib/content/article-breadcrumb";
+import { splitArticleBodyForFeaturedImage } from "@/lib/content/article-mid-image";
+import { getDomainById } from "@/lib/platform/queries/domains";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +91,8 @@ export default async function ArticlePage({ params }: Props) {
 
   const offersBySourceKey = new Map(sourceMaterialOffers.map(material => [material.key, material.offers]));
   const hasSourceOffers = sourceMaterialOffers.some(material => material.offers.length > 0);
+  const domain = article.domain_id ? await getDomainById(article.domain_id) : null;
+  const breadcrumbTrail = buildArticleBreadcrumbTrail(article, domain);
 
   const user = await getAuthUser();
   const articleIsFavorite = user
@@ -95,6 +100,10 @@ export default async function ArticlePage({ params }: Props) {
     : false;
 
   const typeLabel = ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type;
+  const bodyHalves = splitArticleBodyForFeaturedImage(
+    article.body_markdown,
+    article.featured_image_url
+  );
   const publishDate = article.published_at ?? article.created_at;
   const isPrintable = isPrintableArticleType(article.article_type);
 
@@ -122,12 +131,11 @@ export default async function ArticlePage({ params }: Props) {
     },
   };
 
-  // Breadcrumb schema (visual breadcrumbs already in layout, add structured data)
-  const breadcrumbJsonLd = buildBreadcrumbSchema([
-    { name: "Home", path: "/" },
-    { name: "Artikelen", path: "/artikelen" },
-    { name: article.title, path: `/artikel/${article.slug}` },
-  ]);
+  const breadcrumbJsonLd = buildBreadcrumbSchema(
+    breadcrumbTrail
+      .filter((item): item is { name: string; path: string } => Boolean(item.path))
+      .map((item) => ({ name: item.name, path: item.path }))
+  );
 
   // Collect all schemas — BlogPosting always, Breadcrumb always, FAQ/HowTo when available
   const allSchemas: Record<string, unknown>[] = [articleJsonLd, breadcrumbJsonLd];
@@ -228,12 +236,12 @@ export default async function ArticlePage({ params }: Props) {
         <section className="article-print-interactions mb-8 rounded-xl border border-[var(--accent)]/30 bg-[var(--section-highlight)] p-5" aria-labelledby="maakroute-heading">
           <p className="text-sm font-semibold text-[var(--accent)]">Van inspiratie naar maken</p>
           <h2 id="maakroute-heading" className="mt-1 text-2xl font-semibold text-[var(--foreground)]">
-            {articleIsFavorite ? "Klaar om dit te maken?" : "Wil je dit later maken?"}
+            {articleIsFavorite ? "Klaar om te beginnen?" : "Leuk gevonden? Bewaar het."}
           </h2>
           <p className="mt-2 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
             {articleIsFavorite
-              ? "Start je persoonlijke project. Daarna kun je benodigdheden afvinken en eigen notities bewaren."
-              : "Bewaar dit eerst. Daarna kun je het als persoonlijk project starten, materialen afvinken en notities toevoegen."}
+              ? "Maak er een project van. Je krijgt een stappenlijst om af te vinken, ziet welke materialen je nodig hebt, en kunt notities bijhouden."
+              : "Zet dit artikel bij je bewaarde ideeën. Later start je er een project van: stappen afvinken, materialen bijhouden en notities toevoegen."}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {articleIsFavorite ? (
@@ -244,20 +252,37 @@ export default async function ArticlePage({ params }: Props) {
                 entityId={article.id}
                 isFavorited={false}
                 nextPath={`/artikel/${article.slug}`}
+                saveLabel="Bewaar dit artikel"
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:translate-y-px"
               />
             )}
             <Link href="/favorites" className="text-sm font-semibold text-[var(--accent)] underline underline-offset-4">
-              Bekijk bewaarde ideeën
+              Naar mijn bewaarde ideeën
             </Link>
           </div>
         </section>
 
         {/* Body */}
         {article.body_markdown ? (
-          <MarkdownContent
-            markdown={article.body_markdown}
-            className="prose-article text-[17px]"
-          />
+          bodyHalves && article.featured_image_url ? (
+            <div className="prose-article text-[17px]">
+              <MarkdownContent markdown={bodyHalves.before} />
+              <figure className="my-8 overflow-hidden rounded-2xl bg-[var(--section-alt)]">
+                <img
+                  src={article.featured_image_url}
+                  alt=""
+                  className="aspect-[4/3] w-full object-cover sm:aspect-[16/10]"
+                  loading="lazy"
+                />
+              </figure>
+              <MarkdownContent markdown={bodyHalves.after} />
+            </div>
+          ) : (
+            <MarkdownContent
+              markdown={article.body_markdown}
+              className="prose-article text-[17px]"
+            />
+          )
         ) : null}
 
         {videoEmbedUrl ? (
@@ -308,14 +333,13 @@ export default async function ArticlePage({ params }: Props) {
             className="mt-10 rounded-xl border border-[var(--border)] bg-[var(--section-alt)] p-5 sm:p-6"
           >
             <h2 id="source-materials-heading" className="font-[family-name:var(--font-heading)] text-xl font-bold text-[var(--foreground)]">
-              Materialen uit dit artikel
+              Wat heb je nodig?
             </h2>
             <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
               {hasSourceOffers
-                ? "Dit is de materialenlijst uit de artikeltekst. Bij sommige regels staan automatisch gevonden winkelproducten; dit zijn geen goedgekeurde koppelingen. "
-                : "Dit is de materialenlijst uit de artikeltekst, geen gekoppelde winkelproducten. "}
-              Genoemde bedragen zijn broninformatie, geen actuele aanbiedingen. Controleer hoeveelheden,
-              garendikte en stekenverhouding in het originele patroon.
+                ? "Deze lijst komt uit het artikel. Bij sommige items zie je een paar voorstellen uit onze winkels — ter inspiratie, niet als vaste keuze. "
+                : "Deze lijst komt uit het artikel. "}
+              Kijk altijd nog even in het originele patroon of de hoeveelheden, dikte en maten kloppen. Prijzen kunnen ondertussen veranderd zijn.
             </p>
             <ul className="mt-4 list-disc space-y-3 pl-5 text-[17px] leading-relaxed text-[var(--foreground)]">
               {sourceMaterials.map((material) => (
@@ -323,14 +347,14 @@ export default async function ArticlePage({ params }: Props) {
                   <span>{material.title}</span>
                   {(offersBySourceKey.get(material.key) ?? []).map((offer) => (
                     <div key={`${offer.requirementLabel}:${offer.productId}:${offer.variantId}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
-                      <p className="text-base font-semibold">Voor deze bronregel: {offer.requirementLabel}</p>
+                      <p className="text-base font-semibold">Een optie uit de winkel</p>
                       <Link href={offer.href} className="mt-1 block text-[17px] font-semibold text-[var(--accent)] underline underline-offset-4">
                         {offer.productTitle} — {offer.variantTitle}
                       </Link>
                       <p className="mt-1 text-base">
                         {offer.price
-                          ? `Winkelprijs: ${shopPriceFmt.format(offer.price.amount / 100)}`
-                          : "Winkelprijs onbekend — bekijk het product voor de actuele prijs."}
+                          ? `Prijs in de winkel: ${shopPriceFmt.format(offer.price.amount / 100)}`
+                          : "Prijs niet bekend — open het product voor de actuele prijs."}
                       </p>
                     </div>
                   ))}
@@ -340,25 +364,29 @@ export default async function ArticlePage({ params }: Props) {
           </section>
         )}
 
-        {/* Breadcrumb trail */}
+        {/* Breadcrumb trail — hub + hobby from synced article metadata */}
         <nav
           aria-label="Breadcrumb"
           className="article-print-breadcrumb mt-10 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]"
         >
-          <ol className="flex flex-wrap gap-2">
-            <li>
-              <Link href="/" className="hover:text-[var(--foreground)]">
-                Home
-              </Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link href="/artikelen" className="hover:text-[var(--foreground)]">
-                Artikelen
-              </Link>
-            </li>
-            <li>/</li>
-            <li className="text-[var(--foreground)]">{article.title}</li>
+          <ol className="flex flex-wrap items-center gap-2">
+            {breadcrumbTrail.map((item, index) => {
+              const isLast = index === breadcrumbTrail.length - 1;
+              return (
+                <li key={`${item.name}-${index}`} className="flex items-center gap-2">
+                  {index > 0 ? <span aria-hidden>/</span> : null}
+                  {item.path && !isLast ? (
+                    <Link href={item.path} className="hover:text-[var(--foreground)]">
+                      {item.name}
+                    </Link>
+                  ) : (
+                    <span className={isLast ? "text-[var(--foreground)]" : undefined}>
+                      {item.name}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </nav>
       </div>
@@ -425,7 +453,7 @@ export default async function ArticlePage({ params }: Props) {
           )}
 
           {relatedProducts.length > 0 && (
-            <GraphSection title="Past bij dit project" seeAllHref="/materials">
+            <GraphSection title="Materialen die hierbij passen" seeAllHref="/materials">
               <GridLayout cols={4} gap="md">
                 {relatedProducts.map((p) => (
                   <ProductCard key={p.id} product={p} />

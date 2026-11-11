@@ -2,9 +2,11 @@ import { getMedusaProductsByIds } from "@/lib/commerce/medusa/products";
 import { listArticleMaterialProducts } from "@/lib/platform/queries/article-material-products";
 import {
   matchArticleMaterialOffers,
+  type ArticleMaterialOffer,
   type MaterialCommerceProduct,
   type SourceMaterialWithOffers,
 } from "@/lib/content/article-material-offers";
+import { matchArticleMaterialBrowseOffers } from "@/lib/content/article-material-browse";
 import type { ParsedArticleMaterial } from "@/lib/content/parse-article-materials";
 
 /** Enrich source rows only; commerce truth comes from a bounded variant batch.
@@ -36,7 +38,20 @@ export async function getArticleMaterialOffers(
         })),
       } : null);
     }
-    return matchArticleMaterialOffers(materials, candidates, evidence);
+    const strict = matchArticleMaterialOffers(materials, candidates, evidence);
+    const browse = matchArticleMaterialBrowseOffers(materials, candidates, evidence);
+    return materials.map((material, index) => {
+      const offers: ArticleMaterialOffer[] = [];
+      const seen = new Set<string>();
+      for (const offer of [...(strict[index]?.offers ?? []), ...(browse[index]?.offers ?? [])]) {
+        const identity = `${offer.productId}:${offer.variantId}`;
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        offers.push(offer);
+        if (offers.length >= 3) break;
+      }
+      return { key: material.key, title: material.title, offers };
+    });
   } catch {
     return withoutOffers();
   }
