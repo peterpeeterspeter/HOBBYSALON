@@ -97,14 +97,16 @@ async function getGraphProducts(items: OrderedArticleGraphItem[]): Promise<Graph
   );
 }
 
-async function hydrateById<T>(
-  ids: string[],
-  load: (id: string) => Promise<T | null>
-): Promise<T[]> {
+async function hydrateWorkshops(ids: string[]): Promise<Workshop[]> {
   if (!ids.length) return [];
-  return (
-    await Promise.all([...new Set(ids)].map((id) => load(id)))
-  ).filter((row): row is T => row != null);
+  const rows = await Promise.all([...new Set(ids)].map((id) => getWorkshopById(id)));
+  return rows.filter((row): row is Workshop => row != null);
+}
+
+async function hydrateCreators(ids: string[]): Promise<Creator[]> {
+  if (!ids.length) return [];
+  const rows = await Promise.all([...new Set(ids)].map((id) => getCreatorById(id)));
+  return rows.filter((row): row is Creator => row != null);
 }
 
 export async function getArticlePageData(slug: string): Promise<ArticlePageData> {
@@ -165,8 +167,8 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     listNextLearningPathArticleIds(article.id),
     listArticlesByIds(graphRelations.relatedArticles.map((item) => item.id)),
     listArticlesBySlugs(editorialSlugs),
-    hydrateById(relatedWorkshopIds, getWorkshopById),
-    hydrateById(relatedCreatorIds, getCreatorById),
+    hydrateWorkshops(relatedWorkshopIds),
+    hydrateCreators(relatedCreatorIds),
     listEventsByIds(relatedEventIds),
     listApprovedCommunityGalleryForArticle(article.id),
     getArticleMaterialOffers(sourceMaterials),
