@@ -5,13 +5,15 @@ import type {
   SourceMaterialWithOffers,
 } from "./article-material-offers";
 
-type BrowseFamily = "yarn" | "hook" | "stuffing" | "embroidery";
+type BrowseFamily = "yarn" | "hook" | "stuffing" | "embroidery" | "foam_clay" | "foam_base";
 
 const FAMILIES: Array<{ family: BrowseFamily; words: string[]; terms: string[] }> = [
   { family: "yarn", words: ["haakgaren", "breigaren", "garen", "yarn", "wol", "wool"], terms: ["haakgaren", "garen", "yarn", "wol"] },
   { family: "hook", words: ["haaknaald", "haaknaalden", "crochet hook"], terms: ["haaknaald", "crochet hook"] },
   { family: "embroidery", words: ["borduurgaren", "embroidery"], terms: ["borduurgaren", "garen"] },
   { family: "stuffing", words: ["fiberfill", "vulling", "stuffing", "polyestervlok"], terms: ["fiberfill", "vulling", "stuffing"] },
+  { family: "foam_clay", words: ["foam clay", "foamclay", "klei"], terms: ["foam clay", "foamclay"] },
+  { family: "foam_base", words: ["basisfiguur", "basisfiguurtje", "isomooi"], terms: ["foam clay basic", "basis"] },
 ];
 
 const COLORS: Array<[string, string[]]> = [
@@ -30,6 +32,7 @@ function normalized(text: string): string {
 }
 
 function hasWord(text: string, word: string): boolean {
+  if (word.includes(" ")) return text.includes(word);
   return new RegExp(`\\b${word}\\b`, "i").test(text);
 }
 

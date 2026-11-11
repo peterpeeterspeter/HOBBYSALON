@@ -46,15 +46,24 @@ export async function listProductsByDomain(
   return (data ?? []) as Product[];
 }
 
-export async function listProductsByCreator(creatorId: string): Promise<Product[]> {
+export async function listProductsByCreator(
+  creatorId: string,
+  limit?: number
+): Promise<Product[]> {
   const supabase = createPlatformClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
     .select("*")
     .eq("creator_id", creatorId)
     .eq("is_active", true)
     .eq("status", "active")
     .order("is_featured", { ascending: false });
+
+  if (limit != null) {
+    query = query.limit(Math.min(Math.max(limit, 1), 48));
+  }
+
+  const { data, error } = await query;
 
   if (error) return [];
   return (data ?? []) as Product[];
