@@ -91,6 +91,7 @@ async function loadPage(kind, edges, options = {}) {
       listArticlesBySlugs: async wanted => [...new Set(wanted)]
         .map(slug => articles.find(row => row.slug === slug && row.is_published)).filter(Boolean),
       listArticlesByDomain: async () => [],
+      listRecentHubArticlesByDomain: async () => [],
     },
     "@/lib/platform/queries/workshops": {
       getWorkshopBySlug: async slug => workshops.find(row => row.slug === slug) ?? null,

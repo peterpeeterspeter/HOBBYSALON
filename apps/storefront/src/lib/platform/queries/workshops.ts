@@ -139,6 +139,7 @@ export async function listWorkshopsByDomain(
     country_code?: string;
     preferred_city?: string;
     preferred_country_code?: string;
+    limit?: number;
   }
 ): Promise<Workshop[]> {
   const supabase = createPlatformClient();
@@ -154,6 +155,9 @@ export async function listWorkshopsByDomain(
   }
   if (options?.country_code) {
     query = query.eq("country_code", options.country_code.toUpperCase());
+  }
+  if (options?.limit != null) {
+    query = query.limit(Math.min(Math.max(options.limit, 1), 48));
   }
 
   const { data, error } = await query;

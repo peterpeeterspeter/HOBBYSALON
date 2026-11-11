@@ -75,6 +75,28 @@ export async function listArticlesByDomain(domainId: string): Promise<Article[]>
   });
 }
 
+/** Slim related-rail lookup: never pulls body_markdown or unbounded hub catalogs. */
+export async function listRecentHubArticlesByDomain(
+  domainId: string,
+  limit = 8
+): Promise<Article[]> {
+  const capped = Math.min(Math.max(limit, 1), 24);
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select(
+      "id,slug,title,excerpt,featured_image_url,published_at,created_at,is_published,article_type,domain_id,author_creator_id,reading_time_minutes,difficulty_level"
+    )
+    .eq("domain_id", domainId)
+    .eq("is_published", true)
+    .eq("listing_scope", "hub")
+    .order("published_at", { ascending: false })
+    .limit(capped);
+
+  if (error) return [];
+  return (data ?? []) as Article[];
+}
+
 export async function listArticlesByIds(ids: string[]): Promise<Article[]> {
   if (!ids.length) return [];
 
