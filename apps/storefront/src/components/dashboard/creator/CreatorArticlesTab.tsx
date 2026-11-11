@@ -2,8 +2,13 @@ import {
   approveArticleSuggestionAction,
   createArticleAction,
   dismissArticleSuggestionAction,
+  purchaseSpotlightBoostFormAction,
   updateArticleAction,
 } from "@/app/actions/dashboard";
+import Link from "next/link";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { MultiImageUploadField } from "@/components/ui/multi-image-upload-field";
+import { LISTING_CREDIT_COSTS } from "@/lib/platform/listing-credit-costs";
 import { CardShell } from "@/components/ui/card-shell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,7 +25,112 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   event: "Event",
 };
 
+function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat("nl-BE", { day: "numeric", month: "long" }).format(new Date(iso));
+}
+
+/** Where the articles of this author appear. */
+function VisibilityNotice({ canPublishToHub }: { canPublishToHub: boolean }) {
+  return canPublishToHub ? (
+    <div className="mt-4 rounded-lg border border-[var(--accent)] bg-[var(--section-highlight)] p-4">
+      <p className="text-base font-semibold text-[var(--foreground)]">
+        Je artikels verschijnen in Inspiratie en in de zoekresultaten
+      </p>
+      <p className="mt-1 text-sm text-[var(--muted)]">
+        Als workshopgever of winkel voeg je een hoofdfoto, tot 8 extra foto&apos;s en een video
+        toe. Een gepubliceerd artikel kun je uitlichten, dan staat het 7 dagen bovenaan Inspiratie.
+      </p>
+    </div>
+  ) : (
+    <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--section-alt)] p-4">
+      <p className="text-base font-semibold text-[var(--foreground)]">
+        Je artikels verschijnen op je profiel
+      </p>
+      <p className="mt-1 text-sm text-[var(--muted)]">
+        Bezoekers lezen ze op je profielpagina en via de link die je deelt. Ze staan niet in het
+        overzicht Inspiratie. Geef je workshops of heb je een winkel? Dan komen je artikels ook in
+        het overzicht, met foto&apos;s, video en uitlichten.{" "}
+        <Link href="/dashboard/instellingen" className="font-semibold text-[var(--accent)] underline-offset-4 hover:underline">
+          Pas aan wat je aanbiedt
+        </Link>
+        .
+      </p>
+    </div>
+  );
+}
+
+/** Photos and video. Gallery and video only for hub authors. */
+function ArticleMediaFields({
+  creatorId,
+  canPublishToHub,
+  article,
+}: {
+  creatorId: string;
+  canPublishToHub: boolean;
+  article?: CreatorArticlesTabProps["articles"][number];
+}) {
+  const gallery = article?.gallery ?? [];
+  return (
+    <div className="grid gap-4 rounded-lg border border-[var(--border)] p-4 sm:col-span-2">
+      <ImageUploadField
+        name="featured_image_file"
+        label="Hoofdfoto"
+        uploadPathPrefix={`creators/${creatorId}/articles`}
+        urlDefaultValue={article?.featured_image_url ?? undefined}
+        hint={
+          canPublishToHub
+            ? "Liggend werkt het best · min. 1200×800 px. Deze foto staat bovenaan je artikel en op de kaart in het overzicht."
+            : "Liggend werkt het best · min. 1200×800 px. Deze foto staat bovenaan je artikel."
+        }
+      />
+      {canPublishToHub ? (
+        <>
+          {gallery.length > 0 ? (
+            <fieldset>
+              <legend className="text-sm font-medium text-[var(--foreground)]">
+                Foto&apos;s in dit artikel
+              </legend>
+              <p className="mt-0.5 text-xs text-[var(--muted)]">
+                Vink een foto aan om ze te verwijderen.
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {gallery.map((image) => (
+                  <label key={image.id} className="block cursor-pointer">
+                    <img src={image.image_url} alt="" className="aspect-square w-full rounded-md object-cover" />
+                    <span className="mt-1 flex items-center gap-2 text-xs text-[var(--muted)]">
+                      <input type="checkbox" name="remove_gallery_image_ids" value={image.id} />
+                      Verwijderen
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+          <MultiImageUploadField
+            uploadPathPrefix={`creators/${creatorId}/articles/gallery`}
+            label="Extra foto's"
+            existingCount={gallery.length}
+            hint="Tot 8 foto's: stappen, details of het resultaat."
+          />
+          <Input
+            name="video_url"
+            label="Video (YouTube of Vimeo)"
+            type="url"
+            defaultValue={article?.video_url ?? ""}
+            placeholder="https://www.youtube.com/watch?v=..."
+          />
+          <p className="-mt-2 text-xs text-[var(--muted)]">
+            Plak de link van je video. Die verschijnt als speler in je artikel.
+          </p>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function CreatorArticlesTab({
+  creatorId,
+  canPublishToHub,
   domains,
   articles,
   articleSuggestionsByArticle,
@@ -49,6 +159,7 @@ export function CreatorArticlesTab({
         Schrijf tutorials, gidsen en patronen. We stellen koppelingen voor naar
         materialen, workshops en events; je makerprofiel verschijnt automatisch bij je content.
       </p>
+      <VisibilityNotice canPublishToHub={canPublishToHub} />
 
       <form
         action={createArticleAction}
@@ -102,6 +213,7 @@ export function CreatorArticlesTab({
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)] placeholder:text-[var(--muted)]"
           />
         </div>
+        <ArticleMediaFields creatorId={creatorId} canPublishToHub={canPublishToHub} />
         <label className="inline-flex items-center gap-2 sm:col-span-2">
           <input type="checkbox" name="is_published" defaultChecked />
           <span className="text-sm">Direct publiceren</span>
@@ -133,7 +245,13 @@ export function CreatorArticlesTab({
                 <summary className="cursor-pointer list-none font-medium text-[var(--foreground)]">
                   {article.title}{" "}
                   <span className="text-xs text-[var(--muted)]">
-                    ({article.is_published ? "gepubliceerd" : "concept"})
+                    ({article.is_published ? "gepubliceerd" : "concept"}
+                    {article.is_published
+                      ? article.listing_scope === "hub"
+                        ? " · in Inspiratie"
+                        : " · op je profiel"
+                      : ""}
+                    {article.promotedUntil ? ` · uitgelicht tot ${formatDate(article.promotedUntil)}` : ""})
                   </span>
                 </summary>
 
@@ -187,6 +305,11 @@ export function CreatorArticlesTab({
                       className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[var(--foreground)]"
                     />
                   </div>
+                  <ArticleMediaFields
+                    creatorId={creatorId}
+                    canPublishToHub={canPublishToHub}
+                    article={article}
+                  />
                   <label className="inline-flex items-center gap-2 sm:col-span-2">
                     <input
                       type="checkbox"
@@ -201,6 +324,28 @@ export function CreatorArticlesTab({
                     </Button>
                   </div>
                 </form>
+
+                {canPublishToHub && article.is_published && article.listing_scope === "hub" ? (
+                  <div className="mt-4 rounded-md border border-[var(--border)] bg-[var(--section-alt)] p-3">
+                    {article.promotedUntil ? (
+                      <p className="text-sm text-[var(--foreground)]">
+                        Dit artikel staat bovenaan Inspiratie tot {formatDate(article.promotedUntil)}.
+                      </p>
+                    ) : (
+                      <form action={purchaseSpotlightBoostFormAction} className="flex flex-wrap items-center gap-3">
+                        <input type="hidden" name="entity_type" value="article" />
+                        <input type="hidden" name="entity_id" value={article.id} />
+                        <input type="hidden" name="boost_type" value="spotlight" />
+                        <p className="text-sm text-[var(--foreground)]">
+                          Zet dit artikel 7 dagen bovenaan Inspiratie.
+                        </p>
+                        <Button type="submit" size="sm" variant="secondary">
+                          Uitlichten voor {LISTING_CREDIT_COSTS.spotlight7Days} tegoed
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                ) : null}
 
                 <div className="mt-4">
                   <h3 className="text-sm font-semibold text-[var(--foreground)]">

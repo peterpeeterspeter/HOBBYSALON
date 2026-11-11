@@ -147,11 +147,11 @@ export default async function SettingsPage({ searchParams }: Props) {
       {balance !== null ? (
         <section id="credits" className="scroll-mt-24" aria-labelledby="credits-titel">
           <h2 id="credits-titel" className="text-2xl font-bold text-[var(--foreground)]">
-            Credits
+            Tegoed
           </h2>
           <p className="mt-2 text-lg text-[var(--muted)]">
-            Je saldo: <strong className="text-[var(--foreground)]">{balance} credits</strong>.
-            Zichtbaar maken kost credits.
+            Je saldo: <strong className="text-[var(--foreground)]">{balance} tegoedpunten</strong>.
+            Zichtbaar maken kost tegoed.
           </p>
           {packs.length > 0 ? (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -164,7 +164,7 @@ export default async function SettingsPage({ searchParams }: Props) {
                     <input type="hidden" name="pack_code" value={pack.pack_code} />
                     <span className="text-xl font-bold text-[var(--foreground)]">{pack.name}</span>
                     <span className="text-lg text-[var(--muted)]">
-                      {pack.credits} credits voor {euro.format(pack.price_cents / 100)}
+                      {pack.credits} tegoedpunten voor {euro.format(pack.price_cents / 100)}
                     </span>
                     <Button type="submit" variant="secondary" size="lg" className="mt-auto">
                       Kopen

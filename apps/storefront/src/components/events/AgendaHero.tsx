@@ -18,7 +18,7 @@ export function AgendaHero({
   return (
     <FeaturedListingHero
       title="Ga eropuit voor je hobby"
-      lead="Filter handmade markten, beurzen en open ateliers."
+      lead="Zoek ambachtelijke markten, beurzen en open ateliers."
       fallbackImageSrc={LANDING_IMAGES.community}
       featured={featured}
       footer={<ListingSearchEverywhereHint query={defaultQuery} />}

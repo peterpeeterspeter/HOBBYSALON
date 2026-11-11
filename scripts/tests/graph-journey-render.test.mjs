@@ -64,6 +64,8 @@ async function renderHomePage(data, reject = false) {
     "react/jsx-runtime": jsxRuntime,
     "next/link": { default: "Link" },
     "@/components/home/HomeJourneySection": { HomeJourneySection: journeyModule.component },
+    "@/components/home/SocialFollowBanner": { SocialFollowBanner: "SocialFollowBanner" },
+    "@/config/social": { SOCIAL_PROFILE_URLS: [] },
     "@/components/seo/JsonLd": { JsonLd: "JsonLd" },
     "@/components/ui/container": { Container: "Container" },
     "@/lib/auth/session": { getAuthUser: async () => { calls.push("auth"); return null; } },

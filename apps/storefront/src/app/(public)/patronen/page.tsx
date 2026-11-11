@@ -3,14 +3,16 @@ import type { Metadata } from "next";
 import { ListingHeroBand } from "@/components/shared/ListingHeroBand";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { Container } from "@/components/ui/container";
-import { ContentHubBrowser, type ContentHubItem } from "@/components/content/ContentHubBrowser";
-import { EmptyState } from "@/components/ui/empty-state";
+import { ArticleHub } from "@/components/content/ArticleHub";
+import { HubAlsoFound } from "@/components/content/HubAlsoFound";
 import { buildContentHubItems } from "@/lib/content/build-content-hub-items";
-import {
-  listArticleDomainLinks,
-  listPublishedPatterns,
-} from "@/lib/platform/queries/articles";
+import { listArticleDomainLinks } from "@/lib/platform/queries/articles";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
+import {
+  listArticleFacetCounts,
+  listArticleHub,
+  parseHubFilters,
+} from "@/lib/platform/queries/article-hub";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -20,13 +22,20 @@ export const metadata: Metadata = buildPageMetadata({
   path: "/patronen",
 });
 
-export default async function PatternsHubPage() {
-  const [patterns, domains] = await Promise.all([
-    listPublishedPatterns(96),
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function PatternsHubPage({ searchParams }: Props) {
+  const filters = parseHubFilters(await searchParams);
+  const [{ articles, total }, facets, domains] = await Promise.all([
+    listArticleHub(true, filters),
+    listArticleFacetCounts(true, filters),
     listActiveDomains(),
   ]);
-  const links = await listArticleDomainLinks(patterns.map((article) => article.id));
-  const items: ContentHubItem[] = buildContentHubItems(patterns, domains, links);
+  const links = await listArticleDomainLinks(articles.map((article) => article.id));
+  const items = buildContentHubItems(articles, domains, links);
+  const results = items.map((item) => ({ article: item.article, domainName: item.domainName }));
 
   return (
     <>
@@ -65,16 +74,16 @@ export default async function PatternsHubPage() {
         }
       />
 
-      <Container size="wide" className="pt-8 sm:pt-10">
-        {items.length === 0 ? (
-          <EmptyState
-            title="Nog geen patronen toegevoegd"
-            description="Nieuwe patronen verschijnen hier binnenkort."
-            action={{ label: "Naar home", href: "/" }}
-          />
-        ) : (
-          <ContentHubBrowser items={items} kind="patterns" />
-        )}
+      <Container size="wide" className="pt-12 sm:pt-16">
+        <ArticleHub
+          kind="patterns"
+          basePath="/patronen"
+          filters={filters}
+          results={results}
+          total={total}
+          facets={facets}
+          afterSearch={<HubAlsoFound query={filters.q} />}
+        />
       </Container>
     </>
   );

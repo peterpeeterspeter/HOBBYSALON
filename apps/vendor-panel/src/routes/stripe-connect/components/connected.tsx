@@ -47,25 +47,24 @@ export const Connected = ({
   return status === "connected" ? (
     <div className="flex items-center justify-center text-center my-32 flex-col">
       <Heading level="h2" className="mt-4">
-        Your payout account is ready
+        Je uitbetalingen staan klaar
       </Heading>
       <Text className="text-ui-fg-subtle max-w-sm mt-2" size="small">
-        Payouts can run once Stripe marks the account active. If Stripe asks for
-        extra details later, reopen onboarding below.
+        Uitbetalingen starten zodra Stripe je account actief zet. Vraagt Stripe later extra gegevens? Open dan hieronder opnieuw de stappen.
       </Text>
       <Button
         isLoading={isPending}
         className="mt-4"
         onClick={() => void handleOnboarding()}
       >
-        Open Stripe payouts
+        Uitbetalingen bekijken in Stripe
       </Button>
     </div>
   ) : (
     <div className="flex items-center justify-center text-center my-32 flex-col">
       <ExclamationCircle />
       <Heading level="h2" className="mt-4">
-        Not onboarded
+        Nog niet klaar
       </Heading>
       <Text className="text-ui-fg-subtle max-w-sm" size="small">
         Rond de Stripe Express-setup af (identiteit + bankrekening voor BE/NL).
@@ -81,7 +80,7 @@ export const Connected = ({
         className="mt-4"
         onClick={() => void handleOnboarding()}
       >
-        Stripe Onboarding
+        Stripe-stappen afronden
       </Button>
     </div>
   )

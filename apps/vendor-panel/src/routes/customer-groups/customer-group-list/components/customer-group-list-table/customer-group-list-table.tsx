@@ -77,7 +77,7 @@ export const CustomerGroupListTable = () => {
               size="small"
               className="text-ui-fg-subtle"
             >
-              Organize customers into groups. Groups can have different promotions and prices.
+              Orden klanten in groepen. Elke groep kan eigen kortingen en prijzen hebben.
             </Text>
           </div>
           <div className="flex items-center">

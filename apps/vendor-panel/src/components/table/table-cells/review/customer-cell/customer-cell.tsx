@@ -19,7 +19,7 @@ export const CustomerCell = ({ customer }: CustomerCellProps) => {
 export const CustomerHeader = () => {
   return (
     <div className="flex h-full w-full items-center">
-      <span className="truncate">Customer</span>
+      <span className="truncate">Klant</span>
     </div>
   )
 }

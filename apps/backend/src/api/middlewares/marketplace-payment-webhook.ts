@@ -17,6 +17,10 @@ export async function routeMarketplacePaymentWebhook(req: any, res: any, next: a
     return res.status(400).json({ message: "Invalid payment webhook signature" })
   }
   if (![PaymentActions.AUTHORIZED, PaymentActions.SUCCESSFUL].includes(processed.action)) return res.sendStatus(200)
+  // The Stripe account also takes platform charges (listing credits/plans via
+  // Stripe Checkout). Those intents carry no Medusa payment-session binding,
+  // so they can never be a marketplace cart payment. Acknowledge and ignore.
+  if (!processed.data?.session_id) return res.status(200).json({ ignored: "no_medusa_session" })
   try {
     const rawEvent = JSON.parse(Buffer.from(req.rawBody).toString("utf8"))
     const ingressInput = { ...processed, provider_id: "pp_card_stripe-connect", data: { ...processed.data,

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getFreeMakerListingsForCreator } from "@/lib/referrals/referrals";
 import type { Creator } from "@/types/platform";
 import {
   canUseExternalBookingLink,
@@ -174,11 +175,14 @@ export async function enforceHandmadePublishCredits(
 
   const entitlements = await getCreatorCommercialEntitlements(creatorId, creatorTypes);
   const allowance = getHandmadeListingAllowance(entitlements);
-  const activeCount = await countActiveHandmadeProducts(creatorId);
+  const [activeCount, freeListings] = await Promise.all([
+    countActiveHandmadeProducts(creatorId),
+    allowance.usesCredits ? getFreeMakerListingsForCreator(creatorId) : Promise.resolve(0),
+  ]);
   const check = await canCreateHandmadeListing(
     creatorId,
     allowance.usesCredits,
-    allowance.includedFree,
+    allowance.usesCredits ? freeListings : allowance.includedFree,
     activeCount
   );
 
@@ -186,7 +190,7 @@ export async function enforceHandmadePublishCredits(
     return { ok: false, error: check.reason };
   }
 
-  if (allowance.usesCredits) {
+  if (allowance.usesCredits && !check.free) {
     const result = await consumeCredits(
       creatorId,
       LISTING_CREDIT_COSTS.handmadeListing,
@@ -217,7 +221,7 @@ export async function enforceEventPublishCredits(
   if (balance < cost) {
     return {
       ok: false,
-      error: `Onvoldoende credits. Dit eventtype kost ${cost} credits, je hebt er ${balance}.`,
+      error: `Onvoldoende tegoed. Dit soort event kost ${cost} tegoedpunten, je hebt er ${balance}.`,
     };
   }
 
@@ -266,7 +270,7 @@ export async function grantPremiumPlanBoosts(
 
 export async function purchaseSpotlightBoostAction(input: {
   creatorId: string;
-  entityType: "creator" | "product" | "workshop" | "event";
+  entityType: "creator" | "product" | "workshop" | "event" | "article";
   entityId: string;
   boostType?: "spotlight" | "homepage";
 }): Promise<{ ok: boolean; error?: string }> {
@@ -278,7 +282,26 @@ export async function purchaseSpotlightBoostAction(input: {
   // Ownership assertion: the boosted entity must belong to the paying creator.
   if (input.entityType === "creator") {
     if (input.entityId !== input.creatorId) {
-      return { ok: false, error: "Je kunt alleen je eigen profiel boosten." };
+      return { ok: false, error: "Je kunt alleen je eigen profiel uitlichten." };
+    }
+  } else if (input.entityType === "article") {
+    // Only published articles that are listed in the overviews can be
+    // promoted; a profile-only article has nowhere to be shown higher.
+    const supabase = createPlatformClient();
+    const { data: owned, error: ownedError } = await supabase
+      .from("articles")
+      .select("id, listing_scope, is_published")
+      .eq("id", input.entityId)
+      .eq("author_creator_id", input.creatorId)
+      .maybeSingle();
+    if (ownedError || !owned) {
+      return { ok: false, error: "Dit artikel bestaat niet of is niet van jou." };
+    }
+    if (owned.listing_scope !== "hub" || !owned.is_published) {
+      return {
+        ok: false,
+        error: "Alleen gepubliceerde artikelen in het overzicht Inspiratie kun je uitlichten.",
+      };
     }
   } else {
     const supabase = createPlatformClient();
@@ -300,7 +323,7 @@ export async function purchaseSpotlightBoostAction(input: {
     if (ownedError || !owned) {
       return {
         ok: false,
-        error: "Deze entiteit bestaat niet of is niet van jou.",
+        error: "Dit onderdeel bestaat niet of is niet van jou.",
       };
     }
   }
@@ -337,7 +360,7 @@ export async function purchaseSpotlightBoostAction(input: {
     });
     return {
       ok: false,
-      error: created.error ?? "Boost kon niet worden aangemaakt; credits teruggezet.",
+      error: "Uitlichten is mislukt. Je tegoed is teruggezet.",
     };
   }
 

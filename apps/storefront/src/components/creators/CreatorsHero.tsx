@@ -19,7 +19,7 @@ export function CreatorsHero({
   return (
     <FeaturedListingHero
       title="Koop rechtstreeks van makers"
-      lead="Filter handgemaakte creaties en restanten van makers."
+      lead="Zelfgemaakt werk en overschot, rechtstreeks van makers."
       fallbackImageSrc={LANDING_IMAGES.community}
       featured={featured}
       footer={

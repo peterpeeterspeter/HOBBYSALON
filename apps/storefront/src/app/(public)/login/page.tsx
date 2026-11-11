@@ -10,6 +10,7 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import type { Metadata } from "next";
+import { FacebookLoginButton } from "@/components/auth/FacebookLoginButton";
 
 export const metadata: Metadata = {
   title: "Aanmelden",
@@ -47,6 +48,7 @@ export default async function LoginPage({ searchParams }: Props) {
           padding="lg"
           className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
+          <FacebookLoginButton nextPath={nextPath || undefined} />
           <AuthForm mode="login" action={loginAction} nextPath={nextPath} />
           <p className="mt-4 text-base text-[var(--muted)]">
             <Link

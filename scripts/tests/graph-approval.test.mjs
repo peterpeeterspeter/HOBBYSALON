@@ -306,7 +306,7 @@ for (const options of [{ unauthenticated: true }, { noCreator: true }]) {
     const result = await f.approve();
     assert.equal(result.success, null);
     if (options.unauthenticated) assert.equal(result.path, "/login");
-    else assert.equal(result.error, "Maak eerst een creator-profiel aan.");
+    else assert.equal(result.error, "Maak eerst je maker-pagina aan.");
     assert.equal(f.calls.dbClients, 0);
   });
 }

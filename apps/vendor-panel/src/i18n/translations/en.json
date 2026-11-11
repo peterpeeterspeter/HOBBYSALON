@@ -1,4 +1,9 @@
 {
+  "shippingSettings": {
+    "title": "Shipping",
+    "threshold": "Free shipping from (€)",
+    "save": "Save"
+  },
   "$schema": "./$schema.json",
   "general": {
     "ascending": "Ascending",
@@ -1638,7 +1643,8 @@
             },
             "calculated": {
               "label": "Calculated",
-              "hint": "The shipping option's price is calculated by the fulfillment provider during checkout."
+              "hint": "The shipping option's price is calculated by the fulfillment provider during checkout.",
+              "manualHint": "Manual shipping uses a fixed price. Enter the amount under Prices."
             }
           }
         },
@@ -1649,7 +1655,8 @@
         "provider": "Fulfillment provider",
         "profile": "Shipping profile",
         "fulfillmentOption": "Fulfillment option"
-      }
+      },
+      "priceRequired": "Enter at least one shipping price. Use 0 for free shipping."
     },
     "serviceZones": {
       "create": {
@@ -2653,7 +2660,10 @@
         "placeholder": "wrong_size",
         "tooltip": "The value should be a unique identifier for the return reason."
       },
-      "label": { "label": "Label", "placeholder": "Wrong size" },
+      "label": {
+        "label": "Label",
+        "placeholder": "Wrong size"
+      },
       "description": {
         "label": "Description",
         "placeholder": "Customer received the wrong size"

@@ -14,9 +14,9 @@ export type MercurConnectItemConfig = {
 
 export const mercurConnectItems: MercurConnectItemConfig[] = [
   {
-    name: 'Product Importer',
+    name: 'Producten importeren',
     description:
-      'Quickly add products to your store by uploading CSV files, making catalog management fast and efficient.',
+      'Zet snel veel producten online met een CSV- of Excel-bestand.',
     enabled: true,
     icon: <ArrowUpTray />,
     provider: 'csv',
@@ -26,7 +26,7 @@ export const mercurConnectItems: MercurConnectItemConfig[] = [
   {
     name: 'Shopify Connector',
     description:
-      'Connect your Shopify store to seamlessly sync products, stock levels, prices, and orders in real time.',
+      'Koppel je Shopify-winkel: producten, voorraad, prijzen en bestellingen blijven gelijk.',
     enabled: false,
     icon: 'https://www.citypng.com/public/uploads/preview/shopify-bag-icon-symbol-logo-701751695132537nenecmhs0u.png',
     provider: 'shopify',

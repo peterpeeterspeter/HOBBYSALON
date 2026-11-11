@@ -148,7 +148,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
       },
       {
         onSuccess: () => {
-          toast.success("Store updated")
+          toast.success("Winkel opgeslagen")
 
           handleSuccess()
         },
@@ -196,7 +196,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
               control={form.control}
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Name</Form.Label>
+                  <Form.Label>Naam</Form.Label>
                   <Form.Control>
                     <Input {...field} />
                   </Form.Control>
@@ -209,7 +209,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
               control={form.control}
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Email</Form.Label>
+                  <Form.Label>E-mail</Form.Label>
                   <Form.Control>
                     <Input {...field} />
                   </Form.Control>
@@ -222,7 +222,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
               control={form.control}
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Phone Number</Form.Label>
+                  <Form.Label>Telefoonnummer</Form.Label>
                   <Form.Control>
                     <Input {...field} />
                   </Form.Control>
@@ -235,7 +235,7 @@ export const EditStoreForm = ({ seller }: { seller: StoreVendor }) => {
               control={form.control}
               render={({ field }) => (
                 <Form.Item>
-                  <Form.Label>Description</Form.Label>
+                  <Form.Label>Omschrijving</Form.Label>
                   <Form.Control>
                     <Textarea {...field} />
                   </Form.Control>

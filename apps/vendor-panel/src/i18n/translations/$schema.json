@@ -2,6 +2,20 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "shippingSettings": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "threshold": {
+          "type": "string"
+        },
+        "save": {
+          "type": "string"
+        }
+      }
+    },
     "$schema": {
       "type": "string"
     },
@@ -6158,6 +6172,9 @@
                             },
                             "hint": {
                               "type": "string"
+                            },
+                            "manualHint": {
+                              "type": "string"
                             }
                           },
                           "required": ["label", "hint"],
@@ -6203,6 +6220,9 @@
                 "fulfillmentOption"
               ],
               "additionalProperties": false
+            },
+            "priceRequired": {
+              "type": "string"
             }
           },
           "required": [

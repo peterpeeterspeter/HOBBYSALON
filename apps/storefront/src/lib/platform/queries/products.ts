@@ -23,7 +23,8 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
 export async function listProductsByDomain(
   domainId: string,
-  productType?: "handmade" | "supply"
+  productType?: "handmade" | "supply",
+  limit?: number
 ): Promise<Product[]> {
   const supabase = createPlatformClient();
   let q = supabase
@@ -37,7 +38,9 @@ export async function listProductsByDomain(
     q = q.eq("product_type", productType);
   }
 
-  const { data, error } = await q.order("is_featured", { ascending: false });
+  q = q.order("is_featured", { ascending: false });
+  if (limit) q = q.limit(limit);
+  const { data, error } = await q;
 
   if (error) return [];
   return (data ?? []) as Product[];
@@ -52,6 +55,25 @@ export async function listProductsByCreator(creatorId: string): Promise<Product[
     .eq("is_active", true)
     .eq("status", "active")
     .order("is_featured", { ascending: false });
+
+  if (error) return [];
+  return (data ?? []) as Product[];
+}
+
+export async function listProductsByCategory(
+  categoryId: string,
+  limit = 12
+): Promise<Product[]> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("category_id", categoryId)
+    .eq("is_active", true)
+    .eq("status", "active")
+    .order("is_featured", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) return [];
   return (data ?? []) as Product[];
@@ -123,7 +145,11 @@ export type ProductCategoryOption = {
   slug: string;
   domain_id: string | null;
   parent_id?: string | null;
+  sort_order?: number | null;
 };
+
+/** "material" is the hobby independent tree for /materials; "listing" the per hobby maker categories. */
+export type ProductCategoryCatalog = "material" | "listing";
 
 function normalizeLocationValue(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -334,16 +360,20 @@ export async function listMaterialProductsForSelection(options?: {
 
 export async function listSupplyCategoryOptions(filters?: {
   domain_id?: string;
+  catalog?: ProductCategoryCatalog;
 }): Promise<ProductCategoryOption[]> {
   const supabase = createPlatformClient();
   let query = supabase
     .from("product_categories")
-    .select("id, name, slug, domain_id, parent_id")
+    .select("id, name, slug, domain_id, parent_id, sort_order")
     .order("sort_order", { ascending: true })
     .limit(500);
 
   if (filters?.domain_id) {
     query = query.eq("domain_id", filters.domain_id);
+  }
+  if (filters?.catalog) {
+    query = query.eq("catalog", filters.catalog);
   }
 
   const { data, error } = await query;
@@ -696,4 +726,83 @@ export async function listMaterialsCatalog(
   });
 
   return { products: items, totalCount, categoryIdsWithSupply };
+}
+
+export type MaterialsFacetCount = {
+  facet: "group" | "sub" | "domain" | "seller" | "price" | "featured";
+  value: string;
+  label: string | null;
+  sort: number | null;
+  n: number;
+};
+
+/** Counts per filter for /materials; each facet uses every other active filter. */
+export async function listMaterialsFacets(filters: {
+  catalog_scope?: MaterialsCatalogScope;
+  group_id?: string;
+  sub_id?: string;
+  domain_id?: string;
+  creator_id?: string;
+  price_min_cents?: number;
+  price_max_cents?: number;
+  featured?: boolean;
+  q?: string;
+}): Promise<MaterialsFacetCount[]> {
+  const term = sanitizeAgendaSearchQuery(filters.q);
+  const { data, error } = await createPlatformClient().rpc("materials_facets", {
+    p_types: [...resolveCatalogProductTypes(filters.catalog_scope, undefined)],
+    p_group: filters.group_id ?? null,
+    p_sub: filters.sub_id ?? null,
+    p_domain: filters.domain_id ?? null,
+    p_seller: filters.creator_id ?? null,
+    p_price_min: filters.price_min_cents ?? null,
+    p_price_max: filters.price_max_cents ?? null,
+    p_featured: Boolean(filters.featured),
+    p_q: term || null,
+  });
+  if (error || !Array.isArray(data)) return [];
+  return (data as Array<Omit<MaterialsFacetCount, "n"> & { n: number | string }>).map((row) => ({
+    ...row,
+    n: Number(row.n),
+  }));
+}
+
+
+export type MakerMarketFacetCount = {
+  facet: "type" | "domain" | "category" | "seller" | "price" | "condition" | "featured";
+  value: string;
+  label: string | null;
+  sort: number | null;
+  n: number;
+};
+
+/** Counts per filter for /creators; each facet uses every other active filter. */
+export async function listMakerMarketFacets(filters: {
+  product_type?: "handmade" | "destash";
+  domain_id?: string;
+  category_id?: string;
+  creator_id?: string;
+  price_min_cents?: number;
+  price_max_cents?: number;
+  condition?: string;
+  featured?: boolean;
+  q?: string;
+}): Promise<MakerMarketFacetCount[]> {
+  const term = sanitizeAgendaSearchQuery(filters.q);
+  const { data, error } = await createPlatformClient().rpc("maker_market_facets", {
+    p_type: filters.product_type ?? null,
+    p_domain: filters.domain_id ?? null,
+    p_category: filters.category_id ?? null,
+    p_seller: filters.creator_id ?? null,
+    p_price_min: filters.price_min_cents ?? null,
+    p_price_max: filters.price_max_cents ?? null,
+    p_condition: filters.condition ?? null,
+    p_featured: Boolean(filters.featured),
+    p_q: term || null,
+  });
+  if (error || !Array.isArray(data)) return [];
+  return (data as Array<Omit<MakerMarketFacetCount, "n"> & { n: number | string }>).map((row) => ({
+    ...row,
+    n: Number(row.n),
+  }));
 }

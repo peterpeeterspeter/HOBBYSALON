@@ -17,6 +17,7 @@ import {
   serializeCategoryMapping,
   type CategoryMappingRow,
 } from './utils'
+import { assertMaterialCategoryId } from '../../../shared/platform/material-categories'
 
 /**
  * @oas [get] /vendor/category-mappings
@@ -110,18 +111,7 @@ export const POST = async (
   const { source_category, domain_id, confidence, active } = req.validatedBody
   const sourceCategoryNormalized = normalizeSourceCategory(source_category)
 
-  const domain = await knex('product_category')
-    .select('id')
-    .where('id', domain_id)
-    .whereNull('deleted_at')
-    .first()
-
-  if (!domain) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      `Domain category ${domain_id} was not found`
-    )
-  }
+  await assertMaterialCategoryId(domain_id)
 
   const id = `mcm_${randomUUID().replace(/-/g, '').slice(0, 24)}`
   const now = new Date()

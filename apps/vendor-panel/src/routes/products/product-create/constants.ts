@@ -66,6 +66,7 @@ export const ProductCreateSchema = z
     collection_id: z.string().optional(),
     shipping_profile_id: z.string().optional(),
     categories: z.array(z.string()),
+    material_category_id: z.string().optional(),
     tags: z.array(z.string()).optional(),
     sales_channels: z
       .array(
@@ -126,17 +127,17 @@ export const PRODUCT_CREATE_FORM_DEFAULTS: Partial<
   sales_channels: [],
   options: [
     {
-      title: "Default option",
-      values: ["Default option value"],
+      title: "Standaard",
+      values: ["Standaard"],
     },
   ],
   variants: decorateVariantsWithDefaultValues([
     {
-      title: "Default variant",
+      title: "Standaard",
       should_create: true,
       variant_rank: 0,
       options: {
-        "Default option": "Default option value",
+        Standaard: "Standaard",
       },
       inventory: [{ inventory_item_id: "", required_quantity: "" }],
       is_default: true,
@@ -145,6 +146,7 @@ export const PRODUCT_CREATE_FORM_DEFAULTS: Partial<
   enable_variants: false,
   media: [],
   categories: [],
+  material_category_id: "",
   collection_id: "",
   shipping_profile_id: "",
   description: "",

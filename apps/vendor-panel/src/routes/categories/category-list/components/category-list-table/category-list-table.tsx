@@ -64,12 +64,12 @@ export const CategoryListTable = () => {
         <div>
           <Heading>{t("categories.domain")}</Heading>
           <Text className="text-ui-fg-subtle" size="small">
-            Organize products into categories.
+            Orden je producten in categorieën.
           </Text>
         </div>
         <div className="flex items-center gap-x-2">
           <Button size="small" variant="secondary" asChild>
-            <Link to="create">Request Category</Link>
+            <Link to="create">Categorie aanvragen</Link>
           </Button>
         </div>
       </div>

@@ -50,7 +50,7 @@ export const RequestDetail = () => {
       <TwoColumnPage.Main>
         <ReviewGeneralSection />
       </TwoColumnPage.Main>
-      <TwoColumnPage.Sidebar>Sidebar</TwoColumnPage.Sidebar>
+      <TwoColumnPage.Sidebar>Zijbalk</TwoColumnPage.Sidebar>
     </TwoColumnPage>
   )
 }

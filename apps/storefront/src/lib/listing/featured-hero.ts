@@ -56,11 +56,12 @@ export function formatHeroPrice(
   }).format(cents / 100);
 }
 
-export function formatHeroDate(iso: string | null | undefined): string | null {
+export function formatHeroDate(iso: string | null | undefined, timeZone?: string): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat("nl-BE", {
+    timeZone,
     weekday: "short",
     day: "numeric",
     month: "short",

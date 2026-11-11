@@ -27,7 +27,7 @@ async function loadPage(kind, edges, options = {}) {
     workshop_required_products: options.requiredRows ?? [],
     project_product_links: options.projectRows ?? [],
     projects: options.projects ?? [],
-    workshop_sessions: [], workshop_gallery_images: [], product_gallery_images: [],
+    workshop_sessions: [], workshop_gallery_images: [], product_gallery_images: [], article_gallery_images: [],
   };
   const calls = [];
   const attempts = [];
@@ -83,7 +83,7 @@ async function loadPage(kind, edges, options = {}) {
     "@/lib/platform/queries/products": {
       getProductBySlug: async slug => products.find(row => row.slug === slug) ?? null,
       listProductsByIds: byIds(products.filter(row => row.is_active && row.status === "active")),
-      listProductsByCreator: async () => [], listProductsByDomain: async () => [],
+      listProductsByCreator: async () => [], listProductsByDomain: async () => [], listProductsByCategory: async () => [],
     },
     "@/lib/platform/queries/articles": {
       getArticleBySlug: async slug => articles.find(row => row.slug === slug) ?? null,

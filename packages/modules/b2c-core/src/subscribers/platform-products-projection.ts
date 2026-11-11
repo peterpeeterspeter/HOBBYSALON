@@ -3,6 +3,8 @@ import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 import { AlgoliaEvents } from '@mercurjs/framework'
 
+import { isUuid, lowestPriceCents } from '../shared/platform/material-categories'
+
 type ProductChangedPayload = {
   ids: string[]
 }
@@ -37,6 +39,14 @@ type ProductRow = {
   seller?: SellerRow | null
   images?: ProductImageRow[] | null
   categories?: Array<{ handle?: string | null }> | null
+  variants?: Array<{
+    prices?: Array<{
+      amount?: number | string | null
+      currency_code?: string | null
+      price_list_id?: string | null
+      rules_count?: number | null
+    }> | null
+  }> | null
 }
 
 type PlatformProductUpsertPayload = {
@@ -52,6 +62,8 @@ type PlatformProductUpsertPayload = {
   condition_type: string | null
   personalization_available: boolean
   estimated_dispatch_days: number | null
+  price_cents: number | null
+  currency_code: string
   status: 'active'
   is_active: true
   featured_image_url: string | null
@@ -63,6 +75,9 @@ type PlatformCategoryMapping = {
   id: string
   domain_id: string | null
 }
+
+/** Listing categories are per hobby; supply products use the material taxonomy. */
+type CategoryCatalog = 'listing' | 'material'
 
 type ExistingCreatorRow = {
   id: string
@@ -268,22 +283,26 @@ class SupabaseRestClient {
   }
 }
 
-const resolvePlatformCategoryByHandle = async (
+const resolvePlatformCategory = async (
   supabase: SupabaseRestClient,
-  handle: string | null,
+  field: 'id' | 'slug',
+  value: string | null,
+  catalog: CategoryCatalog,
   cache: Map<string, PlatformCategoryMapping | null>
 ) => {
-  if (!handle) {
+  if (!value || (field === 'id' && !isUuid(value))) {
     return null
   }
 
-  if (cache.has(handle)) {
-    return cache.get(handle) || null
+  const key = `${catalog}:${field}:${value}`
+  if (cache.has(key)) {
+    return cache.get(key) || null
   }
 
   const rows = (await supabase.get('product_categories', {
     select: 'id,domain_id,slug',
-    slug: `eq.${escapePostgrestValue(handle)}`,
+    [field]: `eq.${escapePostgrestValue(value)}`,
+    catalog: `eq.${catalog}`,
     limit: '1',
   })) as Array<{ id: string; domain_id: string | null }> | null
 
@@ -294,7 +313,7 @@ const resolvePlatformCategoryByHandle = async (
       }
     : null
 
-  cache.set(handle, resolved)
+  cache.set(key, resolved)
   return resolved
 }
 
@@ -568,6 +587,10 @@ const buildUpsertRows = async (
       'seller.seller_type',
       'images.url',
       'categories.handle',
+      'variants.prices.amount',
+      'variants.prices.currency_code',
+      'variants.prices.price_list_id',
+      'variants.prices.rules_count',
     ],
     filters: {
       id: productIds,
@@ -609,12 +632,25 @@ const buildUpsertRows = async (
     const description = toNullableString(product.description)
     const subtitle = toNullableString(product.subtitle)
     const handle = toNullableString(product.handle) || `product-${product.id}`
-    const primaryCategoryHandle = toNullableString(product.categories?.[0]?.handle)
-    const platformCategory = await resolvePlatformCategoryByHandle(
+    // Shop products (supply) only take material categories; maker products
+    // only take per hobby listing categories. A wrong id is ignored.
+    const catalog: CategoryCatalog = productType === 'supply' ? 'material' : 'listing'
+    const metadataCategory = await resolvePlatformCategory(
       supabase,
-      primaryCategoryHandle,
+      'id',
+      toNullableString(product.metadata?.platform_category_id),
+      catalog,
       categoryCache
     )
+    const platformCategory =
+      metadataCategory ||
+      (await resolvePlatformCategory(
+        supabase,
+        'slug',
+        toNullableString(product.categories?.[0]?.handle),
+        catalog,
+        categoryCache
+      ))
     const baseSlug = sanitizeSlug(handle, `product-${product.id}`)
     const slug = await resolveUniqueProductSlug(
       supabase,
@@ -624,9 +660,6 @@ const buildUpsertRows = async (
     )
     const featuredImage = toPublicAssetUrl(product.images?.[0]?.url)
     const metadataDomainId = toNullableString(product.metadata?.platform_domain_id)
-    const metadataCategoryId = toNullableString(
-      product.metadata?.platform_category_id
-    )
     const metadataConditionType = toNullableString(
       product.metadata?.platform_condition_type
     )
@@ -647,7 +680,10 @@ const buildUpsertRows = async (
       creator_id: creatorId,
       domain_id:
         metadataDomainId || platformCategory?.domain_id || DEFAULT_DOMAIN_ID,
-      category_id: metadataCategoryId || platformCategory?.id || DEFAULT_CATEGORY_ID,
+      category_id:
+        platformCategory?.id || (catalog === 'listing' ? DEFAULT_CATEGORY_ID : null),
+      price_cents: lowestPriceCents(product.variants),
+      currency_code: 'EUR',
       slug,
       title,
       short_description: toShortDescription(subtitle, description),

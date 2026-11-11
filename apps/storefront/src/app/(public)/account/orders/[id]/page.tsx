@@ -18,16 +18,16 @@ function paymentStatusLabel(status?: string | null): string {
     case "captured":
       return "Betaald"
     case "refunded":
-      return "Terugbetaald (Stripe)"
+      return "Terugbetaald"
     case "partially_refunded":
-      return "Gedeeltelijk terugbetaald (Stripe)"
+      return "Gedeeltelijk terugbetaald"
     case "canceled":
       return "Geannuleerd"
     case "not_paid":
     case "awaiting":
       return "Nog niet betaald"
     default:
-      return status ?? "—"
+      return status ? "Onbekend" : "—"
   }
 }
 

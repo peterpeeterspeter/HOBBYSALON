@@ -64,9 +64,10 @@ async function applyCreditDelta(
 
   if (error) {
     if (error.message.includes("insufficient_credits")) {
-      return { ok: false, error: "Onvoldoende listing credits." };
+      return { ok: false, error: "Onvoldoende tegoed." };
     }
-    return { ok: false, error: error.message };
+    console.error("Credit balance update failed", error);
+    return { ok: false, error: "Je tegoed kon niet worden bijgewerkt. Probeer het later opnieuw." };
   }
 
   return { ok: true, balance: data as number };
@@ -78,7 +79,7 @@ export async function addCredits(
   reason: string,
   metadata: Record<string, unknown> = {}
 ): Promise<{ ok: boolean; balance?: number; error?: string }> {
-  if (amount <= 0) return { ok: false, error: "Amount must be positive" };
+  if (amount <= 0) return { ok: false, error: "Het aantal moet groter zijn dan nul." };
   return applyCreditDelta(creatorId, amount, reason, undefined, metadata);
 }
 
@@ -89,7 +90,7 @@ export async function consumeCredits(
   relatedEntity?: { type: string; id: string },
   metadata: Record<string, unknown> = {}
 ): Promise<{ ok: boolean; balance?: number; error?: string }> {
-  if (amount <= 0) return { ok: false, error: "Amount must be positive" };
+  if (amount <= 0) return { ok: false, error: "Het aantal moet groter zijn dan nul." };
   return applyCreditDelta(creatorId, -amount, reason, relatedEntity, metadata);
 }
 
@@ -98,7 +99,7 @@ export async function canCreateHandmadeListing(
   usesCredits: boolean,
   includedFree: number,
   activeProductCount: number
-): Promise<{ allowed: boolean; reason?: string }> {
+): Promise<{ allowed: boolean; reason?: string; free?: boolean }> {
   if (!usesCredits) {
     if (activeProductCount >= includedFree) {
       return { allowed: false, reason: "Je hebt het maximum aantal actieve producten bereikt." };
@@ -106,11 +107,16 @@ export async function canCreateHandmadeListing(
     return { allowed: true };
   }
 
+  // Free makers: the first active listings (base 3 + referral bonus) cost nothing.
+  if (activeProductCount < includedFree) {
+    return { allowed: true, free: true };
+  }
+
   const balance = await getCreditBalance(creatorId);
   if (balance < LISTING_CREDIT_COSTS.handmadeListing) {
     return {
       allowed: false,
-      reason: "Onvoldoende listing credits. Koop credits om een product te publiceren.",
+      reason: "Onvoldoende tegoed. Koop tegoed om een product te publiceren.",
     };
   }
   return { allowed: true };

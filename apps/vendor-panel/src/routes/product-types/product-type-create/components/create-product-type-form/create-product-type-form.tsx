@@ -32,7 +32,7 @@ export const CreateProductTypeForm = () => {
     async (values: z.infer<typeof CreateProductTypeSchema>) => {
       await mutateAsync(values, {
         onSuccess: () => {
-          toast.success("Product type requested successfully")
+          toast.success("Producttype aangevraagd")
 
           handleSuccess()
         },
@@ -62,14 +62,14 @@ export const CreateProductTypeForm = () => {
               type="submit"
               isLoading={isPending}
             >
-              Request
+              Aanvragen
             </Button>
           </div>
         </RouteFocusModal.Header>
         <RouteFocusModal.Body className="flex flex-col items-center overflow-y-auto p-16">
           <div className="flex w-full max-w-[720px] flex-col gap-y-8">
             <div>
-              <Heading>Request Product Type</Heading>
+              <Heading>Producttype aanvragen</Heading>
               <Text size="small" className="text-ui-fg-subtle">
                 {t("productTypes.create.hint")}
               </Text>

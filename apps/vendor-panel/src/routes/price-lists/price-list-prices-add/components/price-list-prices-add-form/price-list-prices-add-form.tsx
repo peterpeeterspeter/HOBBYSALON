@@ -85,7 +85,7 @@ export const PriceListPricesAddForm = ({
     },
     errors => {
       if (errors.products) {
-        toast.error('At least one price must be added.');
+        toast.error('Voeg minstens één prijs toe.');
       }
     }
   );

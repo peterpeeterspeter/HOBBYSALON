@@ -20,8 +20,8 @@ export const useInventoryStockColumns = (
     () => [
       helper.column({
         id: "title",
-        name: "Title",
-        header: "Title",
+        name: "Titel",
+        header: "Titel",
         cell: (context) => {
           const item = context.row.original
           return (

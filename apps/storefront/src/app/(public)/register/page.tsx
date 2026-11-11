@@ -1,3 +1,5 @@
+import { readReferralCookie } from "@/lib/referrals/referrals";
+import { REFERRAL_REWARD_LISTINGS } from "@/lib/referrals/referral-rules";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -11,6 +13,7 @@ import {
 } from "@/lib/auth/account-paths";
 import { Container } from "@/components/ui/container";
 import { CardShell } from "@/components/ui/card-shell";
+import { FacebookLoginButton } from "@/components/auth/FacebookLoginButton";
 
 export const metadata: Metadata = {
   title: "Registreren",
@@ -45,6 +48,8 @@ export default async function RegisterPage({ searchParams }: Props) {
     redirect(legacyRedirect);
   }
 
+  const invited = Boolean(await readReferralCookie());
+
   const loginHref = nextPath
     ? `/login?next=${encodeURIComponent(nextPath)}`
     : "/login";
@@ -62,11 +67,22 @@ export default async function RegisterPage({ searchParams }: Props) {
           </p>
         </header>
 
+        {invited ? (
+          <p
+            role="status"
+            className="mb-6 rounded-2xl border border-[var(--accent)]/40 bg-[var(--section-highlight)] px-5 py-4 text-lg text-[var(--foreground)]"
+          >
+            Je bent uitgenodigd. Bevestig na het registreren je e-mailadres, dan krijgen jij en
+            je vriend allebei {REFERRAL_REWARD_LISTINGS} extra gratis advertenties.
+          </p>
+        ) : null}
+
         <CardShell
           variant="default"
           padding="lg"
           className="border-[var(--border-strong)] shadow-[var(--shadow-md)]"
         >
+          <FacebookLoginButton nextPath={nextPath || undefined} label="Account maken met Facebook" />
           <RegisterForm
             action={registerAction}
             nextPath={nextPath}

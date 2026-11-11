@@ -18,7 +18,8 @@ import { resolveAanbodNav } from "@/config/nav";
 import type { EntityType } from "@/types/platform";
 import { listFavoriteFeed } from "@/lib/profile/favorite-feed";
 import { SavedFeedCard } from "@/components/profile/SavedFeedCard";
-import { ProfileQuickLinks } from "@/components/profile/ProfileQuickLinks";
+import { ProfileZone } from "@/components/profile/ProfileZone";
+import { Award, MapPin, Settings, Sparkles, Store } from "lucide-react";
 import { EventCard } from "@/components/cards";
 import { listEvents } from "@/lib/platform/queries/events";
 import { createPlatformClient } from "@/lib/platform/client";
@@ -60,7 +61,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const FAVORITE_LABELS: Record<EntityType, string> = {
-  domain: "Domeinen",
+  domain: "Hobby's",
   creator: "Makers",
   product: "Producten",
   workshop: "Workshops",
@@ -163,6 +164,13 @@ export default async function ProfilePage({ searchParams }: Props) {
     hasOfferIntent: caps.hasOfferIntent,
     hasMerchantAccess: caps.canViewVendorPortalNav,
   });
+  const zoneLinks = [
+    { id: "verder", label: "Verder met maken" },
+    { id: "in-de-buurt", label: "Dichtbij en in huis" },
+    { id: "paspoort", label: "Hobbypaspoort" },
+    ...(showMakerSection || aanbodNav || (!creator && !caps.hasOfferIntent) ? [{ id: "aanbod", label: "Mijn aanbod" }] : []),
+    { id: "instellingen", label: "Instellingen" },
+  ];
   const confirmationSecret = process.env.NEWSLETTER_CONFIRMATION_SECRET?.trim();
   const guidesWithDownloads = confirmedGuides.map((guide) => ({
     ...guide,
@@ -254,8 +262,8 @@ export default async function ProfilePage({ searchParams }: Props) {
         >
           <p className="text-lg font-semibold text-amber-950">
             {newInquiryCount === 1
-              ? "1 nieuwe aanvraag voor jouw plaatsingen"
-              : `${newInquiryCount} nieuwe aanvragen voor jouw plaatsingen`}
+              ? "1 nieuwe aanvraag voor jouw creaties"
+              : `${newInquiryCount} nieuwe aanvragen voor jouw creaties`}
           </p>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-amber-900/80">
             Open je inbox om te antwoorden via e-mail. Jullie regelen de
@@ -271,72 +279,33 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       {showInterestsPrompt ? <InterestsPrompt error={error ?? null} /> : null}
 
-      {/* 1. Compact passport strip */}
-      <section
-        aria-label="Hobbypaspoort samenvatting"
-        className="border-y border-[var(--border)] py-5"
+      <nav aria-label="Naar onderdeel" className="mt-2">
+        <ul className="flex flex-wrap gap-2">
+          {zoneLinks.map((zone) => (
+            <li key={zone.id}>
+              <a
+                href={`#${zone.id}`}
+                className="inline-flex min-h-11 items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-4 text-base font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                {zone.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <ProfileZone
+        id="verder"
+        icon={Sparkles}
+        title="Verder met maken"
+        description="Ga verder waar je was, of start iets dat je bewaard hebt."
       >
-        <p className="text-sm font-semibold text-[var(--accent)]">Hobbypaspoort</p>
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          <div>
-            <dt className="text-sm text-[var(--muted)]">Punten</dt>
-            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
-              {passport.profile.points}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm text-[var(--muted)]">Afgerond</dt>
-            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
-              {passport.profile.completedActivities}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm text-[var(--muted)]">Favorieten</dt>
-            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
-              {passport.profile.favoriteCount}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm text-[var(--muted)]">Laatst bezig</dt>
-            <dd className="mt-1 text-base font-medium leading-snug text-[var(--foreground)]">
-              {formatDate(passport.profile.lastActivityAt)}
-            </dd>
-          </div>
-        </dl>
-      </section>
-
-      <ProfileQuickLinks
-        showMakerLink={showMakerSection}
-        hasLocation={locationPreference.hasPreference && localEvents.length > 0}
-        hasCreatorProfile={Boolean(creator)}
-        hasOfferIntent={caps.hasOfferIntent}
-        hasMerchantAccess={caps.canViewVendorPortalNav}
-        primaryOfferLabel={
-          registrationContext.preference?.primaryOfferRole === "workshopgever"
-            ? "Workshopgever"
-            : registrationContext.preference?.primaryOfferRole === "organizer"
-              ? "Organisator"
-              : registrationContext.preference?.primaryOfferRole === "maker"
-                ? "Maker"
-                : null
-        }
-      />
-
-      {!creator && !caps.hasOfferIntent ? (
-        <RoleUpgradeSection
-          roles={registrationContext.roles}
-          creatorTypes={null}
-          hasCreatorProfile={false}
-          pendingRoleRequests={registrationContext.pendingRoleRequests}
-        />
-      ) : null}
-
       {/* 2. Continue first */}
       {resumableProjects.length > 0 ? (
-        <section className="mt-10" aria-labelledby="pak-weer-op-heading">
-          <h2 id="pak-weer-op-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+        <section  aria-labelledby="pak-weer-op-heading">
+          <h3 id="pak-weer-op-heading" className="text-xl font-bold text-[var(--foreground)]">
             Pak weer op
-          </h2>
+          </h3>
           <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
             Je was hier al aan begonnen. Ga verder wanneer het jou past.
           </p>
@@ -386,15 +355,15 @@ export default async function ProfilePage({ searchParams }: Props) {
       ) : null}
 
       {/* 3. Saved ideas */}
-      <section id="bewaarde-ideeen" className="mt-10 scroll-mt-24" aria-labelledby="bewaarde-ideeen-heading">
+      <section id="bewaarde-ideeen" className="scroll-mt-24" aria-labelledby="bewaarde-ideeen-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2
+            <h3
               id="bewaarde-ideeen-heading"
-              className="text-2xl font-semibold text-[var(--foreground)]"
+              className="text-xl font-bold text-[var(--foreground)]"
             >
               Bewaarde ideeën
-            </h2>
+            </h3>
             <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
               Start een patroon, artikel of project wanneer jij er klaar voor bent.
             </p>
@@ -428,17 +397,43 @@ export default async function ProfilePage({ searchParams }: Props) {
         )}
       </section>
 
+      {/* 6. Own projects CTA */}
+      <section
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        aria-labelledby="mijn-projecten-heading"
+      >
+        <div>
+          <h3 id="mijn-projecten-heading" className="text-xl font-semibold text-[var(--foreground)]">
+            Eigen hobbyprojecten
+          </h3>
+          <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
+            Upload je eigen projecten en koppel materialen uit de webshop.
+          </p>
+        </div>
+        <Button asChild variant="secondary">
+          <Link href="/profile/projects">Naar mijn projecten</Link>
+        </Button>
+      </section>
+
+      </ProfileZone>
+
+      <ProfileZone
+        id="in-de-buurt"
+        icon={MapPin}
+        title="Dichtbij en in huis"
+        description="Evenementen in je buurt, materiaal dat je al hebt en je gidsen."
+      >
       {/* 4. Nearby events */}
       {locationPreference.hasPreference && localEvents.length > 0 ? (
-        <section id="dichtbij" className="mt-10 scroll-mt-24" aria-labelledby="local-events-heading">
+        <section id="dichtbij" className="scroll-mt-24" aria-labelledby="local-events-heading">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2
+              <h3
                 id="local-events-heading"
-                className="text-2xl font-semibold text-[var(--foreground)]"
+                className="text-xl font-bold text-[var(--foreground)]"
               >
                 Dichtbij jou
-              </h2>
+              </h3>
               <p className="mt-1 text-base text-[var(--muted)]">
                 Evenementen rond {locationPreference.label}.
               </p>
@@ -458,15 +453,25 @@ export default async function ProfilePage({ searchParams }: Props) {
         </section>
       ) : null}
 
+        {!(locationPreference.hasPreference && localEvents.length > 0) ? (
+          <p className="text-lg text-[var(--muted)]">
+            {locationPreference.hasPreference
+              ? `Nog geen evenementen rond ${locationPreference.label}.`
+              : "Stel je stad in om evenementen in je buurt te zien."}{" "}
+            <a href={locationPreference.hasPreference ? "/agenda" : "#locatie"} className="font-semibold text-[var(--accent-hover)] underline-offset-4 hover:underline">
+              {locationPreference.hasPreference ? "Bekijk de agenda" : "Stad instellen"}
+            </a>
+          </p>
+        ) : null}
       {/* 5. Materials + guides */}
       {materialCupboardEntries.length > 0 ? (
-        <section className="mt-10" aria-labelledby="material-cupboard-heading">
-          <h2
+        <section  aria-labelledby="material-cupboard-heading">
+          <h3
             id="material-cupboard-heading"
-            className="text-2xl font-semibold text-[var(--foreground)]"
+            className="text-xl font-bold text-[var(--foreground)]"
           >
             Materialenkast
-          </h2>
+          </h3>
           <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
             Materialen die je bij bewaarde projecten als in huis hebt bevestigd.
           </p>
@@ -491,10 +496,10 @@ export default async function ProfilePage({ searchParams }: Props) {
       ) : null}
 
       {guidesWithDownloads.length > 0 ? (
-        <section className="mt-10" aria-labelledby="mijn-gidsen-heading">
-          <h2 id="mijn-gidsen-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+        <section  aria-labelledby="mijn-gidsen-heading">
+          <h3 id="mijn-gidsen-heading" className="text-xl font-bold text-[var(--foreground)]">
             Mijn gidsen
-          </h2>
+          </h3>
           <p className="mt-1 text-base text-[var(--muted)]">
             Je bevestigde downloads staan hier klaar.
           </p>
@@ -523,42 +528,52 @@ export default async function ProfilePage({ searchParams }: Props) {
         </section>
       ) : null}
 
-      {/* 6. Own projects CTA */}
-      <section
-        className="mt-10 flex flex-col gap-4 border-y border-[var(--border)] py-6 sm:flex-row sm:items-center sm:justify-between"
-        aria-labelledby="mijn-projecten-heading"
+      </ProfileZone>
+
+      <ProfileZone
+        id="paspoort"
+        icon={Award}
+        tone="highlight"
+        title="Hobbypaspoort"
+        description="Je punten, badges en voortgang. Ze groeien met wat je bekijkt, bewaart en afrondt."
       >
-        <div>
-          <h2 id="mijn-projecten-heading" className="text-xl font-semibold text-[var(--foreground)]">
-            Eigen hobbyprojecten
-          </h2>
-          <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
-            Upload je eigen projecten en koppel materialen uit de webshop.
-          </p>
-        </div>
-        <Button asChild variant="secondary">
-          <Link href="/profile/projects">Naar mijn projecten</Link>
-        </Button>
+      {/* 1. Compact passport strip */}
+      <section
+        aria-label="Hobbypaspoort samenvatting"
+      >
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl bg-[var(--card)] p-4">
+            <dt className="text-sm text-[var(--muted)]">Punten</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
+              {passport.profile.points}
+            </dd>
+          </div>
+          <div className="rounded-2xl bg-[var(--card)] p-4">
+            <dt className="text-sm text-[var(--muted)]">Afgerond</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
+              {passport.profile.completedActivities}
+            </dd>
+          </div>
+          <div className="rounded-2xl bg-[var(--card)] p-4">
+            <dt className="text-sm text-[var(--muted)]">Favorieten</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums text-[var(--foreground)]">
+              {passport.profile.favoriteCount}
+            </dd>
+          </div>
+          <div className="rounded-2xl bg-[var(--card)] p-4">
+            <dt className="text-sm text-[var(--muted)]">Laatst bezig</dt>
+            <dd className="mt-1 text-base font-medium leading-snug text-[var(--foreground)]">
+              {formatDate(passport.profile.lastActivityAt)}
+            </dd>
+          </div>
+        </dl>
       </section>
 
-      {/* 7. Maker (collapsed when complete) */}
-      {showMakerSection ? (
-        <section className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
-          <h2 className="text-2xl font-semibold text-[var(--foreground)]">Je maker-pagina</h2>
-          <p className="mt-2 text-lg text-[var(--muted)]">
-            Je maker-pagina, artikels en portfolio beheer je in je dashboard, onder Mijn pagina.
-          </p>
-          <Button asChild size="lg" className="mt-4">
-            <Link href="/dashboard/pagina">Naar mijn pagina</Link>
-          </Button>
-        </section>
-      ) : null}
-
       {/* 8. Passport depth: badges first, then domains, then activity */}
-      <section className="mt-10" aria-labelledby="badges-heading">
-        <h2 id="badges-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+      <section  aria-labelledby="badges-heading">
+        <h3 id="badges-heading" className="text-xl font-bold text-[var(--foreground)]">
           Badges
-        </h2>
+        </h3>
         <p className="mt-1 text-base text-[var(--muted)]">
           Kleine mijlpalen op je Hobbypaspoort.
         </p>
@@ -663,10 +678,10 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       {passport.domainProgress.length > 0 ? (
-        <section className="mt-10" aria-labelledby="domein-heading">
-          <h2 id="domein-heading" className="text-2xl font-semibold text-[var(--foreground)]">
+        <section  aria-labelledby="domein-heading">
+          <h3 id="domein-heading" className="text-xl font-bold text-[var(--foreground)]">
             Voortgang per hobby
-          </h2>
+          </h3>
           <p className="mt-1 text-base text-[var(--muted)]">
             Gebaseerd op wat je bekijkt, bewaart en afrondt.
           </p>
@@ -709,14 +724,14 @@ export default async function ProfilePage({ searchParams }: Props) {
         </section>
       ) : null}
 
-      <div className="mt-10 grid gap-8 border-t border-[var(--border)] pt-8 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2">
         <section aria-labelledby="favorieten-overzicht-heading">
-          <h2
+          <h3
             id="favorieten-overzicht-heading"
             className="text-xl font-semibold text-[var(--foreground)]"
           >
             Favorieten per soort
-          </h2>
+          </h3>
           {favoriteTypesWithCount.length === 0 ? (
             <p className="mt-3 text-base text-[var(--muted)]">Nog geen favorieten bewaard.</p>
           ) : (
@@ -743,12 +758,12 @@ export default async function ProfilePage({ searchParams }: Props) {
         </section>
 
         <section aria-labelledby="recente-activiteit-heading">
-          <h2
+          <h3
             id="recente-activiteit-heading"
             className="text-xl font-semibold text-[var(--foreground)]"
           >
             Recente activiteit
-          </h2>
+          </h3>
           {passport.recentActivities.length === 0 ? (
             <p className="mt-3 text-base text-[var(--muted)]">Nog geen recente activiteiten.</p>
           ) : (
@@ -768,15 +783,63 @@ export default async function ProfilePage({ searchParams }: Props) {
         </section>
       </div>
 
+      </ProfileZone>
+
+      {showMakerSection || aanbodNav || (!creator && !caps.hasOfferIntent) ? (
+        <ProfileZone
+          id="aanbod"
+          icon={Store}
+          title="Mijn aanbod"
+          description="Wat je zelf aanbiedt op Hobbysalon, of hoe je ermee begint."
+        >
+      {/* 7. Maker (collapsed when complete) */}
+      {showMakerSection ? (
+        <section>
+          <h3 className="text-xl font-bold text-[var(--foreground)]">Je maker-pagina</h3>
+          <p className="mt-2 text-lg text-[var(--muted)]">
+            Je maker-pagina, artikels en portfolio beheer je in je dashboard, onder Mijn pagina.
+          </p>
+          <Button asChild size="lg" className="mt-4">
+            <Link href="/dashboard/pagina">Naar mijn pagina</Link>
+          </Button>
+        </section>
+      ) : null}
+
+          {aanbodNav ? (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <p className="text-lg text-[var(--muted)]">Aanvragen, creaties en instellingen van je aanbod.</p>
+              <Button asChild variant="secondary" size="lg">
+                <Link href={aanbodNav.href}>{aanbodNav.label}</Link>
+              </Button>
+            </div>
+          ) : null}
+      {!creator && !caps.hasOfferIntent ? (
+        <RoleUpgradeSection
+          roles={registrationContext.roles}
+          creatorTypes={null}
+          hasCreatorProfile={false}
+          pendingRoleRequests={registrationContext.pendingRoleRequests}
+        />
+      ) : null}
+
+        </ProfileZone>
+      ) : null}
+
+      <ProfileZone
+        id="instellingen"
+        icon={Settings}
+        title="Instellingen"
+        description="Je locatie bepaalt welke evenementen en aanbevelingen je ziet."
+      >
       {/* 9. Location preferences last */}
       <section
         id="locatie"
-        className="mt-10 scroll-mt-24 border-t border-[var(--border)] pt-8"
+        className="scroll-mt-24"
         aria-labelledby="locatie-heading"
       >
-        <h2 id="locatie-heading" className="text-xl font-semibold text-[var(--foreground)]">
+        <h3 id="locatie-heading" className="text-xl font-semibold text-[var(--foreground)]">
           Jouw locatie
-        </h2>
+        </h3>
         <p className="mt-1 max-w-[65ch] text-base leading-relaxed text-[var(--muted)]">
           {locationPreference.label
             ? `Nu ingesteld op ${locationPreference.label}. Gebruikt voor aanbevelingen en evenementen bij jou in de buurt.`
@@ -826,6 +889,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           </form>
         ) : null}
       </section>
+      </ProfileZone>
     </PageLayout>
   );
 }

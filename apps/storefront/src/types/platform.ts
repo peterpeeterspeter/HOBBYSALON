@@ -137,6 +137,8 @@ export type Creator = {
   accepts_marketplace_orders?: boolean;
   open_to_markets?: boolean;
   specialty_tags?: string[];
+  /** Editorial team account: articles are listed in overviews. */
+  editorial_publisher?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -253,6 +255,21 @@ export type Article = {
   seo_description: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * hub: listed in overviews and search. profile: only on the author's
+   * profile and by direct link. Set by a database trigger from the author.
+   */
+  listing_scope?: "hub" | "profile";
+  /** YouTube or Vimeo link, shown as an embedded video. */
+  video_url?: string | null;
+  /** Set by the hub query when an active visibility boost exists. */
+  is_promoted?: boolean;
+  /** Filter facets, synced from the metadata sidecar. */
+  content_kind?: string | null;
+  crafts?: string[];
+  techniques?: string[];
+  themes?: string[];
+  audience?: string[];
 };
 
 export type Project = {

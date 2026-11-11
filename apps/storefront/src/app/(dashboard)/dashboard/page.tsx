@@ -1,8 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CalendarDays, Mail, Store } from "lucide-react";
+import { CalendarDays, Gift, Mail, Package, Plus, Store, Users } from "lucide-react";
+import { DashboardStats, type DashboardStat } from "@/components/dashboard/DashboardStats";
+import { DashboardProgressCard } from "@/components/dashboard/DashboardProgressCard";
 import { createPlatformClient } from "@/lib/platform/client";
 import { getCreatorProgressSteps } from "@/lib/dashboard/creator-progress";
+import { ReferralCard } from "@/components/dashboard/ReferralCard";
+import { getReferralSummary } from "@/lib/referrals/referrals";
+import { getRequestPublicOrigin } from "@/lib/markets/request";
 import {
   formatDashboardDate,
   getDashboardContext,
@@ -41,6 +46,9 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
   const { user, creator, registrationContext, caps } = await getDashboardContext("/dashboard");
 
   const firstName = (creator?.display_name ?? "").trim().split(" ")[0];
+  const [referral, origin] = caps.canManageProducts
+    ? await Promise.all([getReferralSummary(user.id), getRequestPublicOrigin()])
+    : [null, null];
   const hasInboxSources =
     caps.canManageProducts || caps.canDraftWorkshops || caps.canDraftEvents;
 
@@ -90,7 +98,6 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
       })
     : [];
   const openSteps = progressSteps.filter((step) => !step.done);
-  const nextStep = openSteps[0] ?? null;
 
   const newItems = inbox.filter((item) => item.isNew);
   const recentHandled = inbox.filter((item) => !item.isNew).slice(0, 3);
@@ -143,22 +150,27 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
           : "Koppel je winkel om voorraad, verzending en uitbetalingen te beheren."}
       </DashboardNotice>
     );
-  } else if (nextStep) {
-    notice = (
-      <DashboardNotice
-        title={`Volgende stap: ${nextStep.label}`}
-        action={
-          nextStep.href ? (
-            <Button asChild size="lg">
-              <Link href={nextStep.href}>Verder</Link>
-            </Button>
-          ) : null
-        }
-      >
-        Nog {openSteps.length} van {progressSteps.length} stappen tot je pagina volledig is.
-      </DashboardNotice>
-    );
   }
+
+  const stats: DashboardStat[] = creator
+    ? [
+        ...(hasInboxSources
+          ? [{ label: "Nieuwe aanvragen", value: newItems.length, href: "#aanvragen", icon: Mail, attention: newItems.length > 0 }]
+          : []),
+        ...(caps.canManageProducts ? [{ label: "Creaties", value: productCount, href: "/dashboard/products", icon: Package }] : []),
+        ...(caps.canDraftWorkshops ? [{ label: "Workshops", value: workshopCount, href: "/dashboard/workshops", icon: Users }] : []),
+        ...(caps.canDraftEvents ? [{ label: "Evenementen", value: eventCount, href: "/dashboard/events", icon: CalendarDays }] : []),
+        ...(referral ? [{ label: "Gratis advertenties", value: referral.freeListings, href: "#uitnodigen-titel", icon: Gift }] : []),
+      ]
+    : [];
+  const quickActions = creator
+    ? [
+        ...(caps.canManageProducts ? [{ label: "Nieuwe creatie", href: "/dashboard/products/nieuw" }] : []),
+        ...(caps.canDraftWorkshops ? [{ label: "Nieuwe workshop", href: "/dashboard/workshops/nieuw" }] : []),
+        ...(caps.canDraftEvents ? [{ label: "Nieuw evenement", href: "/dashboard/events/nieuw" }] : []),
+      ]
+    : [];
+  const showProgress = !notice && openSteps.length > 0;
 
   return (
     <div>
@@ -173,20 +185,48 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
                 ? `Er wachten ${newItems.length} nieuwe aanvragen op je antwoord.`
                 : "Geen nieuwe aanvragen. Alles is bijgewerkt."
         }
+        action={
+          quickActions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {quickActions.map((action, index) => (
+                <Button key={action.href} asChild size="lg" variant={index === 0 ? "primary" : "secondary"}>
+                  <Link href={action.href}>
+                    <Plus size={20} aria-hidden />
+                    {action.label}
+                  </Link>
+                </Button>
+              ))}
+            </div>
+          ) : null
+        }
       />
 
       <FlashMessage success={success} error={error} />
       {notice}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="space-y-8">
+        <DashboardStats stats={stats} />
+        {showProgress ? <DashboardProgressCard steps={progressSteps} /> : null}
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         {hasInboxSources ? (
-          <section aria-labelledby="aanvragen-titel">
+          <section
+            id="aanvragen"
+            aria-labelledby="aanvragen-titel"
+            className="scroll-mt-24 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 md:p-8"
+          >
             <h2
               id="aanvragen-titel"
-              className="mb-4 flex items-center gap-2 text-2xl font-bold text-[var(--foreground)]"
+              className="mb-5 flex items-center gap-3 text-2xl font-bold text-[var(--foreground)]"
             >
               <Mail size={24} aria-hidden="true" className="text-[var(--accent-hover)]" />
               Aanvragen
+              {newItems.length > 0 ? (
+                <span className="rounded-full bg-[var(--accent)] px-3 py-0.5 text-base font-semibold text-[var(--accent-foreground)]">
+                  {newItems.length} nieuw
+                </span>
+              ) : null}
             </h2>
 
             {newItems.length === 0 ? (
@@ -263,6 +303,14 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
         ) : null}
 
         <aside className="space-y-6">
+          {referral && origin ? (
+            <ReferralCard
+              inviteUrl={`${origin}/uitnodiging/${referral.code}`}
+              rewarded={referral.rewarded}
+              remaining={referral.remaining}
+              freeListings={referral.freeListings}
+            />
+          ) : null}
           {upcoming.length > 0 ? (
             <section
               aria-labelledby="binnenkort-titel"

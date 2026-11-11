@@ -44,7 +44,7 @@ export const STATIC_LINKS = {
     { href: "/creators", label: "Makersmarkt" },
   ],
   inspiratie: [
-    { href: "/artikelen", label: "Artikelen & tutorials" },
+    { href: "/artikelen", label: "Artikelen en handleidingen" },
     { href: "/patronen", label: "Patronen" },
     { href: "/tools", label: "Hobbytools" },
   ],
@@ -59,20 +59,19 @@ export const STATIC_LINKS = {
 export const FOOTER_SECTIONS = {
   ontdekken: [
     { href: "/workshops", label: "Workshops" },
-    { href: "/agenda", label: "Evenementen" },
+    { href: "/agenda", label: "Agenda" },
     { href: "/materials", label: "Materialen" },
     { href: "/creators", label: "Makersmarkt" },
     { href: "/patronen", label: "Patronen" },
-    { href: "/tools", label: "Tools" },
+    { href: "/tools", label: "Hobbytools" },
   ],
   meedoen: [
     { href: "/voor-hobbyisten", label: "Iets moois maken" },
     { href: "/voor-contentmakers", label: "Content delen" },
     { href: "/voor-makers", label: "Maker worden" },
     { href: "/voor-workshopgevers", label: "Workshop geven" },
-    { href: "/voor-winkels", label: "Verkopen" },
+    { href: "/voor-winkels", label: "Materialen verkopen" },
     { href: "/voor-organisatoren", label: "Event organiseren" },
-    { href: "/prijzen", label: "Prijzen" },
   ],
   info: [
     { href: "/nieuwsbrief", label: "Nieuwsbrief" },
@@ -83,7 +82,7 @@ export const FOOTER_SECTIONS = {
   ],
   zakelijk: [
     { href: "/partners", label: "Zakelijk samenwerken" },
-    { href: "/prijzen", label: "Prijzen en formules" },
+    { href: "/prijzen", label: "Prijzen" },
     { href: "/adverteren", label: "Adverteren in de nieuwsbrief" },
   ],
 } as const;

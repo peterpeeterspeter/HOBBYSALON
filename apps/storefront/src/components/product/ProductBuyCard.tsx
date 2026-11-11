@@ -1,3 +1,4 @@
+import type { ShippingPolicyNotice } from "@/lib/commerce/medusa/shipping";
 import { CardShell } from "@/components/ui/card-shell";
 import { PriceDisplay } from "@/components/domain/price-display";
 import { ProductPurchaseControls } from "@/components/product/ProductPurchaseControls";
@@ -13,14 +14,11 @@ type ProductBuyCardProps = {
   variants: React.ComponentProps<typeof ProductPurchaseControls>["variants"];
   selectedVariantId?: string;
   isFavorite: boolean;
+  /** Seller free shipping rules, fetched by the page. */
+  shippingPolicies?: ShippingPolicyNotice[];
 };
 
 const MAKER_LISTING_TYPES = new Set(["handmade", "destash"]);
-
-const TYPE_LABELS: Record<string, string> = {
-  handmade: "Handgemaakt",
-  destash: "Restant materiaal",
-};
 
 /**
  * Sticky panel on the product detail page: type, price and either an
@@ -34,6 +32,7 @@ export function ProductBuyCard({
   variants,
   selectedVariantId,
   isFavorite,
+  shippingPolicies = [],
 }: ProductBuyCardProps) {
   const isMakerListing = MAKER_LISTING_TYPES.has(product.product_type);
   const hasCart = !isMakerListing || !!product.medusa_product_id;
@@ -42,28 +41,24 @@ export function ProductBuyCard({
     <CardShell
       variant="default"
       padding="lg"
-      className="rounded-[1.25rem] border-[var(--accent)]/25 bg-[var(--section-highlight)] shadow-[var(--shadow-md)]"
+      className="rounded-2xl border-[var(--accent)]/25 bg-[var(--section-highlight)] shadow-[var(--shadow-md)]"
     >
-      <span className="text-sm font-semibold text-[var(--accent)]">
-        {TYPE_LABELS[product.product_type] ?? "Benodigdheden"}
-      </span>
-
       {price && !hasCart && (
-        <div className="mt-3">
+        <div className="mb-6">
           <PriceDisplay
             amount={price.amount}
             currencyCode={price.currency_code}
             size="lg"
           />
           {isMakerListing && (
-            <p className="mt-1 text-xs text-[var(--muted)]">
+            <p className="mt-2 text-sm text-[var(--muted)]">
               Richtprijs. Aankoop via de maker
             </p>
           )}
         </div>
       )}
 
-      <div className="mt-5">
+      <div>
         {hasCart ? (
           <ProductPurchaseControls
             key={selectedVariantId ? `variant:${selectedVariantId}` : "default"}
@@ -86,16 +81,17 @@ export function ProductBuyCard({
         )}
       </div>
 
-      <div className="mt-5 flex flex-col gap-2 border-t border-[var(--border)] pt-4 text-[13px] text-[var(--muted)]">
+      {hasCart && shippingPolicies.map(policy => <p key={policy.country_code} className="mt-4 text-sm text-[var(--muted)]">Gratis standaardverzending {policy.threshold_amount === 0 ? "" : `vanaf ${new Intl.NumberFormat("nl-BE", { style: "currency", currency: "EUR" }).format(policy.threshold_amount)} `}naar {policy.country_code === "be" ? "België" : "Nederland"} bij deze verkoper.</p>)}
+      <div className="mt-6 flex flex-col gap-3 border-t border-[var(--border)] pt-6 text-sm text-[var(--muted)]">
         {hasCart ? (
           <>
-            <span className="flex items-center gap-2">
-              <Truck size={14} className="text-[var(--accent)]" aria-hidden />
+            <span className="flex items-center gap-3">
+              <Truck size={18} className="text-[var(--accent)]" aria-hidden />
               Verzonden door {creator?.display_name ?? "de verkoper"}
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-3">
               <ShieldCheck
-                size={14}
+                size={18}
                 className="text-[var(--accent)]"
                 aria-hidden
               />
@@ -104,27 +100,27 @@ export function ProductBuyCard({
           </>
         ) : (
           <>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-3">
               <MessageCircle
-                size={14}
+                size={18}
                 className="text-[var(--accent)]"
                 aria-hidden
               />
               Contacteer {creator?.display_name ?? "de maker"} rechtstreeks
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-3">
               <ShieldCheck
-                size={14}
+                size={18}
                 className="text-[var(--accent)]"
                 aria-hidden
               />
-              Geen checkout via Hobbysalon — jullie regelen de deal zelf
+              Je betaalt niet via Hobbysalon. Jullie spreken de verkoop zelf af
             </span>
           </>
         )}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         <FavoriteToggleButton
           entityType="product"
           entityId={product.id}

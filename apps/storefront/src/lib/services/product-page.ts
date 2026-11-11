@@ -3,6 +3,7 @@ import {
   listProductsByCreator,
   listProductsByDomain,
   listProductsByIds,
+  listProductsByCategory,
 } from "@/lib/platform/queries/products";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { listWorkshopsByIds } from "@/lib/platform/queries/workshops";
@@ -40,6 +41,8 @@ export type ProductPageData = {
   galleryImages: string[];
   relatedWorkshops: Workshop[];
   relatedSupplies: Product[];
+  /** "Dit vind je vast ook leuk": linked, same category, domain or maker. */
+  similarProducts: Product[];
   relatedArticles: Article[];
   relatedEvents: Event[];
   relatedProjects: Project[];
@@ -63,6 +66,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
       galleryImages: [],
       relatedWorkshops: [] as Workshop[],
       relatedSupplies: [],
+      similarProducts: [],
       relatedArticles: [],
       relatedEvents: [],
       relatedProjects: [],
@@ -183,18 +187,17 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     listProductsByIds(relatedProductIds),
   ]);
 
-  const domainSuppliesPromise =
-    domain?.id && product.product_type === "handmade"
+  // Candidates for supplies and similar products. Domain fetch is capped.
+  const isHandmade = product.product_type === "handmade";
+  const [domainSupplies, domainProducts, creatorProducts, categoryProducts] = await Promise.all([
+    domain?.id && isHandmade
       ? listProductsByDomain(domain.id, "supply")
-      : Promise.resolve([]);
-  const creatorSuppliesPromise =
-    creator?.id && product.product_type === "handmade"
-      ? listProductsByCreator(creator.id)
-      : Promise.resolve([]);
-
-  const [domainSupplies, creatorProducts] = await Promise.all([
-    domainSuppliesPromise,
-    creatorSuppliesPromise,
+      : Promise.resolve([]),
+    domain?.id ? listProductsByDomain(domain.id, undefined, 24) : Promise.resolve([]),
+    creator?.id ? listProductsByCreator(creator.id) : Promise.resolve([]),
+    product.category_id
+      ? listProductsByCategory(product.category_id)
+      : Promise.resolve([]),
   ]);
 
   const normalizedProduct: Product = {
@@ -206,7 +209,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
   const allSupplyCandidates = [
     ...linkedProducts.filter((p) => p.product_type === "supply"),
     ...domainSupplies.filter((p) => p.product_type === "supply"),
-    ...creatorProducts.filter((p) => p.product_type === "supply"),
+    ...(isHandmade ? creatorProducts : []).filter((p) => p.product_type === "supply"),
   ];
   for (const candidate of allSupplyCandidates) {
     if (candidate.id === normalizedProduct.id) continue;
@@ -219,6 +222,30 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
   }
   const relatedSupplies = Array.from(relatedSupplyMap.values()).slice(0, 8);
 
+  // Similar products: same kind of item first, so a buyer sees alternatives.
+  // Order: graph links, same category, same domain, same maker.
+  const shownIds = new Set([normalizedProduct.id, ...relatedSupplies.map((p) => p.id)]);
+  const sameType = (p: Product) => p.product_type === product.product_type;
+  const similarCandidates = [
+    ...linkedProducts,
+    ...categoryProducts.filter(sameType),
+    ...domainProducts.filter(sameType),
+    ...creatorProducts.filter(sameType),
+    ...categoryProducts,
+    ...domainProducts,
+  ];
+  const similarMap = new Map<string, Product>();
+  for (const candidate of similarCandidates) {
+    if (shownIds.has(candidate.id) || similarMap.has(candidate.id)) continue;
+    if (candidate.product_type.startsWith("event_") || candidate.product_type.startsWith("workshop_")) continue;
+    similarMap.set(candidate.id, {
+      ...candidate,
+      featured_image_url: publicAssetUrl(candidate.featured_image_url),
+    });
+    if (similarMap.size >= 4) break;
+  }
+  const similarProducts = Array.from(similarMap.values());
+
   return {
     product: normalizedProduct,
     creator: creator ?? null,
@@ -228,6 +255,7 @@ export async function getProductPageData(slug: string): Promise<ProductPageData>
     galleryImages,
     relatedWorkshops,
     relatedSupplies,
+    similarProducts,
     relatedArticles,
     relatedEvents,
     relatedProjects,

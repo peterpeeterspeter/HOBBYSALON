@@ -29,7 +29,7 @@ export function GrannySquarePlanner() {
   }
 
   return (
-    <CalculatorCard title="Granny square planner">
+    <CalculatorCard title="Planner voor granny squares">
       <div className="space-y-6">
         <p className="text-sm text-[var(--muted)]">
           Hoeveel squares en border voor een deken van X bij Y cm?

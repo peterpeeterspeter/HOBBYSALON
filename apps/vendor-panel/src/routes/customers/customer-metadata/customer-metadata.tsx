@@ -10,7 +10,7 @@ export const CustomerMetadata = () => {
   const { mutateAsync, isPending: isMutating } = useUpdateCustomer(id!)
 
   if (!id) {
-    throw new Error("Customer ID is required")
+    throw new Error("Klant-ID ontbreekt")
   }
 
   if (isError) {

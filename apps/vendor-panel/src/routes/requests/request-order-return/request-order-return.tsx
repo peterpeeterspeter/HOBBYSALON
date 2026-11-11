@@ -66,14 +66,14 @@ export function RequestOrderReturn() {
   }
 
   if (isLoading || isStockLocationsLoading) {
-    return <div>Loading...</div>
+    return <div>Laden…</div>
   }
 
   return (
     <RouteDrawer prev="/requests/orders">
       <RouteDrawer.Header>
         <RouteDrawer.Title>
-          Request Return Order #{order_return_request.order.display_id}
+          Retouraanvraag bestelling #{order_return_request.order.display_id}
         </RouteDrawer.Title>
       </RouteDrawer.Header>
       <RouteDrawer.Body>
@@ -123,7 +123,7 @@ export function RequestOrderReturn() {
                   name="location_id"
                   render={({ field: { onChange, value, ...field } }) => (
                     <Form.Item className="mt-4">
-                      <Form.Label>Location</Form.Label>
+                      <Form.Label>Locatie</Form.Label>
                       <Form.Control>
                         <Select {...field} onValueChange={onChange}>
                           <Select.Trigger>
@@ -151,7 +151,7 @@ export function RequestOrderReturn() {
               render={({ field }) => {
                 return (
                   <Form.Item className="mt-4">
-                    <Form.Label>Vendor Reviewer Note</Form.Label>
+                    <Form.Label>Jouw opmerking</Form.Label>
                     <Form.Control>
                       <Textarea {...field} rows={4} />
                     </Form.Control>
@@ -160,7 +160,7 @@ export function RequestOrderReturn() {
               }}
             />
             <div className="flex justify-end mt-8">
-              <Button type="submit">Submit</Button>
+              <Button type="submit">Versturen</Button>
             </div>
           </form>
         </Form>

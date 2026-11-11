@@ -51,7 +51,7 @@ async function ensureLinkedMerchantCreator(input: {
       ok: false,
       error:
         creatorResult.errors[0] ??
-        "Merchant-creator-profiel kon niet worden aangemaakt.",
+        "Je verkopersprofiel kon niet worden aangemaakt.",
     };
   }
 
@@ -98,7 +98,7 @@ export async function ensureMerchantSellerLinked(input: {
     return {
       ok: false,
       sellerId: null,
-      error: "E-mailadres ontbreekt voor merchant-koppeling.",
+      error: "Je e-mailadres ontbreekt. Vul het in en probeer opnieuw.",
     };
   }
 
@@ -136,7 +136,7 @@ export async function ensureMerchantSellerLinked(input: {
       sellerId: null,
       error:
         linkResult.errors[0] ??
-        "Merchant-winkel kon niet aan je account gekoppeld worden.",
+        "Je winkel kon niet aan je account gekoppeld worden.",
     };
   }
 

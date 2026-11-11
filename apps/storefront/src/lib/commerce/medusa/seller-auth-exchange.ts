@@ -53,7 +53,7 @@ export async function exchangeSupabaseSessionForSellerToken(
   }
 
   if (!payload || !("token" in payload) || !payload.token) {
-    throw new Error("Ongeldig antwoord van de commerce API.");
+    throw new Error("Het verkopersportaal gaf een onverwacht antwoord. Probeer het later opnieuw.");
   }
 
   return payload;

@@ -1,11 +1,16 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
-import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
+
+import {
+  groupMaterialCategories,
+  listMaterialCategories,
+} from '../../../../../shared/platform/material-categories'
+import { createPlatformSupabaseClient } from '../../../../../shared/platform/supabase-rest-client'
 
 /**
  * @oas [get] /admin/platform/materials/categories
  * operationId: "AdminListPlatformMaterialCategories"
  * summary: "List Material Categories"
- * description: "Returns product categories that can be used for merchant category mapping."
+ * description: "Returns the platform material subcategories (catalog = 'material') that merchant category mappings target."
  * x-authenticated: true
  * tags:
  *   - Admin Platform
@@ -13,20 +18,21 @@ import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
  *   - api_token: []
  *   - cookie_auth: []
  */
-export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
-  const knex = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+export const GET = async (_req: MedusaRequest, res: MedusaResponse) => {
+  const supabase = createPlatformSupabaseClient()
+  if (!supabase) {
+    res.json({ categories: [] })
+    return
+  }
 
-  const rows = await knex('product_category')
-    .select('id', 'name', 'handle')
-    .whereNull('deleted_at')
-    .orderBy('rank', 'asc')
-    .orderBy('name', 'asc')
-
+  const groups = groupMaterialCategories(await listMaterialCategories(supabase))
   res.json({
-    categories: rows.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      handle: row.handle,
-    })),
+    categories: groups.flatMap((group) =>
+      group.children.map((sub) => ({
+        id: sub.id,
+        name: `${group.name} › ${sub.name}`,
+        handle: sub.slug,
+      }))
+    ),
   })
 }

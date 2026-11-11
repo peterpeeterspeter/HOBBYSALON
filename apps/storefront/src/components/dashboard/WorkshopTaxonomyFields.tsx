@@ -80,7 +80,7 @@ export function WorkshopTaxonomyFields({
     <>
       <label>
         <span className="mb-1 block text-sm font-medium">
-          Categorie / domein *
+          Hobby *
         </span>
         <select
           name="domain_id"
@@ -120,7 +120,7 @@ export function WorkshopTaxonomyFields({
             ? categoryOptions.length > 0
               ? "Optioneel. Alleen subcategorieën van de gekozen categorie."
               : "Geen subcategorieën voor deze categorie."
-            : "Kies eerst een categorie / domein."}
+            : "Kies eerst een hobby."}
         </p>
       </label>
       <label>

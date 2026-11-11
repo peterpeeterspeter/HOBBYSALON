@@ -9,14 +9,14 @@ import { useCreateVendorRequest, useUpdateRequest } from "../../../../hooks/api"
 import { Request } from "../../../../types/request"
 
 const reasonList = [
-  "The review comment is not true",
-  "The review comment is insulting",
-  "The review comment is offensive or vulgar",
-  "Other",
+  "De beoordeling klopt niet",
+  "De beoordeling is beledigend",
+  "De beoordeling is grof of kwetsend",
+  "Andere reden",
 ]
 
 const ReviewReplySchema = z.object({
-  reason: z.string().min(1, { message: "Please select a reason" }),
+  reason: z.string().min(1, { message: "Kies een reden" }),
   comment: z.string().optional(),
 })
 
@@ -66,8 +66,8 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
         },
         {
           onSuccess: () => {
-            toast.success("Request is updated", {
-              description: "Please wait for a response from the moderator.",
+            toast.success("Aanvraag bijgewerkt", {
+              description: "Hobbysalon bekijkt je melding en laat iets weten.",
             })
             handleSuccess(`/requests/reviews`)
           },
@@ -86,8 +86,8 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
         },
         {
           onSuccess: () => {
-            toast.success("Review is reported", {
-              description: "Please wait for a response from the moderator.",
+            toast.success("Beoordeling gemeld", {
+              description: "Hobbysalon bekijkt je melding en laat iets weten.",
             })
             handleSuccess(`/reviews/${id}`)
           },
@@ -103,12 +103,12 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
     <RouteDrawer>
       <RouteDrawer.Header>
         <RouteDrawer.Title asChild>
-          <Heading>{isEditing ? "Edit Request" : "Report Review"}</Heading>
+          <Heading>{isEditing ? "Melding bewerken" : "Beoordeling melden"}</Heading>
         </RouteDrawer.Title>
         <RouteDrawer.Description>
           {isEditing
-            ? "Edit the request to report the review from customer."
-            : "Report review from customer."}
+            ? "Pas je melding over deze beoordeling aan."
+            : "Meld een beoordeling van een klant."}
         </RouteDrawer.Description>
       </RouteDrawer.Header>
       <RouteDrawer.Form form={form}>
@@ -119,7 +119,7 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
             render={({ field: { ref, onChange, ...field } }) => {
               return (
                 <Form.Item className="mt-4">
-                  <Form.Label>Reason</Form.Label>
+                  <Form.Label>Reden</Form.Label>
                   <Form.Control>
                     <Select {...field} onValueChange={onChange}>
                       <Select.Trigger ref={ref}>
@@ -148,7 +148,7 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
             render={({ field }) => {
               return (
                 <Form.Item className="mt-8">
-                  <Form.Label>Comment</Form.Label>
+                  <Form.Label>Opmerking</Form.Label>
                   <Form.Control>
                     <Textarea autoComplete="off" {...field} />
                   </Form.Control>
@@ -165,7 +165,7 @@ export const ReviewReportForm = ({ request }: { request?: Request }) => {
           className="px-6"
           isLoading={isPending || isUpdating}
         >
-          {isEditing ? "Update Request" : "Report review"}
+          {isEditing ? "Melding bijwerken" : "Beoordeling melden"}
         </Button>
       </RouteDrawer.Footer>
     </RouteDrawer>

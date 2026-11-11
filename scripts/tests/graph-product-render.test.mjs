@@ -12,7 +12,7 @@ const source = readFileSync(new URL("../../apps/storefront/src/app/(public)/prod
 async function render(projects) {
   const calls = [], forbidden = [];
   const product = { id: "product", slug: "product", title: "Product", product_type: "handmade", is_active: true, price_cents: null };
-  const data = { product, creator: null, domain: null, price: null, variants: [], galleryImages: [], relatedSupplies: [], relatedArticles: [], relatedEvents: [], relatedWorkshops: [], relatedProjects: projects };
+  const data = { product, creator: null, domain: null, price: null, variants: [], galleryImages: [], relatedSupplies: [], similarProducts: [], relatedArticles: [], relatedEvents: [], relatedWorkshops: [], relatedProjects: projects };
   const jsx = (type, props, key) => ({ type, props, key });
   const components = ["CreatorCard", "WorkshopCard", "ArticleCard", "EventCard", "ProductCard", "ProjectCard"];
   const collaborators = {
@@ -23,10 +23,12 @@ async function render(projects) {
     "@/components/cards": Object.fromEntries(components.map(name => [name, name])),
     "@/components/shared/EntityLinkBlock": { EntityLinkBlock: "EntityLinkBlock" },
     "@/components/product/ProductBuyCard": { ProductBuyCard: "ProductBuyCard" },
+    "@/components/product/MobileBuyBar": { MobileBuyBar: "MobileBuyBar" },
     "@/components/seo/JsonLd": { JsonLd: "JsonLd" },
     "@/components/layout/page-layout": { PageLayout: "PageLayout" },
     "@/components/ui/aspect-image": { AspectImage: "AspectImage" },
     "@/lib/auth/session": { getAuthUser: async () => null },
+    "@/lib/commerce/medusa/shipping": { productShippingPolicies: async () => [] },
     "@/lib/platform/queries/favorites": { isFavorite: () => { forbidden.push("favorites"); throw new Error("forbidden"); } },
     "@/lib/seo": { absoluteUrl: path => `https://offline.invalid${path}`, buildPageMetadata: () => { forbidden.push("metadata"); throw new Error("forbidden"); } },
   };

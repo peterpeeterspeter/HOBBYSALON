@@ -182,7 +182,7 @@ export const VendorCreateShippingOption = z
     shipping_profile_id: z.string(),
     data: z.record(z.unknown()).optional(),
     provider_id: z.string(),
-    prices: CreateShippingOptionPrice.array(),
+    prices: CreateShippingOptionPrice.array().min(1, 'Enter at least one shipping price; use 0 for free shipping.'),
     type: CreateShippingOptionTypeObject,
     rules: VendorCreateShippingOptionRule.array().optional()
   })
@@ -224,7 +224,7 @@ export const VendorUpdateShippingOption = z
     name: z.string().optional(),
     shipping_profile_id: z.string().optional(),
     provider_id: z.string().optional(),
-    prices: CreateShippingOptionPrice.array().optional(),
+    prices: CreateShippingOptionPrice.array().min(1, 'Enter at least one shipping price; use 0 for free shipping.').optional(),
     type: CreateShippingOptionTypeObject.optional(),
     rules: VendorCreateShippingOptionRule.array().optional()
   })

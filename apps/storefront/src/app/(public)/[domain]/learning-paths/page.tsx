@@ -83,7 +83,7 @@ export default async function DomainLearningPathsPage({ params }: Props) {
       <section>
         {learningPaths.length === 0 ? (
           <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-5 text-[var(--muted)]">
-            Nog geen leertrajecten voor dit domein.
+            Nog geen leertrajecten voor deze hobby.
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">

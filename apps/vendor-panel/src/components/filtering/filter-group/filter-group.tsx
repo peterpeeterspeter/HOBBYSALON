@@ -25,7 +25,7 @@ export const FilterGroup = ({ filters }: FilterGroupProps) => {
       {hasMore && <AddFilterMenu availableKeys={availableKeys} />}
       {isClearable && (
         <Button variant="transparent" size="small">
-          Clear all
+          Alles wissen
         </Button>
       )}
     </div>
@@ -41,7 +41,7 @@ const AddFilterMenu = ({ availableKeys }: AddFilterMenuProps) => {
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
         <Button variant="secondary" size="small">
-          Add filter
+          Filter toevoegen
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content>

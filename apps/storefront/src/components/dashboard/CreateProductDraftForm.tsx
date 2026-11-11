@@ -45,7 +45,7 @@ export function CreateProductDraftForm({
     >
       {({ draft }) => (
         <>
-          <h2 className="text-lg font-semibold">Nieuwe plaatsing</h2>
+          <h2 className="text-lg font-semibold">Nieuwe creatie</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Input
               name="title"
@@ -153,7 +153,7 @@ export function CreateProductDraftForm({
             </label>
           </div>
           <Button type="submit" className="mt-4">
-            Plaatsing toevoegen
+            Creatie toevoegen
           </Button>
         </>
       )}

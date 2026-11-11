@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import {
   clearAuthSession,
   createEmailSession,
+  getOAuthSignInUrl,
+  isFacebookLoginEnabled,
   getAuthUser,
   persistAuthSession,
   registerEmailUser,
@@ -14,6 +16,7 @@ import {
 } from "@/lib/auth/session";
 import { turnstileErrorMessage } from "@/lib/auth/turnstile";
 import { createPlatformClient } from "@/lib/platform/client";
+import { readReferralCookie } from "@/lib/referrals/referrals";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import {
   REGISTRATION_ALLOWED_INTEREST_TYPES,
@@ -66,6 +69,26 @@ function parseInterestTypes(formData: FormData): RegistrationInterestType[] {
       (value): value is RegistrationInterestType =>
         ALLOWED_REGISTRATION_INTEREST_TYPES.has(value)
     );
+}
+
+/** Starts Facebook login; Facebook returns the user to /auth/confirm. */
+export async function facebookLoginAction(formData: FormData): Promise<void> {
+  const requestedNextPath = formData.get("next")?.toString() ?? null;
+  const loginPath = (message: string) =>
+    `/login?error=${encodeURIComponent(message)}${
+      requestedNextPath ? `&next=${encodeURIComponent(requestedNextPath)}` : ""
+    }`;
+
+  if (!isFacebookLoginEnabled()) {
+    redirect(loginPath("Aanmelden met Facebook is nog niet beschikbaar."));
+  }
+
+  const { url, error } = await getOAuthSignInUrl("facebook", requestedNextPath);
+  if (error || !url) {
+    console.error("Facebook login start failed:", error);
+    redirect(loginPath("Aanmelden met Facebook lukt nu niet. Probeer het opnieuw of gebruik je e-mailadres."));
+  }
+  redirect(url);
 }
 
 export async function loginAction(
@@ -194,7 +217,7 @@ export async function registerAction(
     email,
     password,
     effectiveNextPath,
-    undefined,
+    await referralSignupMetadata(),
     captcha.token
   );
 
@@ -363,7 +386,7 @@ export async function registerMerchantAction(
     email,
     password,
     requestedNextPath,
-    undefined,
+    await referralSignupMetadata(),
     captcha.token
   );
 
@@ -436,7 +459,7 @@ export async function registerMerchantAction(
       success: true,
       message: onboarding?.pendingApproval
         ? `${onboarding.message} Bevestig ook je e-mail voordat je inlogt.`
-        : "Controleer je e-mail en bevestig je merchant-account voordat je inlogt.",
+        : "Controleer je e-mail en bevestig je verkopersaccount voordat je inlogt.",
     };
   }
 
@@ -530,7 +553,7 @@ export async function onboardMerchantForLoggedInUserAction(
           success: false,
           message:
             linkResult.error ??
-            "Merchant-winkel koppelen mislukt. Probeer opnieuw.",
+            "Je winkel koppelen aan je account is mislukt. Probeer opnieuw.",
         };
       }
     }
@@ -722,4 +745,10 @@ export async function updatePasswordAction(
     defaultPath: "/profile",
   });
   redirect(redirectPath);
+}
+
+/** Sign up metadata with the invite code; the confirm trigger rewards it. */
+async function referralSignupMetadata(): Promise<Record<string, unknown> | undefined> {
+  const code = await readReferralCookie();
+  return code ? { referral_code: code } : undefined;
 }

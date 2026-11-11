@@ -37,7 +37,7 @@ export const OrderGeneralSection = ({ order }: OrderGeneralSectionProps) => {
   const handleComplete = async () => {
     await completeOrder(undefined, {
       onSuccess: () => {
-        toast.success("Order completed")
+        toast.success("Bestelling afgerond")
       },
       onError: (e) => {
         toast.error(e.message)

@@ -34,14 +34,15 @@ export const PARTNERS_PAGE = {
     {
       id: "maker",
       role: "Maker",
-      priceLabel: "3 gratis advertenties, daarna credits",
+      priceLabel: "3 gratis advertenties, daarna tegoed",
       description:
-        "Start met drie gratis advertenties voor je handmade werk of destash. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met credits.",
+        "Start met drie gratis advertenties voor je zelfgemaakte werk of overschot. Nodig een vriend uit: jullie krijgen allebei 3 extra gratis advertenties. Wil je meer aanbieden, dan breid je uit tot 10 extra advertenties met tegoed.",
       features: [
         "Eerste 3 advertenties gratis",
-        "Tot 10 extra met credits",
+        "+3 gratis per uitgenodigde vriend, tot 15 extra",
+        "Tot 10 extra met tegoed",
         "Geen commissie op je verkoop",
-        "Boosts met extra credits",
+        "Uitlichten met extra tegoed",
       ],
       href: "/voor-makers",
       ctaLabel: "Bekijk de mogelijkheden",
@@ -84,7 +85,7 @@ export const PARTNERS_PAGE = {
         "Verkoop professionele hobbymaterialen via Hobbysalon. Geen vast maandbedrag in de basisformule.",
       features: [
         "Productcatalogus met varianten en voorraad",
-        "Checkout en orderbeheer",
+        "Afrekenen en bestellingen beheren",
         "Verzending via je eigen instellingen",
         "Premium zichtbaarheid en analyses: binnenkort",
       ],

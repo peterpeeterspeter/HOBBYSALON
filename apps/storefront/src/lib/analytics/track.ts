@@ -28,6 +28,10 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["route"],
     funnelStage: "discovery",
   },
+  social_follow_clicked: {
+    required: ["channel", "placement"],
+    funnelStage: "discovery",
+  },
   home_event_clicked: {
     required: ["event_id", "event_slug"],
     funnelStage: "discovery",

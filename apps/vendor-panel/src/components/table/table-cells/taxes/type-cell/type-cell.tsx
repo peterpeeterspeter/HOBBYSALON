@@ -14,7 +14,7 @@ export const TypeCell = ({ is_combinable }: CellProps) => {
       <span className="truncate">
         {is_combinable ? (
           <Badge size="2xsmall" color="green">
-            Combinable
+            Combineerbaar
           </Badge>
         ) : (
           ""

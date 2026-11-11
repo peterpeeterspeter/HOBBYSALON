@@ -52,7 +52,7 @@ export const EditUserForm = ({ member }: EditUserFormProps) => {
             render={({ field }) => {
               return (
                 <Form.Item>
-                  <Form.Label>Name</Form.Label>
+                  <Form.Label>Naam</Form.Label>
                   <Form.Control>
                     <Input {...field} />
                   </Form.Control>

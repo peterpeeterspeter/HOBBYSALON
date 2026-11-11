@@ -45,11 +45,11 @@ export const Register = () => {
     if (password !== confirmPassword) {
       form.setError('password', {
         type: 'manual',
-        message: "Password and Confirm Password don't match"
+        message: "De wachtwoorden zijn niet gelijk"
       });
       form.setError('confirmPassword', {
         type: 'manual',
-        message: "Password and Confirm Password don't match"
+        message: "De wachtwoorden zijn niet gelijk"
       });
 
       return null;
@@ -78,7 +78,7 @@ export const Register = () => {
           if (status === 409) {
             form.setError('email', {
               type: 'manual',
-              message: 'Provided email is already taken'
+              message: 'Dit e-mailadres is al in gebruik'
             });
 
             return;
@@ -107,17 +107,16 @@ export const Register = () => {
     return (
       <div className="flex min-h-dvh w-dvw items-center justify-center bg-ui-bg-subtle">
         <div className="mb-4 flex flex-col items-center">
-          <Heading>Thank You for registering!</Heading>
+          <Heading>Bedankt voor je aanmelding!</Heading>
           <Text
             size="small"
             className="mt-2 max-w-[320px] text-center text-ui-fg-subtle"
           >
-            You may need to wait for admin authorization before logging in. A confirmation email
-            will be sent to you shortly.
+            Hobbysalon kijkt je aanmelding na. Je krijgt een e-mail zodra je kan inloggen.
           </Text>
 
           <Link to="/login">
-            <Button className="mt-8">Back to login page</Button>
+            <Button className="mt-8">Terug naar aanmelden</Button>
           </Link>
         </div>
       </div>
@@ -152,7 +151,7 @@ export const Register = () => {
                         <Input
                           {...field}
                           className="mb-2 bg-ui-bg-field-component"
-                          placeholder="Company name"
+                          placeholder="Bedrijfsnaam"
                         />
                       </Form.Control>
                     </Form.Item>
@@ -202,7 +201,7 @@ export const Register = () => {
                           type="password"
                           {...field}
                           className="bg-ui-bg-field-component"
-                          placeholder="Confirm Password"
+                          placeholder="Herhaal wachtwoord"
                         />
                       </Form.Control>
                     </Form.Item>
@@ -237,7 +236,7 @@ export const Register = () => {
                 type="submit"
                 isLoading={isPending}
               >
-                Sign up
+                Aanmelden
               </Button>
             </form>
           </Form>

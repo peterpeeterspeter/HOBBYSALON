@@ -201,7 +201,7 @@ async function provisionMerchantFromPayload(
   if (!displayName || !email) {
     return {
       ok: false,
-      message: "Merchant-aanvraag mist verplichte gegevens (naam of e-mail).",
+      message: "Je aanvraag als verkoper mist een naam of e-mailadres.",
     };
   }
 
@@ -236,7 +236,7 @@ async function provisionMerchantFromPayload(
     return {
       ok: false,
       message:
-        "Merchant-winkel werd aangemaakt maar koppelen aan het account mislukt.",
+        "Je winkel is aangemaakt, maar koppelen aan je account is mislukt.",
     };
   }
 
@@ -256,7 +256,7 @@ async function provisionMerchantFromPayload(
       ok: false,
       message:
         creatorResult.errors[0] ??
-        "Merchant-winkel gekoppeld, maar creator-profiel aanmaken mislukt.",
+        "Je winkel is gekoppeld, maar je maker-pagina aanmaken is mislukt.",
     };
   }
 

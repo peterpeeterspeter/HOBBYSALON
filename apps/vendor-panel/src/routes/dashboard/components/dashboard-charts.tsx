@@ -144,9 +144,9 @@ export const DashboardCharts = ({
       <Container className="divide-y p-0">
         <div className="flex items-center justify-between px-6 py-4">
           <div>
-            <Heading>Actions</Heading>
+            <Heading>Te doen</Heading>
             <Text className="text-ui-fg-subtle" size="small">
-              Check out new events and manage your store
+              Wat vraagt nu je aandacht?
             </Text>
           </div>
         </div>
@@ -158,7 +158,7 @@ export const DashboardCharts = ({
             >
               <div className="flex gap-4 items-center">
                 <Badge>{notFulfilledOrders}</Badge>
-                Orders to be fulfilled
+                Bestellingen klaar te maken
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -170,7 +170,7 @@ export const DashboardCharts = ({
             >
               <div className="flex gap-4 items-center">
                 <Badge>{fulfilledOrders}</Badge>
-                Orders to be shipped
+                Bestellingen te verzenden
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -182,7 +182,7 @@ export const DashboardCharts = ({
             >
               <div className="flex gap-4 items-center">
                 <Badge>{reviewsToReply}</Badge>
-                Reviews to reply
+                Beoordelingen te beantwoorden
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -193,7 +193,7 @@ export const DashboardCharts = ({
               className="w-full justify-between py-4 h-full h-full"
             >
               <div className="flex gap-4 items-center">
-                <Badge>{unreadMessages?.length || 0}</Badge>Unread messages
+                <Badge>{unreadMessages?.length || 0}</Badge>Ongelezen berichten
               </div>
               <TriangleRightMini color="grey" />
             </Button>
@@ -203,9 +203,9 @@ export const DashboardCharts = ({
       <Container className="divide-y p-0 mt-2">
         <div className="flex items-center justify-between px-6 py-4">
           <div>
-            <Heading>Analytics</Heading>
+            <Heading>Cijfers</Heading>
             <Text className="text-ui-fg-subtle" size="small">
-              See your store's progress
+              Zo loopt je winkel
             </Text>
           </div>
           <div>
@@ -222,7 +222,7 @@ export const DashboardCharts = ({
                       format(from, "LLL dd, y")
                     )
                   ) : (
-                    <span>Pick a date</span>
+                    <span>Kies een datum</span>
                   )}
                 </Button>
               </Popover.Trigger>
@@ -273,7 +273,7 @@ export const DashboardCharts = ({
                   className="p-4 border rounded-lg w-full flex-col items-start my-2"
                   onClick={() => handleFilter("orders")}
                 >
-                  <Heading level="h3">Orders</Heading>
+                  <Heading level="h3">Bestellingen</Heading>
                   <div className="flex gap-2 items-center mt-2">
                     <div
                       className="h-8 w-1"
@@ -293,7 +293,7 @@ export const DashboardCharts = ({
                   className="p-4 border rounded-lg w-full flex-col items-start my-2"
                   onClick={() => handleFilter("customers")}
                 >
-                  <Heading level="h3">Customers</Heading>
+                  <Heading level="h3">Klanten</Heading>
                   <div className="flex gap-2 items-center mt-2">
                     <div
                       className="h-8 w-1"

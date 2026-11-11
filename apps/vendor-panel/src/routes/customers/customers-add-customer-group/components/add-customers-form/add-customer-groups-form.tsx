@@ -128,7 +128,7 @@ export const AddCustomerGroupsForm = ({
         remove: [],
       })
 
-      toast.success("Customer groups added successfully")
+      toast.success("Klantgroepen toegevoegd")
 
       handleSuccess(`/customers/${customerId}`)
     } catch (e: any) {

@@ -24,6 +24,7 @@ import {
 } from "@/lib/commerce/medusa/creator-products";
 import { ensureCreatorSellerLinked } from "@/lib/commerce/medusa/creator-onboarding";
 import { requireUploadedImageUrl, resolveProductImageUrl } from "@/lib/storage/upload-image";
+import { canPublishArticlesToHub, toVideoEmbedUrl } from "@/lib/content/article-visibility";
 import {
   attachDefaultEventPlan,
   enforceCreatorSocialUrls,
@@ -37,8 +38,9 @@ import { resolveWorkshopListingFeeOnSave } from "@/lib/platform/workshop-listing
 import { addCredits } from "@/lib/platform/listing-credits";
 import { isAuthorableArticleType } from "@/lib/content/article-types";
 import { resolveArticleSuggestionRelation } from "@/lib/content/article-suggestion-relation";
-import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
+import { loadArticleCatalog, loadArticleExistingKeys, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
 import { toArticleProposalPayload } from "@/lib/content/article-matching-jobs";
+import { getArticleSidecarPlanner } from "@/lib/services/article-sidecar-planner";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
 import { dateTimeLocalToUtcIso } from "@/lib/agenda/agenda-helpers";
 import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
@@ -197,14 +199,14 @@ async function parseWorkshopTaxonomyFields(
 
   if (categoryId) {
     if (!domainId) {
-      throw new Error("Kies eerst een domein voor de subcategorie.");
+      throw new Error("Kies eerst een hobby voor de subcategorie.");
     }
     const category = await getWorkshopCategoryById(categoryId);
     if (!category || !category.is_active) {
       throw new Error("Ongeldige subcategorie.");
     }
     if (category.domain_id !== domainId) {
-      throw new Error("Subcategorie hoort niet bij het gekozen domein.");
+      throw new Error("Deze subcategorie hoort niet bij de gekozen hobby.");
     }
   }
 
@@ -217,25 +219,38 @@ async function parseWorkshopTaxonomyFields(
   };
 }
 
+/**
+ * Shop products (supply) use the material taxonomy (catalog = 'material',
+ * no hobby). Maker listings use the per hobby categories (catalog =
+ * 'listing') and the category must belong to the chosen hobby.
+ */
 async function assertProductCategoryMatchesDomain(
   categoryId: string | null,
-  domainId: string | null
+  domainId: string | null,
+  productType: string
 ): Promise<void> {
   if (!categoryId) return;
-  if (!domainId) {
-    throw new Error("Kies eerst een domein voor de categorie.");
+  const isSupply = productType === "supply" || productType === "supplies";
+  if (!isSupply && !domainId) {
+    throw new Error("Kies eerst een hobby voor de categorie.");
   }
   const supabase = createPlatformClient();
   const { data, error } = await supabase
     .from("product_categories")
-    .select("id, domain_id")
+    .select("id, domain_id, catalog")
     .eq("id", categoryId)
     .maybeSingle();
   if (error || !data) {
     throw new Error("Ongeldige categorie.");
   }
-  if (data.domain_id !== domainId) {
-    throw new Error("Categorie hoort niet bij het gekozen domein.");
+  if (isSupply) {
+    if (data.catalog !== "material") {
+      throw new Error("Kies een materiaalcategorie voor dit product.");
+    }
+    return;
+  }
+  if (data.catalog === "material" || data.domain_id !== domainId) {
+    throw new Error("Deze categorie hoort niet bij de gekozen hobby.");
   }
 }
 
@@ -321,7 +336,7 @@ async function getRequiredCreatorProfile(loginNext = "/dashboard") {
 
   const creator = await getCreatorByUserId(user.id);
   if (!creator) {
-    throw new Error("Maak eerst een creator-profiel aan.");
+    throw new Error("Maak eerst je maker-pagina aan.");
   }
 
   return { user, creator };
@@ -414,7 +429,7 @@ async function getRequiredCreator() {
     .eq("user_id", user.id);
 
   if (sellerLinkError) {
-    throw new Error("Kon creator-seller koppeling niet ophalen.");
+    throw new Error("Je verkoopgegevens konden niet worden geladen. Probeer het opnieuw.");
   }
 
   const preferredLink =
@@ -429,9 +444,9 @@ async function getRequiredCreator() {
     );
 
     if (!ensured.ok || !ensured.sellerId) {
+      console.error("Creator seller link failed", ensured.error);
       throw new Error(
-        ensured.error ??
-          "Creator seller ontbreekt. Neem contact op met Hobbysalon."
+        "Je verkopersaccount is nog niet klaar. Neem contact op met Hobbysalon."
       );
     }
 
@@ -632,7 +647,7 @@ async function generateArticleLinkSuggestions(input: {
   excerpt: string | null;
   bodyMarkdown: string | null;
   articleDomainId: string | null;
-}): Promise<void> {
+}): Promise<{state:string;inserted:number}> {
   const supabase = createPlatformClient();
   const read: CatalogRead = async (request) => {
     let query = supabase.from(request.table).select(request.columns);
@@ -660,19 +675,21 @@ async function generateArticleLinkSuggestions(input: {
   if (fingerprintError || typeof fingerprint !== "string" || !fingerprint.length) {
     throw new Error("Laden van link-suggesties mislukt.");
   }
-  const articles = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id",
+  const articles = await read({table:"articles",columns:"id,title,excerpt,body_markdown,domain_id,is_published",
     equals:{id:input.articleId},order:["id"],offset:0,limit:1});
   const article = articles[0];
-  if (articles.length !== 1 || article?.id !== input.articleId || typeof article.title !== "string"
+  if (articles.length !== 1 || article?.id !== input.articleId || typeof article.title !== "string" || typeof article.is_published !== "boolean"
     || ["excerpt","body_markdown","domain_id"].some(key => article[key] !== null && typeof article[key] !== "string")) {
     throw new Error("Laden van het opgeslagen artikel mislukt.");
   }
   const candidates = await loadArticleCatalog(read);
-  const existingKeys = await loadArticleExistingKeys(read, input.articleId);
-  const proposals = planArticleSuggestions({id:input.articleId,title:article.title,
+  const existingKeys = await loadArticleExistingKeys(read, input.articleId,{includeReviews:true});
+  const plan = await getArticleSidecarPlanner();
+  const planned = await plan({id:input.articleId,title:article.title,
     excerpt:article.excerpt as string | null,body_markdown:article.body_markdown as string | null,
-    domain_id:article.domain_id as string | null},candidates,existingKeys).map(toArticleProposalPayload);
-  if (!proposals.length) return;
+    domain_id:article.domain_id as string | null,is_published:article.is_published},candidates,existingKeys);
+  const proposals = planned.suggestions.map(toArticleProposalPayload);
+  if (!proposals.length) return {state:planned.state,inserted:0};
   // The private unique pair, review memory and transaction live in the RPC, not a
   // read-then-insert snapshot. Never fall back to direct entity_links insertion.
   const { data: inserted, error } = await supabase.rpc("graph_propose_article_suggestions", {
@@ -682,13 +699,15 @@ async function generateArticleLinkSuggestions(input: {
     || inserted < 0 || inserted > proposals.length) {
     throw new Error("Artikel opgeslagen, maar link-suggesties opslaan is mislukt.");
   }
+  return {state:planned.state,inserted};
 }
 
 // This runs only after the article mutation returned its persisted ID.
 // Proposal errors must not disguise a committed save as a failed article creation.
-async function refreshSavedArticleSuggestions(input: Parameters<typeof generateArticleLinkSuggestions>[0]): Promise<void> {
+async function refreshSavedArticleSuggestions(input: Parameters<typeof generateArticleLinkSuggestions>[0]): Promise<{state:string;inserted:number}> {
   let failed = false;
-  try { await generateArticleLinkSuggestions(input); }
+  let result = {state:"unavailable",inserted:0};
+  try { result = await generateArticleLinkSuggestions(input); }
   catch (error) {
     if (isNextRedirectError(error)) throw error;
     failed = true;
@@ -701,6 +720,15 @@ async function refreshSavedArticleSuggestions(input: Parameters<typeof generateA
       error: "De link-suggesties konden niet worden vernieuwd. Bewerk het opgeslagen artikel om opnieuw te proberen; maak geen nieuw artikel aan.",
     }));
   }
+  return result;
+}
+
+function articleSuggestionSuccess(result: {state:string;inserted:number}, updated = false): string {
+  const saved = updated ? "Artikel bijgewerkt." : "Artikel opgeslagen.";
+  if (result.state === "unpublished") return `${saved} Je artikel staat als concept.`;
+  if (result.state !== "ready_for_review") return `${saved} Voor link-suggesties is nog inhoudelijke controle nodig.`;
+  if (!result.inserted) return `${saved} Er zijn geen nieuwe link-suggesties.`;
+  return updated ? "Artikel bijgewerkt. Suggesties vernieuwd." : "Artikel opgeslagen met link-suggesties.";
 }
 
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
@@ -794,7 +822,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
           code: error.code,
           message: error.message,
         });
-        fail(CREATOR_MAKER_PATH, "Opslaan van creator-profiel mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je maker-pagina kon niet worden opgeslagen.");
       }
 
       const domainSyncError = await syncCreatorDomains(
@@ -803,7 +831,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         supabase
       );
       if (domainSyncError) {
-        fail(CREATOR_MAKER_PATH, "Opslaan van hobby-domeinen mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je hobby's konden niet worden opgeslagen.");
       }
     } else {
       const { data: insertedRows, error } = await supabase
@@ -817,7 +845,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
           code: error?.code,
           message: error?.message,
         });
-        fail(CREATOR_MAKER_PATH, "Aanmaken van creator-profiel mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je maker-pagina kon niet worden aangemaakt.");
       }
 
       const domainSyncError = await syncCreatorDomains(
@@ -826,7 +854,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         supabase
       );
       if (domainSyncError) {
-        fail(CREATOR_MAKER_PATH, "Opslaan van hobby-domeinen mislukt.");
+        fail(CREATOR_MAKER_PATH, "Je hobby's konden niet worden opgeslagen.");
       }
     }
 
@@ -840,7 +868,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
         userId: user.id,
         message: roleSyncError,
       });
-      fail(CREATOR_MAKER_PATH, "Creator-rol kon niet worden opgeslagen.");
+      fail(CREATOR_MAKER_PATH, "Je rol kon niet worden opgeslagen.");
     }
 
     revalidatePath("/dashboard");
@@ -848,7 +876,7 @@ export async function saveCreatorProfileAction(formData: FormData): Promise<void
     revalidatePath("/dashboard/pagina");
     revalidatePath("/creators");
     revalidatePath(`/creator/${finalCreatorSlug}`);
-    ok(CREATOR_MAKER_PATH, "Creator-profiel opgeslagen.");
+    ok(CREATOR_MAKER_PATH, "Maker-pagina opgeslagen.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1312,6 +1340,79 @@ export async function deleteProjectSoughtMaterialAction(formData: FormData): Pro
   }
 }
 
+/**
+ * Media fields of an article form. Only fields the form sends are returned,
+ * so an older form never wipes a stored photo or video.
+ * Gallery and video are for authors who publish to the overviews.
+ */
+async function parseArticleMedia(
+  formData: FormData,
+  creator: { id: string; creator_types?: string[] | null; editorial_publisher?: boolean | null }
+): Promise<{ fields: Record<string, string | null>; galleryUrls: string[]; removeGalleryIds: string[] }> {
+  const fields: Record<string, string | null> = {};
+  const extended = canPublishArticlesToHub(creator);
+
+  if (
+    formData.has("featured_image_file") ||
+    formData.has("featured_image_file_uploaded_url") ||
+    formData.has("featured_image_file_remove")
+  ) {
+    fields.featured_image_url = await resolveProductImageUrl(formData, {
+      fileField: "featured_image_file",
+      urlField: "featured_image_file_uploaded_url",
+      pathPrefix: `creators/${creator.id}/articles`,
+    });
+  }
+
+  if (extended && formData.has("video_url")) {
+    const raw = formData.get("video_url")?.toString().trim() ?? "";
+    if (raw && !toVideoEmbedUrl(raw)) {
+      throw new Error("Gebruik een link van YouTube of Vimeo voor de video.");
+    }
+    fields.video_url = raw || null;
+  }
+
+  const galleryUrls = extended ? parseGalleryImageUrls(formData) : [];
+  const removeGalleryIds = formData
+    .getAll("remove_gallery_image_ids")
+    .map((value) => value.toString())
+    .filter((value) => /^[0-9a-f-]{36}$/i.test(value));
+
+  return { fields, galleryUrls, removeGalleryIds };
+}
+
+/** Adds new gallery photos and removes the ones the author unticked. */
+async function saveArticleGallery(
+  articleId: string,
+  galleryUrls: string[],
+  removeGalleryIds: string[]
+): Promise<void> {
+  const supabase = createPlatformClient();
+  if (removeGalleryIds.length > 0) {
+    await supabase
+      .from("article_gallery_images")
+      .delete()
+      .eq("article_id", articleId)
+      .in("id", removeGalleryIds);
+  }
+  if (galleryUrls.length === 0) return;
+
+  const { count } = await supabase
+    .from("article_gallery_images")
+    .select("id", { head: true, count: "exact" })
+    .eq("article_id", articleId);
+  const existing = count ?? 0;
+  const room = Math.max(0, MAX_GALLERY_IMAGES - existing);
+  const rows = galleryUrls.slice(0, room).map((image_url, index) => ({
+    article_id: articleId,
+    image_url,
+    sort_order: existing + index,
+  }));
+  if (rows.length === 0) return;
+  const { error } = await supabase.from("article_gallery_images").insert(rows);
+  if (error) console.error("Article gallery insert failed:", error);
+}
+
 export async function createArticleAction(formData: FormData): Promise<void> {
   try {
     const { creator } = await getRequiredCreatorProfile();
@@ -1327,10 +1428,13 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Ongeldig artikeltype.");
     }
 
+    const media = await parseArticleMedia(formData, creator);
+
     const supabase = createPlatformClient();
     const { data: article, error } = await supabase
       .from("articles")
       .insert({
+        ...media.fields,
         slug,
         title,
         excerpt,
@@ -1348,11 +1452,13 @@ export async function createArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Aanmaken van artikel mislukt.");
     }
 
-    await refreshSavedArticleSuggestions({
+    await saveArticleGallery(article.id, media.galleryUrls, []);
+
+    const suggestions = await refreshSavedArticleSuggestions({
       articleId: article.id, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel opgeslagen met link-suggesties." }));
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: articleSuggestionSuccess(suggestions) }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1378,10 +1484,13 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Ongeldig artikeltype.");
     }
 
+    const media = await parseArticleMedia(formData, creator);
+
     const supabase = createPlatformClient();
     const { data: article, error } = await supabase
       .from("articles")
       .update({
+        ...media.fields,
         slug,
         title,
         excerpt,
@@ -1401,13 +1510,15 @@ export async function updateArticleAction(formData: FormData): Promise<void> {
       fail(CREATOR_MAKER_PATH, "Bijwerken van artikel mislukt.");
     }
 
+    await saveArticleGallery(articleId, media.galleryUrls, media.removeGalleryIds);
+
     // Preserve retained human-link rows and pending proposals on ordinary saves.
     // Private RPC/trigger decisions keep rejected nominations suppressed.
-    await refreshSavedArticleSuggestions({
+    const suggestions = await refreshSavedArticleSuggestions({
       articleId, title, excerpt, bodyMarkdown, articleDomainId: domainId,
     });
 
-    redirect(creatorMakerProfileUrl({ tab: "profiel", success: "Artikel bijgewerkt. Suggesties vernieuwd." }));
+    redirect(creatorMakerProfileUrl({ tab: "profiel", success: articleSuggestionSuccess(suggestions,true) }));
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1550,7 +1661,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     const domainId = parseOptionalUuid(formData, "domain_id");
     const categoryId = parseOptionalUuid(formData, "category_id");
     try {
-      await assertProductCategoryMatchesDomain(categoryId, domainId);
+      await assertProductCategoryMatchesDomain(categoryId, domainId, productType);
     } catch (error) {
       fail(
         returnPath,
@@ -1565,7 +1676,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     if (productType !== "handmade" && productType !== "destash") {
       fail(
         returnPath,
-        "Voor maker-plaatsingen is enkel type 'handmade' of 'destash' toegestaan."
+        "Kies als soort ‘Zelf gemaakt’ of ‘Overschot’."
       );
     }
     if (conditionType && !PRODUCT_CONDITION_TYPES.has(conditionType)) {
@@ -1621,10 +1732,8 @@ export async function createProductAction(formData: FormData): Promise<void> {
       .single();
 
     if (error || !createdProduct) {
-      fail(
-        returnPath,
-        `Plaatsing aanmaken mislukt. ${error?.message ?? ""}`.trim()
-      );
+      console.error("Create product failed", error);
+      fail(returnPath, "Creatie aanmaken mislukt. Probeer het later opnieuw.");
     }
 
     if (galleryUrls.length > 0) {
@@ -1647,14 +1756,14 @@ export async function createProductAction(formData: FormData): Promise<void> {
     ok(
       successPathAfterCreate(returnPath, "/dashboard/products", createdProduct.id),
       isActive
-        ? "Plaatsing online. Bezoekers kunnen je contacteren via de productpagina."
-        : "Plaatsing opgeslagen als concept. Zet ze op actief om te publiceren."
+        ? "Creatie online. Bezoekers kunnen je contacteren via de productpagina."
+        : "Creatie opgeslagen als concept. Zet ze op actief om te publiceren."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
       returnPath,
-      error instanceof Error ? error.message : "Plaatsing aanmaken mislukt."
+      error instanceof Error ? error.message : "Creatie aanmaken mislukt."
     );
   }
 }
@@ -1690,7 +1799,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       Math.max(0, MAX_GALLERY_IMAGES - existingGalleryCount)
     );
     try {
-      await assertProductCategoryMatchesDomain(categoryId, domainId);
+      await assertProductCategoryMatchesDomain(categoryId, domainId, productType);
     } catch (error) {
       fail(
         returnPath,
@@ -1742,7 +1851,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       if (productType !== "handmade") {
         fail(
           returnPath,
-          "Medusa creator-producten ondersteunen momenteel enkel type 'handmade'."
+          "Voor producten in je webshop kan je alleen ‘Zelf gemaakt’ kiezen."
         );
       }
 
@@ -1782,10 +1891,8 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       });
 
       if (!result.ok) {
-        fail(
-          returnPath,
-          result.error ?? "Product bijwerken via Medusa mislukt."
-        );
+        console.error("Creator product update failed", result.error);
+        fail(returnPath, "Product bijwerken mislukt. Probeer het later opnieuw.");
       }
 
       revalidatePath("/dashboard/products");
@@ -1827,7 +1934,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail(returnPath, "Plaatsing bijwerken mislukt.");
+      fail(returnPath, "Creatie bijwerken mislukt.");
     }
 
     if (galleryUrls.length > 0) {
@@ -1857,7 +1964,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok(returnPath, "Plaatsing bijgewerkt.");
+    ok(returnPath, "Creatie bijgewerkt.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1884,10 +1991,8 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
         isActive: false,
       });
       if (!result.ok) {
-        fail(
-          returnPath,
-          result.error ?? "Product depubliceren via Medusa mislukt."
-        );
+        console.error("Creator product unpublish failed", result.error);
+        fail(returnPath, "Product depubliceren mislukt. Probeer het later opnieuw.");
       }
     }
 
@@ -1901,12 +2006,12 @@ export async function unpublishProductAction(formData: FormData): Promise<void> 
       .eq("creator_id", creator.id);
 
     if (error) {
-      fail(returnPath, "Plaatsing depubliceren mislukt.");
+      fail(returnPath, "Creatie depubliceren mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     revalidatePath(`/creator/${creator.slug}`);
-    ok(returnPath, "Plaatsing gedeactiveerd.");
+    ok(returnPath, "Creatie gedeactiveerd.");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -1931,10 +2036,8 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
         medusaProductId,
       });
       if (!result.ok) {
-        fail(
-          returnPath,
-          result.error ?? "Product verwijderen via Medusa mislukt."
-        );
+        console.error("Creator product delete failed", result.error);
+        fail(returnPath, "Product verwijderen mislukt. Probeer het later opnieuw.");
       }
     }
 
@@ -1966,7 +2069,8 @@ export async function completeCreatorOrderAction(formData: FormData): Promise<vo
     const orderId = parseRequiredString(formData, "order_id");
     const result = await completeCreatorOrder(sellerId, orderId);
     if (!result.ok) {
-      fail("/dashboard/orders", result.error ?? "Order afronden mislukt.");
+      console.error("Complete order failed", result.error);
+      fail("/dashboard/orders", "Bestelling afronden mislukt. Probeer het later opnieuw.");
     }
 
     revalidatePath("/dashboard/orders");
@@ -1986,7 +2090,8 @@ export async function cancelCreatorOrderAction(formData: FormData): Promise<void
     const orderId = parseRequiredString(formData, "order_id");
     const result = await cancelCreatorOrder(sellerId, orderId);
     if (!result.ok) {
-      fail("/dashboard/orders", result.error ?? "Order annuleren mislukt.");
+      console.error("Cancel order failed", result.error);
+      fail("/dashboard/orders", "Bestelling annuleren mislukt. Probeer het later opnieuw.");
     }
 
     revalidatePath("/dashboard/orders");
@@ -3073,11 +3178,12 @@ export async function purchaseSpotlightBoostFormAction(
 ): Promise<void> {
   try {
     const { creator } = await getRequiredCreatorProfile();
-    const entityType = parseRequiredString(formData, "entity_type") as
-      | "creator"
-      | "product"
-      | "workshop"
-      | "event";
+    const rawEntityType = parseRequiredString(formData, "entity_type");
+    const allowedTypes = ["creator", "product", "workshop", "event", "article"] as const;
+    if (!(allowedTypes as readonly string[]).includes(rawEntityType)) {
+      fail(CREATOR_MAKER_PATH, "Dit kan niet uitgelicht worden.");
+    }
+    const entityType = rawEntityType as (typeof allowedTypes)[number];
     const entityId = parseRequiredUuid(formData, "entity_id");
     const boostType =
       parseOptionalString(formData, "boost_type") === "homepage"
@@ -3092,13 +3198,22 @@ export async function purchaseSpotlightBoostFormAction(
     });
 
     if (!result.ok) {
-      fail(CREATOR_MAKER_PATH, result.error ?? "Spotlight aankoop mislukt.");
+      fail(CREATOR_MAKER_PATH, result.error ?? "Uitlichten mislukt.");
     }
 
     revalidatePath("/profile");
 
     revalidatePath("/dashboard/pagina");
-    ok(CREATOR_MAKER_PATH, "Spotlight geactiveerd.");
+    if (entityType === "article") {
+      revalidatePath("/artikelen");
+      revalidatePath("/patronen");
+    }
+    ok(
+      CREATOR_MAKER_PATH,
+      entityType === "article"
+        ? "Je artikel staat 7 dagen bovenaan Inspiratie."
+        : "Je aanbod wordt nu uitgelicht."
+    );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
     fail(
@@ -3123,7 +3238,7 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
       fail("/dashboard/products", "Meld je eerst aan.");
     }
     if (!(await isModerator(user.id))) {
-      fail("/dashboard/products", "Alleen moderators kunnen credits handmatig toekennen.");
+      fail("/dashboard/products", "Alleen moderators kunnen tegoed handmatig toekennen.");
     }
 
     const targetCreatorId = parseRequiredString(formData, "creator_id");
@@ -3132,7 +3247,7 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
 
     const targetCreator = await getCreatorById(targetCreatorId);
     if (!targetCreator) {
-      fail("/dashboard/products", "Creator niet gevonden.");
+      fail("/dashboard/products", "Maker niet gevonden.");
     }
 
     const supabase = createPlatformClient();
@@ -3144,7 +3259,7 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
       .maybeSingle();
 
     if (!pack) {
-      fail("/dashboard/products", "Creditpakket niet gevonden.");
+      fail("/dashboard/products", "Tegoedpakket niet gevonden.");
     }
 
     const result = await addCredits(targetCreatorId, pack.credits, "manual_adjustment", {
@@ -3154,13 +3269,13 @@ export async function addListingCreditsAction(formData: FormData): Promise<void>
     });
 
     if (!result.ok) {
-      fail("/dashboard/products", result.error ?? "Credits toevoegen mislukt.");
+      fail("/dashboard/products", result.error ?? "Tegoed toevoegen mislukt.");
     }
 
     revalidatePath("/dashboard/products");
     ok(
       "/dashboard/products",
-      `${pack.credits} credits handmatig toegekend aan ${targetCreator.display_name} (${pack.name}).`
+      `${pack.credits} tegoedpunten handmatig toegekend aan ${targetCreator.display_name} (${pack.name}).`
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;

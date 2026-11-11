@@ -17,7 +17,7 @@ import {
 import type { Event } from "@/types/platform";
 
 export const EVENT_TYPE_OPTIONS = [
-  { value: "handmade_market", label: "Handmade markt" },
+  { value: "handmade_market", label: "Ambachtelijke markt" },
   { value: "hobby_fair", label: "Hobbybeurs" },
   { value: "pop_up", label: "Pop-up" },
   { value: "open_atelier", label: "Open atelier" },
@@ -30,7 +30,7 @@ type Props = {
   galleryCount?: number;
   canPublish: boolean;
   allowExternalTickets: boolean;
-  /** Suffix per event type, e.g. " (2 credits)", when credits apply. */
+  /** Suffix per event type, e.g. " (2 tegoedpunten)", when credits apply. */
   typeCostLabel?: (type: string) => string;
 };
 

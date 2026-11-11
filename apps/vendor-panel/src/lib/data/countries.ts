@@ -13,7 +13,7 @@ export function getCountryByIso2(
   return countries.find((c) => c.iso_2.toLowerCase() === iso2.toLowerCase())
 }
 
-export const countries: StaticCountry[] = [
+const englishCountries: StaticCountry[] = [
   {
     iso_2: "af",
     iso_3: "afg",
@@ -1765,3 +1765,23 @@ export const countries: StaticCountry[] = [
     display_name: "Åland Islands",
   },
 ]
+
+// Show country names in Dutch, sorted the Dutch way.
+const dutchRegionNames =
+  typeof Intl !== "undefined" && "DisplayNames" in Intl
+    ? new Intl.DisplayNames(["nl"], { type: "region" })
+    : null
+
+export const countries: StaticCountry[] = englishCountries
+  .map((country) => {
+    let dutch: string | undefined
+    try {
+      dutch = dutchRegionNames?.of(country.iso_2.toUpperCase())
+    } catch {
+      dutch = undefined
+    }
+    return dutch && dutch !== country.iso_2.toUpperCase()
+      ? { ...country, display_name: dutch }
+      : country
+  })
+  .sort((a, b) => a.display_name.localeCompare(b.display_name, "nl"))

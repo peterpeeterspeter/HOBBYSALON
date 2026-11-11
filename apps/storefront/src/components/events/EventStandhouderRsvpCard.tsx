@@ -60,7 +60,7 @@ export function EventStandhouderRsvpCard({
             bevestigen.
           </p>
           <Button asChild variant="secondary">
-            <Link href="/dashboard/pagina">Makerprofiel aanmaken</Link>
+            <Link href="/dashboard/pagina">Maker-pagina maken</Link>
           </Button>
         </div>
       ) : !isEligible ? (

@@ -1,60 +1,53 @@
 import { cn } from "@/lib/utils";
 import { Calendar, Clock } from "lucide-react";
-import { formatBrusselsDateTime } from "@/lib/agenda/agenda-helpers";
+import { AGENDA_TIMEZONE } from "@/lib/agenda/agenda-helpers";
 
 type DateDisplayProps = {
   date: string;
+  timeZone?: string;
   format?: "short" | "long" | "relative";
   showIcon?: boolean;
   showTime?: boolean;
   className?: string;
 };
 
-function formatDateShort(iso: string): string {
-  return formatBrusselsDateTime(
-    iso,
-    {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    },
-    "nl-NL"
-  );
+function formatDateShort(iso: string, timeZone?: string): string {
+  return new Intl.DateTimeFormat("nl-NL", {
+    timeZone: timeZone ?? AGENDA_TIMEZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(iso));
 }
 
-function formatDateLong(iso: string): string {
-  return formatBrusselsDateTime(
-    iso,
-    {
-      weekday: "short",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    },
-    "nl-NL"
-  );
+function formatDateLong(iso: string, timeZone?: string): string {
+  return new Intl.DateTimeFormat("nl-NL", {
+    timeZone: timeZone ?? AGENDA_TIMEZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(iso));
 }
 
-function formatTime(iso: string): string {
-  return formatBrusselsDateTime(
-    iso,
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-    "nl-NL"
-  );
+function formatTime(iso: string, timeZone?: string): string {
+  return new Intl.DateTimeFormat("nl-NL", {
+    timeZone: timeZone ?? AGENDA_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
 }
 
 function DateDisplay({
   date,
+  timeZone,
   format = "long",
   showIcon = false,
   showTime = false,
   className,
 }: DateDisplayProps) {
-  const formatted = format === "short" ? formatDateShort(date) : formatDateLong(date);
-  const time = showTime ? formatTime(date) : null;
+  const formatted = format === "short" ? formatDateShort(date, timeZone) : formatDateLong(date, timeZone);
+  const time = showTime ? formatTime(date, timeZone) : null;
 
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-sm text-[var(--muted)]", className)}>

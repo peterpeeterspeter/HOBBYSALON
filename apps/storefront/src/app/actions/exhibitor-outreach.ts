@@ -44,7 +44,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
 
     const creator = await getCreatorByUserId(user.id);
     if (!creator) {
-      fail(returnPath, "Maak eerst een creator-profiel aan.");
+      fail(returnPath, "Maak eerst je maker-pagina aan.");
     }
 
     const eventId = formData.get("event_id")?.toString()?.trim();
@@ -71,7 +71,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
       if (balance < cost) {
         fail(
           returnPath,
-          `Onvoldoende credits. Een oproep kost ${cost} credits, je hebt er ${balance}.`
+          `Onvoldoende tegoed. Een oproep kost ${cost} tegoedpunten, je hebt er ${balance}.`
         );
       }
     }
@@ -115,7 +115,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
     if (sentCount === 0) {
       fail(
         returnPath,
-        "Er kon geen enkele oproep verstuurd worden. Er zijn geen credits aangerekend."
+        "Er kon geen enkele oproep verstuurd worden. Er is geen tegoed aangerekend."
       );
     }
 
@@ -129,7 +129,7 @@ export async function sendExhibitorOutreachAction(formData: FormData): Promise<v
         { recipient_count: sentCount }
       );
       if (!result.ok) {
-        fail(returnPath, result.error ?? "Credits verbruiken mislukt.");
+        fail(returnPath, result.error ?? "Tegoed gebruiken mislukt.");
       }
       creditsSpent = cost;
     }

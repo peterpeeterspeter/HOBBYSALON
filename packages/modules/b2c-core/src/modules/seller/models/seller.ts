@@ -5,6 +5,8 @@ import { MemberInvite } from "./invite";
 import { Member } from "./member";
 import { SellerOnboarding } from "./onboarding";
 
+import { SellerShippingPolicy } from "./shipping-policy";
+
 export const Seller = model.define("seller", {
   id: model.id({ prefix: "sel" }).primaryKey(),
   store_status: model.enum(StoreStatus).default(StoreStatus.ACTIVE),
@@ -21,6 +23,7 @@ export const Seller = model.define("seller", {
   postal_code: model.text().nullable(),
   country_code: model.text().nullable(),
   tax_id: model.text().nullable(),
+  shipping_policies: model.hasMany(() => SellerShippingPolicy, { mappedBy: "seller" }),
   members: model.hasMany(() => Member),
   invites: model.hasMany(() => MemberInvite),
   onboarding: model.hasOne(() => SellerOnboarding).nullable(),

@@ -4,18 +4,18 @@ import { CreateCampaignSchema } from "../../../../campaigns/campaign-create/comp
 const RuleSchema = z.array(
   z.object({
     id: z.string().optional(),
-    attribute: z.string().min(1, { message: "Required field" }),
+    attribute: z.string().min(1, { message: "Verplicht veld" }),
     operator: z.preprocess(
       (val) => (val === "" ? undefined : val),
       z.enum(["gt", "lt", "eq", "ne", "in", "lte", "gte"], {
-        required_error: "Required field",
-        invalid_type_error: "Required field",
+        required_error: "Verplicht veld",
+        invalid_type_error: "Verplicht veld",
       })
     ),
     values: z.union([
-      z.number().min(1, { message: "Required field" }),
-      z.string().min(1, { message: "Required field" }),
-      z.array(z.string()).min(1, { message: "Required field" }),
+      z.number().min(1, { message: "Verplicht veld" }),
+      z.string().min(1, { message: "Verplicht veld" }),
+      z.array(z.string()).min(1, { message: "Verplicht veld" }),
     ]),
     required: z.boolean().optional(),
     disguised: z.boolean().optional(),

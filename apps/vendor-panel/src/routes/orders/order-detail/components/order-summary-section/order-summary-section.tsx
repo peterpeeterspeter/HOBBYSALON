@@ -188,11 +188,11 @@ export const OrderSummarySection = ({
                   {
                     actions: receivableReturns?.map((r) => {
                       let id = r.id
-                      let returnType = "Return"
+                      let returnType = "Retour"
 
                       if (r.exchange_id) {
                         id = r.exchange_id
-                        returnType = "Exchange"
+                        returnType = "Omruiling"
                       }
 
                       if (r.claim_id) {
@@ -611,7 +611,7 @@ const CostBreakdown = ({
       </>
       {commission && (
         <Cost
-          label={"Commission"}
+          label={"Commissie"}
           value={getLocaleAmount(
             parseFloat(commission.commission_value.amount),
             commission.commission_value.currency_code

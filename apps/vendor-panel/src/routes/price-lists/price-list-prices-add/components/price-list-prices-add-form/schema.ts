@@ -65,7 +65,7 @@ export const PriceListPricesAddSchema = PriceListPricesAddBaseSchema.refine(
     return false;
   },
   {
-    message: 'At least one price must be added.',
+    message: 'Voeg minstens één prijs toe.',
     path: ['products']
   }
 );

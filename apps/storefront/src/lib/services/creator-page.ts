@@ -31,6 +31,7 @@ import type {
 } from "@/types/platform";
 
 export type ProductWithPrice = Product & {
+  /** Price in cents. */
   price?: { amount: number; currency_code: string } | null;
 };
 
@@ -110,12 +111,16 @@ export async function getCreatorPageData(slug: string): Promise<CreatorPageData>
     products.map(async (p) => {
       if (p.medusa_product_id) {
         const medusa = await getMedusaProduct(p.medusa_product_id);
-        const price = medusa?.calculated_price
-          ? {
-              amount: medusa.calculated_price.calculated_amount,
-              currency_code: medusa.calculated_price.currency_code,
-            }
-          : null;
+        // Medusa amounts are in major units (12.5 = EUR 12,50). Store cents,
+        // like price_cents below, so cards can use one formatter.
+        const amount = medusa?.calculated_price?.calculated_amount;
+        const price =
+          typeof amount === "number" && Number.isFinite(amount)
+            ? {
+                amount: Math.round(amount * 100),
+                currency_code: medusa!.calculated_price!.currency_code,
+              }
+            : null;
         return { ...p, price };
       }
       if (typeof p.price_cents === "number") {

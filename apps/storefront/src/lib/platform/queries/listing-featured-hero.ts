@@ -1,3 +1,4 @@
+import { eventDisplayTimeZone } from "@/lib/agenda/event-presentation";
 import { publicAssetUrl } from "@/lib/media/public-asset-url";
 import {
   formatHeroDate,
@@ -96,7 +97,7 @@ export async function pickEventListingHero(): Promise<FeaturedListingItem | null
       href: `/agenda/${event.slug}`,
       imageUrl,
       title: event.title,
-      meta: joinHeroMeta([formatHeroDate(event.starts_at), place, price]),
+      meta: joinHeroMeta([formatHeroDate(event.starts_at, eventDisplayTimeZone(event.id)), place, price]),
       ctaLabel: "Bekijk event",
       kicker: "Event in de kijker",
       featured: event.is_featured,

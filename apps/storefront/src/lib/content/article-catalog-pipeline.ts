@@ -2,7 +2,7 @@ import { matchArticleCatalog, type CatalogCandidate } from "./article-catalog-ma
 import { isWorkshopListingPubliclyVisible } from "../pricing/workshop-launch-offer";
 
 export type CatalogReadRequest = {
-  table: "products" | "workshops" | "events" | "event_domains" | "entity_links" | "articles";
+  table: "products" | "workshops" | "events" | "event_domains" | "entity_links" | "articles" | "graph_article_reviews";
   columns: string;
   equals?: Record<string, string | boolean>;
   order: string[];
@@ -18,8 +18,30 @@ export type CatalogArticle = {
   excerpt?: string | null;
   body_markdown?: string | null;
   domain_id: string | null;
+  is_published?: boolean;
 };
-type Options = { pageSize?: number; now?: Date };
+type Options = { pageSize?: number; now?: Date; includeReviews?: boolean };
+
+export type SidecarMatchEvidence = {
+  dataset_version: string;
+  source_sha256: string;
+  content_kind: string;
+  automatic_publication_allowed: false;
+  requirements: { label: string; role: string; specifications: string | null; project_labels: string[]; evidence: string }[];
+  catalog?: {
+    snapshot_sha256: string; semantic_product_kind: string; unknowns: string[];
+    candidate_need?: string; never_claim?: string;
+  };
+};
+export type ArticleSuggestionOptions = {
+  materialTitles: string[];
+  sidecarEvidence: SidecarMatchEvidence;
+};
+export type ArticleSuggestionPlan = {
+  state: string;
+  suggestions: ReturnType<typeof planArticleSuggestions>;
+};
+export type ArticleSuggestionPlanner = (article: CatalogArticle, candidates: CatalogCandidate[], existingKeys: ReadonlySet<string>) => ArticleSuggestionPlan | Promise<ArticleSuggestionPlan>;
 
 async function readAll(read: CatalogRead, request: Omit<CatalogReadRequest, "offset" | "limit">,
   pageSize = 200, maxRows?: number): Promise<CatalogRow[]> {
@@ -87,23 +109,34 @@ export async function loadArticleExistingKeys(read: CatalogRead, articleId: stri
       if (["product","workshop","event"].includes(type) && id) keys.add(`${type}:${id}`);
     }
   }
+  if (options.includeReviews) {
+    const reviews = await readAll(read, {table:"graph_article_reviews",
+      columns:"target_entity_type,target_entity_id,state",equals:{article_id:articleId},
+      order:["target_entity_type","target_entity_id"]},options.pageSize);
+    for (const row of reviews) {
+      const type = str(row.target_entity_type); const id = str(row.target_entity_id);
+      if (["product","workshop","event"].includes(type) && id) keys.add(`${type}:${id}`);
+    }
+  }
   return keys;
 }
 
-export function planArticleSuggestions(article: CatalogArticle, candidates: CatalogCandidate[], existingKeys: ReadonlySet<string>) {
+export function planArticleSuggestions(article: CatalogArticle, candidates: CatalogCandidate[], existingKeys: ReadonlySet<string>, options?: ArticleSuggestionOptions) {
   return matchArticleCatalog({title:article.title,excerpt:article.excerpt,bodyMarkdown:article.body_markdown,
-    domainId:article.domain_id,materialTitles:[]},candidates,existingKeys).map((match,index)=>({
+    domainId:article.domain_id,materialTitles:options?.materialTitles ?? [],
+    ...(options ? {materialMode:"explicit" as const} : {})},candidates,existingKeys).map((match,index)=>({
       row:{source_entity_type:"article" as const,source_entity_id:article.id,
         target_entity_type:match.candidate.targetType,target_entity_id:match.candidate.targetId,
         relation_type:"suggested_auto" as const,weight:Math.max(1,Math.min(match.score,100)),sort_order:index+1},
       score:match.score,evidence:match.evidence,compatibility:match.compatibility,
       proposedRelation:match.proposedRelation,targetTitle:match.candidate.title,
+      ...(options ? {sidecarEvidence:options.sidecarEvidence} : {}),
   }));
 }
 
 export async function loadCatalogArticles(read: CatalogRead, options: {authorCreatorId?: string; limit?: number} = {}): Promise<CatalogArticle[]> {
-  const rows = await readAll(read,{table:"articles",columns:"id,title,excerpt,body_markdown,domain_id",
+  const rows = await readAll(read,{table:"articles",columns:"id,title,excerpt,body_markdown,domain_id,is_published",
     equals:{is_published:true,...(options.authorCreatorId ? {author_creator_id:options.authorCreatorId} : {})},order:["id"]},200,options.limit);
   return rows.slice(0,options.limit ?? rows.length).map(row=>({id:str(row.id),title:str(row.title),
-    excerpt:optional(row.excerpt),body_markdown:optional(row.body_markdown),domain_id:optional(row.domain_id)}));
+    excerpt:optional(row.excerpt),body_markdown:optional(row.body_markdown),domain_id:optional(row.domain_id),is_published:row.is_published === true}));
 }

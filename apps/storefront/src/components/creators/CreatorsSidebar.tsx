@@ -42,14 +42,14 @@ export function CreatorsSidebar({ domains, params }: CreatorsSidebarProps) {
           />
         </FilterBlock>
 
-        <FilterBlock title="Domein">
+        <FilterBlock title="Hobby">
           <Select
             id="domain"
             name="domain"
-            placeholder="Alle domeinen"
+            placeholder="Alle hobby's"
             options={domains.map((d) => ({ value: d.id, label: d.name }))}
             defaultValue={params.domain ?? ""}
-            aria-label="Domein"
+            aria-label="Hobby"
           />
         </FilterBlock>
 

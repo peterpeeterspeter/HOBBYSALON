@@ -87,7 +87,7 @@ export function ProductPurchaseControls({
   return (
     <div className={className}>
       {displayPrice && (
-        <div className="mb-4">
+        <div className="mb-6">
           <PriceDisplay
             amount={displayPrice.amount}
             currencyCode={displayPrice.currency_code}
@@ -97,18 +97,18 @@ export function ProductPurchaseControls({
       )}
 
       {variants.length > 1 && (
-        <div className="mb-4">
+        <div className="mb-6">
           <label
             htmlFor="variant"
-            className="mb-1 block text-sm font-medium text-[var(--muted)]"
+            className="mb-2 block text-base font-semibold text-[var(--foreground)]"
           >
-            Variant
+            Kies je variant
           </label>
           <select
             id="variant"
             value={selectedVariantId}
             onChange={(event) => setSelectedVariantId(event.target.value)}
-            className="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-base text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           >
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>
@@ -117,14 +117,14 @@ export function ProductPurchaseControls({
             ))}
           </select>
           {selectedVariant?.title && (
-            <p className="mt-1 text-xs text-[var(--muted)]">
+            <p className="mt-2 text-sm text-[var(--muted)]">
               Geselecteerd: {selectedVariant.title}
             </p>
           )}
         </div>
       )}
 
-      <AddToCartButton variantId={selectedVariantId} className="w-fit" />
+      <AddToCartButton variantId={selectedVariantId} className="w-full text-lg" />
     </div>
   );
 }

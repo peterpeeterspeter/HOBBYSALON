@@ -1,3 +1,5 @@
+import { cartShippingSummary, refreshShippingQuote } from "@/lib/commerce/medusa/shipping";
+import { ShippingProgress } from "@/components/cart/ShippingProgress";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -86,7 +88,8 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
     redirect("/cart");
   }
 
-  const [cart, viewer] = await Promise.all([getCartForCheckout(cartId), getAuthUser()]);
+  await refreshShippingQuote(cartId);
+  const [shipping, cart, viewer] = await Promise.all([cartShippingSummary(cartId), getCartForCheckout(cartId), getAuthUser()]);
 
   if (!cart || !cart.items?.length) {
     redirect("/cart");
@@ -133,6 +136,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
 
   return (
     <PageLayout title="Afrekenen" description="Rond je bestelling rustig stap voor stap af." size="narrow">
+      {shipping && <ShippingProgress summaries={shipping.shipping_summary} frozen={shipping.payment_frozen} />}
       <TrackOnMount
         event="checkout_started"
         payload={{
@@ -198,7 +202,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         {hasShipping && (
           <div className="flex justify-between text-sm">
             <span className="text-[var(--muted)]">Verzending</span>
-            <PriceDisplay amount={shippingTotalCents} currencyCode={currencyCode} size="sm" />
+            {hasShipping && shippingTotalCents === 0 ? <span>Gratis</span> : <PriceDisplay amount={shippingTotalCents} currencyCode={currencyCode} size="sm" />}
           </div>
         )}
         {hasShipping && (

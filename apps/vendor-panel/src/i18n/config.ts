@@ -11,6 +11,8 @@ export const defaultI18nOptions: InitOptions = {
     // Hobbysalon is Dutch-first: ignore the browser header, default to nl.
     order: ["cookie", "localStorage"],
   },
+  // Dutch only: an old "lng" cookie must not switch the portal to English.
+  lng: "nl",
   fallbackLng: "nl",
   interpolation: {
     escapeValue: false,

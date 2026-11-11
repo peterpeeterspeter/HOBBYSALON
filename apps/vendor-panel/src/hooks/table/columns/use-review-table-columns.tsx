@@ -37,11 +37,11 @@ export const useReviewTableColumns = () => {
         cell: ({ getValue }) => <StarsCell rating={getValue()} />,
       }),
       columnHelper.accessor("customer_note", {
-        header: () => <TextHeader text="Review" />,
+        header: () => <TextHeader text="Beoordeling" />,
         cell: ({ getValue }) => <TextCell text={getValue()} />,
       }),
       columnHelper.accessor("created_at", {
-        header: () => <TextHeader text="Added" />,
+        header: () => <TextHeader text="Toegevoegd" />,
         cell: ({ getValue }) => <FirstSeenCell createdAt={getValue()} />,
       }),
       columnHelper.accessor("seller_note", {

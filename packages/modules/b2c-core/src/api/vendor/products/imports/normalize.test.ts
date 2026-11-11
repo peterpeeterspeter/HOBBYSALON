@@ -85,6 +85,18 @@ merinogaren-50g,,,,Groen,MER-G,5.25,`
     expect(r.unmapped_count).toBe(1)
   })
 
+  it('puts a mapped material category (UUID) in metadata, not in Medusa categories', () => {
+    const materialId = '7d3c1f9e-2b4a-4c6d-8e0f-1a2b3c4d5e6f'
+    const r = normalizeProductList({
+      fileContent: `title,price,category\nMerinowol,4.95,Garen > Wol`,
+      mapping: { title: 'title', price_amount: 'price', source_category: 'category' },
+      sourceCategoryDomainMap: { 'garen > wol': materialId },
+    })
+    expect(r.errors).toEqual([])
+    expect(r.products[0].product.categories).toBeUndefined()
+    expect(r.products[0].product.metadata).toEqual({ platform_category_id: materialId })
+  })
+
   it('reads Dutch Excel (; and € / thousand separators) without a delimiter hint', () => {
     const csv = `Artikel;Omschrijving;Prijs
 Borduurring 20cm;Bamboe ring;€ 6,95

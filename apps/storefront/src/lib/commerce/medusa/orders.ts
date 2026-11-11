@@ -15,6 +15,13 @@ function getAdminToken(): string | null {
   return process.env.MEDUSA_ADMIN_API_TOKEN?.trim() || null;
 }
 
+// Medusa secret API keys use Basic authentication; user JWTs use Bearer.
+function adminAuthorization(token: string): string {
+  return token.startsWith("sk_")
+    ? `Basic ${Buffer.from(`${token}:`).toString("base64")}`
+    : `Bearer ${token}`;
+}
+
 export type BuyerOrderSummary = {
   id: string;
   display_id?: string | number | null;
@@ -104,7 +111,7 @@ async function fetchAdminOrderSets(): Promise<AdminOrderSet[]> {
 
   const response = await fetch(`${getBackendUrl()}/admin/order-sets?limit=50`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: adminAuthorization(token),
       "Content-Type": "application/json",
     },
     cache: "no-store",
@@ -121,7 +128,7 @@ async function fetchAdminOrderSet(id: string): Promise<AdminOrderSet | null> {
 
   const response = await fetch(`${getBackendUrl()}/admin/order-sets/${id}`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: adminAuthorization(token),
       "Content-Type": "application/json",
     },
     cache: "no-store",

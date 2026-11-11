@@ -25,7 +25,7 @@ function SubmitButton() {
       disabled={pending}
       className="min-h-12 w-full rounded-xl bg-[var(--accent)] px-5 py-3 text-base font-semibold text-[var(--accent-foreground)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
     >
-      {pending ? "Merchant-profiel activeren..." : "Merchant-profiel activeren"}
+      {pending ? "Verkopersprofiel activeren..." : "Verkopersprofiel activeren"}
     </button>
   );
 }

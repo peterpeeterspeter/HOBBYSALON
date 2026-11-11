@@ -1,3 +1,4 @@
+import { eventDisplayTimeZone } from "@/lib/agenda/event-presentation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { CardShell } from "@/components/ui/card-shell";
@@ -13,7 +14,7 @@ type EventCardProps = {
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  handmade_market: "Handmade markt",
+  handmade_market: "Ambachtelijke markt",
   hobby_fair: "Hobbybeurs",
   pop_up: "Pop-up",
   open_atelier: "Open atelier",
@@ -40,7 +41,7 @@ function EventCard({ event, className }: EventCardProps) {
         <h3 className="mt-3 text-lg font-semibold leading-snug text-[var(--foreground)] line-clamp-2">
           {event.title}
         </h3>
-        <DateDisplay date={event.starts_at} format="long" className="mt-1" />
+        <DateDisplay timeZone={eventDisplayTimeZone(event.id)} date={event.starts_at} format="long" className="mt-1" />
         {event.short_description && (
           <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">
             {event.short_description}

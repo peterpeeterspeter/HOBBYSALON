@@ -258,7 +258,7 @@ const ClearAllFilters = ({ filters, prefix }: ClearAllFiltersProps) => {
         "focus-visible:shadow-borders-focus"
       )}
     >
-      Clear all
+      Alles wissen
     </button>
   )
 }

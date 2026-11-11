@@ -174,6 +174,38 @@ export async function registerEmailUser(
   };
 }
 
+/** Social login providers enabled in Supabase Auth. */
+export type OAuthProvider = "facebook";
+
+/** Facebook login shows only when the provider is configured in Supabase. */
+export function isFacebookLoginEnabled(): boolean {
+  return process.env.FACEBOOK_LOGIN_ENABLED === "true";
+}
+
+/**
+ * Returns the provider sign-in URL. The provider sends the user back to
+ * /auth/confirm with the session tokens in the URL fragment (implicit flow),
+ * which the confirm page already handles. The next path travels in the
+ * httpOnly next cookie, like email confirmation.
+ */
+export async function getOAuthSignInUrl(
+  provider: OAuthProvider,
+  nextPath?: string | null
+): Promise<{ url: string | null; error: string | null }> {
+  const supabase = getSupabaseAuthClient();
+  await persistAuthNextPath(nextPath);
+  const redirectTo = await buildAuthConfirmUrl();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo,
+      scopes: "email public_profile",
+      skipBrowserRedirect: true,
+    },
+  });
+  return { url: data?.url ?? null, error: error?.message ?? null };
+}
+
 /** Apply the same-origin redirect policy while preserving the no-leading-space contract. */
 export function sanitizeAuthNextPath(nextPath?: string | null): string | null {
   return sanitizeInternalRedirect(nextPath, { trim: false });

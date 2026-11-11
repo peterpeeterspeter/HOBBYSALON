@@ -4,14 +4,16 @@ import {
 } from "@/components/shared/ListingHeroBand";
 import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import { Container } from "@/components/ui/container";
-import { ContentHubBrowser, type ContentHubItem } from "@/components/content/ContentHubBrowser";
-import { EmptyState } from "@/components/ui/empty-state";
+import { ArticleHub } from "@/components/content/ArticleHub";
+import { HubAlsoFound } from "@/components/content/HubAlsoFound";
 import { buildContentHubItems } from "@/lib/content/build-content-hub-items";
-import {
-  listArticleDomainLinks,
-  listPublishedContentArticles,
-} from "@/lib/platform/queries/articles";
+import { listArticleDomainLinks } from "@/lib/platform/queries/articles";
 import { listActiveDomains } from "@/lib/platform/queries/domains";
+import {
+  listArticleFacetCounts,
+  listArticleHub,
+  parseHubFilters,
+} from "@/lib/platform/queries/article-hub";
 import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
@@ -22,13 +24,20 @@ export const metadata: Metadata = buildPageMetadata({
   path: "/artikelen",
 });
 
-export default async function ArticlesHubPage() {
-  const [articles, domains] = await Promise.all([
-    listPublishedContentArticles(96),
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ArticlesHubPage({ searchParams }: Props) {
+  const filters = parseHubFilters(await searchParams);
+  const [{ articles, total }, facets, domains] = await Promise.all([
+    listArticleHub(false, filters),
+    listArticleFacetCounts(false, filters),
     listActiveDomains(),
   ]);
   const links = await listArticleDomainLinks(articles.map((article) => article.id));
-  const items: ContentHubItem[] = buildContentHubItems(articles, domains, links);
+  const items = buildContentHubItems(articles, domains, links);
+  const results = items.map((item) => ({ article: item.article, domainName: item.domainName }));
 
   return (
     <>
@@ -59,16 +68,16 @@ export default async function ArticlesHubPage() {
         }
       />
 
-      <Container size="wide" className="pt-8 sm:pt-10">
-        {items.length === 0 ? (
-          <EmptyState
-            title="Nog geen artikelen toegevoegd"
-            description="Nieuwe gidsen en tutorials verschijnen hier binnenkort."
-            action={{ label: "Naar home", href: "/" }}
-          />
-        ) : (
-          <ContentHubBrowser items={items} kind="articles" />
-        )}
+      <Container size="wide" className="pt-12 sm:pt-16">
+        <ArticleHub
+          kind="articles"
+          basePath="/artikelen"
+          filters={filters}
+          results={results}
+          total={total}
+          facets={facets}
+          afterSearch={<HubAlsoFound query={filters.q} />}
+        />
       </Container>
     </>
   );

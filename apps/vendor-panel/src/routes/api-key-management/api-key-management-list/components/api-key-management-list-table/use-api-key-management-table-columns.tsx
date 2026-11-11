@@ -23,7 +23,7 @@ export const useApiKeyManagementTableColumns = () => {
         ),
       }),
       columnHelper.accessor("redacted", {
-        header: "Token",
+        header: "Sleutel",
         cell: ({ getValue }) => {
           const token = getValue()
           return <Badge size="2xsmall">{prettifyRedactedToken(token)}</Badge>

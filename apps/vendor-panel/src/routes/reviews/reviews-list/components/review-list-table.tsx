@@ -66,9 +66,9 @@ export const ReviewListTable = () => {
     <Container className="divide-y p-0">
       <div className="flex items-center justify-between px-6 py-4">
         <div>
-          <Heading>Reviews</Heading>
+          <Heading>Beoordelingen</Heading>
           <Text className="text-ui-fg-subtle" size="small">
-            Manage your reviews
+            Lees en beantwoord beoordelingen van klanten
           </Text>
         </div>
         <div>
@@ -97,7 +97,7 @@ export const ReviewListTable = () => {
         // search
         queryObject={raw}
         noRecords={{
-          message: "Your reviews will show up here.",
+          message: "Hier verschijnen de beoordelingen van je klanten.",
         }}
       />
     </Container>

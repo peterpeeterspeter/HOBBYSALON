@@ -1,3 +1,4 @@
+import { formatEventDateParts, eventPriceLabel } from "@/lib/agenda/event-presentation";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Clock, MapPin, Tag } from "lucide-react";
@@ -24,7 +25,7 @@ import type { Creator, Product } from "@/types/platform";
 type Props = { params: Promise<{ slug: string }> };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  handmade_market: "Handmade markt",
+  handmade_market: "Ambachtelijke markt",
   hobby_fair: "Hobbybeurs",
   pop_up: "Pop-up",
   open_atelier: "Open atelier",
@@ -35,7 +36,7 @@ const CREATOR_TYPE_LABELS: Record<string, string> = {
   maker: "Maker",
   workshopgever: "Workshopgever",
   supplier: "Leverancier",
-  content_creator: "Content maker",
+  content_creator: "Contentmaker",
   organizer: "Organisator",
 };
 
@@ -56,31 +57,6 @@ function creatorCategoryLabel(creator: Creator, role?: string | null): string {
 
 function productImageUrl(product: Product): string | null {
   return product.featured_image_url?.trim() || null;
-}
-
-const dateFmt = new Intl.DateTimeFormat("nl-NL", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const dayMonthFmt = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long" });
-const timeFmt = new Intl.DateTimeFormat("nl-NL", { hour: "2-digit", minute: "2-digit" });
-
-function formatDateParts(startsAt: string, endsAt: string) {
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  const sameDay = start.toDateString() === end.toDateString();
-  const sameYear = start.getFullYear() === end.getFullYear();
-
-  const dateLabel = sameDay
-    ? dateFmt.format(start)
-    : `${sameYear ? dayMonthFmt.format(start) : dateFmt.format(start)} – ${dateFmt.format(end)}`;
-
-  return {
-    dateLabel,
-    timeLabel: `${timeFmt.format(start)} – ${timeFmt.format(end)}`,
-    isMultiDay: !sameDay,
-  };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -141,15 +117,13 @@ export default async function EventPage({ params }: Props) {
       : false;
 
   const typeLabel = EVENT_TYPE_LABELS[event.event_type] ?? event.event_type;
-  const { dateLabel, timeLabel, isMultiDay } = formatDateParts(
+  const { dateLabel, timeLabel, isMultiDay } = formatEventDateParts(
+    event.id,
     event.starts_at,
     event.ends_at
   );
   const locationLabel = event.location_name ?? event.city ?? null;
-  const isFree = event.ticket_price_cents == null || event.ticket_price_cents <= 0;
-  const priceLabel = isFree
-    ? "Gratis toegang"
-    : `€${((event.ticket_price_cents as number) / 100).toFixed(2)}`;
+  const priceLabel = eventPriceLabel(event.ticket_price_cents);
 
   const eventJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",

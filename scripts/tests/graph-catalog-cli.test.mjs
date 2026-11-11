@@ -9,15 +9,18 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const script=path.join(root,'apps/storefront/scripts/auto-link-articles.ts');
 const resolver=path.join(root,'apps/storefront/scripts/test-resolver-register.mjs');
+import {sidecarFixture} from './graph-sidecar-fixture.mjs';
 const article={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',title:'Mandje haken',excerpt:null,body_markdown:'## Materialen\n- Haaknaald 6 mm',domain_id:'d',is_published:true,author_creator_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'};
 const product={id:'p',title:'Haaknaald 6 mm',product_type:'supply',status:'active',is_active:true,domain_id:'d'};
 async function fixture(fn,options={}) {
+  const sidecar=sidecarFixture([article]);
   const calls=[];const dir=await mkdtemp(path.join(tmpdir(),'graph-catalog-cli-'));
   const server=createServer((req,res)=>{
     calls.push({method:req.method,url:req.url,key:req.headers.apikey});
     const url=new URL(req.url,'http://localhost');const table=url.pathname.split('/').at(-1);
     if(options.fail===table){res.writeHead(403,{'Content-Type':'application/json'});res.end(JSON.stringify({message:'sensitive provider response'}));return;}
-    const tables={articles:[article],products:[product,{...product,id:'irrelevant',title:'Schildersezel'}],workshops:[],events:[],event_domains:[],entity_links:[],...options.tables};
+    if(url.pathname.startsWith('/storage/v1/object/')){const bytes=sidecar.files.get(url.pathname.split('v1-2026-10-26/')[1]);res.writeHead(bytes?200:404,{'Content-Type':'application/octet-stream'});res.end(bytes);return;}
+    const tables={articles:[article],products:[product,{...product,id:'irrelevant',title:'Schildersezel'}],workshops:[],events:[],event_domains:[],entity_links:[],graph_article_reviews:[],...options.tables};
     let rows=tables[table]??[];
     for(const [key,value] of url.searchParams)if(value.startsWith('eq.'))rows=rows.filter(row=>String(row[key])===value.slice(3));
     const start=Number(url.searchParams.get('offset')??0),limit=Number(url.searchParams.get('limit')??200);
@@ -33,7 +36,9 @@ async function fixture(fn,options={}) {
     const env={PATH:process.env.PATH,HOME:dir};
     const pkg=JSON.parse(await readFile(path.join(root,'apps/storefront/package.json'),'utf8'));
     const launch=packageCommand ? pkg.scripts['auto-link:articles'].split(' ').slice(1).map(arg=>arg==='scripts/auto-link-articles.ts'?script:arg.startsWith('./scripts/')?path.join(root,'apps/storefront',arg):arg) : ['--experimental-strip-types','--import',resolver,script];
-    const child=spawn(process.execPath,[...launch,'--env-file',envPath,...args],{cwd:dir,env});
+    assert.ok(launch.includes(script));
+    const code=`import {main} from ${JSON.stringify(new URL('file://'+script).href)};await main(${JSON.stringify(['--env-file',envPath,...args])},${JSON.stringify(sidecar.manifestSha256)});`;
+    const child=spawn(process.execPath,['--experimental-strip-types','--import',resolver,'--input-type=module','-e',code],{cwd:dir,env});
     let stdout='',stderr='';child.stdout.on('data',data=>stdout+=data);child.stderr.on('data',data=>stderr+=data);
     child.once('error',reject);child.once('exit',code=>resolve({code,stdout,stderr}));
     } catch(error) { reject(error); }

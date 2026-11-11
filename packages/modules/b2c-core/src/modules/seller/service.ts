@@ -1,3 +1,4 @@
+import { SellerShippingPolicy } from "./models/shipping-policy";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 import { ConfigModule } from "@medusajs/framework";
@@ -25,6 +26,7 @@ type SellerModuleConfig = {
 const DEFAULT_VALID_INVITE_DURATION = 1000 * 60 * 60 * 24 * 7;
 
 class SellerModuleService extends MedusaService({
+  SellerShippingPolicy,
   MemberInvite,
   Member,
   Seller,

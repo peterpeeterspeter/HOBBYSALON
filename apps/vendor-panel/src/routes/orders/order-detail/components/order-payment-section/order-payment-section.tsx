@@ -72,7 +72,7 @@ const Total = ({ order }: { order: ExtendedAdminOrder }) => {
         order.split_order_payment.status === "partially_refunded") && (
         <div className="flex items-center justify-between px-6 py-4">
           <Text size="small" weight="plus" leading="compact">
-            Refunded
+            Terugbetaald
           </Text>
 
           <Text size="small" weight="plus" leading="compact">
@@ -87,7 +87,7 @@ const Total = ({ order }: { order: ExtendedAdminOrder }) => {
       {order.status !== "canceled" && totalPending > 0 && (
         <div className="flex items-center justify-between px-6 py-4">
           <Text size="small" weight="plus" leading="compact">
-            Total pending
+            Nog te betalen
           </Text>
 
           <Text size="small" weight="plus" leading="compact">
