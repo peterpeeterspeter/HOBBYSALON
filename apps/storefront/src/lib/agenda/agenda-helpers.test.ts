@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  dateTimeLocalToUtcIso,
   eventOverlapsRange,
   formatAgendaPlaceLabel,
+  formatBrusselsDateTime,
   groupEventsByAgendaBucket,
   isUpcomingOrOngoingToday,
   resolveAgendaCustomRange,
@@ -10,8 +12,41 @@ import {
   sanitizeAgendaSearchQuery,
   startsOnOrAfterToday,
   startsWithinRange,
+  utcIsoToDateTimeLocal,
   zonedDateTimeToUtcIso,
-} from "./agenda-helpers";
+} from "./agenda-helpers.ts";
+
+test("dateTimeLocalToUtcIso treats wall clock as Europe/Brussels (winter CET)", () => {
+  // 2027-11-07 is CET (UTC+1): 10:00 Brussels → 09:00Z
+  assert.equal(
+    dateTimeLocalToUtcIso("2027-11-07T10:00"),
+    zonedDateTimeToUtcIso(2027, 11, 7, 10, 0, 0)
+  );
+  assert.equal(dateTimeLocalToUtcIso("2027-11-07T10:00"), "2027-11-07T09:00:00.000Z");
+});
+
+test("dateTimeLocalToUtcIso handles summer CEST", () => {
+  // 2027-07-07 is CEST (UTC+2): 10:00 Brussels → 08:00Z
+  assert.equal(dateTimeLocalToUtcIso("2027-07-07T10:00"), "2027-07-07T08:00:00.000Z");
+});
+
+test("utcIsoToDateTimeLocal round-trips Brussels wall clock", () => {
+  const iso = dateTimeLocalToUtcIso("2027-11-07T10:00");
+  assert.equal(utcIsoToDateTimeLocal(iso), "2027-11-07T10:00");
+});
+
+test("formatBrusselsDateTime pins timezone (does not follow server TZ)", () => {
+  const iso = "2027-11-07T09:00:00.000Z"; // 10:00 Brussels
+  const formatted = formatBrusselsDateTime(iso, {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  assert.match(formatted, /10/);
+});
 
 test("sanitizeAgendaSearchQuery strips PostgREST-breaking punctuation", () => {
   assert.equal(sanitizeAgendaSearchQuery("a"), null);

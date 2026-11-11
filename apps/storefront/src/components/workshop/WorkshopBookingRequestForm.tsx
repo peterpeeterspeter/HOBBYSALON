@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { submitWorkshopBookingRequest } from "@/app/actions/workshop-booking";
+import { formatBrusselsDateTime } from "@/lib/agenda/agenda-helpers";
 import { trackEvent } from "@/lib/analytics/track";
 
 type WorkshopSession = {
@@ -17,10 +18,11 @@ type Props = {
 };
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(iso));
+  return formatBrusselsDateTime(
+    iso,
+    { dateStyle: "medium", timeStyle: "short" },
+    "nl-NL"
+  );
 }
 
 export function WorkshopBookingRequestForm({

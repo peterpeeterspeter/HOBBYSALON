@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { utcIsoToDateTimeLocal } from "@/lib/agenda/agenda-helpers";
 import { cn } from "@/lib/utils";
 
 /**
@@ -203,10 +204,9 @@ export function FormActions({ children }: { children: ReactNode }) {
   );
 }
 
+/** ISO/timestamptz → `datetime-local` value in Europe/Brussels (not the server TZ). */
 export function toDateTimeLocal(value: string): string {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  return utcIsoToDateTimeLocal(value);
 }
 
 export function centsToEuroInput(cents: number | null | undefined): string {

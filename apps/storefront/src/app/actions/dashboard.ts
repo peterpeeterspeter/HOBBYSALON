@@ -40,6 +40,7 @@ import { resolveArticleSuggestionRelation } from "@/lib/content/article-suggesti
 import { loadArticleCatalog, loadArticleExistingKeys, planArticleSuggestions, type CatalogRead, type CatalogRow } from "@/lib/content/article-catalog-pipeline";
 import { toArticleProposalPayload } from "@/lib/content/article-matching-jobs";
 import { creatorMakerProfileUrl } from "@/lib/profile/creator-maker-path";
+import { dateTimeLocalToUtcIso } from "@/lib/agenda/agenda-helpers";
 import { parseSpecialtyTagsInput } from "@/lib/creators/specialty-tags";
 import {
   ROLE_REQUEST_PENDING_MESSAGE,
@@ -125,14 +126,14 @@ function parseRequiredString(formData: FormData, field: string): string {
   return raw;
 }
 
-/** `datetime-local` → ISO UTC for Postgres timestamptz. */
+/** `datetime-local` (Europe/Brussels wall clock) → ISO UTC for Postgres timestamptz. */
 function parseRequiredDateTimeLocal(formData: FormData, field: string): string {
   const raw = parseRequiredString(formData, field);
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) {
+  try {
+    return dateTimeLocalToUtcIso(raw);
+  } catch {
     throw new Error("Ongeldige datum of tijd.");
   }
-  return date.toISOString();
 }
 
 function parseOptionalInt(formData: FormData, field: string): number | null {
@@ -925,7 +926,7 @@ export async function updateCreatorTypesAction(formData: FormData): Promise<void
     revalidatePath(`/creator/${creator.slug}`);
     ok(
       "/dashboard/instellingen",
-      "Je rollen zijn opgeslagen. Nieuwe rollen wachten op goedkeuring."
+      "Je rollen zijn opgeslagen en meteen actief."
     );
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
@@ -2581,8 +2582,8 @@ export async function createEventAction(formData: FormData): Promise<void> {
     const { creator, canPublish } = await getRequiredDraftCreator("organizer");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
-    const startsAt = parseRequiredString(formData, "starts_at");
-    const endsAt = parseRequiredString(formData, "ends_at");
+    const startsAt = parseRequiredDateTimeLocal(formData, "starts_at");
+    const endsAt = parseRequiredDateTimeLocal(formData, "ends_at");
     const ticketingMode = parseRequiredString(formData, "ticketing_mode");
 
     if (!EVENT_TYPES.has(eventType)) {
@@ -2699,8 +2700,8 @@ export async function updateEventAction(formData: FormData): Promise<void> {
     const eventId = parseRequiredString(formData, "id");
     const title = parseRequiredString(formData, "title");
     const eventType = parseRequiredString(formData, "event_type");
-    const startsAt = parseRequiredString(formData, "starts_at");
-    const endsAt = parseRequiredString(formData, "ends_at");
+    const startsAt = parseRequiredDateTimeLocal(formData, "starts_at");
+    const endsAt = parseRequiredDateTimeLocal(formData, "ends_at");
     const ticketingMode = parseRequiredString(formData, "ticketing_mode");
 
     if (!EVENT_TYPES.has(eventType)) {

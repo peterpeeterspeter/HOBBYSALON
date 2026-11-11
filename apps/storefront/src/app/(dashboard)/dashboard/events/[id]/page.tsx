@@ -116,9 +116,8 @@ export default async function EditEventPage({ params, searchParams }: Props) {
       <FlashMessage success={success} error={error} />
 
       {status === "review" ? (
-        <DashboardNotice title="Wacht op goedkeuring" tone="attention">
-          We bekijken je aanvraag als organisator. Tot dan blijft dit event een concept. Je krijgt
-          een e-mail zodra je kan publiceren.
+        <DashboardNotice title="Organisator activeren" tone="attention">
+          Activeer organisator onder Instellingen. Daarna kan je dit evenement publiceren.
         </DashboardNotice>
       ) : isPast ? (
         <DashboardNotice title="Dit event is voorbij">

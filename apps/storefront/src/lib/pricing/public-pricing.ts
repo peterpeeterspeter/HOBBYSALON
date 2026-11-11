@@ -271,7 +271,7 @@ export const PRICING_PAGE_FAQ: PricingFaqItem[] = [
   {
     question: "Wat zijn credits?",
     answer:
-      "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten worden bij de commerciële lancering getoond.",
+      "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. Een makersadvertentie blijft 120 dagen zichtbaar. De pakketten worden bij de commerciële lancering getoond.",
   },
   {
     question: "Kan ik meerdere soorten aanbod publiceren?",
@@ -538,7 +538,7 @@ export const MAKERS_PAGE = {
   },
   credits: {
     title: "Uitbreiden met credits",
-    body: "Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits. Je betaalt per plaatsing, niet per maand: geen abonnement, geen vaste kost, en niets als je even niets te verkopen hebt. Ook het verlengen van een aflopende advertentie gaat met credits. Verleng je niet, dan verdwijnt de advertentie vanzelf en komt de plek weer vrij.",
+    body: "Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits. Je betaalt per plaatsing, niet per maand: geen abonnement, geen vaste kost, en niets als je even niets te verkopen hebt. Elke advertentie blijft 120 dagen zichtbaar. Ook het verlengen van een aflopende advertentie gaat met credits. Verleng je niet, dan verdwijnt de advertentie vanzelf en komt de plek weer vrij.",
     boost:
       "Met extra credits kun je een advertentie boosten. Die verschijnt dan hoger in de overzichten en bij de uitgelichte plaatsingen op relevante pagina's. Handig voor seizoenswerk of een grote destash die snel weg moet.",
     note: "De creditpakketten en tarieven worden bij de commerciële lancering getoond.",
@@ -765,7 +765,7 @@ export const SUPPLIER_PAGE = {
 export const CREDITS_EXPLANATION = {
   title: "Wat zijn credits?",
   paragraphs: [
-    "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten worden bij de commerciële lancering getoond.",
+    "Credits gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. Een makersadvertentie blijft 120 dagen zichtbaar; verlengen kan opnieuw met credits. De pakketten worden bij de commerciële lancering getoond.",
   ],
 };
 
@@ -805,7 +805,7 @@ export const MAKERS_FAQ: PricingFaqItem[] = [
   {
     question: "Hoeveel advertenties kan ik tonen?",
     answer:
-      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits.",
+      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met credits. Elke advertentie blijft 120 dagen zichtbaar; daarna verleng je met credits of verdwijnt ze.",
   },
   {
     question: "Wat kosten credits?",

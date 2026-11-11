@@ -42,12 +42,12 @@ export default async function VerkoperHandoffPage() {
       <CardShell variant="default" padding="lg">
         <h1 className="text-xl font-semibold mb-2">Verkopersportaal</h1>
         <p className="text-sm text-[var(--muted)] mb-4">
-          Je merchant-aanvraag wordt beoordeeld. Zodra die is goedgekeurd, open je
-          hier je winkel op verkoper.hobbysalon.be.
+          Je winkel wordt nog gekoppeld. Ga naar Instellingen en activeer je
+          merchant-profiel opnieuw, of open je winkel via het dashboard.
         </p>
         <p className="text-sm">
-          <Link href="/dashboard/instellingen#aanbieden" className="text-[var(--accent)] underline">
-            Bekijk je rollen in Account
+          <Link href="/register/merchant" className="text-[var(--accent)] underline">
+            Merchant-profiel afronden
           </Link>
         </p>
       </CardShell>

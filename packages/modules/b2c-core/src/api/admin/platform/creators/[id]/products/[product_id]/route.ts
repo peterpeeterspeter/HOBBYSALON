@@ -222,7 +222,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       variantUpdate.prices = [
         {
           currency_code: currencyCode,
-          amount: payload.price_cents,
+          // Medusa v2 stores major units (24.99), platform uses cents.
+          amount: payload.price_cents / 100,
         },
       ]
     }

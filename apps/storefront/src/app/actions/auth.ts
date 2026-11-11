@@ -510,7 +510,7 @@ export async function onboardMerchantForLoggedInUserAction(
     (link) => link.sellerType === "merchant"
   );
 
-  // Already approved: ensure Medusa merchant seller is linked, then hand off.
+  // Already a merchant: ensure Medusa merchant seller is linked, then hand off.
   if (hasMerchantRole) {
     if (!hasMerchantLink) {
       const linkResult = await ensureMerchantSellerLinked({

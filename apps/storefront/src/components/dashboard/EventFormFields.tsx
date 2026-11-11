@@ -9,6 +9,11 @@ import {
   centsToEuroInput,
   toDateTimeLocal,
 } from "@/components/dashboard/form";
+import {
+  AGENDA_TIMEZONE,
+  utcIsoToDateTimeLocal,
+  zonedDateTimeToUtcIso,
+} from "@/lib/agenda/agenda-helpers";
 import type { Event } from "@/types/platform";
 
 export const EVENT_TYPE_OPTIONS = [
@@ -29,18 +34,39 @@ type Props = {
   typeCostLabel?: (type: string) => string;
 };
 
+function defaultInOneWeek(hour: number, minute = 0): string {
+  const now = new Date();
+  const local = new Intl.DateTimeFormat("en-GB", {
+    timeZone: AGENDA_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    local.formatToParts(now).map((p) => [p.type, p.value])
+  );
+  const base = new Date(
+    Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + 7)
+  );
+  return utcIsoToDateTimeLocal(
+    zonedDateTimeToUtcIso(
+      base.getUTCFullYear(),
+      base.getUTCMonth() + 1,
+      base.getUTCDate(),
+      hour,
+      minute,
+      0
+    )
+  );
+}
+
 function defaultStart(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 7);
-  date.setHours(10, 0, 0, 0);
-  return toDateTimeLocal(date.toISOString());
+  return defaultInOneWeek(10);
 }
 
 function defaultEnd(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 7);
-  date.setHours(16, 0, 0, 0);
-  return toDateTimeLocal(date.toISOString());
+  return defaultInOneWeek(16);
 }
 
 /** The three parts of an event: what, when & where, tickets & photos. */
@@ -166,7 +192,7 @@ export function EventFormFields({
           help={
             canPublish
               ? "Laat leeg om eerst als concept te bewaren."
-              : "Je kan pas zichtbaar maken nadat we je account als organisator goedkeuren. Bewaar intussen als concept."
+              : "Activeer eerst organisator onder Instellingen. Bewaar intussen als concept."
           }
         />
       </FormSection>

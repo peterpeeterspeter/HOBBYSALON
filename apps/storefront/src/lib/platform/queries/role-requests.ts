@@ -12,7 +12,6 @@ import {
   provisionMerchantSeller,
 } from "@/lib/commerce/medusa/merchant-registration";
 import { ensureMerchantCreatorProfile } from "@/lib/platform/queries/merchant-creator";
-import { sendRoleRequestAdminEmail } from "@/lib/platform/notifications/role-request-email";
 
 export type PrivilegedRole = Extract<
   UserAccountRole,
@@ -65,28 +64,20 @@ export function isPrivilegedRole(role: string): role is PrivilegedRole {
 
 export { creatorTypeToPrivilegedRole } from "@/lib/auth/role-request-status";
 
-export async function createRoleRequest(
+/**
+ * Grant a privileged role immediately (no admin review).
+ * Merchant also provisions Medusa seller + platform links.
+ */
+export async function activatePrivilegedRoleImmediately(
   userId: string,
   role: PrivilegedRole,
   payload: RoleRequestPayload = {}
-): Promise<{ ok: boolean; requestId: string | null; created: boolean; errors: string[] }> {
+): Promise<{ ok: boolean; message: string }> {
+  if (role === "merchant") {
+    return activateMerchantImmediately(userId, payload);
+  }
+
   const supabase = createPlatformClient();
-
-  const { data: existingPending, error: existingError } = await supabase
-    .from("role_requests")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", role)
-    .eq("status", "pending")
-    .maybeSingle();
-
-  if (existingError) {
-    return { ok: false, requestId: null, created: false, errors: [existingError.message] };
-  }
-
-  if (existingPending?.id) {
-    return { ok: true, requestId: existingPending.id, created: false, errors: [] };
-  }
 
   const { data: alreadyHasRole } = await supabase
     .from("user_account_roles")
@@ -95,43 +86,54 @@ export async function createRoleRequest(
     .eq("role", role)
     .maybeSingle();
 
-  if (alreadyHasRole?.id) {
-    return { ok: true, requestId: null, created: false, errors: [] };
+  if (!alreadyHasRole?.id) {
+    const roleResult = await ensureUserRole(userId, role);
+    if (!roleResult.ok) {
+      return {
+        ok: false,
+        message: roleResult.errors[0] ?? "Rol kon niet worden toegekend.",
+      };
+    }
   }
 
-  const { data, error } = await supabase
+  await supabase
     .from("role_requests")
-    .insert({
-      user_id: userId,
-      role,
-      status: "pending",
-      payload,
+    .update({
+      status: "approved",
+      reviewer_note:
+        "Automatisch goedgekeurd — rolbevestiging door admin is uitgeschakeld.",
+      reviewed_at: new Date().toISOString(),
     })
-    .select("id")
-    .single();
+    .eq("user_id", userId)
+    .eq("role", role)
+    .eq("status", "pending");
 
-  if (error || !data) {
-    return {
-      ok: false,
-      requestId: null,
-      created: false,
-      errors: [error?.message ?? "Aanvraag kon niet worden opgeslagen."],
-    };
-  }
+  const label =
+    role === "workshop_host"
+      ? "workshopgever"
+      : role === "organizer"
+        ? "organisator"
+        : role;
 
-  void sendRoleRequestAdminEmail({
-    role,
-    userId,
-    payload,
-  }).catch((emailError) => {
-    console.error("Failed to send role request admin email", {
-      userId,
-      role,
-      error: emailError,
-    });
-  });
+  return {
+    ok: true,
+    message: `Je ${label}-rol is actief. Je kan meteen verder.`,
+  };
+}
 
-  return { ok: true, requestId: data.id, created: true, errors: [] };
+export async function createRoleRequest(
+  userId: string,
+  role: PrivilegedRole,
+  payload: RoleRequestPayload = {}
+): Promise<{ ok: boolean; requestId: string | null; created: boolean; errors: string[] }> {
+  // All privileged roles activate immediately — never queue for admin review.
+  const activate = await activatePrivilegedRoleImmediately(userId, role, payload);
+  return {
+    ok: activate.ok,
+    requestId: null,
+    created: activate.ok,
+    errors: activate.ok ? [] : [activate.message],
+  };
 }
 
 export async function listRoleRequestsForUser(
@@ -259,6 +261,59 @@ async function provisionMerchantFromPayload(
   }
 
   return { ok: true, message: "" };
+}
+
+/**
+ * Activate a merchant immediately (no admin review).
+ * Provisions Medusa seller + platform links and grants the merchant role.
+ * Any pending merchant role_requests for this user are closed as approved.
+ */
+export async function activateMerchantImmediately(
+  userId: string,
+  payload: RoleRequestPayload
+): Promise<{ ok: boolean; message: string }> {
+  const supabase = createPlatformClient();
+
+  const { data: alreadyHasRole } = await supabase
+    .from("user_account_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role", "merchant")
+    .maybeSingle();
+
+  if (alreadyHasRole?.id) {
+    return { ok: true, message: "Je merchant-account is actief." };
+  }
+
+  const provisionResult = await provisionMerchantFromPayload(userId, payload);
+  if (!provisionResult.ok) {
+    return provisionResult;
+  }
+
+  const roleResult = await ensureUserRole(userId, "merchant");
+  if (!roleResult.ok) {
+    return {
+      ok: false,
+      message: roleResult.errors[0] ?? "Merchant-rol kon niet worden toegekend.",
+    };
+  }
+
+  await supabase
+    .from("role_requests")
+    .update({
+      status: "approved",
+      reviewer_note:
+        "Automatisch goedgekeurd — merchant-bevestiging door admin is uitgeschakeld.",
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("role", "merchant")
+    .eq("status", "pending");
+
+  return {
+    ok: true,
+    message: "Je winkel is klaar. Je kan meteen verder in het dashboard.",
+  };
 }
 
 export async function approveRoleRequest(
@@ -437,5 +492,6 @@ export async function syncPrivilegedRolesFromCreatorTypes(
   return null;
 }
 
+/** @deprecated Role approval queue is disabled; kept for legacy draft-gate errors. */
 export const ROLE_REQUEST_PENDING_MESSAGE =
-  "Je aanvraag staat klaar voor beoordeling. Je krijgt toegang zodra we die goedkeuren.";
+  "Deze rol is nog niet actief op je account. Kies de rol opnieuw onder Instellingen.";

@@ -179,7 +179,7 @@ export function WorkshopFormFields({
           help={
             canPublish
               ? "Laat leeg om eerst als concept te bewaren."
-              : "Je kan pas zichtbaar maken nadat we je account als workshopgever goedkeuren. Bewaar intussen als concept."
+              : "Activeer eerst workshopgever onder Instellingen. Bewaar intussen als concept."
           }
         />
       </FormSection>

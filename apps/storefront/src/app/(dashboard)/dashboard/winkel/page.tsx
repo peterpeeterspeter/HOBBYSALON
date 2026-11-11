@@ -59,9 +59,8 @@ export default async function ShopPage({ searchParams }: Props) {
     return (
       <div className="max-w-3xl">
         <DashboardPageHeader title="Winkel" />
-        <DashboardNotice title="Wacht op goedkeuring" tone="attention">
-          We bekijken je aanvraag voor een winkel. Je krijgt een e-mail zodra je kan beginnen met
-          verkopen.
+        <DashboardNotice title="Winkel afronden" tone="attention">
+          Rond je merchant-profiel af om te beginnen met verkopen.
         </DashboardNotice>
       </div>
     );

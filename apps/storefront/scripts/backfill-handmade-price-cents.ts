@@ -26,6 +26,7 @@
  */
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { medusaAmountToCents } from "../src/lib/commerce/money";
 
 config({ path: ".env.local" });
 
@@ -65,7 +66,7 @@ async function fetchMedusaPrice(
   if (!price) return null;
 
   return {
-    amount: price.calculated_amount,
+    amount: medusaAmountToCents(price.calculated_amount),
     currencyCode: (price.currency_code ?? "EUR").toUpperCase(),
   };
 }

@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Calendar, Clock } from "lucide-react";
+import { formatBrusselsDateTime } from "@/lib/agenda/agenda-helpers";
 
 type DateDisplayProps = {
   date: string;
@@ -10,27 +11,39 @@ type DateDisplayProps = {
 };
 
 function formatDateShort(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).format(new Date(iso));
+  return formatBrusselsDateTime(
+    iso,
+    {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    },
+    "nl-NL"
+  );
 }
 
 function formatDateLong(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(iso));
+  return formatBrusselsDateTime(
+    iso,
+    {
+      weekday: "short",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+    "nl-NL"
+  );
 }
 
 function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  return formatBrusselsDateTime(
+    iso,
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+    "nl-NL"
+  );
 }
 
 function DateDisplay({

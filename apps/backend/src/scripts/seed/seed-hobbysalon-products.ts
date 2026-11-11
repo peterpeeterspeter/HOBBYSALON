@@ -21,7 +21,8 @@ export const hobbysalonProductsToInsert = [
         allow_backorder: false,
         manage_inventory: true,
         options: { Size: 'One Size' },
-        prices: [{ amount: 3499, currency_code: 'eur' }]
+        // Medusa v2: major units (EUR), not cents.
+        prices: [{ amount: 34.99, currency_code: 'eur' }]
       }
     ]
   },
@@ -40,7 +41,7 @@ export const hobbysalonProductsToInsert = [
         allow_backorder: false,
         manage_inventory: true,
         options: { Type: 'Standaard' },
-        prices: [{ amount: 2499, currency_code: 'eur' }]
+        prices: [{ amount: 24.99, currency_code: 'eur' }]
       }
     ]
   },
@@ -59,7 +60,7 @@ export const hobbysalonProductsToInsert = [
         allow_backorder: false,
         manage_inventory: true,
         options: { Size: 'One Size' },
-        prices: [{ amount: 2999, currency_code: 'eur' }]
+        prices: [{ amount: 29.99, currency_code: 'eur' }]
       }
     ]
   },
@@ -78,7 +79,7 @@ export const hobbysalonProductsToInsert = [
         allow_backorder: true,
         manage_inventory: false,
         options: { Format: 'PDF' },
-        prices: [{ amount: 499, currency_code: 'eur' }]
+        prices: [{ amount: 4.99, currency_code: 'eur' }]
       }
     ]
   },
@@ -97,7 +98,7 @@ export const hobbysalonProductsToInsert = [
         allow_backorder: false,
         manage_inventory: true,
         options: { Size: 'Standard' },
-        prices: [{ amount: 2499, currency_code: 'eur' }]
+        prices: [{ amount: 24.99, currency_code: 'eur' }]
       }
     ]
   },
@@ -116,7 +117,7 @@ export const hobbysalonProductsToInsert = [
         allow_backorder: false,
         manage_inventory: true,
         options: { Type: 'Basis' },
-        prices: [{ amount: 1299, currency_code: 'eur' }]
+        prices: [{ amount: 12.99, currency_code: 'eur' }]
       }
     ]
   }
