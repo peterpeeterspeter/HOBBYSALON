@@ -727,8 +727,8 @@ function articleSuggestionSuccess(result: {state:string;inserted:number}, update
   const saved = updated ? "Artikel bijgewerkt." : "Artikel opgeslagen.";
   if (result.state === "unpublished") return `${saved} Je artikel staat als concept.`;
   if (result.state !== "ready_for_review") return `${saved} Voor link-suggesties is nog inhoudelijke controle nodig.`;
-  if (!result.inserted) return `${saved} Er zijn geen nieuwe link-suggesties.`;
-  return updated ? "Artikel bijgewerkt. Suggesties vernieuwd." : "Artikel opgeslagen met link-suggesties.";
+  if (!result.inserted) return `${saved} Er zijn geen nieuwe productlinks.`;
+  return updated ? "Artikel bijgewerkt. Productlinks vernieuwd." : "Artikel opgeslagen met productlinks.";
 }
 
 export async function saveCreatorProfileAction(formData: FormData): Promise<void> {
