@@ -1,4 +1,4 @@
-import { getArticleBySlug, listArticlesByIds, listArticlesBySlugs, listArticlesByDomain } from "@/lib/platform/queries/articles";
+import { getArticleBySlug, listArticlesByIds, listArticlesBySlugs, listRecentHubArticlesByDomain } from "@/lib/platform/queries/articles";
 import { getCreatorById } from "@/lib/platform/queries/creators";
 import { getWorkshopById, listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
 import { listProductsByDomain } from "@/lib/platform/queries/products";
@@ -97,6 +97,18 @@ async function getGraphProducts(items: OrderedArticleGraphItem[]): Promise<Graph
   );
 }
 
+async function hydrateWorkshops(ids: string[]): Promise<Workshop[]> {
+  if (!ids.length) return [];
+  const rows = await Promise.all([...new Set(ids)].map((id) => getWorkshopById(id)));
+  return rows.filter((row): row is Workshop => row != null);
+}
+
+async function hydrateCreators(ids: string[]): Promise<Creator[]> {
+  if (!ids.length) return [];
+  const rows = await Promise.all([...new Set(ids)].map((id) => getCreatorById(id)));
+  return rows.filter((row): row is Creator => row != null);
+}
+
 export async function getArticlePageData(slug: string): Promise<ArticlePageData> {
   const article = await getArticleBySlug(slug);
   if (!article) {
@@ -145,9 +157,8 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     relatedEvents,
     communityProjects,
     sourceMaterialOffers,
-    domainArticles,
-    domainWorkshops,
-    domainSupplyProducts,
+    author,
+    galleryImages,
   ] = await Promise.all([
     getGraphProducts(graphRelations.requiredMaterials),
     getGraphProducts(graphRelations.requiredTools),
@@ -156,32 +167,13 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     listNextLearningPathArticleIds(article.id),
     listArticlesByIds(graphRelations.relatedArticles.map((item) => item.id)),
     listArticlesBySlugs(editorialSlugs),
-    relatedWorkshopIds.length > 0
-      ? (
-          await Promise.all(
-            [...new Set(relatedWorkshopIds)].map((id) => getWorkshopById(id))
-          )
-        ).filter((workshop): workshop is Workshop => workshop != null)
-      : [],
-    relatedCreatorIds.length > 0
-      ? (
-          await Promise.all(
-            [...new Set(relatedCreatorIds)].map((id) => getCreatorById(id))
-          )
-        ).filter((creator): creator is Creator => creator != null)
-      : [],
+    hydrateWorkshops(relatedWorkshopIds),
+    hydrateCreators(relatedCreatorIds),
     listEventsByIds(relatedEventIds),
     listApprovedCommunityGalleryForArticle(article.id),
     getArticleMaterialOffers(sourceMaterials),
-    article.domain_id ? listArticlesByDomain(article.domain_id) : Promise.resolve([]),
-    article.domain_id ? listWorkshopsByDomain(article.domain_id) : Promise.resolve([]),
-    article.domain_id
-      ? listProductsByDomain(article.domain_id, "supply", 8).then((products) =>
-          getGraphProducts(
-            products.map((product, index) => ({ id: product.id, sortOrder: index, weight: 0 }))
-          )
-        )
-      : Promise.resolve([]),
+    article.author_creator_id ? getCreatorById(article.author_creator_id) : Promise.resolve(null),
+    listArticleGalleryImages(article.id),
   ]);
 
   const nextStepIds =
@@ -198,8 +190,33 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     return true;
   };
   const nextSteps = hydratedNextSteps.filter(uniquePublished);
-  // Approved graph order wins; editorial body links and same-hobby domain items fill remaining slots.
-  // Filter visibility/self/overlap before limiting, so missing rows waste no slots.
+  // Approved graph order wins; editorial body links fill next. Domain fill is capped and slim.
+  const seededArticleCount = [...graphRelatedArticles, ...editorialArticles].filter(
+    (candidate) =>
+      candidate.is_published &&
+      candidate.id !== article.id &&
+      candidate.slug !== article.slug
+  ).length;
+  const needDomainArticles = Boolean(article.domain_id) && seededArticleCount < 6;
+  const needDomainWorkshops = Boolean(article.domain_id) && graphWorkshops.length < 4;
+  const needDomainProducts = Boolean(article.domain_id) && relatedProducts.length < 8;
+
+  const [domainArticles, domainWorkshops, domainSupplyProducts] = await Promise.all([
+    needDomainArticles
+      ? listRecentHubArticlesByDomain(article.domain_id!, 8)
+      : Promise.resolve([]),
+    needDomainWorkshops
+      ? listWorkshopsByDomain(article.domain_id!, { limit: 8 })
+      : Promise.resolve([]),
+    needDomainProducts
+      ? listProductsByDomain(article.domain_id!, "supply", 8).then((products) =>
+          getGraphProducts(
+            products.map((product, index) => ({ id: product.id, sortOrder: index, weight: 0 }))
+          )
+        )
+      : Promise.resolve([]),
+  ]);
+
   const relatedArticles = [...graphRelatedArticles, ...editorialArticles, ...domainArticles]
     .filter(uniquePublished)
     .slice(0, 6);
@@ -220,17 +237,12 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     ...relatedProducts,
     ...domainSupplyProducts.filter((product) => !shownProductIds.has(product.id)),
   ].slice(0, 8);
-  const author = article.author_creator_id
-    ? await getCreatorById(article.author_creator_id)
-    : null;
 
   const creatorsById = new Map(
     [...relatedCreators, author].filter((creator): creator is Creator => creator != null).map(
       (creator) => [creator.id, creator]
     )
   );
-
-  const galleryImages = await listArticleGalleryImages(article.id);
 
   return {
     article,

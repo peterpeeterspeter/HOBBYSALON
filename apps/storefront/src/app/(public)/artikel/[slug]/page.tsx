@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Clock, Calendar } from "lucide-react";
 import { getArticlePageData } from "@/lib/services/article-page";
+import { getArticleBySlug } from "@/lib/platform/queries/articles";
 import {
   ProductCard,
 } from "@/components/cards";
@@ -54,7 +55,8 @@ const shopPriceFmt = new Intl.NumberFormat("nl-BE", {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const { article } = await getArticlePageData(slug);
+  // Metadata only needs the article row; avoid the full related/materials pipeline.
+  const article = await getArticleBySlug(slug);
   if (!article) return { title: "Niet gevonden" };
   return buildPageMetadata({
     title: article.seo_title ?? `${article.title} | Hobbysalon`,
