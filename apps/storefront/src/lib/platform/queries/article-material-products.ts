@@ -4,6 +4,10 @@ import {
   prefilterMaterialCatalog,
   type MaterialCatalogCandidate,
 } from "@/lib/content/article-material-offers";
+import {
+  materialBrowseSearchTerms,
+  prefilterMaterialBrowseCatalog,
+} from "@/lib/content/article-material-browse";
 import type { ParsedArticleMaterial } from "@/lib/content/parse-article-materials";
 
 const COLUMNS = "id,slug,title,product_type,is_active,status,medusa_product_id";
@@ -12,8 +16,9 @@ const MAX_PAGES_PER_FAMILY = 3;
 const MAX_CANDIDATES = 40;
 // Internal literals only. Author text never enters the PostgREST filter grammar.
 const SEARCH_FAMILIES = [
-  ["garen", "yarn", "wol"],
+  ["garen", "yarn", "wol", "haakgaren", "borduurgaren"],
   ["haaknaald", "crochet hook"],
+  ["fiberfill", "vulling", "stuffing"],
   ["stopnaald", "darning needle", "tapestry needle"],
   ["meetlint", "measuring tape", "tape measure"],
   ["schaar", "scissors"],
@@ -26,7 +31,10 @@ const SEARCH_FAMILIES = [
 export async function listArticleMaterialProducts(
   materials: ParsedArticleMaterial[],
 ): Promise<MaterialCatalogCandidate[]> {
-  const needed = new Set(materialCatalogSearchTerms(materials));
+  const needed = new Set([
+    ...materialCatalogSearchTerms(materials),
+    ...materialBrowseSearchTerms(materials),
+  ]);
   const families = SEARCH_FAMILIES.filter(terms => terms.some(term => needed.has(term)));
   if (!families.length) return [];
 
@@ -64,9 +72,17 @@ export async function listArticleMaterialProducts(
       if (previous !== undefined && previous !== signature) conflicts.add(row.id);
       signatures.set(row.id, signature);
     }
-    const eligibleBuckets = buckets.map(rows =>
-      prefilterMaterialCatalog(materials, rows.filter(row => !conflicts.has(row.id)))
-    );
+    const eligibleBuckets = buckets.map(rows => {
+      const clean = rows.filter(row => !conflicts.has(row.id));
+      const selected = new Map<string, MaterialCatalogCandidate>();
+      for (const candidate of [
+        ...prefilterMaterialCatalog(materials, clean),
+        ...prefilterMaterialBrowseCatalog(materials, clean),
+      ]) {
+        selected.set(candidate.id, candidate);
+      }
+      return [...selected.values()];
+    });
     const selected = new Map<string, MaterialCatalogCandidate>();
     // Round-robin preserves tools even with a much larger yarn catalog.
     for (let index = 0; index < MAX_CANDIDATES && selected.size < MAX_CANDIDATES; index++) {

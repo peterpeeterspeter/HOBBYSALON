@@ -1,6 +1,7 @@
-import { getArticleBySlug, listArticlesByIds, listArticlesBySlugs } from "@/lib/platform/queries/articles";
+import { getArticleBySlug, listArticlesByIds, listArticlesBySlugs, listArticlesByDomain } from "@/lib/platform/queries/articles";
 import { getCreatorById } from "@/lib/platform/queries/creators";
-import { getWorkshopById } from "@/lib/platform/queries/workshops";
+import { getWorkshopById, listWorkshopsByDomain } from "@/lib/platform/queries/workshops";
+import { listProductsByDomain } from "@/lib/platform/queries/products";
 import { listEventsByIds } from "@/lib/platform/queries/events";
 import { listApprovedCommunityGalleryForArticle } from "@/lib/platform/queries/projects";
 import { getEntityConnections } from "@/lib/platform/queries/entity-links";
@@ -139,11 +140,14 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     learningPathNextStepIds,
     graphRelatedArticles,
     editorialArticles,
-    relatedWorkshops,
+    graphWorkshops,
     relatedCreators,
     relatedEvents,
     communityProjects,
     sourceMaterialOffers,
+    domainArticles,
+    domainWorkshops,
+    domainSupplyProducts,
   ] = await Promise.all([
     getGraphProducts(graphRelations.requiredMaterials),
     getGraphProducts(graphRelations.requiredTools),
@@ -169,6 +173,15 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     listEventsByIds(relatedEventIds),
     listApprovedCommunityGalleryForArticle(article.id),
     getArticleMaterialOffers(sourceMaterials),
+    article.domain_id ? listArticlesByDomain(article.domain_id) : Promise.resolve([]),
+    article.domain_id ? listWorkshopsByDomain(article.domain_id) : Promise.resolve([]),
+    article.domain_id
+      ? listProductsByDomain(article.domain_id, "supply", 8).then((products) =>
+          getGraphProducts(
+            products.map((product, index) => ({ id: product.id, sortOrder: index, weight: 0 }))
+          )
+        )
+      : Promise.resolve([]),
   ]);
 
   const nextStepIds =
@@ -185,11 +198,28 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     return true;
   };
   const nextSteps = hydratedNextSteps.filter(uniquePublished);
-  // Explicit approved graph order wins; body links only fill remaining slots.
+  // Approved graph order wins; editorial body links and same-hobby domain items fill remaining slots.
   // Filter visibility/self/overlap before limiting, so missing rows waste no slots.
-  const relatedArticles = [...graphRelatedArticles, ...editorialArticles]
+  const relatedArticles = [...graphRelatedArticles, ...editorialArticles, ...domainArticles]
     .filter(uniquePublished)
     .slice(0, 6);
+  const seenWorkshopIds = new Set<string>();
+  const relatedWorkshops = [...graphWorkshops, ...domainWorkshops]
+    .filter((workshop) => {
+      if (seenWorkshopIds.has(workshop.id)) return false;
+      seenWorkshopIds.add(workshop.id);
+      return true;
+    })
+    .slice(0, 4);
+  const shownProductIds = new Set(
+    [...requiredMaterials, ...requiredTools, ...optionalMaterials, ...relatedProducts].map(
+      (product) => product.id
+    )
+  );
+  const relatedShopProducts = [
+    ...relatedProducts,
+    ...domainSupplyProducts.filter((product) => !shownProductIds.has(product.id)),
+  ].slice(0, 8);
   const author = article.author_creator_id
     ? await getCreatorById(article.author_creator_id)
     : null;
@@ -211,7 +241,7 @@ export async function getArticlePageData(slug: string): Promise<ArticlePageData>
     requiredMaterials,
     requiredTools,
     optionalMaterials,
-    relatedProducts,
+    relatedProducts: relatedShopProducts,
     nextSteps,
     relatedArticles,
     relatedWorkshops,

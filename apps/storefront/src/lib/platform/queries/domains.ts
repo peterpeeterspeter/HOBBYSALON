@@ -21,6 +21,19 @@ export async function getDomainBySlug(slug: string): Promise<Domain | null> {
   return data as Domain;
 }
 
+export async function getDomainById(id: string): Promise<Domain | null> {
+  const supabase = createPlatformClient();
+  const { data, error } = await supabase
+    .from("domains")
+    .select("*")
+    .eq("id", id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as Domain;
+}
+
 export async function listActiveDomains(): Promise<Domain[]> {
   return listActiveDomainsCached();
 }
