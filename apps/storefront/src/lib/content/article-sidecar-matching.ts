@@ -23,11 +23,17 @@ function articleContext(metadata: ArticleMetadata, article: CatalogArticle) {
   if (articleBodySha256(article.body_markdown) !== metadata.source_sha256) return {state:"stale",requirements:[]} as const;
   if (!metadata.source.is_published) return {state:"unpublished",requirements:[]} as const;
   if (metadata.quality_routing.automatic_recommendation_blocked) return {state:"blocked",requirements:[]} as const;
+  if (metadata.gaps.length || metadata.quality_routing.has_extraction_gaps || metadata.quality_routing.requires_gap_review_before_matching) {
+    return {state:"gap_review_required",requirements:[]} as const;
+  }
   const codepoints = [...article.body_markdown];
-  const listedKinds = new Set(["full_tutorial","technique_guide","reference_guide","pattern_overview","inspiration_roundup"]);
-  const requirements = listedKinds.has(metadata.content_kind) ? [...metadata.materials,...metadata.tools].filter(item =>
+  // Even a valid quote is an article assertion, not verified compatibility.
+  const primaryProjects = metadata.projects.filter(project => project.role === "primary");
+  const scoped = ["full_tutorial","technique_guide","reference_guide"].includes(metadata.content_kind) && primaryProjects.length <= 1;
+  const requirements = scoped ? [...metadata.materials,...metadata.tools].filter(item =>
     ["required","optional"].includes(item.role) && !item.unverified_project_labels?.length
-    && hasExactEvidence(item,codepoints)) : [];
+    && (!item.project_labels?.length || (primaryProjects.length === 1 && item.project_labels.every(label => label === primaryProjects[0].label)))) : [];
+  if (requirements.some(item => !hasExactEvidence(item,codepoints))) return {state:"invalid_evidence",requirements:[]} as const;
   return {state:"ready_for_review",requirements} as const;
 }
 

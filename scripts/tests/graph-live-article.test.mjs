@@ -120,7 +120,11 @@ async function load(options = {}) {
   const boundary = {
     "@/lib/platform/client": { createPlatformClient: () => client },
     "@/lib/platform/queries/creators": { getCreatorById: async () => options.author ?? null },
-    "@/lib/platform/queries/workshops": { getWorkshopById: async () => null },
+    "@/lib/platform/queries/workshops": {
+      getWorkshopById: async () => null,
+      listWorkshopsByDomain: async () => [],
+    },
+    "@/lib/platform/queries/domains": { getDomainById: async () => null },
     "@/lib/platform/queries/events": { listEventsByIds: async () => [] },
     "@/lib/platform/queries/projects": { listApprovedCommunityGalleryForArticle: async () => [] },
     "@/lib/platform/queries/learning-paths": { listNextLearningPathArticleIds: async () => options.learningPath ?? [] },
@@ -224,8 +228,8 @@ test("actual TSX with native React renders two real reading cards and a five-lin
     assert.ok(html.includes(row.title));
   }
   assert.ok(html.includes("Meer over dit onderwerp"));
-  assert.ok(html.includes("Materialen uit dit artikel"));
-  assert.ok(html.includes("geen gekoppelde winkelproducten"));
+  assert.ok(html.includes("Wat heb je nodig?"));
+  assert.ok(html.includes("Deze lijst komt uit het artikel"));
   const section = html.match(/<section[^>]*aria-labelledby="source-materials-heading"[\s\S]*?<\/section>/)?.[0];
   assert.ok(section, "A genuine page section, not merely service data");
   assert.equal((section.match(/<li\b/g) ?? []).length, 5);
@@ -411,7 +415,7 @@ test("material offers: real query/service/TSX links exact variants under their o
     assert.ok(rendered?.includes(row.title), `Original source row ${index}`);
     for (const offer of row.offers) {
       assert.ok(rendered.includes(`href="${offer.href}"`));
-      for (const text of [offer.requirementLabel, offer.productTitle, offer.variantTitle, "Winkelprijs"]) assert.ok(rendered.includes(text), text);
+      for (const text of [offer.productTitle, offer.variantTitle, "Prijs in de winkel"]) assert.ok(rendered.includes(text), text);
     }
   }
   assert.match(sourceRow(section, data.sourceMaterials[2].key), /8,45/);
@@ -444,7 +448,7 @@ for (const failure of ["errorCatalog", "rejectCatalog", "nullCatalog", "rejectCo
     const data = await page.run();
     assert.equal(data.sourceMaterials[0].title, "Stopnaald");
     assert.deepEqual(data.sourceMaterialOffers, [{ ...data.sourceMaterials[0], offers: [] }]);
-    assert.doesNotMatch(sourceSection(await page.render()), /href=|Winkelprijs/);
+    assert.doesNotMatch(sourceSection(await page.render()), /href=|Prijs in de winkel/);
     if (failure.endsWith("Catalog")) assert.deepEqual(page.commerceCalls, []);
   });
 }
@@ -472,7 +476,7 @@ test("material offers: unknown variant price never falls back to platform, produ
     assert.equal(data.sourceMaterialOffers[0].offers.length, 1);
     assert.equal(data.sourceMaterialOffers[0].offers[0].price, null);
     const rendered = sourceRow(sourceSection(await page.render()), data.sourceMaterials[0].key);
-    assert.match(rendered, /Winkelprijs onbekend/);
+    assert.match(rendered, /Prijs niet bekend/);
     assert.ok(rendered.includes("€ 6,95"), "Original source estimate remains original text only");
     assert.doesNotMatch(rendered, /999|1,00/);
   }
@@ -596,7 +600,7 @@ test("material offers: nullable Medusa options and zero price keep their precise
     const page = await load({ current: { body_markdown: "## Materialen\n- Stopnaald\n## Stappen" }, products: [row], commerce: { [row.medusa_product_id]: commerceProduct(row, [variant("zero", "Default", 0, { options })]) } });
     const data = await page.run();
     assert.deepEqual(data.sourceMaterialOffers[0].offers[0].price, { amount: 0, currency_code: "eur" });
-    assert.match(sourceSection(await page.render()), /Winkelprijs:.*0,00/);
+    assert.match(sourceSection(await page.render()), /Prijs in de winkel:.*0,00/);
   }
 });
 

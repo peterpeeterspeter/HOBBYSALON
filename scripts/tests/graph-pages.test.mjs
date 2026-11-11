@@ -90,11 +90,13 @@ async function loadPage(kind, edges, options = {}) {
       listArticlesByIds: byIds(articles.filter(row => row.is_published)),
       listArticlesBySlugs: async wanted => [...new Set(wanted)]
         .map(slug => articles.find(row => row.slug === slug && row.is_published)).filter(Boolean),
+      listArticlesByDomain: async () => [],
     },
     "@/lib/platform/queries/workshops": {
       getWorkshopBySlug: async slug => workshops.find(row => row.slug === slug) ?? null,
       listWorkshopsByIds: byIds(workshops.filter(visibleWorkshop)),
       getWorkshopById: async id => workshops.find(row => row.id === id && visibleWorkshop(row)) ?? null,
+      listWorkshopsByDomain: async () => [],
     },
     "@/lib/platform/queries/events": { listEventsByIds: byIds(events.filter(row => row.is_active)) },
     "@/lib/platform/queries/creators": { getCreatorById: async () => null },

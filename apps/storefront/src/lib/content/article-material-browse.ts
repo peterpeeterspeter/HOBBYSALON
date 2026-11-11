@@ -88,7 +88,17 @@ export function prefilterMaterialBrowseCatalog(
 }
 
 function encodedSegment(slug: string): string | null {
-  if (!slug.trim() || slug.length > 180) return null;
+  if (
+    typeof slug !== "string" ||
+    !slug.trim() ||
+    slug !== slug.trim() ||
+    slug === "." ||
+    slug === ".." ||
+    slug.length > 180 ||
+    /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069\/\\?#:%]/.test(slug)
+  ) {
+    return null;
+  }
   try {
     return encodeURIComponent(slug);
   } catch {
@@ -123,7 +133,10 @@ export function matchArticleMaterialBrowseOffers(
 ): SourceMaterialWithOffers[] {
   return materials.map((material) => {
     const family = familyOf(material.title);
-    if (!family) return { key: material.key, title: material.title, offers: [] };
+    // Signed/hyphenated dimensions are not interchangeable shop suggestions.
+    if (!family || /[-+±]\s*\d|\d\s*[-+±]/.test(material.title)) {
+      return { key: material.key, title: material.title, offers: [] };
+    }
 
     const ranked = candidates
       .filter(
