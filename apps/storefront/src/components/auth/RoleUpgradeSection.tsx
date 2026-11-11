@@ -81,7 +81,7 @@ export function RoleUpgradeSection({
   hasCreatorProfile,
   pendingRoleRequests,
   title = "Wil je zelf iets aanbieden?",
-  lead = "Breid je account uit. Workshopgever en organisator vereisen goedkeuring door Hobbysalon.",
+  lead = "Breid je account uit. Nieuwe rollen zijn meteen actief.",
   className,
   showEmptyState = false,
 }: RoleUpgradeSectionProps) {

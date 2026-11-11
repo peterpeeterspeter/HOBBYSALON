@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   EVENT_CREDIT_COSTS,
+  HANDMADE_LISTING_VISIBILITY_DAYS,
   LISTING_CREDIT_COSTS,
   getEventCreditCost,
   // @ts-expect-error Node's TypeScript test runner requires the extension.
@@ -52,4 +53,8 @@ test("exhibitor outreach is priced as a premium action", () => {
     LISTING_CREDIT_COSTS.exhibitorOutreach >
       LISTING_CREDIT_COSTS.handmadeListing
   );
+});
+
+test("makers advertisements stay visible for 120 days", () => {
+  assert.equal(HANDMADE_LISTING_VISIBILITY_DAYS, 120);
 });

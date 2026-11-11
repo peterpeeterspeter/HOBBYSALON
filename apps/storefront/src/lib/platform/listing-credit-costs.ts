@@ -7,6 +7,9 @@
  * importing from either module.
  */
 
+/** How long a makers (handmade/destash) ad stays live after spend/renewal. */
+export const HANDMADE_LISTING_VISIBILITY_DAYS = 120;
+
 export const LISTING_CREDIT_COSTS = {
   handmadeListing: 1,
   collectionListing: 3,

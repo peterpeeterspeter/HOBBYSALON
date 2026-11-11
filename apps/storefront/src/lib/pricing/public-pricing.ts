@@ -298,7 +298,7 @@ export const PRICING_PAGE_FAQ: PricingFaqItem[] = [
   {
     question: "Wat is tegoed?",
     answer:
-      "Tegoed gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten volgen binnenkort.",
+      "Tegoed gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. Een makersadvertentie blijft 120 dagen zichtbaar. De pakketten volgen binnenkort.",
   },
   {
     question: "Kan ik meerdere soorten aanbod publiceren?",
@@ -585,7 +585,7 @@ export const MAKERS_PAGE = {
       label: "Daarna",
       title: "Je betaalt per plaatsing, met tegoed",
       items: [
-        "Tot 10 extra advertenties met tegoed",
+        "Tot 10 extra advertenties met tegoed (120 dagen zichtbaar)",
         "Een advertentie verlengen of uitlichten kan ook met tegoed",
         "Geen abonnement en geen vaste kost: niets als je even niets verkoopt",
       ],
@@ -843,7 +843,7 @@ export const SUPPLIER_PAGE = {
 export const CREDITS_EXPLANATION = {
   title: "Wat is tegoed?",
   paragraphs: [
-    "Tegoed gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. De pakketten volgen binnenkort.",
+    "Tegoed gebruik je voor concrete acties: een advertentie publiceren, verlengen of extra promoten. Een makersadvertentie blijft 120 dagen zichtbaar; verlengen kan opnieuw met tegoed. De pakketten volgen binnenkort.",
   ],
 };
 
@@ -883,7 +883,7 @@ export const MAKERS_FAQ: PricingFaqItem[] = [
   {
     question: "Hoeveel advertenties kan ik tonen?",
     answer:
-      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met tegoed.",
+      "Je eerste drie advertenties zijn gratis. Wil je meer aanbieden, dan plaats je tot 10 extra advertenties met tegoed. Elke advertentie blijft 120 dagen zichtbaar; daarna verleng je met tegoed of verdwijnt ze.",
   },
   {
     question: "Wat kost tegoed?",

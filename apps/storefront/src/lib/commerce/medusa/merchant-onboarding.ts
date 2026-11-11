@@ -2,10 +2,7 @@ import "server-only";
 
 import type { RegistrationInterestType } from "@/lib/auth/registration-options";
 import { persistUserRegistrationProfile } from "@/lib/platform/queries/user-registration";
-import {
-  createRoleRequest,
-  ROLE_REQUEST_PENDING_MESSAGE,
-} from "@/lib/platform/queries/role-requests";
+import { activateMerchantImmediately } from "@/lib/platform/queries/role-requests";
 
 export type MerchantOnboardingInput = {
   userId: string;
@@ -42,7 +39,7 @@ export async function completeMerchantOnboarding(
     };
   }
 
-  const requestResult = await createRoleRequest(input.userId, "merchant", {
+  const activateResult = await activateMerchantImmediately(input.userId, {
     displayName: input.displayName,
     businessName: input.displayName,
     contactName: input.contactName ?? undefined,
@@ -54,21 +51,21 @@ export async function completeMerchantOnboarding(
     source: "merchant_onboarding",
   });
 
-  if (!requestResult.ok) {
-    console.error("Failed to create merchant role request", {
+  if (!activateResult.ok) {
+    console.error("Failed to activate merchant", {
       userId: input.userId,
-      errors: requestResult.errors,
+      message: activateResult.message,
     });
     return {
       ok: false,
-      message: "Je aanvraag als verkoper indienen is mislukt.",
+      message: activateResult.message || "Merchant-account activeren mislukt.",
       pendingApproval: false,
     };
   }
 
   return {
     ok: true,
-    message: ROLE_REQUEST_PENDING_MESSAGE,
-    pendingApproval: true,
+    message: activateResult.message,
+    pendingApproval: false,
   };
 }

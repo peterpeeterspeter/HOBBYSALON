@@ -136,17 +136,17 @@ export default async function DashboardTodayPage({ searchParams }: Props) {
   } else if (caps.canViewVendorPortalNav && !caps.canAccessVendorPortal) {
     notice = (
       <DashboardNotice
-        title={pendingMerchant ? "Je winkel wordt nagekeken" : "Koppel je winkel"}
+        title="Koppel je winkel"
         action={
-          pendingMerchant ? null : (
-            <Button asChild size="lg">
-              <Link href="/dashboard/winkel">Naar je winkel</Link>
-            </Button>
-          )
+          <Button asChild size="lg">
+            <Link href={pendingMerchant ? "/register/merchant" : "/dashboard/winkel"}>
+              {pendingMerchant ? "Winkel afronden" : "Naar je winkel"}
+            </Link>
+          </Button>
         }
       >
         {pendingMerchant
-          ? "We bekijken je aanvraag. Je krijgt een e-mail zodra je kan beginnen."
+          ? "Rond je merchant-profiel af om voorraad, verzending en uitbetalingen te beheren."
           : "Koppel je winkel om voorraad, verzending en uitbetalingen te beheren."}
       </DashboardNotice>
     );

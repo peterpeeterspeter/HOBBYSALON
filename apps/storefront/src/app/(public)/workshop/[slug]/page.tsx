@@ -25,6 +25,7 @@ import {
   WORKSHOP_LANGUAGE_LABELS,
   WORKSHOP_OFFER_TYPE_LABELS,
 } from "@/lib/platform/workshop-taxonomy";
+import { formatBrusselsDateTime } from "@/lib/agenda/agenda-helpers";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -47,10 +48,11 @@ const LANGUAGE_SCHEMA: Record<string, string> = {
 };
 
 function formatSessionDate(iso: string): string {
-  return new Intl.DateTimeFormat("nl-NL", {
-    dateStyle: "long",
-    timeStyle: "short",
-  }).format(new Date(iso));
+  return formatBrusselsDateTime(
+    iso,
+    { dateStyle: "long", timeStyle: "short" },
+    "nl-NL"
+  );
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

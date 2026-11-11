@@ -6,6 +6,7 @@ import { createPlatformClient } from "./client";
 // reviewable on its own; re-exported here so existing importers of
 // listing-credits keep working unchanged.
 export {
+  HANDMADE_LISTING_VISIBILITY_DAYS,
   LISTING_CREDIT_COSTS,
   EVENT_CREDIT_COSTS,
   getEventCreditCost,

@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Calendar, Clock } from "lucide-react";
+import { AGENDA_TIMEZONE } from "@/lib/agenda/agenda-helpers";
 
 type DateDisplayProps = {
   date: string;
@@ -12,7 +13,7 @@ type DateDisplayProps = {
 
 function formatDateShort(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat("nl-NL", {
-    timeZone,
+    timeZone: timeZone ?? AGENDA_TIMEZONE,
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -21,7 +22,7 @@ function formatDateShort(iso: string, timeZone?: string): string {
 
 function formatDateLong(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat("nl-NL", {
-    timeZone,
+    timeZone: timeZone ?? AGENDA_TIMEZONE,
     weekday: "short",
     day: "numeric",
     month: "long",
@@ -31,7 +32,7 @@ function formatDateLong(iso: string, timeZone?: string): string {
 
 function formatTime(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat("nl-NL", {
-    timeZone,
+    timeZone: timeZone ?? AGENDA_TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));

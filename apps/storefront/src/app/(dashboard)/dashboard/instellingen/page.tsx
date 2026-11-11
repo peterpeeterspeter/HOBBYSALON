@@ -66,14 +66,13 @@ export default async function SettingsPage({ searchParams }: Props) {
           Wat wil je aanbieden?
         </h2>
         <p className="mt-2 text-lg text-[var(--muted)]">
-          Wat je hier kiest, bepaalt wat je in je dashboard ziet. Workshops en events vragen een
-          korte goedkeuring.
+          Wat je hier kiest, bepaalt wat je in je dashboard ziet. Nieuwe rollen zijn meteen actief.
         </p>
 
         {pendingNames.length > 0 ? (
           <div className="mt-4">
-            <DashboardNotice title="Wacht op goedkeuring" tone="attention">
-              {pendingNames.join(" en ")}. Je krijgt een e-mail zodra we je aanvraag bekeken.
+            <DashboardNotice title="Rol activeren" tone="attention">
+              {pendingNames.join(" en ")}. Sla je rollen opnieuw op om ze meteen te activeren.
             </DashboardNotice>
           </div>
         ) : null}
@@ -102,9 +101,9 @@ export default async function SettingsPage({ searchParams }: Props) {
                     {type.label}
                     {type.value === "workshopgever" &&
                     hasPendingRoleRequest(pending, "workshop_host")
-                      ? " (wacht op goedkeuring)"
+                      ? " (opnieuw opslaan om te activeren)"
                       : type.value === "organizer" && hasPendingRoleRequest(pending, "organizer")
-                        ? " (wacht op goedkeuring)"
+                        ? " (opnieuw opslaan om te activeren)"
                         : ""}
                   </span>
                   <span className="block text-lg text-[var(--muted)]">{type.description}</span>

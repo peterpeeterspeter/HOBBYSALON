@@ -112,9 +112,8 @@ export default async function EditWorkshopPage({ params, searchParams }: Props) 
     );
   } else if (status === "review") {
     notice = (
-      <DashboardNotice title="Wacht op goedkeuring" tone="attention">
-        We bekijken je aanvraag als workshopgever. Tot dan blijft deze workshop een concept. Je
-        krijgt een e-mail zodra je kan publiceren.
+      <DashboardNotice title="Workshopgever activeren" tone="attention">
+        Activeer workshopgever onder Instellingen. Daarna kan je deze workshop publiceren.
       </DashboardNotice>
     );
   } else if (status === "payment" || status === "expired") {

@@ -94,6 +94,56 @@ export function zonedDateTimeToUtcIso(
   return corrected.toISOString();
 }
 
+const DATETIME_LOCAL_RE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+/**
+ * Parse an HTML `datetime-local` value as Europe/Brussels wall time → UTC ISO.
+ * Do not use `new Date("YYYY-MM-DDTHH:mm")` on the server: Node on Vercel is UTC,
+ * so that treats the wall clock as UTC and shifts displayed Brussels times by +1/+2h.
+ */
+export function dateTimeLocalToUtcIso(
+  value: string,
+  timeZone = AGENDA_TIMEZONE
+): string {
+  const trimmed = value.trim();
+  const match = DATETIME_LOCAL_RE.exec(trimmed);
+  if (!match) {
+    throw new Error("Ongeldige datum of tijd.");
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = match[6] ? Number(match[6]) : 0;
+  return zonedDateTimeToUtcIso(year, month, day, hour, minute, second, timeZone);
+}
+
+/** Format a timestamptz/ISO instant for an HTML `datetime-local` input (Brussels). */
+export function utcIsoToDateTimeLocal(
+  value: string,
+  timeZone = AGENDA_TIMEZONE
+): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = partsInTimeZone(date, timeZone);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+}
+
+/** Public/dashboard date-time formatting pinned to Europe/Brussels. */
+export function formatBrusselsDateTime(
+  iso: string,
+  options: Intl.DateTimeFormatOptions,
+  locale = "nl-BE"
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: AGENDA_TIMEZONE,
+    ...options,
+  }).format(new Date(iso));
+}
+
 function addCalendarDays(
   year: number,
   month: number,

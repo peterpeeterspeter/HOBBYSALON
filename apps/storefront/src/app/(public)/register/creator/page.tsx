@@ -29,7 +29,7 @@ const ROLE_COPY = {
   workshopgever: {
     title: "Workshops geven",
     lead: "Maak eerst je gratis account. Daarna stel je je profiel in en zet je je eerste workshop klaar.",
-    needsReview: true,
+    needsReview: false,
   },
   maker: {
     title: "Je creaties, tutorials of patronen delen",
@@ -39,7 +39,7 @@ const ROLE_COPY = {
   organizer: {
     title: "Een markt of evenement organiseren",
     lead: "Maak eerst je gratis account. Daarna stel je je profiel in en zet je je evenement in de agenda.",
-    needsReview: true,
+    needsReview: false,
   },
 } as const;
 

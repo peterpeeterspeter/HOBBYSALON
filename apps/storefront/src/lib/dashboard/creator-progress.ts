@@ -69,7 +69,7 @@ export function getCreatorProgressSteps(
       },
       {
         id: "publish",
-        label: canPublish || hasPublished ? "Workshop publiceren" : "Publiceren na goedkeuring",
+        label: canPublish || hasPublished ? "Workshop publiceren" : "Workshopgever activeren",
         done: hasPublished,
         href: getPublishPath("workshopgever"),
       },
@@ -94,7 +94,7 @@ export function getCreatorProgressSteps(
       },
       {
         id: "publish",
-        label: canPublish || hasPublished ? "Evenement publiceren" : "Publiceren na goedkeuring",
+        label: canPublish || hasPublished ? "Evenement publiceren" : "Organisator activeren",
         done: hasPublished,
         href: getPublishPath("organizer"),
       },
