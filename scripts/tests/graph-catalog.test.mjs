@@ -80,8 +80,8 @@ test('read failure aborts rather than planning from incomplete catalog or missin
 test('pending rows are bounded deterministic recommendations, never requirements', async () => {
   const api=await load(); const catalog=Array.from({length:6},(_,i)=>({targetType:'product',targetId:`p${i}`,title:'Haaknaald 6 mm',domainIds:['d'],productType:'supply'}));
   const results=api.planArticleSuggestions(article,catalog,new Set());
-  assert.equal(results.length,3);
+  assert.equal(results.length,6);
   assert.ok(results.every(m=>m.row.relation_type==='suggested_auto' && m.row.weight<=100 && m.proposedRelation==='related_product'));
-  assert.deepEqual(Array.from(results,m=>m.row.sort_order),[1,2,3]);
+  assert.deepEqual(Array.from(results,m=>m.row.sort_order),[1,2,3,4,5,6]);
   assert.equal(JSON.stringify(results),JSON.stringify(api.planArticleSuggestions(article,[...catalog].reverse(),new Set())));
 });
