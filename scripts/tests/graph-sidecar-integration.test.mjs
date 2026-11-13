@@ -103,12 +103,19 @@ test('real worker uses same detached body snapshot, original SQL fence and seman
 });
 test('worker records gate outcomes without proposals and respects review memory; malformed planner never triggers legacy fallback',async()=>{
   const bundle=sidecarFixture([article]);
-  for(const options of [{article:{...article,body_markdown:article.body_markdown+' '}},{reviews:[{target_entity_type:'product',target_entity_id:pid,state:'accepted'}]}]){
-    const f=workerFixture(bundle,options);const r=await runArticleMatchingJobs(f);assert.equal(r.inserted,0);assert.equal(r.completed,1);
-    assert.ok(!f.calls.some(x=>x.name==='graph_propose_article_suggestions'));
-  }
+  // Stale sidecar metadata now falls back to catalog matching on purpose (auto-accept
+  // policy), so it completes with a catalog-sourced proposal rather than an empty run.
+  const stale=workerFixture(bundle,{article:{...article,body_markdown:article.body_markdown+' '}});
+  const staleRun=await runArticleMatchingJobs(stale);
+  assert.equal(staleRun.completed,1);assert.equal(staleRun.inserted,1);
+  assert.equal(staleRun.outcomes[0].sidecarState,'stale+catalog_fallback');
+  // Review memory still suppresses a proposal the creator already accepted.
+  const accepted=workerFixture(bundle,{reviews:[{target_entity_type:'product',target_entity_id:pid,state:'accepted'}]});
+  const acceptedRun=await runArticleMatchingJobs(accepted);
+  assert.equal(acceptedRun.inserted,0);assert.equal(acceptedRun.completed,1);
+  assert.ok(!accepted.calls.some(x=>x.name==='graph_propose_article_suggestions'));
   const f=workerFixture(bundle);f.plan=()=>null;const r=await runArticleMatchingJobs(f);assert.equal(r.failed,1);assert.ok(!f.calls.some(x=>x.name==='graph_propose_article_suggestions'));
-  const stale=workerFixture(bundle,{staleRpc:true});assert.equal((await runArticleMatchingJobs(stale)).failed,1);
+  const staleRpc=workerFixture(bundle,{staleRpc:true});assert.equal((await runArticleMatchingJobs(staleRpc)).failed,1);
 });
 test('private Storage integration makes authenticated GETs only; verifies pinned bytes and rejects tamper/errors without credential leaks',async()=>{
   const f=sidecarFixture([article]);const calls=[];
