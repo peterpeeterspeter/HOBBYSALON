@@ -6,7 +6,7 @@ function browser(t: TestContext, granted = true) {
   const values = new Map(granted ? [["hs_analytics_consent", "granted"]] : []);
   const target = new EventTarget(); const calls: unknown[][] = [];
   const window = {location:new URL("https://hobbysalon.nl/workshops?secret=private"), hsGa4Ready:false,
-    "ga-disable-G-KP9BXCEF2Z":false,localStorage:{getItem:(k:string)=>values.get(k)??null},
+    "ga-disable-G-ZLC3WS42VD":false,localStorage:{getItem:(k:string)=>values.get(k)??null},
     addEventListener:target.addEventListener.bind(target),removeEventListener:target.removeEventListener.bind(target),
     dispatchEvent:target.dispatchEvent.bind(target),gtag:(...args:unknown[])=>calls.push(args)};
   const document = {cookie:granted ? "hs_analytics_consent=granted" : "",referrer:""};

@@ -11,7 +11,7 @@ function browser(t: TestContext, path = "/workshops") {
   const generation = '11111111-1111-4111-8111-111111111111';
   cookies.set(CONSENT_GENERATION_KEY, generation); storage.set(CONSENT_GENERATION_KEY, generation);
   const scripts = new Map<string, any>(); const calls: unknown[][] = [];
-  const window: any = { location: new URL(`https://hobbysalon.nl${path}`), hsGa4Ready: true, "ga-disable-G-KP9BXCEF2Z": false,
+  const window: any = { location: new URL(`https://hobbysalon.nl${path}`), hsGa4Ready: true, "ga-disable-G-ZLC3WS42VD": false,
     localStorage: {getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)},
     dispatchEvent:()=>true, gtag:(...args:unknown[])=>calls.push(args) };
   const document: any = { referrer: "https://other.invalid/?email=private", getElementById:(id:string)=>scripts.get(id),
@@ -57,7 +57,7 @@ test("route tracker invokes receipt only after transport readiness",()=>{
 test("late response from an earlier grant cannot replay after withdrawal and regrant",t=>{
   const f=browser(t);const oldGeneration=f.storage.get(CONSENT_GENERATION_KEY)!;
   setConsent('denied');setConsent('granted');
-  f.window.hsGa4Ready=true;f.window['ga-disable-G-KP9BXCEF2Z']=false;
+  f.window.hsGa4Ready=true;f.window['ga-disable-G-ZLC3WS42VD']=false;
   f.put('receipt_test_late','listing_published',{listing_type:'handmade'},oldGeneration);
   consumeConversionReceipt();
   assert.equal(f.cookies.has(CONVERSION_COOKIE),false);

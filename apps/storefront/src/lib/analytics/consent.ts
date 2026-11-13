@@ -1,7 +1,7 @@
 import { CONVERSION_COOKIE, CONSENT_GENERATION_KEY, validConsentGeneration } from "./conversions";
 import { pageParameters } from "./pageview";
 
-export const GA4_ID = "G-KP9BXCEF2Z";
+export const GA4_ID = "G-ZLC3WS42VD";
 export const CONSENT_KEY = "hs_analytics_consent";
 export const CONSENT_CHANGED = "hs:analytics_consent_changed";
 export type Consent = "granted" | "denied" | "pending";
@@ -20,7 +20,7 @@ declare global {
     hsGa4Configured?: boolean;
     hsGa4ScriptReady?: boolean;
     hsGa4LastPage?: string;
-    "ga-disable-G-KP9BXCEF2Z"?: boolean;
+    "ga-disable-G-ZLC3WS42VD"?: boolean;
   }
 }
 
@@ -90,7 +90,7 @@ export function initializeConsent(): void {
   if (window.hsGa4Initialized) return;
   window.hsGa4Initialized = true;
   window.hsGa4Ready = false;
-  window["ga-disable-G-KP9BXCEF2Z"] = true;
+  window["ga-disable-G-ZLC3WS42VD"] = true;
   window.dataLayer = window.dataLayer || [];
   window.gtag = function () { window.dataLayer?.push(arguments); };
   command("consent", "default", DENIED_CONSENT);
@@ -106,7 +106,7 @@ export function initializeConsent(): void {
 function stopAnalytics(includeReceipt = true): void {
   window.hsGa4Ready = false;
   window.hsGa4LastPage = undefined;
-  window["ga-disable-G-KP9BXCEF2Z"] = true;
+  window["ga-disable-G-ZLC3WS42VD"] = true;
   command("consent", "update", DENIED_CONSENT);
   clearAnalyticsCookies(includeReceipt);
 }
@@ -135,7 +135,7 @@ export function setConsent(choice: "granted" | "denied"): Consent {
 }
 
 export function analyticsAllowed(): boolean {
-  return typeof window !== "undefined" && typeof document !== "undefined" && readConsent() === "granted" && window.hsGa4Ready === true && window["ga-disable-G-KP9BXCEF2Z"] === false;
+  return typeof window !== "undefined" && typeof document !== "undefined" && readConsent() === "granted" && window.hsGa4Ready === true && window["ga-disable-G-ZLC3WS42VD"] === false;
 }
 
 /**
@@ -182,12 +182,12 @@ export function syncAnalytics(onReady: () => void): void {
       // Refusal: keep the tag loaded so Google still receives cookieless pings,
       // but never let the app send a custom event.
       window.hsGa4Ready = false;
-      window["ga-disable-G-KP9BXCEF2Z"] = true;
+      window["ga-disable-G-ZLC3WS42VD"] = true;
       command("consent", "update", DENIED_CONSENT);
       clearAnalyticsCookies(readConsent() !== "granted");
       return;
     }
-    window["ga-disable-G-KP9BXCEF2Z"] = false;
+    window["ga-disable-G-ZLC3WS42VD"] = false;
     command("consent", "update", { ...DENIED_CONSENT, analytics_storage: "granted" });
     if (!window.hsGa4Configured) {
       // Preserve the original BE/NL linker, before js and config.
