@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import { AnalyticsConsent } from "@/components/analytics/AnalyticsConsent";
+import { AnalyticsRouteTracker } from "@/components/analytics/AnalyticsRouteTracker";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthHashRedirect } from "@/components/auth/AuthHashRedirect";
 import { getRequestMarket } from "@/lib/markets/request";
 import { marketSeoDecision } from "@/lib/markets/seo-policy";
+import { marketDefaultRobots } from "@/lib/markets/page-seo";
 import {
   DEFAULT_OG_IMAGE,
   DEFAULT_OG_IMAGE_ALT,
@@ -106,10 +108,7 @@ export async function generateMetadata(): Promise<Metadata> {
         "Ontdek workshops, makers, hobbywinkels, evenementen, materialen en creatieve inspiratie in België en Nederland.",
       images: [DEFAULT_OG_IMAGE],
     },
-    robots: {
-      index: seo.index,
-      follow: seo.follow,
-    },
+    robots: marketDefaultRobots(seo),
   };
 }
 
@@ -125,18 +124,8 @@ export default async function RootLayout({
     <html lang={seo.htmlLang} className={`${quicksand.variable} ${lato.variable}`}>
       <body className="antialiased font-sans" suppressHydrationWarning>
         <AuthHashRedirect />
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-KP9BXCEF2Z"
-          strategy="afterInteractive"
-        />
-        <Script id="ga4-hobbysalon" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-KP9BXCEF2Z');
-          `}
-        </Script>
+        <AnalyticsConsent />
+        <AnalyticsRouteTracker />
         {children}
       </body>
     </html>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/ui/container";
 import { getPublishedNewsletterIssueBySlug } from "@/lib/newsletter/issues";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildRequestPageMetadata } from "@/lib/markets/request-page-seo";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -15,13 +15,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const issue = await getPublishedNewsletterIssueBySlug(slug).catch(() => null);
   if (!issue) {
-    return buildPageMetadata({
+    return buildRequestPageMetadata({
       title: "Nieuwsbrief | Hobbysalon",
       description: "Archiefeditie van de Hobbysalon-nieuwsbrief.",
       path: `/nieuwsbrief/${slug}`,
     });
   }
-  return buildPageMetadata({
+  return buildRequestPageMetadata({
     title: `${issue.title} | Nieuwsbrief Hobbysalon`,
     description:
       issue.excerpt ??

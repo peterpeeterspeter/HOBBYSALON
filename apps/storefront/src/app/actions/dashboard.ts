@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { queueConversion } from "@/lib/analytics/conversions.server";
+import { queueCreatedListing } from "@/lib/analytics/conversion-producers.server";
 import {
   resolveReturnPath,
   successPathAfterCreate,
@@ -1728,13 +1730,15 @@ export async function createProductAction(formData: FormData): Promise<void> {
         is_active: isActive,
         medusa_product_id: null,
       })
-      .select("id")
+      .select("id, product_type, is_active, status")
       .single();
 
     if (error || !createdProduct) {
       console.error("Create product failed", error);
       fail(returnPath, "Creatie aanmaken mislukt. Probeer het later opnieuw.");
     }
+
+    await queueCreatedListing({ data: createdProduct, error }, queueConversion);
 
     if (galleryUrls.length > 0) {
       const { error: galleryError } = await supabase

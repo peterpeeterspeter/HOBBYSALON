@@ -64,6 +64,10 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["workshop_id", "creator_id"],
     funnelStage: "engagement",
   },
+  workshop_booking_registered: {
+    required: ["workshop_id", "creator_id"],
+    funnelStage: "engagement",
+  },
   product_inquiry_submitted: {
     required: ["product_id", "creator_id"],
     funnelStage: "engagement",
@@ -383,7 +387,7 @@ export function clearStoredAnalyticsEvents(): void {
   }
 }
 
-export function trackEvent(event: string, payload: AnalyticsPayload = {}): void {
+export function trackEvent(event: string, payload: AnalyticsPayload = {}, options: { google?: boolean } = {}): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -419,7 +423,7 @@ export function trackEvent(event: string, payload: AnalyticsPayload = {}): void 
     schema_valid: missingRequiredFields.length === 0,
   };
 
-  sendGa4Event(event, sanitizedPayload);
+  if (options.google !== false) sendGa4Event(event, sanitizedPayload);
   appendEventToLog(eventPayload);
   sendEventToPassportIngest(eventPayload);
   window.dispatchEvent(
