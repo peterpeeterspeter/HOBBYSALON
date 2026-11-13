@@ -67,7 +67,7 @@ test("BE regional metadata keeps BE canonical and no hreflang while NL preparing
   );
 });
 
-test("NL regional metadata uses NL origin and stays noindex while preparing", () => {
+test("NL regional metadata uses NL origin and indexes once published", () => {
   const decision = marketSeoDecision(
     resolveMarketFromHeaders({ host: "hobbysalon.nl", env: onPreviewEnv }),
     onPreviewEnv
@@ -78,10 +78,17 @@ test("NL regional metadata uses NL origin and stays noindex while preparing", ()
   });
   assert.equal(meta.alternates?.canonical, "https://hobbysalon.nl");
   assert.equal(meta.openGraph?.locale, "nl_NL");
-  assert.equal(meta.alternates?.languages, undefined);
+  assert.equal(
+    meta.alternates?.languages?.["nl-NL"],
+    "https://hobbysalon.nl"
+  );
+  assert.equal(
+    meta.alternates?.languages?.["nl-BE"],
+    "https://www.hobbysalon.be"
+  );
   assert.equal(
     (meta.robots as { index?: boolean } | undefined)?.index,
-    false
+    true
   );
   assert.equal(
     typeof meta.title === "object" &&
@@ -100,13 +107,13 @@ test("hreflang map is reciprocal for equivalent landings", () => {
   assert.equal(languages["x-default"], "https://www.hobbysalon.be/agenda");
 });
 
-test("hreflang only attaches when NL SEO is published", () => {
-  assert.equal(MARKETS.NL.rollout, "preparing");
+test("hreflang attaches on BE once NL SEO is published", () => {
+  assert.equal(MARKETS.NL.rollout, "live");
   const be = marketSeoDecision(
     resolveMarketFromHeaders({ host: "www.hobbysalon.be", env: onPreviewEnv }),
     onPreviewEnv
   );
-  assert.equal(be.publishHreflang, false);
+  assert.equal(be.publishHreflang, true);
   const withHreflang = buildRegionalPageMetadata({
     path: "/creators",
     decision: { ...be, publishHreflang: true },

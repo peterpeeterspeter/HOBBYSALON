@@ -7,6 +7,8 @@ import { resolveMarketFromHeaders } from "./resolve.ts";
 // @ts-expect-error Node's TypeScript test runner requires the extension.
 import { marketSeoDecision } from "./seo-policy.ts";
 // @ts-expect-error Node's TypeScript test runner requires the extension.
+import { buildMarketPageMetadata } from "./page-seo.ts";
+// @ts-expect-error Node's TypeScript test runner requires the extension.
 import { marketSwitchTargets, publicMarketPath } from "./urls.ts";
 // @ts-expect-error Node's TypeScript test runner requires the extension.
 import { getSiteUrl, absoluteUrl, buildPageMetadata } from "../seo.ts";
@@ -52,17 +54,50 @@ test("ENABLE_NL_MARKET stays off in production unless ALLOW_NL_MARKET_IN_PRODUCT
   assert.equal(isNlMarketEnabled({}), false);
 });
 
-test("NL indexing stays off while MarketConfig.NL is preparing even if production launch flags are set", () => {
-  assert.equal(MARKETS.NL.rollout, "preparing");
-  assert.equal(MARKETS.NL.indexing, "noindex");
+test("NL indexing is live but restricted to regional landings", () => {
+  assert.equal(MARKETS.NL.rollout, "live");
+  assert.equal(MARKETS.NL.indexing, "index");
   const resolved = resolveMarketFromHeaders({
     host: "hobbysalon.nl",
     env: productionLaunchEnv,
   });
   assert.equal(resolved.market.marketCode, "NL");
   const seo = marketSeoDecision(resolved, productionLaunchEnv);
-  assert.equal(seo.index, false);
-  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.index, true);
+  assert.equal(seo.publishHreflang, true);
+});
+
+test("NL regional landings index but every other NL route stays noindex", () => {
+  const seo = marketSeoDecision(
+    resolveMarketFromHeaders({ host: "hobbysalon.nl", env: productionLaunchEnv }),
+    productionLaunchEnv
+  );
+  assert.equal(seo.index, true);
+
+  // The five regional landings are approved for publication.
+  for (const path of ["/", "/workshops", "/creators", "/materials", "/agenda"]) {
+    const meta = buildMarketPageMetadata({ title: "x", path }, seo);
+    assert.equal(
+      (meta.robots as { index?: boolean } | undefined)?.index,
+      true,
+      `${path} should index on NL`
+    );
+  }
+
+  // Everything else has no NL-specific content and must stay out of the index.
+  for (const path of ["/artikel/ijsvogel-haken", "/creator/jane-doe", "/prijzen"]) {
+    const meta = buildMarketPageMetadata({ title: "x", path }, seo);
+    assert.equal(
+      (meta.robots as { index?: boolean } | undefined)?.index,
+      false,
+      `${path} must stay noindex on NL`
+    );
+    assert.equal(
+      meta.alternates?.languages,
+      undefined,
+      `${path} must not publish hreflang on NL`
+    );
+  }
 });
 
 test("MarketConfig separates country from locales", () => {
@@ -109,8 +144,8 @@ test("NL host becomes market NL only when the flag is on outside production", ()
   assert.equal(resolved.trustedHost, true);
 
   const seo = marketSeoDecision(resolved, onPreviewEnv);
-  assert.equal(seo.index, false);
-  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.index, true);
+  assert.equal(seo.publishHreflang, true);
   assert.equal(seo.canonicalOrigin, MARKETS.NL.canonicalOrigin);
   assert.equal(seo.htmlLang, "nl-NL");
   assert.equal(seo.ogLocale, "nl_NL");
@@ -276,16 +311,16 @@ test("BE trusted host indexes while ENABLE_NL_MARKET is off", () => {
   assert.equal(seo.ogLocale, "nl_BE");
 });
 
-test("NL preparing never publishes hreflang or indexes even with flag on", () => {
-  assert.equal(MARKETS.NL.rollout, "preparing");
-  assert.equal(MARKETS.NL.indexing, "noindex");
+test("NL live publishes hreflang and indexes only when the launch flag is on", () => {
+  assert.equal(MARKETS.NL.rollout, "live");
+  assert.equal(MARKETS.NL.indexing, "index");
   const resolved = resolveMarketFromHeaders({
     host: "hobbysalon.nl",
     env: onPreviewEnv,
   });
   const seo = marketSeoDecision(resolved, onPreviewEnv);
-  assert.equal(seo.index, false);
-  assert.equal(seo.publishHreflang, false);
+  assert.equal(seo.index, true);
+  assert.equal(seo.publishHreflang, true);
   assert.equal(seo.canonicalOrigin, MARKETS.NL.canonicalOrigin);
   assert.equal(seo.htmlLang, "nl-NL");
 });

@@ -38,8 +38,10 @@ export const MARKETS: Record<MarketCode, MarketConfig> = {
     canonicalOrigin: "https://hobbysalon.nl",
     defaultLocale: "nl-NL",
     supportedLocales: ["nl-NL"],
-    indexing: "noindex",
-    rollout: "preparing",
+    // Only the five regional landings publish. Every other NL route stays
+    // noindex through buildMarketPageMetadata until it has its own NL content.
+    indexing: "index",
+    rollout: "live",
   },
 };
 
