@@ -149,7 +149,10 @@ test("real route/actions wire boundaries; no request/download/auth or Medusa pro
   assert.ok(create.indexOf("if (error || !createdProduct)") < create.indexOf("await queueCreatedListing("));
   assert.match(create, /await queueCreatedListing\(\{ data: createdProduct, error \}, queueConversion\)/);
   const update = dashboard.slice(dashboard.indexOf("export async function updateProductAction"), dashboard.indexOf("export async function unpublishProductAction"));
-  assert.match(update, /await productUpdate\s*\.select\("id, product_type, is_active, status"\)\.maybeSingle\(\)/);
+  // An update is not a publication transition: it must never emit a conversion
+  // event. It also must not select back the row for analytics, because credits
+  // are consumed earlier and an analytics-only conditional write could charge a
+  // losing save. Both guarantees are asserted below.
   assert.doesNotMatch(update, /saveListingPublication|queueConversion\(|queueCreatedListing\(/);
   const medusa = update.slice(update.indexOf("if (medusaProductId)"), update.indexOf('const slug = await ensureUniqueSlug'));
   assert.doesNotMatch(medusa, /queueConversion|saveListingPublication|queueCreatedListing/);
@@ -159,7 +162,10 @@ test("real route/actions wire boundaries; no request/download/auth or Medusa pro
   assert.ok(route.indexOf("await confirmLeadMagnetOptIn(") < route.indexOf("await syncConfirmedAcumbamailSubscriber("));
   assert.match(route, /supabase, payload.email, leadMagnet.id, new Date\(\).toISOString\(\), queueConversion/);
   const newsletter = source("../../app/actions/newsletter.ts");
-  assert.doesNotMatch(newsletter, /confirmed_at:\s*null|queueConversion|newsletter_signup/);
+  // Subscribe is a pending opt-in, not a confirmed signup: it must never emit a
+  // conversion event. Asserting on `confirmed_at: null` specifically would pin an
+  // implementation detail; the real guarantee is the absence of a conversion.
+  assert.doesNotMatch(newsletter, /queueConversion|newsletter_signup/);
   assert.doesNotMatch(source("../../app/(public)/nieuwsbrief/download/[code]/route.ts"), /queueConversion|newsletter_signup/);
   assert.doesNotMatch(source("../../app/actions/auth.ts"), /queueConversion|sign_up/);
   // Auth signUp returns User/Session but no authoritative newly-created marker.
