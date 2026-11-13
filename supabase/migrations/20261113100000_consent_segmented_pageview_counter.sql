@@ -40,6 +40,10 @@ begin
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
     revoke all on public.analytics_pageview_daily from authenticated;
   end if;
+  -- Reporting and the counter both run as the service role.
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant select, insert, update on public.analytics_pageview_daily to service_role;
+  end if;
 end $$;
 
 -- Atomic upsert-and-increment so concurrent requests cannot lose a count.
@@ -67,5 +71,9 @@ begin
   end if;
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
     revoke all on function public.increment_pageview(date, text, text, text) from authenticated;
+  end if;
+  -- The storefront reaches this with the service role key, never as a user.
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function public.increment_pageview(date, text, text, text) to service_role;
   end if;
 end $$;
