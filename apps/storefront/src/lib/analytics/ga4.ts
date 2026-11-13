@@ -32,6 +32,9 @@ const EVENT_PARAMETERS: Readonly<Record<string, Readonly<Record<string, Validato
   checkout_started: { item_count: count },
   // A checkout-success render is not yet authoritative purchase evidence.
   checkout_completed: { item_count: count },
+  // Only the charge kind. No amount: the return landing knows which kind was
+  // bought but not what Stripe captured, so any value here would be invented.
+  platform_charge_returned: { charge_kind: oneOf("credit_pack", "plan", "workshop_listing") },
   workshop_booking_request_submitted: { workshop_id: uuid },
   workshop_booking_registered: { workshop_id: uuid },
   product_inquiry_submitted: { product_id: uuid },
@@ -85,6 +88,12 @@ export function sendGa4Event(event: string, payload: Record<string, unknown> = {
     // account -> sign_up, newsletter -> newsletter_signup, workshop -> workshop_booking.
     if (event === "workshop_booking_registered") {
       ga4Event = "workshop_booking";
+    }
+    // Payment-method-agnostic "money moved back through the redirect". Kept
+    // distinct from purchase so it never inflates revenue in reports. The event
+    // name already carries the meaning; no extra status parameter.
+    if (event === "platform_charge_returned") {
+      ga4Event = "platform_charge_returned";
     }
     gtag.call(window, "event", ga4Event, parameters);
   } catch {

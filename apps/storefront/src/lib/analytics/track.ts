@@ -56,6 +56,13 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["currency_code", "total_amount", "item_count"],
     funnelStage: "checkout",
   },
+  // Platform charge (credits, plan, workshop listing) returned from Stripe.
+  // Proves the payer came back through the payment redirect; it is still not
+  // authoritative revenue evidence - only the Stripe webhook is.
+  platform_charge_returned: {
+    required: ["charge_kind"],
+    funnelStage: "purchase",
+  },
   checkout_completed: {
     required: ["order_id"],
     funnelStage: "purchase",
@@ -103,6 +110,9 @@ export const FUNNEL_EVENT_ORDER = [
   "bundle_add",
   "add_to_cart",
   "checkout_started",
+  // Reaching the thank-you page, not a settled payment. Real revenue evidence
+  // lives in Stripe (marketplace capture + fulfill_listing_checkout); a GA4
+  // purchase event needs Measurement Protocol and is deliberately deferred.
   "checkout_completed",
 ] as const;
 

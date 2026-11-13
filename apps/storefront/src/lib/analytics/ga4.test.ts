@@ -92,6 +92,9 @@ for (const [event, payload, ga4Event, safe] of [
   ["newsletter_signup", { signup_source: "lead_magnet_form", opt_in_method: "double" }, "newsletter_signup", { signup_source: "lead_magnet_form", opt_in_method: "double" }],
   ["newsletter_signup_requested", { signup_source: "newsletter_form", lead_magnet_code: "haak-gids", opt_in_method: "single" }, "newsletter_signup_requested", { signup_source: "newsletter_form", lead_magnet_code: "haak-gids" }],
   ["checkout_completed", { order_id: "order_private", item_count: 2 }, "checkout_completed", { item_count: 2 }],
+  ["platform_charge_returned", { charge_kind: "credit_pack", amount: 2400 }, "platform_charge_returned", { charge_kind: "credit_pack" }],
+  ["platform_charge_returned", { charge_kind: "workshop_listing" }, "platform_charge_returned", { charge_kind: "workshop_listing" }],
+  ["platform_charge_returned", { charge_kind: "not_a_real_kind" }, "platform_charge_returned", {}],
 ] as const) {
   test(`${event} maps once to ${ga4Event} with only its allowed parameters ${JSON.stringify(safe)}`, (t) => {
     const fixture = browser(t);

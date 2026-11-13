@@ -177,18 +177,40 @@ Verified by reading code and querying the live GA4 property:
   giving free idempotency for platform charges.
 - No Measurement Protocol API secret exists in the repo or env (searched).
 
-## 6. Open questions for Peter
+## 7. Decision taken (2026-11-13)
 
-1. Is the marketplace checkout **live with real paying buyers**? If order volume
-   is still zero, building the MP pipeline now is speculative. The GA4 data
-   shows `checkout_started` has never fired either (it is in the tracked set but
-   absent from all-time events), which suggests no marketplace purchase has ever
-   completed through this site.
-2. Do you want attributed server-side purchase events (needs `_ga` capture and
-   an explicit consent disclosure update), or are honest aggregate totals enough
-   to start?
-3. Who creates the Measurement Protocol API secret in the GA4 UI — it cannot be
-   created via API.
+Confirmed with Peter: **zero marketplace purchases to date, one real credit-pack
+purchase by a real maker, site not yet launched.**
+
+Landed now (small, in `feat/ga4-conversion-tracking`):
+
+- Added `platform_charge_returned` with `charge_kind` in
+  `{credit_pack, plan, workshop_listing}`. Fired from the return landing
+  (`/dashboard/instellingen` for credits/plan, `/dashboard/aanbod` for workshop
+  listing). The charge kind is carried through the Stripe-return redirect as
+  `?charge=`, allowlisted server-side before it reaches the client.
+- Deliberately **not** named `purchase` and **no value/amount** parameter: the
+  return landing knows which kind was bought, not what Stripe captured. Inventing
+  an amount would corrupt revenue reporting.
+- `checkout_completed` documented in `FUNNEL_EVENT_ORDER` as "reached the
+  thank-you page", not a settled payment.
+
+Deliberately deferred until there is real marketplace volume:
+
+- Measurement Protocol server-side `purchase` (needs a GA4-UI API secret plus a
+  consent-gated `_ga` client_id). Design is in §3–4 above.
+
+This is instrumentation readiness for launch, not a revenue measurement claim.
+
+## 6. Open questions — answered 2026-11-13
+
+1. Marketplace checkout volume: **zero marketplace purchases ever**. Confirmed by
+   Peter. GA4 agrees — `checkout_started` has never fired.
+2. Attribution appetite: **not now**. One real credit-pack purchase exists, but
+   building MP for that volume is not worth it before launch. Aggregate
+   `platform_charge_returned` is enough to prove the payment flow works.
+3. Measurement Protocol API secret: still unowned and **not needed yet** — it must
+   be created in the GA4 UI when the MP work is picked up.
 
 Recommendation: ship the Step 1 correction now (it is pure truth-telling and
 unblocks clean funnel reporting), and only build Steps 2–3 once there is
