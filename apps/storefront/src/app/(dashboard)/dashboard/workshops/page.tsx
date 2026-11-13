@@ -11,6 +11,8 @@ export default async function WorkshopsRedirectPage({ searchParams }: Props) {
   let target = "/dashboard/aanbod?soort=workshops";
   if (checkout === "pending") {
     target = withFlash(target, "success", "Betaling ontvangen. Je workshop wordt zo zichtbaar.");
+    // Same contract as the credits return: name the charge kind on landing.
+    target += "&charge=workshop_listing";
   } else if (checkout === "cancelled") {
     target = withFlash(target, "error", "Betaling geannuleerd. Je workshop blijft een concept.");
   } else if (success) {

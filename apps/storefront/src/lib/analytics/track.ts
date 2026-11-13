@@ -56,11 +56,22 @@ export const ANALYTICS_EVENT_SCHEMAS: Record<string, AnalyticsEventSchema> = {
     required: ["currency_code", "total_amount", "item_count"],
     funnelStage: "checkout",
   },
+  // Platform charge (credits, plan, workshop listing) returned from Stripe.
+  // Proves the payer came back through the payment redirect; it is still not
+  // authoritative revenue evidence - only the Stripe webhook is.
+  platform_charge_returned: {
+    required: ["charge_kind"],
+    funnelStage: "purchase",
+  },
   checkout_completed: {
     required: ["order_id"],
     funnelStage: "purchase",
   },
   workshop_booking_request_submitted: {
+    required: ["workshop_id", "creator_id"],
+    funnelStage: "engagement",
+  },
+  workshop_booking_registered: {
     required: ["workshop_id", "creator_id"],
     funnelStage: "engagement",
   },
@@ -99,6 +110,9 @@ export const FUNNEL_EVENT_ORDER = [
   "bundle_add",
   "add_to_cart",
   "checkout_started",
+  // Reaching the thank-you page, not a settled payment. Real revenue evidence
+  // lives in Stripe (marketplace capture + fulfill_listing_checkout); a GA4
+  // purchase event needs Measurement Protocol and is deliberately deferred.
   "checkout_completed",
 ] as const;
 
@@ -383,7 +397,7 @@ export function clearStoredAnalyticsEvents(): void {
   }
 }
 
-export function trackEvent(event: string, payload: AnalyticsPayload = {}): void {
+export function trackEvent(event: string, payload: AnalyticsPayload = {}, options: { google?: boolean } = {}): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -419,7 +433,7 @@ export function trackEvent(event: string, payload: AnalyticsPayload = {}): void 
     schema_valid: missingRequiredFields.length === 0,
   };
 
-  sendGa4Event(event, sanitizedPayload);
+  if (options.google !== false) sendGa4Event(event, sanitizedPayload);
   appendEventToLog(eventPayload);
   sendEventToPassportIngest(eventPayload);
   window.dispatchEvent(

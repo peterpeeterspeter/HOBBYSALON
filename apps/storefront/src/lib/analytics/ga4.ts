@@ -1,12 +1,8 @@
 "use client";
 
-export type Gtag = (...args: unknown[]) => void;
-
-declare global {
-  interface Window {
-    gtag?: Gtag;
-  }
-}
+import { analyticsAllowed } from "./consent";
+import { pageParameters } from "./pageview";
+export type { Gtag } from "./consent";
 
 type Scalar = string | number;
 type Validator = (value: unknown) => value is Scalar;
@@ -36,31 +32,26 @@ const EVENT_PARAMETERS: Readonly<Record<string, Readonly<Record<string, Validato
   checkout_started: { item_count: count },
   // A checkout-success render is not yet authoritative purchase evidence.
   checkout_completed: { item_count: count },
+  // Only the charge kind. No amount: the return landing knows which kind was
+  // bought but not what Stripe captured, so any value here would be invented.
+  platform_charge_returned: { charge_kind: oneOf("credit_pack", "plan", "workshop_listing") },
   workshop_booking_request_submitted: { workshop_id: uuid },
+  workshop_booking_registered: { workshop_id: uuid },
   product_inquiry_submitted: { product_id: uuid },
   sign_up: { method: oneOf("email") },
   listing_published: { listing_type: oneOf("handmade", "destash"), product_id: uuid },
   newsletter_signup: { signup_source: signupSource, opt_in_method: oneOf("single", "double"), lead_magnet_code: code },
   newsletter_signup_requested: { signup_source: signupSource, lead_magnet_code: code },
+  survey_submitted: { survey_key: oneOf("aanbod-verbeteren-2026") },
   tool_calculated: { tool_slug: code, formula_id: code },
   tool_materials_clicked: { tool_slug: code, formula_id: code, product_id: uuid },
 };
-
-function originAndPath(raw: string): string | undefined {
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
-    return `${url.origin}${url.pathname}`;
-  } catch {
-    return undefined;
-  }
-}
 
 /** Best-effort, bounded transport. No queue, replay, HTTP requests or retries. */
 export function sendGa4Event(event: string, payload: Record<string, unknown> = {}): void {
   if (typeof window === "undefined") return;
   try {
-    if (window.localStorage.getItem("hs_analytics_consent") !== "granted") return;
+    if (!analyticsAllowed()) return;
     const gtag = window.gtag;
     if (typeof gtag !== "function") return;
     if (!Object.prototype.hasOwnProperty.call(EVENT_PARAMETERS, event)) return;
@@ -73,16 +64,36 @@ export function sendGa4Event(event: string, payload: Record<string, unknown> = {
       if (validate(value)) parameters[key] = value;
     }
 
-    const pageLocation = originAndPath(`${window.location.origin}${window.location.pathname}`);
-    if (!pageLocation) return;
-    parameters.page_location = pageLocation;
-    const pageReferrer = typeof document === "undefined" ? undefined : originAndPath(document.referrer);
-    if (pageReferrer) parameters.page_referrer = pageReferrer;
+    const page = pageParameters(window.location.href, typeof document === "undefined" ? "" : document.referrer);
+    if (!page) return;
+    Object.assign(parameters, page);
 
     let ga4Event = event;
+    if (event === "checkout_started") {
+      ga4Event = "begin_checkout";
+      // Only the verified storefront cents contract, not an inferred amount.
+      if (typeof payload.currency_code === "string" && payload.currency_code.toUpperCase() === "EUR") {
+        parameters.currency = "EUR";
+        if (payload.total_amount_unit === "cents" && typeof payload.total_amount === "number"
+          && Number.isSafeInteger(payload.total_amount) && payload.total_amount >= 0 && payload.total_amount <= 100_000_000) {
+          parameters.value = payload.total_amount / 100;
+        }
+      }
+    }
     if (event === "workshop_booking_request_submitted" || event === "product_inquiry_submitted") {
       ga4Event = "generate_lead";
       parameters.lead_type = event === "workshop_booking_request_submitted" ? "workshop" : "product";
+    }
+    // Registration conversions are separate GA4 events per registration type:
+    // account -> sign_up, newsletter -> newsletter_signup, workshop -> workshop_booking.
+    if (event === "workshop_booking_registered") {
+      ga4Event = "workshop_booking";
+    }
+    // Payment-method-agnostic "money moved back through the redirect". Kept
+    // distinct from purchase so it never inflates revenue in reports. The event
+    // name already carries the meaning; no extra status parameter.
+    if (event === "platform_charge_returned") {
+      ga4Event = "platform_charge_returned";
     }
     gtag.call(window, "event", ga4Event, parameters);
   } catch {

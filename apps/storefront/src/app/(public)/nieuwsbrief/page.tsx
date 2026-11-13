@@ -3,14 +3,16 @@ import Link from "next/link";
 import { NewsletterSignupForm } from "@/components/shared/NewsletterSignupForm";
 import { Container } from "@/components/ui/container";
 import { listPublishedNewsletterIssues } from "@/lib/newsletter/issues";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildRequestPageMetadata } from "@/lib/markets/request-page-seo";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Nieuwsbrief | Hobbysalon",
-  description:
-    "Elke donderdag gratis creatieve inspiratie: haken, breien, kaarten, naaien en juwelen, plus workshops, events en een gratis patroon of tool.",
-  path: "/nieuwsbrief",
-});
+export async function generateMetadata(): Promise<Metadata> {
+  return buildRequestPageMetadata({
+    title: "Nieuwsbrief | Hobbysalon",
+    description:
+      "Elke donderdag gratis creatieve inspiratie: haken, breien, kaarten, naaien en juwelen, plus workshops, events en een gratis patroon of tool.",
+    path: "/nieuwsbrief",
+  });
+}
 
 const THEMES = [
   "haken",

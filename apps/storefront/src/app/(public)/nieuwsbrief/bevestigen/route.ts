@@ -3,6 +3,8 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { verifyConfirmationToken } from "@/lib/newsletter/lead-magnet";
 import { isNewsletterEmailConfigured, sendNewsletterEmail } from "@/lib/newsletter/resend";
 import { syncConfirmedAcumbamailSubscriber } from "@/lib/newsletter/acumbamail";
+import { queueConversion } from "@/lib/analytics/conversions.server";
+import { confirmLeadMagnetOptIn } from "@/lib/analytics/conversion-producers.server";
 
 function confirmationResponse(request: NextRequest, message: string, status = 200) {
   return new NextResponse(
@@ -32,14 +34,9 @@ export async function GET(request: NextRequest) {
     return confirmationResponse(request, "Deze download is niet beschikbaar.", 404);
   }
 
-  const { data: event, error: eventError } = await supabase
-    .from("newsletter_opt_in_events")
-    .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
-    .eq("email", payload.email)
-    .eq("lead_magnet_id", leadMagnet.id)
-    .eq("status", "pending")
-    .select("id, source_path, confirmed_at")
-    .maybeSingle();
+  const { data: event, error: eventError } = await confirmLeadMagnetOptIn(
+    supabase, payload.email, leadMagnet.id, new Date().toISOString(), queueConversion
+  );
   if (eventError) return confirmationResponse(request, "Bevestigen mislukt. Probeer later opnieuw.", 500);
   if (!event) return confirmationResponse(request, "Deze inschrijving is al bevestigd of bestaat niet.");
 

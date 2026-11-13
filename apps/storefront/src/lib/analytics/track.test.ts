@@ -18,6 +18,8 @@ function browser(t: TestContext, consent: string | null = "granted") {
   const localStorage = storage();
   if (consent !== null) localStorage.setItem("hs_analytics_consent", consent);
   const fakeWindow = {
+    hsGa4Ready: true,
+    "ga-disable-G-KP9BXCEF2Z": false,
     localStorage,
     sessionStorage: storage(),
     location: new URL("https://hobbysalon.be/workshops?email=private%40example.test#token"),
@@ -28,6 +30,7 @@ function browser(t: TestContext, consent: string | null = "granted") {
   for (const [key, value] of Object.entries({
     window: fakeWindow,
     document: {
+      cookie: "hs_analytics_consent=granted",
       referrer: "https://source.example/articles?token=secret#private",
       title: "Private Person's account",
     },
@@ -60,7 +63,7 @@ test("trackEvent sends exactly one direct gtag event while preserving internal l
   assert.deepEqual(fixture.calls[0][2], {
     signup_source: "newsletter_form",
     page_location: "https://hobbysalon.be/workshops",
-    page_referrer: "https://source.example/articles",
+    page_referrer: "https://source.example", page_title: "Workshops | Hobbysalon",
   });
   assert.deepEqual(fixture.window.dataLayer, []);
   const [stored] = readStoredAnalyticsEvents();
@@ -117,8 +120,8 @@ test("trackEvent maps each inquiry once while retaining the original internal ev
   trackEvent("workshop_booking_request_submitted", { workshop_id: id, creator_id: "internal-creator", user_id: "internal-user" });
   trackEvent("product_inquiry_submitted", { product_id: id, creator_id: "internal-creator", user_id: "internal-user" });
   assert.deepEqual(fixture.calls, [
-    ["event", "generate_lead", { workshop_id: id, lead_type: "workshop", page_location: "https://hobbysalon.be/workshops", page_referrer: "https://source.example/articles" }],
-    ["event", "generate_lead", { product_id: id, lead_type: "product", page_location: "https://hobbysalon.be/workshops", page_referrer: "https://source.example/articles" }],
+    ["event", "generate_lead", { workshop_id: id, lead_type: "workshop", page_location: "https://hobbysalon.be/workshops", page_referrer: "https://source.example", page_title: "Workshops | Hobbysalon" }],
+    ["event", "generate_lead", { product_id: id, lead_type: "product", page_location: "https://hobbysalon.be/workshops", page_referrer: "https://source.example", page_title: "Workshops | Hobbysalon" }],
   ]);
   assert.deepEqual(readStoredAnalyticsEvents().map((event) => event.event), ["workshop_booking_request_submitted", "product_inquiry_submitted"]);
   assert.equal(fixture.events.length, 2);

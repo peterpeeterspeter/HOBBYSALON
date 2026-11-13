@@ -10,11 +10,13 @@ function browser(t: TestContext) {
   const calls: unknown[][] = [];
   const values = new Map([["hs_analytics_consent", "granted"]]);
   const fakeWindow = {
+    hsGa4Ready: true,
+    "ga-disable-G-KP9BXCEF2Z": false,
     location: new URL(`${PAGE}?email=private%40example.test#token`),
     localStorage: { getItem: (key: string) => values.get(key) ?? null },
     gtag: (...args: unknown[]) => { calls.push(args); },
   };
-  const fakeDocument = { referrer: `${REFERRER}?secret=private#token`, title: "Private Person" };
+  const fakeDocument = { cookie: "hs_analytics_consent=granted", referrer: `${REFERRER}?secret=private#token`, title: "Private Person" };
   for (const [key, value] of Object.entries({ window: fakeWindow, document: fakeDocument })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -34,7 +36,7 @@ function params(call: unknown[]) {
 }
 
 function expected(payload: Record<string, unknown> = {}) {
-  return { ...payload, page_location: PAGE, page_referrer: REFERRER };
+  return { ...payload, page_location: PAGE, page_title: "Workshops | Hobbysalon", page_referrer: "https://source.example" };
 }
 
 test("only explicit safe parameters cross the bridge, not internal metadata or PII", (t) => {
@@ -68,19 +70,20 @@ for (const referrer of ["", "not a URL", "javascript:secret", "data:text/plain,p
     const fixture = browser(t);
     fixture.document.referrer = referrer;
     sendGa4Event("home_search_submitted");
-    assert.deepEqual(params(fixture.calls[0]), { page_location: PAGE });
+    assert.deepEqual(params(fixture.calls[0]), { page_location: PAGE, page_title: "Workshops | Hobbysalon", page_referrer: "" });
   });
 }
 
-test("missing document does not prevent a bounded event", (t) => {
+test("missing document fails closed because consent cookie cannot be checked", (t) => {
   const fixture = browser(t);
   Reflect.deleteProperty(globalThis, "document");
   sendGa4Event("home_search_submitted");
-  assert.deepEqual(params(fixture.calls[0]), { page_location: PAGE });
+  assert.deepEqual(fixture.calls, []);
 });
 
 for (const [event, payload, ga4Event, safe] of [
   ["workshop_booking_request_submitted", { workshop_id: UUID, creator_id: UUID, lead_type: "spoofed" }, "generate_lead", { workshop_id: UUID, lead_type: "workshop" }],
+  ["workshop_booking_registered", { workshop_id: UUID, creator_id: UUID }, "workshop_booking", { workshop_id: UUID }],
   ["product_inquiry_submitted", { product_id: UUID, creator_id: UUID, lead_type: "spoofed" }, "generate_lead", { product_id: UUID, lead_type: "product" }],
   ["sign_up", { method: "email", email: "private@example.test" }, "sign_up", { method: "email" }],
   ["listing_published", { listing_type: "handmade", product_id: UUID }, "listing_published", { listing_type: "handmade", product_id: UUID }],
@@ -89,6 +92,9 @@ for (const [event, payload, ga4Event, safe] of [
   ["newsletter_signup", { signup_source: "lead_magnet_form", opt_in_method: "double" }, "newsletter_signup", { signup_source: "lead_magnet_form", opt_in_method: "double" }],
   ["newsletter_signup_requested", { signup_source: "newsletter_form", lead_magnet_code: "haak-gids", opt_in_method: "single" }, "newsletter_signup_requested", { signup_source: "newsletter_form", lead_magnet_code: "haak-gids" }],
   ["checkout_completed", { order_id: "order_private", item_count: 2 }, "checkout_completed", { item_count: 2 }],
+  ["platform_charge_returned", { charge_kind: "credit_pack", amount: 2400 }, "platform_charge_returned", { charge_kind: "credit_pack" }],
+  ["platform_charge_returned", { charge_kind: "workshop_listing" }, "platform_charge_returned", { charge_kind: "workshop_listing" }],
+  ["platform_charge_returned", { charge_kind: "not_a_real_kind" }, "platform_charge_returned", {}],
 ] as const) {
   test(`${event} maps once to ${ga4Event} with only its allowed parameters ${JSON.stringify(safe)}`, (t) => {
     const fixture = browser(t);
@@ -105,11 +111,22 @@ for (const event of ["", "unknown_event", "purchase", "generate_lead", "user_pri
   });
 }
 
-for (const event of ["project_view", "home_recommendations_viewed", "home_search_submitted", "home_route_clicked", "home_event_clicked", "home_journey_clicked", "home_provider_clicked", "bundle_add", "add_to_cart", "checkout_started", "checkout_completed", "tool_calculated", "tool_materials_clicked"]) {
+test("account, newsletter and workshop registrations are three distinct GA4 conversions", (t) => {
+  const fixture = browser(t);
+  sendGa4Event("sign_up", { method: "email" });
+  sendGa4Event("newsletter_signup", { signup_source: "footer_form", opt_in_method: "single" });
+  sendGa4Event("workshop_booking_registered", { workshop_id: UUID });
+  const names = fixture.calls.map((call) => call[1]);
+  assert.deepEqual(names, ["sign_up", "newsletter_signup", "workshop_booking"]);
+  assert.equal(new Set(names).size, 3, "each registration type keeps its own GA4 event name");
+});
+
+for (const event of ["project_view", "home_recommendations_viewed", "home_search_submitted", "home_route_clicked", "home_event_clicked", "home_journey_clicked", "home_provider_clicked", "bundle_add", "add_to_cart", "checkout_started", "checkout_completed", "workshop_booking_registered", "tool_calculated", "tool_materials_clicked"]) {
   test(`existing event is allowed exactly once: ${event}`, (t) => {
     const fixture = browser(t);
     sendGa4Event(event);
-    assert.deepEqual(fixture.calls, [["event", event, expected()]]);
+    const expectedEvent = event === "checkout_started" ? "begin_checkout" : event === "workshop_booking_registered" ? "workshop_booking" : event;
+    assert.deepEqual(fixture.calls, [["event", expectedEvent, expected()]]);
   });
 }
 

@@ -15,6 +15,11 @@ export default async function ProductsRedirectPage({ searchParams }: Props) {
     let target = "/dashboard/instellingen";
     if (checkout === "pending") {
       target = withFlash(target, "success", "Betaling ontvangen. Je tegoed staat zo op je saldo.");
+      // Carry the charge kind through the redirect so the landing page can
+      // measure which platform charge came back, not just that one did.
+      if (type === "credits" || type === "plan") {
+        target += `&charge=${type === "credits" ? "credit_pack" : "plan"}`;
+      }
     } else if (checkout === "cancelled") {
       target = withFlash(target, "error", "Betaling geannuleerd. Er is niets aangerekend.");
     }
