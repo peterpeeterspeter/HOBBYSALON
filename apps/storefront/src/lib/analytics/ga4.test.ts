@@ -11,7 +11,7 @@ function browser(t: TestContext) {
   const values = new Map([["hs_analytics_consent", "granted"]]);
   const fakeWindow = {
     hsGa4Ready: true,
-    "ga-disable-G-KP9BXCEF2Z": false,
+    "ga-disable-G-ZLC3WS42VD": false,
     location: new URL(`${PAGE}?email=private%40example.test#token`),
     localStorage: { getItem: (key: string) => values.get(key) ?? null },
     gtag: (...args: unknown[]) => { calls.push(args); },
