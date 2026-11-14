@@ -19,7 +19,7 @@ function browser(t: TestContext, consent: string | null = "granted") {
   if (consent !== null) localStorage.setItem("hs_analytics_consent", consent);
   const fakeWindow = {
     hsGa4Ready: true,
-    "ga-disable-G-ZLC3WS42VD": false,
+    "ga-disable-G-KP9BXCEF2Z": false,
     localStorage,
     sessionStorage: storage(),
     location: new URL("https://hobbysalon.be/workshops?email=private%40example.test#token"),
