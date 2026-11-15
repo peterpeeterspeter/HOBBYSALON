@@ -616,7 +616,7 @@ const cspHeader = [
   "style-src 'self' 'unsafe-inline' https://js.stripe.com",
   "img-src 'self' blob: data: https:",
   "font-src 'self' https://js.stripe.com",
-  `connect-src 'self' ${medusaBackend} http://localhost:9000 https://*.supabase.co https://api.stripe.com https://*.stripe.com https://www.google-analytics.com https://*.analytics.google.com https://challenges.cloudflare.com`,
+  `connect-src 'self' ${medusaBackend} http://localhost:9000 https://*.supabase.co https://api.stripe.com https://*.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://challenges.cloudflare.com`,
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
   "frame-ancestors 'self'",
 ].join("; ");
