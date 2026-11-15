@@ -101,9 +101,9 @@ export function initializeConsent(): void {
   }
 }
 /** Disable an already loaded tag on withdrawal; removing its element cannot unload it. */
-function stopAnalytics(includeReceipt = true): void {
+function stopAnalytics(includeReceipt = true, resetPage = true): void {
   window.hsGa4Ready = false;
-  window.hsGa4LastPage = undefined;
+  if (resetPage) window.hsGa4LastPage = undefined;
   window["ga-disable-G-KP9BXCEF2Z"] = true;
   command("consent", "update", DENIED_CONSENT);
   clearAnalyticsCookies(includeReceipt);
@@ -115,7 +115,8 @@ export function setConsent(choice: "granted" | "denied"): Consent {
   if (readConsent() === choice) return choice;
   // Close the event gate before storage, including failed persistence/withdrawals.
   window.hsConsentBlocked = true;
-  stopAnalytics();
+  // A consent change is not another arrival on this page.
+  stopAnalytics(true, false);
   try {
     rotateConsentGeneration();
     window.localStorage.setItem(CONSENT_KEY, choice);
@@ -136,14 +137,14 @@ export function analyticsAllowed(): boolean {
   return typeof window !== "undefined" && typeof document !== "undefined" && readConsent() === "granted" && window.hsGa4Ready === true && window["ga-disable-G-KP9BXCEF2Z"] === false;
 }
 
-/** Load only after consent; recheck the current route and choice after the request. */
+/** The tag may load before consent, but never activate on a private route. */
 function loadGoogleTag(onReady: () => void): void {
   const activate = () => {
     // Remember a completed load even if permission was withdrawn in flight.
     window.hsGa4ScriptReady = true;
-    if (!pageParameters(window.location.href, document.referrer)) { stopAnalytics(); return; }
+    if (!pageParameters(window.location.href, document.referrer)) { stopAnalytics(readConsent() !== "granted"); return; }
     window.dispatchEvent(new Event("hs:ga4_script_ready"));
-    if (readConsent() === "granted") onReady();
+    onReady();
   };
   if (window.hsGa4Configured) { activate(); return; }
   if (document.getElementById(SCRIPT_ID)) {
@@ -159,11 +160,12 @@ function loadGoogleTag(onReady: () => void): void {
   document.head.appendChild(script);
 }
 
-/** Basic consent mode: load and collect only on permitted public routes after a grant. */
+/** Advanced consent mode: public pageviews are cookieless until a persisted grant. */
 export function syncAnalytics(onReady: () => void): void {
   initializeConsent();
+  if (readConsent() !== "granted") clearAnalyticsCookies();
   const page = pageParameters(window.location.href);
-  if (!page || readConsent() !== "granted") {
+  if (!page) {
     // A consented private success may leave a five-minute receipt for the next
     // public page. This is not permission to load Google on the private route.
     stopAnalytics(readConsent() !== "granted");
@@ -171,16 +173,14 @@ export function syncAnalytics(onReady: () => void): void {
   }
   const activate = () => {
     const currentPage = pageParameters(window.location.href, document.referrer);
-    if (readConsent() !== "granted" || !currentPage) {
-      // Permission or route may have changed while the script was loading.
-      window.hsGa4Ready = false;
-      window["ga-disable-G-KP9BXCEF2Z"] = true;
-      command("consent", "update", DENIED_CONSENT);
-      clearAnalyticsCookies(readConsent() !== "granted");
+    if (!currentPage) {
+      stopAnalytics(readConsent() !== "granted");
       return;
     }
+    const granted = readConsent() === "granted";
+    if (!granted) clearAnalyticsCookies();
     window["ga-disable-G-KP9BXCEF2Z"] = false;
-    command("consent", "update", { ...DENIED_CONSENT, analytics_storage: "granted" });
+    command("consent", "update", { ...DENIED_CONSENT, analytics_storage: granted ? "granted" : "denied" });
     if (!window.hsGa4Configured) {
       // Preserve the original BE/NL linker, before js and config.
       command("set", "linker", { domains: ["hobbysalon.be", "hobbysalon.nl"], accept_incoming: true });
@@ -198,13 +198,13 @@ export function syncAnalytics(onReady: () => void): void {
     window.dispatchEvent(new Event("hs:ga4_ready"));
   };
   if (window.hsGa4Configured) { activate(); return; }
-  // Neither pending nor refused consent reaches the script loader.
   loadGoogleTag(activate);
 }
 
 export function sendPageView(): void {
   try {
-    if (!analyticsAllowed()) return;
+    // Custom events retain analyticsAllowed(); only safe pageviews use denied storage.
+    if (typeof window === "undefined" || window.hsGa4Ready !== true || window["ga-disable-G-KP9BXCEF2Z"] !== false) return;
     const page = pageParameters(window.location.href, document.referrer);
     if (!page) return;
     // Compare actual pathname so different public details still count, never transmit it.
