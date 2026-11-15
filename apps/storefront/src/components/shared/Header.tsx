@@ -69,7 +69,7 @@ export async function Header() {
         Ga naar inhoud
       </a>
 
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2 sm:gap-6">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:flex-nowrap sm:gap-6 2xl:max-w-[1536px]">
         <Link
           href="/"
           className="shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
@@ -121,9 +121,9 @@ export async function Header() {
           ))}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:flex-nowrap sm:gap-2">
           {showMarketSwitch && marketResolution ? (
-            <MarketCountrySwitch currentCode={marketResolution.market.marketCode} />
+            <MarketCountrySwitch currentCode={marketResolution.market.marketCode} enabled={showMarketSwitch} />
           ) : null}
           <Link href="/cart" className={iconBtnClass} aria-label="Winkelwagen">
             <ShoppingCart size={20} aria-hidden />

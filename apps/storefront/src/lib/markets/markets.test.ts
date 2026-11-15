@@ -208,7 +208,7 @@ test("switch targets stay empty while ENABLE_NL_MARKET is off", () => {
     marketSwitchTargets({
       currentPath: "/workshops?plaats=Gent",
       currentMarket: "BE",
-      env: offEnv,
+      enabled: isNlMarketEnabled(offEnv),
     }),
     []
   );
@@ -216,7 +216,7 @@ test("switch targets stay empty while ENABLE_NL_MARKET is off", () => {
     marketSwitchTargets({
       currentPath: "/workshops",
       currentMarket: "BE",
-      env: productionAttemptEnv,
+      enabled: isNlMarketEnabled(productionAttemptEnv),
     }),
     []
   );
@@ -227,7 +227,7 @@ test("switch keeps safe public paths and drops tokens and payment query", () => 
     currentPath:
       "/zoeken?q=haak&token=secret&payment_intent=pi_1&session_id=cs_1&page=2",
     currentMarket: "BE",
-    env: onPreviewEnv,
+    enabled: isNlMarketEnabled(onPreviewEnv),
   });
   assert.equal(targets.length, 2);
   const nl = targets.find((target) => target.code === "NL");
@@ -249,7 +249,7 @@ test("switch rejects protocol-relative and external current paths", () => {
   const unsafe = marketSwitchTargets({
     currentPath: "//evil.example/steal",
     currentMarket: "BE",
-    env: onPreviewEnv,
+    enabled: isNlMarketEnabled(onPreviewEnv),
   });
   assert.equal(unsafe.find((t) => t.code === "BE")?.href, "/");
   assert.equal(unsafe.find((t) => t.code === "NL")?.href, "https://hobbysalon.nl/");
@@ -259,7 +259,7 @@ test("cart and checkout stay host-bound on switch", () => {
   const targets = marketSwitchTargets({
     currentPath: "/checkout?step=payment&payment_intent=pi_x",
     currentMarket: "BE",
-    env: onPreviewEnv,
+    enabled: isNlMarketEnabled(onPreviewEnv),
   });
   const nl = targets.find((target) => target.code === "NL");
   assert.ok(nl);

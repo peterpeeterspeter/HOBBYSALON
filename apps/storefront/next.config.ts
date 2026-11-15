@@ -612,7 +612,7 @@ const legacyArticleSlugs = [
 // Allow unsafe-eval only in dev; production stays strict.
 const cspHeader = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://static.cloudflareinsights.com/beacon.min.js/${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://js.stripe.com",
   "img-src 'self' blob: data: https:",
   "font-src 'self' https://js.stripe.com",
