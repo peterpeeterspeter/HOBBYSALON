@@ -1,29 +1,25 @@
 "use client";
 
-/**
- * Anonymous pageview beacon that runs regardless of consent.
- *
- * It carries no identifier and sets no cookie. Its only job is to record that
- * a route template was loaded, split by consent, so the report can state how
- * much traffic the consent gate hides from GA4. Denied visitors send nothing
- * to Google, so without this they simply do not exist in the numbers.
- */
+/** Counts route visits, not people; the consent bucket is captured at arrival. */
 
 import type { ConsentBucket } from "./consent-bucket";
+import { publicPage } from "./pageview";
 
 const ENDPOINT = "/api/analytics/pageview";
 
-/** One send per route per page load, even if the effect re-runs. */
-const sent = new Set<string>();
+// Suppress effect replays, but count A → B → A as three visits.
+let lastPathname: string | undefined;
 
 export function countConsentPageview(pathname: string, consent: ConsentBucket): void {
   if (typeof window === "undefined") return;
-  const key = `${pathname}:${consent}`;
-  if (sent.has(key)) return;
-  sent.add(key);
+  const routeKey = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
+  if (lastPathname === routeKey) return;
+  lastPathname = routeKey;
+  const page = publicPage(routeKey);
+  if (!page) return;
 
   try {
-    const body = JSON.stringify({ path: pathname, consent });
+    const body = JSON.stringify({ path: page.path, consent });
     // sendBeacon survives the navigation that triggered it; fetch keepalive is
     // the fallback where a beacon is unavailable.
     if (navigator.sendBeacon) {

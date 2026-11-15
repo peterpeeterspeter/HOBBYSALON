@@ -2,12 +2,9 @@ import "server-only";
 import { readConsentBucket, type ConsentBucket } from "./consent-bucket";
 
 /**
- * Anonymous consented/denied pageview counts for the routes GA4 cannot fully see.
- *
- * GA4 drops denied visitors entirely and the reporting API has no consent
- * dimension, so a GA4-only report cannot say how much traffic is missing. This
- * writes one increment per pageview into an aggregate table with no visitor
- * identifiers at all.
+ * Aggregate route-visit attempts, split by the consent state at arrival.
+ * The denied bucket includes pending choices. These are not unique visitors,
+ * an explicit-refusal rate, or an exact denominator for missing GA4 users.
  */
 
 type RpcClient = {
@@ -96,10 +93,7 @@ export async function countPageview(
   }
 }
 
-/**
- * The ratio the report needs. Denied visitors are counted here and nowhere
- * else, so this is the only honest denominator available.
- */
+/** Share of stored route views that arrived with consent, not a visitor acceptance rate. */
 export function consentRatio(rows: readonly { consent: string; views: number }[]): {
   granted: number;
   denied: number;

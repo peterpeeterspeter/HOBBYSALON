@@ -11,7 +11,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "fix/startup-pg-auth-propagation": false
+      "fix/startup-pg-auth-propagation": false,
+      "fix/analytics-counter-lifecycle": false
     }
   }
 }
