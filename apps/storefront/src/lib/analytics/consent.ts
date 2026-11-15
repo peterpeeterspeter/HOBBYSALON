@@ -92,17 +92,15 @@ export function initializeConsent(): void {
   window.hsGa4Ready = false;
   window["ga-disable-G-KP9BXCEF2Z"] = true;
   window.dataLayer = window.dataLayer || [];
+  // gtag consumes Arguments objects, not rest-parameter arrays.
+  // eslint-disable-next-line prefer-rest-params
   window.gtag = function () { window.dataLayer?.push(arguments); };
   command("consent", "default", DENIED_CONSENT);
   if (readConsent() === "granted" && !readConsentGeneration()) {
     try { rotateConsentGeneration(); } catch { /* Receipts fail closed. */ }
   }
 }
-/**
- * Stops collection without unloading the tag. In advanced consent mode the
- * Google script stays on the page so a refusal still yields cookieless pings;
- * what stops is our own collection, the granted storage state, and the cookies.
- */
+/** Disable an already loaded tag on withdrawal; removing its element cannot unload it. */
 function stopAnalytics(includeReceipt = true): void {
   window.hsGa4Ready = false;
   window.hsGa4LastPage = undefined;
@@ -138,17 +136,12 @@ export function analyticsAllowed(): boolean {
   return typeof window !== "undefined" && typeof document !== "undefined" && readConsent() === "granted" && window.hsGa4Ready === true && window["ga-disable-G-KP9BXCEF2Z"] === false;
 }
 
-/**
- * Advanced consent mode. The Google tag loads on every allowed public route with
- * every consent type denied, so a refusal still sends Google's cookieless pings
- * for behavioural modelling. No cookie is written and no custom event fires
- * until the visitor grants, because hsGa4Ready stays false while denied.
- */
+/** Load only after consent; recheck the current route and choice after the request. */
 function loadGoogleTag(onReady: () => void): void {
   const activate = () => {
-    if (!pageParameters(window.location.href, document.referrer)) { stopAnalytics(); return; }
-    // Denied stays denied here; activateGranted is the only path to granted.
+    // Remember a completed load even if permission was withdrawn in flight.
     window.hsGa4ScriptReady = true;
+    if (!pageParameters(window.location.href, document.referrer)) { stopAnalytics(); return; }
     window.dispatchEvent(new Event("hs:ga4_script_ready"));
     if (readConsent() === "granted") onReady();
   };
@@ -166,11 +159,11 @@ function loadGoogleTag(onReady: () => void): void {
   document.head.appendChild(script);
 }
 
-/** Google is loaded on allowed public routes. Only a grant enables collection. */
+/** Basic consent mode: load and collect only on permitted public routes after a grant. */
 export function syncAnalytics(onReady: () => void): void {
   initializeConsent();
   const page = pageParameters(window.location.href);
-  if (!page) {
+  if (!page || readConsent() !== "granted") {
     // A consented private success may leave a five-minute receipt for the next
     // public page. This is not permission to load Google on the private route.
     stopAnalytics(readConsent() !== "granted");
@@ -179,8 +172,7 @@ export function syncAnalytics(onReady: () => void): void {
   const activate = () => {
     const currentPage = pageParameters(window.location.href, document.referrer);
     if (readConsent() !== "granted" || !currentPage) {
-      // Refusal: keep the tag loaded so Google still receives cookieless pings,
-      // but never let the app send a custom event.
+      // Permission or route may have changed while the script was loading.
       window.hsGa4Ready = false;
       window["ga-disable-G-KP9BXCEF2Z"] = true;
       command("consent", "update", DENIED_CONSENT);
@@ -196,7 +188,6 @@ export function syncAnalytics(onReady: () => void): void {
     }
     command("config", GA4_ID, {
       send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false,
-      ignore_referrer: true,
       cookie_domain: window.location.hostname, ...currentPage,
     });
     window.hsGa4Configured = true;
@@ -207,7 +198,7 @@ export function syncAnalytics(onReady: () => void): void {
     window.dispatchEvent(new Event("hs:ga4_ready"));
   };
   if (window.hsGa4Configured) { activate(); return; }
-  // The tag loads regardless of the current choice; activate only collects when granted.
+  // Neither pending nor refused consent reaches the script loader.
   loadGoogleTag(activate);
 }
 
