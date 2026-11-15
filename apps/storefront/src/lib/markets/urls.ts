@@ -1,5 +1,5 @@
 import { sanitizeInternalRedirect } from "@/lib/auth/safe-redirect";
-import { MARKETS, isNlMarketEnabled, type MarketCode } from "./config";
+import { MARKETS, type MarketCode } from "./config";
 
 const HOST_BOUND_PREFIXES = [
   "/cart",
@@ -72,15 +72,14 @@ function allowedSearch(search: string): string {
 
 /**
  * Links only. There is no automatic country redirect.
- * Returns an empty list when ENABLE_NL_MARKET is off so the UI stays hidden.
+ * The server resolves the rollout gate once; browser and SSR share that decision.
  */
 export function marketSwitchTargets(input: {
   currentPath: string;
   currentMarket: MarketCode;
-  env?: Record<string, string | undefined>;
+  enabled: boolean;
 }): MarketSwitchTarget[] {
-  const env = input.env ?? process.env;
-  if (!isNlMarketEnabled(env)) return [];
+  if (!input.enabled) return [];
 
   const safe = sanitizeInternalRedirect(input.currentPath) ?? "/";
   const parsed = new URL(safe, MARKETS.BE.canonicalOrigin);

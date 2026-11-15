@@ -7,14 +7,15 @@ import { marketSwitchTargets } from "@/lib/markets/urls";
 
 type MarketCountrySwitchProps = {
   currentCode: MarketCode;
+  enabled: boolean;
 };
 
-function MarketCountrySwitchLinks({ currentCode }: MarketCountrySwitchProps) {
+function MarketCountrySwitchLinks({ currentCode, enabled }: MarketCountrySwitchProps) {
   const pathname = usePathname() || "/";
   const params = useSearchParams();
   const query = params.toString();
   const currentPath = query ? `${pathname}?${query}` : pathname;
-  const targets = marketSwitchTargets({ currentPath, currentMarket: currentCode });
+  const targets = marketSwitchTargets({ currentPath, currentMarket: currentCode, enabled });
   if (targets.length === 0) return null;
 
   const hostBound = targets.some((target) => target.hostBound);
@@ -46,10 +47,10 @@ function MarketCountrySwitchLinks({ currentCode }: MarketCountrySwitchProps) {
   );
 }
 
-export function MarketCountrySwitch({ currentCode }: MarketCountrySwitchProps) {
+export function MarketCountrySwitch({ currentCode, enabled }: MarketCountrySwitchProps) {
   return (
     <Suspense fallback={null}>
-      <MarketCountrySwitchLinks currentCode={currentCode} />
+      <MarketCountrySwitchLinks currentCode={currentCode} enabled={enabled} />
     </Suspense>
   );
 }
