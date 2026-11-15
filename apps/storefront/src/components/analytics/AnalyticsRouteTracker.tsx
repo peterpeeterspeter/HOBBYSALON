@@ -9,7 +9,7 @@ import { countConsentPageview } from "@/lib/analytics/consent-counter";
 /**
  * Root client island: initial and pathname-change views, never query/hash changes.
  *
- * Google requires a grant. The first-party tally records consent at arrival;
+ * Google pageviews use denied storage until a grant. The first-party tally records consent at arrival;
  * changing that choice is not another route visit.
  */
 export function AnalyticsRouteTracker() {
