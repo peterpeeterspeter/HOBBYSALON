@@ -32,7 +32,7 @@ test("only the two real hosts are counted", () => {
   assert.equal(counterHost(""), null);
 });
 
-test("consent ratio counts denied visitors, which GA4 never sees", () => {
+test("consent ratio describes stored route views rather than unique visitors", () => {
   const ratio = consentRatio([
     { consent: "granted", views: 300 },
     { consent: "denied", views: 700 },

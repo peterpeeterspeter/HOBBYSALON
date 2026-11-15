@@ -81,8 +81,10 @@ test("trackEvent sends exactly one direct gtag event while preserving internal l
 test("gtag may enqueue only argument commands, never internal event objects", (t) => {
   const fixture = browser(t);
   fixture.window.gtag = function () {
-    fixture.calls.push(Array.from(arguments));
-    fixture.window.dataLayer.push(arguments);
+    // eslint-disable-next-line prefer-rest-params -- Reproduce gtag's IArguments queue, not a rest-array substitute.
+    const command = arguments;
+    fixture.calls.push(Array.from(command));
+    fixture.window.dataLayer.push(command);
   };
   trackEvent("newsletter_signup", { signup_source: "newsletter_form" });
   assert.equal(fixture.window.dataLayer.length, 1);

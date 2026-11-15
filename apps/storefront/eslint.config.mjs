@@ -39,4 +39,13 @@ export default [
       "@typescript-eslint/no-explicit-any": "warn",
     },
   },
+  {
+    // Test files are excluded from the application tsconfig, but still use all lint rules.
+    files: ["**/*.test.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+      },
+    },
+  },
 ];
