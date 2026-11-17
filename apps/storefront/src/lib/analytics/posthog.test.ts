@@ -1,38 +1,12 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
-import { sendGa4Event } from "./ga4";
+import { sendPosthogEvent } from "./posthog";
+import { browser as createBrowser, safeProperties as params } from "./posthog.test-helpers";
 
 const UUID = "98c88340-1111-4222-8333-123456789abc";
 const PAGE = "https://hobbysalon.be/workshops";
-const REFERRER = "https://source.example/articles";
-
 function browser(t: TestContext) {
-  const calls: unknown[][] = [];
-  const values = new Map([["hs_analytics_consent", "granted"]]);
-  const fakeWindow = {
-    hsGa4Ready: true,
-    "ga-disable-G-KP9BXCEF2Z": false,
-    location: new URL(`${PAGE}?email=private%40example.test#token`),
-    localStorage: { getItem: (key: string) => values.get(key) ?? null },
-    gtag: (...args: unknown[]) => { calls.push(args); },
-  };
-  const fakeDocument = { cookie: "hs_analytics_consent=granted", referrer: `${REFERRER}?secret=private#token`, title: "Private Person" };
-  for (const [key, value] of Object.entries({ window: fakeWindow, document: fakeDocument })) {
-    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
-    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
-    t.after(() => {
-      if (previous) Object.defineProperty(globalThis, key, previous);
-      else Reflect.deleteProperty(globalThis, key);
-    });
-  }
-  t.mock.method(globalThis, "fetch", async () => {
-    assert.fail("GA4 transport must not make HTTP calls");
-  });
-  return { window: fakeWindow, document: fakeDocument, values, calls };
-}
-
-function params(call: unknown[]) {
-  return call[2] as Record<string, unknown>;
+  return createBrowser(t, { host: "hobbysalon.be", consent: "granted", ready: true });
 }
 
 function expected(payload: Record<string, unknown> = {}) {
@@ -52,16 +26,16 @@ test("only explicit safe parameters cross the bridge, not internal metadata or P
     page_location: "https://malicious.example?token=private", page_referrer: "https://malicious.example?token=private",
     entity_keys: ["user_id"], nested: { email: "private@example.test" }, quantity: 3,
   };
-  sendGa4Event("project_view", payload);
+  sendPosthogEvent("project_view", payload);
   assert.equal(fixture.calls.length, 1);
-  assert.deepEqual(fixture.calls[0], ["event", "project_view", expected({ project_id: UUID, difficulty_level: "beginner" })]);
+  assert.deepEqual(fixture.calls[0], ["project_view", { hs_safe: expected({ project_id: UUID, difficulty_level: "beginner" }) }]);
   assert.equal(payload.page_title, "Private Person", "input is not mutated");
 });
 
 test("location and referrer are rebuilt from origin plus pathname with no credentials, query or hash", (t) => {
   const fixture = browser(t);
   fixture.document.referrer = "https://login:password@source.example/articles?email=private#token";
-  sendGa4Event("home_search_submitted", { query: "private@example.test" });
+  sendPosthogEvent("home_search_submitted", { query: "private@example.test" });
   assert.deepEqual(params(fixture.calls[0]), expected());
 });
 
@@ -69,7 +43,7 @@ for (const referrer of ["", "not a URL", "javascript:secret", "data:text/plain,p
   test(`invalid or non-HTTP referrer is omitted: ${referrer}`, (t) => {
     const fixture = browser(t);
     fixture.document.referrer = referrer;
-    sendGa4Event("home_search_submitted");
+    sendPosthogEvent("home_search_submitted");
     assert.deepEqual(params(fixture.calls[0]), { page_location: PAGE, page_title: "Workshops | Hobbysalon", page_referrer: "" });
   });
 }
@@ -77,11 +51,11 @@ for (const referrer of ["", "not a URL", "javascript:secret", "data:text/plain,p
 test("missing document fails closed because consent cookie cannot be checked", (t) => {
   const fixture = browser(t);
   Reflect.deleteProperty(globalThis, "document");
-  sendGa4Event("home_search_submitted");
+  sendPosthogEvent("home_search_submitted");
   assert.deepEqual(fixture.calls, []);
 });
 
-for (const [event, payload, ga4Event, safe] of [
+for (const [event, payload, outboundEvent, safe] of [
   ["workshop_booking_request_submitted", { workshop_id: UUID, creator_id: UUID, lead_type: "spoofed" }, "generate_lead", { workshop_id: UUID, lead_type: "workshop" }],
   ["workshop_booking_registered", { workshop_id: UUID, creator_id: UUID }, "workshop_booking", { workshop_id: UUID }],
   ["product_inquiry_submitted", { product_id: UUID, creator_id: UUID, lead_type: "spoofed" }, "generate_lead", { product_id: UUID, lead_type: "product" }],
@@ -96,45 +70,45 @@ for (const [event, payload, ga4Event, safe] of [
   ["platform_charge_returned", { charge_kind: "workshop_listing" }, "platform_charge_returned", { charge_kind: "workshop_listing" }],
   ["platform_charge_returned", { charge_kind: "not_a_real_kind" }, "platform_charge_returned", {}],
 ] as const) {
-  test(`${event} maps once to ${ga4Event} with only its allowed parameters ${JSON.stringify(safe)}`, (t) => {
+  test(`${event} maps once to ${outboundEvent} with only its allowed parameters ${JSON.stringify(safe)}`, (t) => {
     const fixture = browser(t);
-    sendGa4Event(event, payload);
-    assert.deepEqual(fixture.calls, [["event", ga4Event, expected(safe)]]);
+    sendPosthogEvent(event, payload);
+    assert.deepEqual(fixture.calls, [[outboundEvent, { hs_safe: expected(safe) }]]);
   });
 }
 
 for (const event of ["", "unknown_event", "purchase", "generate_lead", "user_private@example.test", "constructor", "toString", "__proto__"]) {
   test(`unknown event fails closed: ${event}`, (t) => {
     const fixture = browser(t);
-    sendGa4Event(event, { quantity: 2 });
+    sendPosthogEvent(event, { quantity: 2 });
     assert.deepEqual(fixture.calls, []);
   });
 }
 
-test("account, newsletter and workshop registrations are three distinct GA4 conversions", (t) => {
+test("account, newsletter and workshop registrations remain three distinct conversions", (t) => {
   const fixture = browser(t);
-  sendGa4Event("sign_up", { method: "email" });
-  sendGa4Event("newsletter_signup", { signup_source: "footer_form", opt_in_method: "single" });
-  sendGa4Event("workshop_booking_registered", { workshop_id: UUID });
-  const names = fixture.calls.map((call) => call[1]);
+  sendPosthogEvent("sign_up", { method: "email" });
+  sendPosthogEvent("newsletter_signup", { signup_source: "footer_form", opt_in_method: "single" });
+  sendPosthogEvent("workshop_booking_registered", { workshop_id: UUID });
+  const names = fixture.calls.map((call) => call[0]);
   assert.deepEqual(names, ["sign_up", "newsletter_signup", "workshop_booking"]);
-  assert.equal(new Set(names).size, 3, "each registration type keeps its own GA4 event name");
+  assert.equal(new Set(names).size, 3, "each registration type keeps its established event name");
 });
 
 for (const event of ["project_view", "home_recommendations_viewed", "home_search_submitted", "home_route_clicked", "home_event_clicked", "home_journey_clicked", "home_provider_clicked", "bundle_add", "add_to_cart", "checkout_started", "checkout_completed", "workshop_booking_registered", "tool_calculated", "tool_materials_clicked"]) {
   test(`existing event is allowed exactly once: ${event}`, (t) => {
     const fixture = browser(t);
-    sendGa4Event(event);
+    sendPosthogEvent(event);
     const expectedEvent = event === "checkout_started" ? "begin_checkout" : event === "workshop_booking_registered" ? "workshop_booking" : event;
-    assert.deepEqual(fixture.calls, [["event", expectedEvent, expected()]]);
+    assert.deepEqual(fixture.calls, [[expectedEvent, { hs_safe: expected() }]]);
   });
 }
 
 test("controlled enums and bounded slug codes are preserved", (t) => {
   const fixture = browser(t);
-  sendGa4Event("tool_calculated", { tool_slug: "workshop-break-even", formula_id: "workshop_breakeven", query: "private" });
-  sendGa4Event("home_recommendations_viewed", { recommendation_source: "hobby_passport", item_count: 4 });
-  sendGa4Event("project_view", { difficulty_level: "advanced", project_id: UUID });
+  sendPosthogEvent("tool_calculated", { tool_slug: "workshop-break-even", formula_id: "workshop_breakeven", query: "private" });
+  sendPosthogEvent("home_recommendations_viewed", { recommendation_source: "hobby_passport", item_count: 4 });
+  sendPosthogEvent("project_view", { difficulty_level: "advanced", project_id: UUID });
   assert.deepEqual(params(fixture.calls[0]), expected({ tool_slug: "workshop-break-even", formula_id: "workshop_breakeven" }));
   assert.deepEqual(params(fixture.calls[1]), expected({ recommendation_source: "hobby_passport", item_count: 4 }));
   assert.deepEqual(params(fixture.calls[2]), expected({ difficulty_level: "advanced", project_id: UUID }));
@@ -143,11 +117,11 @@ test("controlled enums and bounded slug codes are preserved", (t) => {
 for (const value of [null, true, {}, [], 42, "", "free text", "private@example.test", "https://example.test", "x?token=private", "encoded%40private", "a".repeat(65)]) {
   test(`unsafe string parameter value is omitted: ${JSON.stringify(value)}`, (t) => {
     const fixture = browser(t);
-    sendGa4Event("tool_calculated", { tool_slug: value, formula_id: value });
-    sendGa4Event("newsletter_signup", { signup_source: value, opt_in_method: value, lead_magnet_code: value });
-    sendGa4Event("project_view", { project_id: value, difficulty_level: value });
-    sendGa4Event("listing_published", { listing_type: value });
-    sendGa4Event("sign_up", { method: value });
+    sendPosthogEvent("tool_calculated", { tool_slug: value, formula_id: value });
+    sendPosthogEvent("newsletter_signup", { signup_source: value, opt_in_method: value, lead_magnet_code: value });
+    sendPosthogEvent("project_view", { project_id: value, difficulty_level: value });
+    sendPosthogEvent("listing_published", { listing_type: value });
+    sendPosthogEvent("sign_up", { method: value });
     assert.equal(fixture.calls.length, 5);
     for (const call of fixture.calls) assert.deepEqual(params(call), expected());
   });
@@ -155,27 +129,27 @@ for (const value of [null, true, {}, [], 42, "", "free text", "private@example.t
 
 test("arbitrary slug-shaped values do not bypass fixed enums or UUID validation", (t) => {
   const fixture = browser(t);
-  sendGa4Event("project_view", { project_id: "private-name", difficulty_level: "private-name" });
-  sendGa4Event("listing_published", { listing_type: "supply" });
-  sendGa4Event("sign_up", { method: "private-name" });
-  sendGa4Event("newsletter_signup", { signup_source: "private-name", opt_in_method: "private-name" });
+  sendPosthogEvent("project_view", { project_id: "private-name", difficulty_level: "private-name" });
+  sendPosthogEvent("listing_published", { listing_type: "supply" });
+  sendPosthogEvent("sign_up", { method: "private-name" });
+  sendPosthogEvent("newsletter_signup", { signup_source: "private-name", opt_in_method: "private-name" });
   for (const call of fixture.calls) assert.deepEqual(params(call), expected());
 });
 
 for (const value of [NaN, Infinity, -Infinity, -1, 0.5, 10001, "3", null, true, {}, []]) {
   test(`invalid quantity and item_count are omitted: ${String(value)}`, (t) => {
     const fixture = browser(t);
-    sendGa4Event("add_to_cart", { quantity: value });
-    sendGa4Event("bundle_add", { item_count: value });
+    sendPosthogEvent("add_to_cart", { quantity: value });
+    sendPosthogEvent("bundle_add", { item_count: value });
     for (const call of fixture.calls) assert.deepEqual(params(call), expected());
   });
 }
 
 test("bounded scalar counts include zero and the maximum", (t) => {
   const fixture = browser(t);
-  sendGa4Event("add_to_cart", { quantity: 1 });
-  sendGa4Event("bundle_add", { item_count: 0 });
-  sendGa4Event("checkout_started", { item_count: 10000 });
+  sendPosthogEvent("add_to_cart", { quantity: 1 });
+  sendPosthogEvent("bundle_add", { item_count: 0 });
+  sendPosthogEvent("checkout_started", { item_count: 10000 });
   assert.deepEqual(params(fixture.calls[0]), expected({ quantity: 1 }));
   assert.deepEqual(params(fixture.calls[1]), expected({ item_count: 0 }));
   assert.deepEqual(params(fixture.calls[2]), expected({ item_count: 10000 }));
@@ -183,22 +157,22 @@ test("bounded scalar counts include zero and the maximum", (t) => {
 
 test("bridge reads consent on each call and never replays dropped events", (t) => {
   const fixture = browser(t);
-  fixture.values.delete("hs_analytics_consent");
-  sendGa4Event("sign_up", { method: "email" });
-  fixture.values.set("hs_analytics_consent", "granted");
-  sendGa4Event("sign_up", { method: "email" });
-  fixture.values.set("hs_analytics_consent", "denied");
-  sendGa4Event("sign_up", { method: "email" });
-  assert.deepEqual(fixture.calls, [["event", "sign_up", expected({ method: "email" })]]);
+  fixture.values.delete("hs_posthog_consent_v1");
+  sendPosthogEvent("sign_up", { method: "email" });
+  fixture.values.set("hs_posthog_consent_v1", "granted");
+  sendPosthogEvent("sign_up", { method: "email" });
+  fixture.values.set("hs_posthog_consent_v1", "denied");
+  sendPosthogEvent("sign_up", { method: "email" });
+  assert.deepEqual(fixture.calls, [["sign_up", { hs_safe: expected({ method: "email" }) }]]);
 });
 
 test("bridge safely ignores malformed payloads and throwing property access", (t) => {
   const fixture = browser(t);
   const hostile = Object.defineProperty({}, "method", { get: () => { throw new Error("private"); } });
-  assert.doesNotThrow(() => sendGa4Event("sign_up", hostile));
+  assert.doesNotThrow(() => sendPosthogEvent("sign_up", hostile));
   assert.deepEqual(fixture.calls, []);
   for (const payload of [null, [], 5, "private"]) {
-    assert.doesNotThrow(() => sendGa4Event("sign_up", payload as unknown as Record<string, unknown>));
+    assert.doesNotThrow(() => sendPosthogEvent("sign_up", payload as unknown as Record<string, unknown>));
   }
   assert.deepEqual(fixture.calls, []);
 });

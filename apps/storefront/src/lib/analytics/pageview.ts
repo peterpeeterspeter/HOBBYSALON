@@ -14,7 +14,10 @@ const DETAIL_PAGES: Readonly<Record<string, string>> = {
   workshop: "Workshop", event: "Evenement", agenda: "Evenement", creator: "Maker",
   artikel: "Artikel", project: "Project", product: "Product", tools: "Tool", nieuwsbrief: "Nieuwsbrief",
 };
-const DOMAINS = new Set(["crochet", "knitting", "card-making", "sewing", "jewelry", "scrapbooking", "painting", "pottery", "diy"]);
+export const PUBLIC_HOBBY_DOMAINS: ReadonlySet<string> = new Set([
+  "crochet", "knitting", "card-making", "sewing", "jewelry", "scrapbooking", "painting", "pottery", "diy",
+  "felting", "glass-art", "jewelry-making", "leathercraft", "lettering", "polymer-clay",
+]);
 const DOMAIN_SECTIONS = new Set(["workshops", "artikels", "learning-paths", "supplies", "handmade"]);
 
 export type PublicPage = { path: string; title: string };
@@ -26,10 +29,10 @@ export function publicPage(rawPath: string): PublicPage | null {
     // Dynamic slugs can contain names. Record the route template, never the slug.
     return { path: `/${parts[0]}/detail`, title: `${DETAIL_PAGES[parts[0]]} | Hobbysalon` };
   }
-  if (DOMAINS.has(parts[0]) && (parts.length === 1 || (parts.length === 2 && DOMAIN_SECTIONS.has(parts[1])))) {
+  if (PUBLIC_HOBBY_DOMAINS.has(parts[0]) && (parts.length === 1 || (parts.length === 2 && DOMAIN_SECTIONS.has(parts[1])))) {
     return { path, title: "Hobbydomein | Hobbysalon" };
   }
-  if (DOMAINS.has(parts[0]) && parts.length === 3 && parts[1] === "learning-paths" && /^[a-z0-9-]{1,160}$/.test(parts[2])) {
+  if (PUBLIC_HOBBY_DOMAINS.has(parts[0]) && parts.length === 3 && parts[1] === "learning-paths" && /^[a-z0-9-]{1,160}$/.test(parts[2])) {
     return { path: `/${parts[0]}/learning-paths/detail`, title: "Leerpad | Hobbysalon" };
   }
   return null;
@@ -41,7 +44,7 @@ export function pageParameters(rawUrl: string, rawReferrer = ""): Record<string,
     if (!["https:", "http:"].includes(url.protocol)) return null;
     const page = publicPage(url.pathname);
     if (!page) return null;
-    // Blank referrer explicitly overrides Google's default (which can contain tokens).
+    // Blank referrer explicitly overrides SDK defaults (which can contain tokens).
     let referrer = "";
     try {
       const ref = new URL(rawReferrer);

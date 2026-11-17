@@ -1,6 +1,6 @@
 "use client";
 
-import { sendGa4Event } from "./ga4";
+import { sendPosthogEvent } from "./posthog";
 
 export type AnalyticsPayload = Record<string, unknown>;
 
@@ -111,8 +111,8 @@ export const FUNNEL_EVENT_ORDER = [
   "add_to_cart",
   "checkout_started",
   // Reaching the thank-you page, not a settled payment. Real revenue evidence
-  // lives in Stripe (marketplace capture + fulfill_listing_checkout); a GA4
-  // purchase event needs Measurement Protocol and is deliberately deferred.
+  // lives in Stripe (marketplace capture + fulfill_listing_checkout); this
+  // browser event must not be treated as confirmed revenue.
   "checkout_completed",
 ] as const;
 
@@ -397,7 +397,7 @@ export function clearStoredAnalyticsEvents(): void {
   }
 }
 
-export function trackEvent(event: string, payload: AnalyticsPayload = {}, options: { google?: boolean } = {}): void {
+export function trackEvent(event: string, payload: AnalyticsPayload = {}, options: { external?: boolean } = {}): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -433,7 +433,7 @@ export function trackEvent(event: string, payload: AnalyticsPayload = {}, option
     schema_valid: missingRequiredFields.length === 0,
   };
 
-  if (options.google !== false) sendGa4Event(event, sanitizedPayload);
+  if (options.external !== false) sendPosthogEvent(event, sanitizedPayload);
   appendEventToLog(eventPayload);
   sendEventToPassportIngest(eventPayload);
   window.dispatchEvent(

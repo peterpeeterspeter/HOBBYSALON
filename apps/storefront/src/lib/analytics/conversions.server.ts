@@ -7,7 +7,7 @@ import { CONVERSION_COOKIE, CONSENT_GENERATION_KEY, validConsentGeneration, pars
 export async function queueConversion(event: ConversionReceipt["event"], payload: Record<string, string>): Promise<void> {
   try {
     const store = await cookies();
-    if (store.get("hs_analytics_consent")?.value !== "granted") return;
+    if (store.get("hs_posthog_consent_v1")?.value !== "granted") return;
     const generation = store.get(CONSENT_GENERATION_KEY)?.value;
     if (!validConsentGeneration(generation)) return;
     const receipt = parseConversionReceipt(JSON.stringify({ id: randomUUID(), event, payload, generation }));

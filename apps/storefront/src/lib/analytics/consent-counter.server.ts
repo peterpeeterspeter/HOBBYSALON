@@ -1,5 +1,6 @@
 import "server-only";
 import { readConsentBucket, type ConsentBucket } from "./consent-bucket";
+import { publicPage, PUBLIC_HOBBY_DOMAINS } from "./pageview";
 
 /**
  * Aggregate route-visit attempts, split by the consent state at arrival.
@@ -16,43 +17,12 @@ type RpcClient = {
 
 const ALLOWED_HOSTS = new Set(["www.hobbysalon.be", "hobbysalon.nl"]);
 
-/** Route templates only. A dynamic slug can carry a person's name. */
-const STATIC_ROUTES = new Set([
-  "/", "/landing", "/workshops", "/agenda", "/creators", "/artikelen",
-  "/patronen", "/gratis-haakpatronen", "/materials", "/tools", "/zoeken",
-  "/cart", "/checkout", "/checkout/success", "/nieuwsbrief", "/enquete",
-  "/over-ons", "/partners", "/prijzen", "/privacy", "/adverteren",
-  "/voor-hobbyisten", "/voor-makers", "/voor-workshopgevers", "/voor-winkels",
-  "/voor-contentmakers", "/voor-organisatoren",
-]);
-
-const DETAIL_ROUTES = new Set([
-  "workshop", "event", "agenda", "creator", "artikel", "project", "product",
-  "tools", "nieuwsbrief",
-]);
-
-const DOMAINS = new Set([
-  "crochet", "knitting", "card-making", "sewing", "jewelry", "scrapbooking",
-  "painting", "pottery", "diy",
-]);
-
-/** Same fail-closed shape as the client allowlist: unknown routes return null. */
+/** Share the client's fail-closed validation; retain the existing domain roll-up. */
 export function counterRoute(rawPath: string): string | null {
-  let path = rawPath.split(/[?#]/, 1)[0].replace(/\/+$/, "");
-  if (path === "") path = "/";
-  if (STATIC_ROUTES.has(path)) return path;
-
-  const parts = path.split("/").slice(1);
-  if (
-    parts.length === 2 &&
-    DETAIL_ROUTES.has(parts[0]) &&
-    /^[a-z0-9][a-z0-9-]{0,159}$/.test(parts[1])
-  ) {
-    // Redact the slug. The table never learns which article or creator.
-    return `/${parts[0]}/detail`;
-  }
-  if (DOMAINS.has(parts[0]) && parts.length <= 2) return `/${parts[0]}`;
-  return null;
+  const page = publicPage(rawPath.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/");
+  if (!page) return null;
+  const domain = page.path.split("/")[1];
+  return PUBLIC_HOBBY_DOMAINS.has(domain) ? `/${domain}` : page.path;
 }
 
 export function counterHost(rawHost: string): string | null {

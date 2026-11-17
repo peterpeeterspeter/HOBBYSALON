@@ -16,7 +16,7 @@ export function TrackOnMount({ event, payload }: TrackOnMountProps) {
   useEffect(() => {
     if (!hasTrackedRef.current) {
       hasTrackedRef.current = true;
-      trackEvent(event, payload ?? {}, { google: false });
+      trackEvent(event, payload ?? {}, { external: false });
     }
     if (googleHandledRef.current) return;
     return waitForMountMeasurement(event, payload ?? {}, () => { googleHandledRef.current = true; });

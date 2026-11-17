@@ -1,6 +1,6 @@
 import { analyticsAllowed, readConsentGeneration } from "./consent";
 import { CONVERSION_COOKIE, parseConversionReceipt } from "./conversions";
-import { sendGa4Event } from "./ga4";
+import { sendPosthogEvent } from "./posthog";
 import { pageParameters } from "./pageview";
 
 // At most one short-lived receipt; no person ID, history queue or retries.
@@ -19,6 +19,6 @@ export function consumeConversionReceipt(): void {
     if (!receipt || !receipt.generation || receipt.generation !== readConsentGeneration() || delivered.has(receipt.id)) return;
     if (delivered.size >= 100) delivered.delete(delivered.values().next().value!);
     delivered.add(receipt.id);
-    sendGa4Event(receipt.event, receipt.payload);
+    sendPosthogEvent(receipt.event, receipt.payload);
   } catch { /* Optional measurement never fails a business action. */ }
 }
