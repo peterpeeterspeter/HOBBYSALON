@@ -42,9 +42,9 @@ export function AnalyticsConsent() {
         className="m-auto w-[calc(100%-2rem)] max-w-xl rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--foreground)] backdrop:bg-black/40">
         <h2 id="hs-cookie-title" className="mb-3 text-xl font-bold">Analytische cookies</h2>
         <p id="hs-cookie-description" className="mb-5 text-base leading-relaxed">
-          Google Analytics laadt direct om bezoeken aan openbare pagina’s te meten.
-          Ook als u weigert, sturen we beperkte meetgegevens naar Google, zonder analytische cookies.
-          Alleen na ‘Toestaan’ gebruiken we analytische cookies. Advertentiecookies blijven uitgeschakeld.
+          PostHog laadt direct om bezoeken aan openbare pagina’s te meten.
+          Ook als u weigert, sturen we beperkte meetgegevens naar PostHog in de Verenigde Staten, zonder analytische cookies.
+          Alleen na ‘Toestaan’ gebruiken we analytische cookies en meten we extra handelingen. Advertentiecookies blijven uitgeschakeld.
           Uw keuze geldt alleen voor deze website en kan altijd worden gewijzigd.
         </p>
         <a href="/privacy" className="mb-5 inline-block underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Lees ons privacybeleid</a>

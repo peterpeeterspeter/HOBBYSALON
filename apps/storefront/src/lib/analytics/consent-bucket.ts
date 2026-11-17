@@ -6,7 +6,7 @@
  */
 export type ConsentBucket = "granted" | "denied";
 
-export const CONSENT_COOKIE_NAME = "hs_analytics_consent";
+export const CONSENT_COOKIE_NAME = "hs_posthog_consent_v1";
 
 /** Cookie values that arrive from a client. Only the exact string counts. */
 export function readConsentBucket(rawCookieValue: string | undefined): ConsentBucket {

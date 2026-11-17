@@ -1,26 +1,22 @@
+import type { PostHog } from "posthog-js";
 import { CONVERSION_COOKIE, CONSENT_GENERATION_KEY, validConsentGeneration } from "./conversions";
 import { pageParameters } from "./pageview";
+import { posthogConfig } from "./posthog-config";
 
-export const GA4_ID = "G-KP9BXCEF2Z";
-export const CONSENT_KEY = "hs_analytics_consent";
+export const CONSENT_KEY = "hs_posthog_consent_v1";
 export const CONSENT_CHANGED = "hs:analytics_consent_changed";
 export type Consent = "granted" | "denied" | "pending";
-export type Gtag = (...args: unknown[]) => void;
-const SCRIPT_ID = "hs-google-analytics";
-export const DENIED_CONSENT = {
-  analytics_storage: "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied",
-} as const;
 
 declare global {
   interface Window {
-    gtag?: Gtag;
     hsConsentBlocked?: boolean;
-    hsGa4Ready?: boolean;
-    hsGa4Initialized?: boolean;
-    hsGa4Configured?: boolean;
-    hsGa4ScriptReady?: boolean;
-    hsGa4LastPage?: string;
-    "ga-disable-G-KP9BXCEF2Z"?: boolean;
+    hsPostHog?: PostHog;
+    hsPostHogReady?: boolean;
+    hsPostHogLastPage?: string;
+    hsPostHogLoading?: Promise<void>;
+    hsPostHogLoadFailed?: boolean;
+    hsPostHogConsent?: boolean;
+    hsPostHogStopFailed?: boolean;
   }
 }
 
@@ -42,7 +38,7 @@ export function readConsent(): Consent {
   } catch { return "denied"; }
 }
 
-/** Rotates on withdrawal/regrant; never sent to Google or used as a person ID. */
+/** Rotates on withdrawal/regrant; never sent to PostHog or used as a person ID. */
 export function readConsentGeneration(): string | null {
   try {
     const stored = window.localStorage.getItem(CONSENT_GENERATION_KEY);
@@ -82,30 +78,39 @@ export function clearAnalyticsCookies(includeReceipt = true): void {
   } catch { /* Cookie failures must not enable collection. */ }
 }
 
-function command(...args: unknown[]): void {
-  try { window.gtag?.(...args); } catch { /* Optional transport. */ }
+function clearPosthogSessionStorage(): void {
+  try {
+    const storage = window.sessionStorage;
+    for (const key of Object.keys(storage)) {
+      if (key.startsWith("ph_")) storage.removeItem(key);
+    }
+  } catch { /* Inaccessible storage must not interrupt SDK opt-out. */ }
 }
+
 export function initializeConsent(): void {
   if (typeof window === "undefined") return;
-  if (window.hsGa4Initialized) return;
-  window.hsGa4Initialized = true;
-  window.hsGa4Ready = false;
-  window["ga-disable-G-KP9BXCEF2Z"] = true;
-  window.dataLayer = window.dataLayer || [];
-  // gtag consumes Arguments objects, not rest-parameter arrays.
-  // eslint-disable-next-line prefer-rest-params
-  window.gtag = function () { window.dataLayer?.push(arguments); };
-  command("consent", "default", DENIED_CONSENT);
+  clearAnalyticsCookies(readConsent() !== "granted");
+  if (readConsent() !== "granted") clearPosthogSessionStorage();
   if (readConsent() === "granted" && !readConsentGeneration()) {
     try { rotateConsentGeneration(); } catch { /* Receipts fail closed. */ }
   }
 }
-/** Disable an already loaded tag on withdrawal; removing its element cannot unload it. */
+
 function stopAnalytics(includeReceipt = true, resetPage = true): void {
-  window.hsGa4Ready = false;
-  if (resetPage) window.hsGa4LastPage = undefined;
-  window["ga-disable-G-KP9BXCEF2Z"] = true;
-  command("consent", "update", DENIED_CONSENT);
+  window.hsPostHogReady = false;
+  if (resetPage) window.hsPostHogLastPage = undefined;
+  if (window.hsPostHog && window.hsPostHogConsent !== false) {
+    // A failed stop must not be treated as a safe opt-out by route callbacks.
+    window.hsPostHogConsent = undefined;
+    window.hsPostHogStopFailed = true;
+    let stopped = true;
+    try { window.hsPostHog.opt_out_capturing(); } catch { stopped = false; }
+    try { window.hsPostHog.reset(true); } catch { stopped = false; }
+    window.hsPostHogStopFailed = !stopped;
+    if (stopped) window.hsPostHogConsent = false;
+  }
+  // SDK reset leaves window/session markers behind after a consented reload.
+  clearPosthogSessionStorage();
   clearAnalyticsCookies(includeReceipt);
 }
 
@@ -134,84 +139,63 @@ export function setConsent(choice: "granted" | "denied"): Consent {
 }
 
 export function analyticsAllowed(): boolean {
-  return typeof window !== "undefined" && typeof document !== "undefined" && readConsent() === "granted" && window.hsGa4Ready === true && window["ga-disable-G-KP9BXCEF2Z"] === false;
+  return typeof window !== "undefined" && typeof document !== "undefined"
+    && readConsent() === "granted" && window.hsPostHogReady === true;
 }
 
-/** The tag may load before consent, but never activate on a private route. */
-function loadGoogleTag(onReady: () => void): void {
-  const activate = () => {
-    // Remember a completed load even if permission was withdrawn in flight.
-    window.hsGa4ScriptReady = true;
-    if (!pageParameters(window.location.href, document.referrer)) { stopAnalytics(readConsent() !== "granted"); return; }
-    window.dispatchEvent(new Event("hs:ga4_script_ready"));
-    onReady();
-  };
-  if (window.hsGa4Configured) { activate(); return; }
-  if (document.getElementById(SCRIPT_ID)) {
-    if (window.hsGa4ScriptReady) activate();
-    return;
-  }
-  const script = document.createElement("script");
-  script.id = SCRIPT_ID;
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`;
-  script.onload = activate;
-  script.onerror = () => { script.remove(); stopAnalytics(); };
-  document.head.appendChild(script);
-}
-
-/** Advanced consent mode: public pageviews are cookieless until a persisted grant. */
+/** Only public routes load the SDK; pending consent uses its cookieless branch. */
 export function syncAnalytics(onReady: () => void): void {
+  if (typeof window === "undefined") return;
   initializeConsent();
-  if (readConsent() !== "granted") clearAnalyticsCookies();
-  const page = pageParameters(window.location.href);
-  if (!page) {
-    // A consented private success may leave a five-minute receipt for the next
-    // public page. This is not permission to load Google on the private route.
+  if (!pageParameters(window.location.href)) {
     stopAnalytics(readConsent() !== "granted");
     return;
   }
   const activate = () => {
-    const currentPage = pageParameters(window.location.href, document.referrer);
-    if (!currentPage) {
+    const client = window.hsPostHog;
+    if (!client) return;
+    if (!pageParameters(window.location.href)) {
       stopAnalytics(readConsent() !== "granted");
       return;
     }
+    if (window.hsPostHogStopFailed) { window.hsPostHogReady = false; return; }
     const granted = readConsent() === "granted";
-    if (!granted) clearAnalyticsCookies();
-    window["ga-disable-G-KP9BXCEF2Z"] = false;
-    command("consent", "update", { ...DENIED_CONSENT, analytics_storage: granted ? "granted" : "denied" });
-    if (!window.hsGa4Configured) {
-      // Preserve the original BE/NL linker, before js and config.
-      command("set", "linker", { domains: ["hobbysalon.be", "hobbysalon.nl"], accept_incoming: true });
-      command("js", new Date());
+    if (window.hsPostHogConsent !== granted) {
+      window.hsPostHogReady = false;
+      window.hsPostHogConsent = undefined;
+      // Our banner remains pending; opting out selects cookieless measurement.
+      try {
+        if (granted) client.opt_in_capturing();
+        else client.opt_out_capturing();
+      } catch { return; }
+      window.hsPostHogConsent = granted;
     }
-    command("config", GA4_ID, {
-      send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false,
-      cookie_domain: window.location.hostname, ...currentPage,
-    });
-    window.hsGa4Configured = true;
-    // Sanitize defaults for enhanced events too, including private-route transitions.
-    command("set", currentPage);
-    window.hsGa4Ready = true;
+    window.hsPostHogReady = true;
     onReady();
-    window.dispatchEvent(new Event("hs:ga4_ready"));
+    window.dispatchEvent(new Event("hs:posthog_ready"));
   };
-  if (window.hsGa4Configured) { activate(); return; }
-  loadGoogleTag(activate);
+  if (window.hsPostHog) { activate(); return; }
+  const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (!token || !process.env.NEXT_PUBLIC_POSTHOG_HOST || window.hsPostHogLoadFailed) return;
+  if (!window.hsPostHogLoading) {
+    window.hsPostHogLoading = import("posthog-js").then(({ default: posthog }) => {
+      if (!pageParameters(window.location.href)) return;
+      posthog.init(token, posthogConfig());
+      window.hsPostHog = posthog;
+    }).catch(() => {
+      window.hsPostHogLoadFailed = true;
+      window.hsPostHogReady = false;
+    }).finally(() => { window.hsPostHogLoading = undefined; });
+  }
+  void window.hsPostHogLoading.then(activate);
 }
 
 export function sendPageView(): void {
   try {
-    // Custom events retain analyticsAllowed(); only safe pageviews use denied storage.
-    if (typeof window === "undefined" || window.hsGa4Ready !== true || window["ga-disable-G-KP9BXCEF2Z"] !== false) return;
+    if (typeof window === "undefined" || !window.hsPostHogReady || !window.hsPostHog) return;
     const page = pageParameters(window.location.href, document.referrer);
-    if (!page) return;
-    // Compare actual pathname so different public details still count, never transmit it.
-    const routeKey = window.location.pathname;
-    if (window.hsGa4LastPage === routeKey) return;
-    command("set", page);
-    command("event", "page_view", page);
-    window.hsGa4LastPage = routeKey;
+    if (!page || window.hsPostHogLastPage === window.location.pathname) return;
+    window.hsPostHog.capture("$pageview", { hs_safe: page });
+    window.hsPostHogLastPage = window.location.pathname;
   } catch { /* Optional analytics never breaks navigation. */ }
 }

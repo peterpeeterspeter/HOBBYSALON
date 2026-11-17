@@ -2,17 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createPlatformClient } from "@/lib/platform/client";
 import { countPageview } from "@/lib/analytics/consent-counter.server";
 
-/**
- * Counts one pageview, whatever the visitor chose.
- *
- * This exists because GA4 cannot answer the only question that makes its own
- * numbers honest: how much traffic the consent gate is hiding. Denied visitors
- * send nothing to Google, so this route is the sole record that they were here.
- *
- * Deliberately stateless and anonymous: no cookie is set, no identifier is read
- * or written, and the body carries only a route template. It is safe (and
- * intended) for this to run for visitors who refused analytics, because it
- * records nothing about them beyond "someone loaded this template".
+/** Aggregate route arrivals by consent state; pending belongs to denied.
+ * A 204 is best-effort acknowledgement, not proof of a persisted count.
  */
 
 export const runtime = "nodejs";
@@ -32,7 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!path) return new NextResponse(null, { status: 204 });
 
-    // Never let a slow database hold the response open.
+    // Best effort: response status deliberately does not expose a write failure.
     await countPageview(createPlatformClient(), { path, host, consent });
     return new NextResponse(null, { status: 204 });
   } catch {

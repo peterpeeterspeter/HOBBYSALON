@@ -2,64 +2,130 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { readFileSync } from "node:fs";
 import { consumeConversionReceipt } from "./receipt";
-import { setConsent, syncAnalytics, sendPageView } from "./consent";
+import { setConsent, syncAnalytics, sendPageView, readConsentGeneration } from "./consent";
 import { CONVERSION_COOKIE, CONSENT_GENERATION_KEY } from "./conversions";
+import { browser as createBrowser, safeProperties } from "./posthog.test-helpers";
 
 function browser(t: TestContext, path = "/workshops") {
-  const cookies = new Map<string,string>([["hs_analytics_consent", "granted"]]);
-  const storage = new Map([["hs_analytics_consent", "granted"]]);
-  const generation = '11111111-1111-4111-8111-111111111111';
-  cookies.set(CONSENT_GENERATION_KEY, generation); storage.set(CONSENT_GENERATION_KEY, generation);
-  const scripts = new Map<string, any>(); const calls: unknown[][] = [];
-  const window: any = { location: new URL(`https://hobbysalon.nl${path}`), hsGa4Ready: true, "ga-disable-G-KP9BXCEF2Z": false,
-    localStorage: {getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)},
-    dispatchEvent:()=>true, gtag:(...args:unknown[])=>calls.push(args) };
-  const document: any = { referrer: "https://other.invalid/?email=private", getElementById:(id:string)=>scripts.get(id),
-    createElement:()=>{const script:any={remove:()=>scripts.delete(script.id)};return script;},head:{appendChild:(s:any)=>scripts.set(s.id,s)}};
-  Object.defineProperty(document,"cookie",{get:()=>[...cookies].map(([k,v])=>`${k}=${v}`).join('; '),set:(raw:string)=>{const part=raw.split(';')[0];const i=part.indexOf('=');const k=part.slice(0,i),v=part.slice(i+1);if(raw.includes('Max-Age=0'))cookies.delete(k);else cookies.set(k,v);}});
-  for(const [key,value] of Object.entries({window,document})){const prior=Object.getOwnPropertyDescriptor(globalThis,key);Object.defineProperty(globalThis,key,{configurable:true,value});t.after(()=>prior?Object.defineProperty(globalThis,key,prior):Reflect.deleteProperty(globalThis,key));}
-  const put=(id:string,event="listing_published",payload:Record<string,string>={listing_type:"handmade"},epoch = storage.get(CONSENT_GENERATION_KEY))=>cookies.set(CONVERSION_COOKIE,encodeURIComponent(JSON.stringify({id,event,payload,generation:epoch})));
-  return {window,cookies,storage,scripts,calls,put};
+  const f = createBrowser(t, { consent: "granted", ready: true, path });
+  const generation = "11111111-1111-4111-8111-111111111111";
+  f.cookies.set(CONSENT_GENERATION_KEY, generation);
+  f.values.set(CONSENT_GENERATION_KEY, generation);
+  const put = (id: string, event = "listing_published", payload: Record<string, string> = { listing_type: "handmade" }, epoch = f.values.get(CONSENT_GENERATION_KEY)) =>
+    f.cookies.set(CONVERSION_COOKIE, encodeURIComponent(JSON.stringify({ id, event, payload, generation: epoch })));
+  return { ...f, put };
 }
 
-test("public ready consumer emits fixed sanitized payload once, deletes before dispatch",t=>{
-  const f=browser(t); f.put("receipt_test_public");consumeConversionReceipt();consumeConversionReceipt();
-  assert.equal(f.cookies.has(CONVERSION_COOKIE),false);assert.equal(f.calls.length,1);
-  assert.equal(f.calls[0][1],"listing_published");assert.ok(!JSON.stringify(f.calls).includes("private"));
-  f.put("receipt_test_public");consumeConversionReceipt();assert.equal(f.calls.length,1);
-});
-test("private route retains consented receipt but cannot load Google; public readiness consumes",t=>{
-  const f=browser(t,"/dashboard?token=private");f.put("receipt_test_private");f.cookies.set('_ga','erase');
-  syncAnalytics(sendPageView);consumeConversionReceipt();assert.equal(f.scripts.size,0);assert.equal(f.cookies.has('_ga'),false);assert.equal(f.cookies.has(CONVERSION_COOKIE),true);
-  f.window.location=new URL('https://hobbysalon.nl/workshops');syncAnalytics(()=>{sendPageView();consumeConversionReceipt();});
-  assert.equal(f.cookies.has(CONVERSION_COOKIE),true);f.scripts.get('hs-google-analytics').onload();
-  const events=f.window.dataLayer.map((args:IArguments)=>Array.from(args)).filter((args:unknown[])=>args[0]==='event');
-  assert.equal(events.filter((args:unknown[])=>args[1]==='listing_published').length,1);assert.equal(f.cookies.has(CONVERSION_COOKIE),false);
-});
-test("not ready never consumes; withdrawal deletes receipt and regrant cannot replay",t=>{
-  const f=browser(t);f.put('receipt_test_withdrawal');f.window.hsGa4Ready=false;consumeConversionReceipt();assert.equal(f.calls.length,0);assert.equal(f.cookies.has(CONVERSION_COOKIE),true);
-  setConsent('denied');assert.equal(f.cookies.has(CONVERSION_COOKIE),false);setConsent('granted');consumeConversionReceipt();
-  assert.ok(!f.window.dataLayer.some((args:IArguments)=>Array.from(args)[1]==='listing_published'));
-});
-test("malformed and unsupported receipts are discarded without conversion",t=>{
-  const f=browser(t);for(const raw of ['%bad',encodeURIComponent('{}'),encodeURIComponent(JSON.stringify({id:'receipt_test_bad',event:'purchase',payload:{}}))]){f.cookies.set(CONVERSION_COOKIE,raw);consumeConversionReceipt();assert.equal(f.cookies.has(CONVERSION_COOKIE),false);}
-  assert.equal(f.calls.length,0);
-});
-test("double opt-in receipt sends only allowlisted newsletter fields",t=>{
-  const f=browser(t);f.put('receipt_test_double','newsletter_signup',{signup_source:'lead_magnet_form',opt_in_method:'double',email:'private'});consumeConversionReceipt();
-  assert.equal(f.calls[0][1],'newsletter_signup');assert.ok(!JSON.stringify(f.calls).includes('private'));
-});
-test("route tracker invokes receipt only after transport readiness",()=>{
-  const source=readFileSync(new URL('../../components/analytics/AnalyticsRouteTracker.tsx',import.meta.url),'utf8');
-  assert.match(source,/const ready = \(\) => \{ sendPageView\(\); consumeConversionReceipt\(\); \}/);assert.match(source,/syncAnalytics\(ready\)/);
+test("public ready consumer deletes before dispatch and emits the sanitized receipt exactly once", (t) => {
+  const f = browser(t);
+  const capture = f.sdk.capture;
+  f.sdk.capture = (...args) => {
+    assert.equal(f.cookies.has(CONVERSION_COOKIE), false, "delete must happen before capture");
+    capture(...args);
+  };
+  f.put("receipt_test_public");
+  consumeConversionReceipt();
+  consumeConversionReceipt();
+  assert.deepEqual(f.calls, [["listing_published", { hs_safe: {
+    listing_type: "handmade", page_location: "https://hobbysalon.nl/workshops", page_title: "Workshops | Hobbysalon", page_referrer: "https://source.example",
+  } }]]);
+  f.put("receipt_test_public");
+  consumeConversionReceipt();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.cookies.has(CONVERSION_COOKIE), false);
 });
 
-test("late response from an earlier grant cannot replay after withdrawal and regrant",t=>{
-  const f=browser(t);const oldGeneration=f.storage.get(CONSENT_GENERATION_KEY)!;
-  setConsent('denied');setConsent('granted');
-  f.window.hsGa4Ready=true;f.window['ga-disable-G-KP9BXCEF2Z']=false;
-  f.put('receipt_test_late','listing_published',{listing_type:'handmade'},oldGeneration);
+test("private route retains a consented receipt until public SDK activation consumes it", (t) => {
+  const f = browser(t, "/dashboard?token=private");
+  f.put("receipt_test_private");
+  f.cookies.set("_ga", "erase");
+  syncAnalytics(sendPageView);
   consumeConversionReceipt();
-  assert.equal(f.cookies.has(CONVERSION_COOKIE),false);
-  assert.ok(!f.window.dataLayer.some((args:IArguments)=>Array.from(args)[1]==='listing_published'));
+  assert.equal(f.window.hsPostHogReady, false);
+  assert.equal(f.cookies.has("_ga"), false);
+  assert.equal(f.cookies.has(CONVERSION_COOKIE), true);
+  assert.deepEqual(f.calls, []);
+  f.window.location = new URL("https://hobbysalon.nl/workshops");
+  syncAnalytics(() => { sendPageView(); consumeConversionReceipt(); });
+  assert.deepEqual(f.calls.map(([event]) => event), ["$pageview", "listing_published"]);
+  assert.equal(f.cookies.has(CONVERSION_COOKIE), false);
+  assert.equal(f.initializations.length, 0, "installed SDK is reused rather than replaced");
 });
+
+test("not ready never consumes; withdrawal deletes receipt and regrant cannot replay", (t) => {
+  const f = browser(t);
+  f.put("receipt_test_withdrawal");
+  f.window.hsPostHogReady = false;
+  consumeConversionReceipt();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.cookies.has(CONVERSION_COOKIE), true);
+  setConsent("denied");
+  assert.equal(f.cookies.has(CONVERSION_COOKIE), false);
+  setConsent("granted");
+  syncAnalytics(consumeConversionReceipt);
+  assert.equal(f.window.hsPostHogReady, true);
+  assert.deepEqual(f.calls, []);
+});
+
+test("malformed and unsupported receipts are discarded without a conversion", (t) => {
+  const f = browser(t);
+  for (const raw of ["%bad", encodeURIComponent("{}"), encodeURIComponent(JSON.stringify({ id: "receipt_test_bad", event: "purchase", payload: {} }))]) {
+    f.cookies.set(CONVERSION_COOKIE, raw);
+    consumeConversionReceipt();
+    assert.equal(f.cookies.has(CONVERSION_COOKIE), false);
+  }
+  assert.equal(f.calls.length, 0);
+});
+
+test("double opt-in receipt sends only allowlisted newsletter fields", (t) => {
+  const f = browser(t);
+  f.put("receipt_test_double", "newsletter_signup", { signup_source: "lead_magnet_form", opt_in_method: "double", email: "private" });
+  consumeConversionReceipt();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0][0], "newsletter_signup");
+  assert.deepEqual(safeProperties(f.calls[0]), {
+    signup_source: "lead_magnet_form", opt_in_method: "double", page_location: "https://hobbysalon.nl/workshops", page_title: "Workshops | Hobbysalon", page_referrer: "https://source.example",
+  });
+});
+
+test("route tracker invokes receipt only from transport readiness", () => {
+  const source = readFileSync(new URL("../../components/analytics/AnalyticsRouteTracker.tsx", import.meta.url), "utf8");
+  assert.match(source, /const ready = \(\) => \{ sendPageView\(\); consumeConversionReceipt\(\); \}/);
+  assert.match(source, /syncAnalytics\(ready\)/);
+});
+
+test("late response from an earlier grant cannot replay after withdrawal and regrant", (t) => {
+  const f = browser(t);
+  const oldGeneration = readConsentGeneration()!;
+  setConsent("denied");
+  setConsent("granted");
+  syncAnalytics(consumeConversionReceipt);
+  assert.notEqual(readConsentGeneration(), oldGeneration);
+  f.put("receipt_test_late", "listing_published", { listing_type: "handmade" }, oldGeneration);
+  consumeConversionReceipt();
+  assert.equal(f.cookies.has(CONVERSION_COOKIE), false);
+  assert.deepEqual(f.calls, []);
+  f.put("receipt_test_current");
+  consumeConversionReceipt();
+  assert.deepEqual(f.calls.map(([event]) => event), ["listing_published"], "new generation still works");
+});
+
+for (const failure of ["missing generation", "mismatching generation", "generation read throws", "cookie deletion ignored", "cookie deletion throws", "SDK capture throws"]) {
+  test(`receipt fails safely when ${failure}`, (t) => {
+    const f = browser(t);
+    f.put(`receipt_test_${failure.replaceAll(" ", "_")}`);
+    if (failure === "missing generation") f.values.delete(CONSENT_GENERATION_KEY);
+    if (failure === "mismatching generation") f.values.set(CONSENT_GENERATION_KEY, "22222222-2222-4222-8222-222222222222");
+    if (failure === "generation read throws") {
+      const get = f.window.localStorage.getItem;
+      f.window.localStorage.getItem = (key) => { if (key === CONSENT_GENERATION_KEY) throw new Error("fixture generation failure"); return get(key); };
+    }
+    if (failure === "cookie deletion ignored") Object.defineProperty(f.document, "cookie", { set: () => {} });
+    if (failure === "cookie deletion throws") Object.defineProperty(f.document, "cookie", { set: () => { throw new Error("fixture cookie failure"); } });
+    if (failure === "SDK capture throws") f.sdk.capture = () => { throw new Error("fixture capture failure"); };
+    assert.doesNotThrow(consumeConversionReceipt);
+    assert.doesNotThrow(consumeConversionReceipt);
+    assert.deepEqual(f.calls, []);
+    assert.equal(f.cookies.has(CONVERSION_COOKIE), failure.startsWith("cookie deletion"));
+  });
+}

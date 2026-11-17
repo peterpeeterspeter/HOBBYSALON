@@ -2,7 +2,7 @@
 
 import { analyticsAllowed } from "./consent";
 import { pageParameters } from "./pageview";
-export type { Gtag } from "./consent";
+
 
 type Scalar = string | number;
 type Validator = (value: unknown) => value is Scalar;
@@ -47,13 +47,13 @@ const EVENT_PARAMETERS: Readonly<Record<string, Readonly<Record<string, Validato
   tool_materials_clicked: { tool_slug: code, formula_id: code, product_id: uuid },
 };
 
-/** Best-effort, bounded transport. No queue, replay, HTTP requests or retries. */
-export function sendGa4Event(event: string, payload: Record<string, unknown> = {}): void {
+/** Per-event payloads are approved before the SDK adds its own properties. */
+export function sendPosthogEvent(event: string, payload: Record<string, unknown> = {}): void {
   if (typeof window === "undefined") return;
   try {
     if (!analyticsAllowed()) return;
-    const gtag = window.gtag;
-    if (typeof gtag !== "function") return;
+    const client = window.hsPostHog;
+    if (!client) return;
     if (!Object.prototype.hasOwnProperty.call(EVENT_PARAMETERS, event)) return;
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
 
@@ -68,9 +68,9 @@ export function sendGa4Event(event: string, payload: Record<string, unknown> = {
     if (!page) return;
     Object.assign(parameters, page);
 
-    let ga4Event = event;
+    let outboundEvent = event;
     if (event === "checkout_started") {
-      ga4Event = "begin_checkout";
+      outboundEvent = "begin_checkout";
       // Only the verified storefront cents contract, not an inferred amount.
       if (typeof payload.currency_code === "string" && payload.currency_code.toUpperCase() === "EUR") {
         parameters.currency = "EUR";
@@ -81,22 +81,22 @@ export function sendGa4Event(event: string, payload: Record<string, unknown> = {
       }
     }
     if (event === "workshop_booking_request_submitted" || event === "product_inquiry_submitted") {
-      ga4Event = "generate_lead";
+      outboundEvent = "generate_lead";
       parameters.lead_type = event === "workshop_booking_request_submitted" ? "workshop" : "product";
     }
-    // Registration conversions are separate GA4 events per registration type:
+    // Preserve the existing outbound event names for registration conversions:
     // account -> sign_up, newsletter -> newsletter_signup, workshop -> workshop_booking.
     if (event === "workshop_booking_registered") {
-      ga4Event = "workshop_booking";
+      outboundEvent = "workshop_booking";
     }
     // Payment-method-agnostic "money moved back through the redirect". Kept
     // distinct from purchase so it never inflates revenue in reports. The event
     // name already carries the meaning; no extra status parameter.
     if (event === "platform_charge_returned") {
-      ga4Event = "platform_charge_returned";
+      outboundEvent = "platform_charge_returned";
     }
-    gtag.call(window, "event", ga4Event, parameters);
+    client.capture(outboundEvent, { hs_safe: parameters });
   } catch {
-    // Storage/property access and Google tag failures must not break forms.
+    // Storage/property access and SDK failures must not break forms.
   }
 }

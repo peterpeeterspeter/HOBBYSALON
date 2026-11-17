@@ -12,13 +12,13 @@ const swc = require('next/dist/build/swc');
 const {ResponseCookies} = require('next/dist/compiled/@edge-runtime/cookies');
 const source = readFileSync(new URL('./conversions.server.ts',import.meta.url),'utf8');
 const compiled = swc.transformSync(source,{jsc:{parser:{syntax:'typescript'},target:'es2020'},module:{type:'commonjs'}}).code;
-function server(consent:string|null='granted',generation:string|null='11111111-1111-4111-8111-111111111111',fail=false) {
+function server(consent:string|null='granted',generation:string|null='11111111-1111-4111-8111-111111111111',fail=false,legacyConsent:string|null=null,failWrite=false) {
   const writes:any[]=[];
   const store={get:(key:string)=>{
     if(fail)throw new Error('fixture cookie failure');
-    const value=key==='hs_analytics_consent'?consent:key===contract.CONSENT_GENERATION_KEY?generation:null;
+    const value=key==='hs_posthog_consent_v1'?consent:key==='hs_analytics_consent'?legacyConsent:key===contract.CONSENT_GENERATION_KEY?generation:null;
     return value===null?undefined:{value};
-  },set:(...args:any[])=>writes.push(args)};
+  },set:(...args:any[])=>{if(failWrite)throw new Error('fixture cookie write failure');writes.push(args);}};
   const mod:any={exports:{}};
   const resolve=(id:string)=>{
     if(id==='server-only')return {};
@@ -48,4 +48,18 @@ test('server cannot queue without granted consent and valid generation',async()=
 test('unsupported server payloads and cookie failures cannot affect business success',async()=>{
   const f=server();await f.queue('purchase',{});await f.queue('listing_published',{listing_type:'other'});assert.equal(f.writes.length,0);
   const broken=server('granted',null,true);await assert.doesNotReject(broken.queue('listing_published',{listing_type:'handmade'}));assert.equal(broken.writes.length,0);
+});
+
+test('legacy Google grant and generation cannot authorize a PostHog receipt',async()=>{
+  for(const consent of [null,'pending','denied']) {
+    const f=server(consent,'11111111-1111-4111-8111-111111111111',false,'granted');
+    await f.queue('listing_published',{listing_type:'handmade'});
+    assert.equal(f.writes.length,0);
+  }
+});
+
+test('cookie write errors are swallowed after successful business work',async()=>{
+  const f=server('granted','11111111-1111-4111-8111-111111111111',false,null,true);
+  await assert.doesNotReject(f.queue('listing_published',{listing_type:'handmade'}));
+  assert.equal(f.writes.length,0);
 });

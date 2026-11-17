@@ -15,7 +15,7 @@ export default function PrivacyPage() {
           Privacybeleid
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Laatst bijgewerkt: juni 2026
+          Laatst bijgewerkt: november 2026
         </p>
 
         <div className="mt-10 space-y-8 text-[var(--foreground)]">
@@ -35,8 +35,9 @@ export default function PrivacyPage() {
                 nieuwsbrief
               </li>
               <li>
-                <strong>Technische gegevens:</strong> IP-adres, browsertype,
-                bezochte pagina&apos;s (via Google Analytics)
+                <strong>Websitegebruik:</strong> bezoeken aan openbare pagina&apos;s
+                via PostHog. Alleen met toestemming meten we ook handelingen,
+                zoals een aanmelding of een klik op een product.
               </li>
               <li>
                 <strong>Cookies:</strong> functionele en analytische cookies
@@ -48,7 +49,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold">3. Hoe gebruiken we je gegevens</h2>
             <ul className="mt-2 space-y-1 text-muted-foreground">
               <li>Om je onze content en diensten te leveren</li>
-              <li>Om inzicht te krijgen in websitegebruik (Google Analytics)</li>
+              <li>Om inzicht te krijgen in websitegebruik met PostHog</li>
               <li>Om inhoud te delen op sociale media, waaronder Pinterest</li>
               <li>
                 Om je op de hoogte te houden via nieuwsbrief (alleen met
@@ -63,7 +64,7 @@ export default function PrivacyPage() {
               We delen geen persoonlijke gegevens met derden, behalve:
             </p>
             <ul className="mt-1 space-y-1 text-muted-foreground">
-              <li>Google Analytics (geanonimiseerd)</li>
+              <li>PostHog voor websitestatistieken, met verwerking in de Verenigde Staten</li>
               <li>
                 Sociale media platforms (Pinterest) wanneer we content publiceren
               </li>
@@ -122,8 +123,26 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold">7. Cookies</h2>
             <p className="mt-2 text-muted-foreground">
-              We gebruiken functionele cookies en Google Analytics cookies. Je kunt
-              cookies beheren via je browserinstellingen.
+              Functionele cookies zijn nodig voor de werking van de website en om
+              je cookievoorkeur te onthouden. Met PostHog meten we bezoeken aan openbare
+              pagina&apos;s ook zonder toestemming, maar dan zonder analytische cookies
+              of een blijvende analytische identificatie in je browser.
+              PostHog gebruikt daarbij de datum, je browserkenmerken, je IP-adres
+              en de bezochte Hobbysalon-website om een dagelijks wisselende code
+              te berekenen. Je IP-adres en de oorspronkelijke browserkenmerken
+              worden bij deze cookieless verwerking niet in de meetgegevens bewaard.
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              Kies je voor &lsquo;Toestaan&rsquo;, dan mogen we analytische cookies en
+              lokale opslag gebruiken en extra handelingen meten. We sturen geen namen,
+              e-mailadressen, ingevulde zoektermen of formulierinhoud mee naar PostHog.
+              We maken geen gebruikersprofielen en nemen geen sessies op.
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              Je kunt je keuze altijd aanpassen via &lsquo;Cookievoorkeuren wijzigen&rsquo;
+              onderaan de website. Bij weigering verwijderen we de analytische opslag
+              van PostHog en blijven alleen de beperkte paginastatistieken over.
+              Je keuze geldt afzonderlijk voor elke website van Hobbysalon.
             </p>
           </section>
 
