@@ -56,8 +56,9 @@ export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
                           event="home_journey_clicked"
                           eventPayload={{
                             journey_kind: journey.kind,
-                            href: material.href,
+                            destination: "product",
                             leg: "material",
+                            item_index: index,
                           }}
                           className="font-semibold text-[var(--accent)] underline underline-offset-4"
                         >
@@ -79,7 +80,7 @@ export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
                       event="home_journey_clicked"
                       eventPayload={{
                         journey_kind: journey.kind,
-                        href: journey.workshop.href,
+                        destination: "workshop",
                         leg: "workshop",
                       }}
                       className="font-semibold text-[var(--accent)] underline underline-offset-4"
@@ -103,8 +104,9 @@ export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
                           event="home_journey_clicked"
                           eventPayload={{
                             journey_kind: journey.kind,
-                            href: maker.href,
+                            destination: "creator",
                             leg: "maker",
+                            item_index: index,
                           }}
                           className="font-semibold text-[var(--accent)] underline underline-offset-4"
                         >
@@ -122,7 +124,7 @@ export function HomeJourneySection({ journey }: HomeJourneySectionProps) {
             <TrackedLink
               href={journey.href}
               event="home_journey_clicked"
-              eventPayload={{ journey_kind: journey.kind, href: journey.href }}
+              eventPayload={{ journey_kind: journey.kind, leg: "content", destination: journey.kind }}
               className="mt-7 inline-flex min-h-11 w-fit items-center rounded-[0.75rem] bg-[var(--accent)] px-5 font-bold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:translate-y-px"
             >
               {journey.kind === "article" ? "Lees dit artikel" : "Bekijk dit project"}

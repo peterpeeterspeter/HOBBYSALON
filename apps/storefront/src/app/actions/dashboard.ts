@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { queueConversion } from "@/lib/analytics/conversions.server";
-import { queueCreatedListing } from "@/lib/analytics/conversion-producers.server";
+import { queueListingPublication, queueConfirmedWorkshop } from "@/lib/analytics/conversion-producers.server";
 import {
   resolveReturnPath,
   successPathAfterCreate,
@@ -1738,7 +1738,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
       fail(returnPath, "Creatie aanmaken mislukt. Probeer het later opnieuw.");
     }
 
-    await queueCreatedListing({ data: createdProduct, error }, queueConversion);
+    await queueListingPublication(supabase, { data: createdProduct, error }, queueConversion);
 
     if (galleryUrls.length > 0) {
       const { error: galleryError } = await supabase
@@ -1825,7 +1825,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
     );
     const { data: existingProduct, error: existingError } = await supabase
       .from("products")
-      .select("id,medusa_product_id,featured_image_url,is_active,price_cents,currency_code")
+      .select("id,medusa_product_id,featured_image_url,is_active,status,price_cents,currency_code")
       .eq("id", productId)
       .eq("creator_id", creator.id)
       .maybeSingle();
@@ -1899,6 +1899,14 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         fail(returnPath, "Product bijwerken mislukt. Probeer het later opnieuw.");
       }
 
+      try {
+        const saved = await supabase.from("products").select("id, product_type, is_active, status")
+          .eq("id", productId).eq("creator_id", creator.id).maybeSingle();
+        if (!existingProduct.is_active || existingProduct.status !== "active") {
+          await queueListingPublication(supabase, saved, queueConversion);
+        }
+      } catch { /* Medusa success remains independent of measurement. */ }
+
       revalidatePath("/dashboard/products");
       revalidatePath(`/creator/${creator.slug}`);
       ok(
@@ -1915,7 +1923,7 @@ export async function updateProductAction(formData: FormData): Promise<void> {
       pathPrefix: `creators/${creator.id}/products`,
     });
 
-    const { error } = await supabase
+    const { data: savedProduct, error } = await supabase
       .from("products")
       .update({
         slug,
@@ -1935,10 +1943,14 @@ export async function updateProductAction(formData: FormData): Promise<void> {
         is_active: isActive,
       })
       .eq("id", productId)
-      .eq("creator_id", creator.id);
+      .eq("creator_id", creator.id)
+      .select("id, product_type, is_active, status").maybeSingle();
 
-    if (error) {
+    if (error || !savedProduct) {
       fail(returnPath, "Creatie bijwerken mislukt.");
+    }
+    if (!existingProduct.is_active || existingProduct.status !== "active") {
+      await queueListingPublication(supabase, { data: savedProduct, error }, queueConversion);
     }
 
     if (galleryUrls.length > 0) {
@@ -3044,15 +3056,17 @@ export async function updateBookingRequestStatusAction(
     }
 
     const supabase = createPlatformClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("workshop_booking_requests")
       .update({ status })
       .eq("id", requestId)
-      .eq("creator_id", creator.id);
+      .eq("creator_id", creator.id)
+      .select("id, workshop_id, status").maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       fail(returnPath, "Status update mislukt.");
     }
+    await queueConfirmedWorkshop(supabase, { data, error }, queueConversion);
 
     revalidatePath("/dashboard/workshops");
     ok(returnPath, "Booking status bijgewerkt.");

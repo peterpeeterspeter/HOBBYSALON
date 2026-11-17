@@ -39,7 +39,7 @@ export function HomeAgendaTeaser({ events }: HomeAgendaTeaserProps) {
         </div>
 
         <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 snap-x snap-mandatory scroll-smooth sm:-mx-6 sm:gap-5 sm:px-6 [scrollbar-width:thin]">
-          {events.map((event) => {
+          {events.map((event, index) => {
             const place =
               event.city?.trim() ||
               event.location_name?.trim() ||
@@ -58,8 +58,8 @@ export function HomeAgendaTeaser({ events }: HomeAgendaTeaserProps) {
                 href={`/agenda/${event.slug}`}
                 event="home_event_clicked"
                 eventPayload={{
-                  event_id: event.id,
-                  event_slug: event.slug,
+                  agenda_item_id: event.id,
+                  item_index: index,
                 }}
                 className="group w-64 shrink-0 snap-start sm:w-72"
               >

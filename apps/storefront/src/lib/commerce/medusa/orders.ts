@@ -191,7 +191,7 @@ export async function getBuyerOrderForAuthUser(
   };
 }
 
-/** Success page: only treat as verified purchase when the order exists and matches the viewer. */
+/** Return-page existence check, NOT payment evidence. A guest gets no order details. */
 export async function verifyCheckoutSuccessOrder(
   orderSetId: string | undefined
 ): Promise<{ verified: boolean; order: BuyerOrderDetail | null }> {

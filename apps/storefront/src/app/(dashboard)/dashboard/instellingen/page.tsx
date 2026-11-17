@@ -4,7 +4,7 @@ import { createCreditPackCheckoutAction } from "@/app/actions/listing-checkout";
 import { RoleUpgradeSection } from "@/components/auth/RoleUpgradeSection";
 import { Button } from "@/components/ui/button";
 import { DashboardNotice, DashboardPageHeader, FlashMessage } from "@/components/dashboard/ui";
-import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+
 import { CREATOR_TYPES } from "@/components/dashboard/creator/types";
 import { getDashboardContext } from "@/lib/dashboard/load";
 import { hasPendingRoleRequest, privilegedRoleLabel } from "@/lib/auth/role-request-status";
@@ -27,17 +27,10 @@ type CreditPack = {
 
 const euro = new Intl.NumberFormat("nl-BE", { style: "currency", currency: "EUR" });
 
-// Server-side allowlist: `charge` is user-controlled query input. Only these
-// three values reach the client tracker, never the raw parameter.
-const CHARGE_KINDS = ["credit_pack", "plan", "workshop_listing"] as const;
-type ChargeKind = (typeof CHARGE_KINDS)[number];
-function toChargeKind(value: string | undefined): ChargeKind | null {
-  return CHARGE_KINDS.find((kind) => kind === value) ?? null;
-}
 
 /** "Instellingen": what you offer (roles), credits, and account links. */
 export default async function SettingsPage({ searchParams }: Props) {
-  const { success, error, charge } = await searchParams;
+  const { success, error } = await searchParams;
   const { user, creator, registrationContext, caps } =
     await getDashboardContext("/dashboard/instellingen");
 
@@ -62,7 +55,7 @@ export default async function SettingsPage({ searchParams }: Props) {
       : Promise.resolve(null),
   ]);
   const packs = (packsResult.data ?? []) as CreditPack[];
-  const chargeKind = toChargeKind(charge);
+
 
   return (
     <div className="max-w-3xl space-y-10">
@@ -70,9 +63,7 @@ export default async function SettingsPage({ searchParams }: Props) {
         <DashboardPageHeader title="Instellingen" lead={`Ingelogd als ${user.email ?? "account"}.`} />
         <FlashMessage success={success} error={error} />
       </div>
-      {chargeKind ? (
-        <TrackOnMount event="platform_charge_returned" payload={{ charge_kind: chargeKind }} />
-      ) : null}
+
 
       <section id="aanbieden" className="scroll-mt-24" aria-labelledby="aanbieden-titel">
         <h2 id="aanbieden-titel" className="text-2xl font-bold text-[var(--foreground)]">

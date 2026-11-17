@@ -4,7 +4,7 @@ import { analyticsAllowed } from "./consent";
 import { pageParameters } from "./pageview";
 
 
-type Scalar = string | number;
+type Scalar = string | number | boolean;
 type Validator = (value: unknown) => value is Scalar;
 
 const code: Validator = (value): value is string =>
@@ -13,6 +13,11 @@ const uuid: Validator = (value): value is string =>
   typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const count: Validator = (value): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 10_000;
+const variantId: Validator = (value): value is string =>
+  typeof value === "string" && /^variant_[0-7][0-9A-HJKMNP-TV-Z]{25}$/i.test(value);
+const projectBundleId: Validator = (value): value is string =>
+  typeof value === "string" && value.startsWith("project:") && uuid(value.slice(8));
+const boolean: Validator = (value): value is boolean => typeof value === "boolean";
 const oneOf = (...allowed: string[]): Validator =>
   (value): value is string => typeof value === "string" && allowed.includes(value);
 const signupSource = oneOf("newsletter_form", "footer_form", "lead_magnet_form");
@@ -21,14 +26,22 @@ const signupSource = oneOf("newsletter_form", "footer_form", "lead_magnet_form")
 // search text, raw URLs, titles and internal tracking metadata are never forwarded.
 const EVENT_PARAMETERS: Readonly<Record<string, Readonly<Record<string, Validator>>>> = {
   project_view: { project_id: uuid, difficulty_level: oneOf("beginner", "intermediate", "advanced") },
-  home_recommendations_viewed: { recommendation_source: code, item_count: count },
+  home_recommendations_viewed: { recommendation_source: oneOf("home_make_list"), item_count: count },
   home_search_submitted: {},
-  home_route_clicked: {},
-  home_event_clicked: {},
-  home_journey_clicked: {},
-  home_provider_clicked: {},
-  bundle_add: { item_count: count },
-  add_to_cart: { quantity: count },
+  home_route_clicked: { route: oneOf("weekend", "workshops", "make_at_home", "agenda", "materials", "makersmarkt") },
+  home_event_clicked: { agenda_item_id: uuid, item_index: count },
+  home_journey_clicked: {
+    journey_kind: oneOf("article", "project"),
+    leg: oneOf("content", "material", "workshop", "maker"),
+    destination: oneOf("article", "project", "product", "workshop", "creator"),
+    item_index: count,
+  },
+  home_provider_clicked: { destination: oneOf("partners") },
+  home_product_clicked: { route: oneOf("materials", "makersmarkt"), product_id: uuid, item_index: count },
+  // Profile clicks, not confirmed follows or subscriptions.
+  social_follow_clicked: { channel: oneOf("facebook", "instagram", "pinterest", "youtube"), placement: oneOf("home") },
+  bundle_add: { bundle_id: projectBundleId, item_count: count, partial: boolean },
+  add_to_cart: { quantity: count, variant_id: variantId },
   checkout_started: { item_count: count },
   // A checkout-success render is not yet authoritative purchase evidence.
   checkout_completed: { item_count: count },
@@ -44,18 +57,19 @@ const EVENT_PARAMETERS: Readonly<Record<string, Readonly<Record<string, Validato
   newsletter_signup_requested: { signup_source: signupSource, lead_magnet_code: code },
   survey_submitted: { survey_key: oneOf("aanbod-verbeteren-2026") },
   tool_calculated: { tool_slug: code, formula_id: code },
+  tool_used: { tool_slug: code, interaction: oneOf("input", "control") },
   tool_materials_clicked: { tool_slug: code, formula_id: code, product_id: uuid },
 };
 
-/** Per-event payloads are approved before the SDK adds its own properties. */
-export function sendPosthogEvent(event: string, payload: Record<string, unknown> = {}): void {
-  if (typeof window === "undefined") return;
+/** True means capture was invoked without throwing, not that ingestion was acknowledged. */
+export function sendPosthogEvent(event: string, payload: Record<string, unknown> = {}): boolean {
+  if (typeof window === "undefined") return false;
   try {
-    if (!analyticsAllowed()) return;
+    if (!analyticsAllowed()) return false;
     const client = window.hsPostHog;
-    if (!client) return;
-    if (!Object.prototype.hasOwnProperty.call(EVENT_PARAMETERS, event)) return;
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+    if (!client) return false;
+    if (!Object.prototype.hasOwnProperty.call(EVENT_PARAMETERS, event)) return false;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
 
     const parameters: Record<string, Scalar> = {};
     for (const [key, validate] of Object.entries(EVENT_PARAMETERS[event])) {
@@ -65,8 +79,14 @@ export function sendPosthogEvent(event: string, payload: Record<string, unknown>
     }
 
     const page = pageParameters(window.location.href, typeof document === "undefined" ? "" : document.referrer);
-    if (!page) return;
+    if (!page) return false;
     Object.assign(parameters, page);
+
+    // The full-success producer omits partial; failures explicitly set true.
+    if (event === "bundle_add" && typeof parameters.item_count === "number" && parameters.item_count > 0
+      && !Object.prototype.hasOwnProperty.call(payload, "partial")) {
+      parameters.partial = false;
+    }
 
     let outboundEvent = event;
     if (event === "checkout_started") {
@@ -96,7 +116,9 @@ export function sendPosthogEvent(event: string, payload: Record<string, unknown>
       outboundEvent = "platform_charge_returned";
     }
     client.capture(outboundEvent, { hs_safe: parameters });
+    return true;
   } catch {
     // Storage/property access and SDK failures must not break forms.
+    return false;
   }
 }

@@ -13,6 +13,7 @@ import {
   sendNewsletterEmail,
 } from "@/lib/newsletter/resend";
 import { getRequestPublicOrigin } from "@/lib/markets/request";
+import { requestLeadMagnetOptIn } from "@/lib/analytics/conversion-producers.server";
 
 export type NewsletterActionState = {
   success: boolean;
@@ -59,19 +60,9 @@ async function subscribeToLeadMagnet(
     return { success: false, message: "Deze download is niet beschikbaar." };
   }
 
-  const { error: optInError } = await supabase
-    .from("newsletter_opt_in_events")
-    .upsert(
-      {
-        email,
-        lead_magnet_id: leadMagnet.id,
-        source_path: sourcePath,
-        status: "pending",
-        consented_at: new Date().toISOString(),
-        confirmed_at: null,
-      },
-      { onConflict: "email,lead_magnet_id" }
-    );
+  const { error: optInError } = await requestLeadMagnetOptIn(
+    supabase, email, leadMagnet.id, sourcePath
+  );
 
   if (optInError) {
     return { success: false, message: "Inschrijven mislukt. Probeer later opnieuw." };

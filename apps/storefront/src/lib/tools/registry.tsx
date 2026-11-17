@@ -4,6 +4,7 @@
  */
 
 import type { ReactNode } from "react";
+import { ToolInteractionBoundary } from "@/components/tools/ToolInteractionBoundary";
 import { Garencalculator } from "@/components/tools/Garencalculator";
 import { NaaldmaatConverter } from "@/components/tools/NaaldmaatConverter";
 import { StekenproefCalculator } from "@/components/tools/StekenproefCalculator";
@@ -592,6 +593,12 @@ const TOOLS: ToolEntry[] = [
 
 const BY_SLUG = new Map<string, ToolEntry>();
 for (const t of TOOLS) {
+  const Component = t.component;
+  t.component = () => (
+    <ToolInteractionBoundary toolSlug={t.slug}>
+      <Component />
+    </ToolInteractionBoundary>
+  );
   BY_SLUG.set(t.slug, t);
 }
 

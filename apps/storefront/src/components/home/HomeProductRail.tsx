@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TrackedLink } from "./TrackedLink";
 import { PriceDisplay } from "@/components/domain/price-display";
 import { publicAssetUrl } from "@/lib/media/public-asset-url";
 import type { MaterialsCatalogItem } from "@/lib/platform/queries/products";
@@ -7,7 +7,7 @@ import { HomeReveal } from "./HomeReveal";
 type HomeProductRailProps = {
   title: string;
   lead: string;
-  href: string;
+  href: "/materials" | "/creators";
   ctaLabel: string;
   products: MaterialsCatalogItem[];
 };
@@ -40,6 +40,7 @@ export function HomeProductRail({
   products,
 }: HomeProductRailProps) {
   if (products.length === 0) return null;
+  const route = href === "/materials" ? "materials" : "makersmarkt";
 
   return (
     <HomeReveal>
@@ -53,24 +54,28 @@ export function HomeProductRail({
               {lead}
             </p>
           </div>
-          <Link
+          <TrackedLink
             href={href}
+            event="home_route_clicked"
+            eventPayload={{ route }}
             className="inline-flex min-h-11 items-center font-bold text-[var(--accent)] underline underline-offset-4"
           >
             {ctaLabel}
-          </Link>
+          </TrackedLink>
         </div>
 
         <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 snap-x snap-mandatory scroll-smooth sm:-mx-6 sm:gap-5 sm:px-6 [scrollbar-width:thin]">
-          {products.map((product) => {
+          {products.map((product, index) => {
             const imageUrl = publicAssetUrl(product.featured_image_url);
             const price = formatRailPrice(product);
             const maker = product.creator_display_name?.trim() || null;
 
             return (
-              <Link
+              <TrackedLink
                 key={product.id}
                 href={`/product/${product.slug}`}
+                event="home_product_clicked"
+                eventPayload={{ route, product_id: product.id, item_index: index }}
                 className="group w-44 shrink-0 snap-start sm:w-52"
               >
                 <div className="relative aspect-square overflow-hidden rounded-[1.25rem] bg-[var(--section-alt)]">
@@ -107,7 +112,7 @@ export function HomeProductRail({
                     </span>
                   )}
                 </div>
-              </Link>
+              </TrackedLink>
             );
           })}
         </div>

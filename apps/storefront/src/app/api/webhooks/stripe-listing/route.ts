@@ -20,7 +20,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  if (event.type !== "checkout.session.completed") {
+  // Delayed methods complete Checkout while still unpaid. The later signed,
+  // paid async event must use the SAME atomic session-keyed fulfillment RPC.
+  if (event.type !== "checkout.session.completed" && event.type !== "checkout.session.async_payment_succeeded") {
     return NextResponse.json({ received: true });
   }
   const session = event.data.object as Stripe.Checkout.Session;

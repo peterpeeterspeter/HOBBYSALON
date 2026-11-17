@@ -9,7 +9,7 @@ import {
   FlashMessage,
   StatusPill,
 } from "@/components/dashboard/ui";
-import { TrackOnMount } from "@/components/analytics/TrackOnMount";
+
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -41,12 +41,9 @@ const NEW_HELP = {
 } as const;
 
 export default async function OfferOverviewPage({ searchParams }: Props) {
-  const { soort, success, error, charge } = await searchParams;
+  const { soort, success, error } = await searchParams;
   const { creator, caps, offerSections } = await getDashboardContext("/dashboard/aanbod");
 
-  // Only the workshop listing redirect sets this; allowlist it before it
-  // reaches the client tracker.
-  const chargeKind = charge === "workshop_listing" ? charge : null;
 
   if (offerSections.length === 0) {
     redirect("/dashboard");
@@ -119,9 +116,7 @@ export default async function OfferOverviewPage({ searchParams }: Props) {
 
       <FlashMessage success={success} error={error} />
 
-      {chargeKind ? (
-        <TrackOnMount event="platform_charge_returned" payload={{ charge_kind: chargeKind }} />
-      ) : null}
+
 
       {offerSections.length > 1 ? (
         <nav aria-label="Filter op soort" className="mb-6 flex flex-wrap gap-2">

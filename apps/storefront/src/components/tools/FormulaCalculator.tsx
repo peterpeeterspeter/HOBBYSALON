@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CalculatorCard } from "./CalculatorCard";
 import { ToolMaterialsSlot } from "./ToolMaterialsSlot";
 import { Input } from "@/components/ui/input";
 import { trackEvent } from "@/lib/analytics/track";
+import { analyticsAllowed, readConsentGeneration } from "@/lib/analytics/consent";
 import {
   applyPreset,
   defaultInputs,
@@ -44,6 +45,9 @@ export function FormulaCalculator({
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CalcResult | null>(null);
+  const [interaction, setInteraction] = useState(0);
+  const trackedInteraction = useRef(0);
+  const interactionConsent = useRef({ allowed: false, generation: null as string | null });
 
   const outcome = useMemo(() => {
     const raw: Record<string, string | number | boolean> = {};
@@ -69,22 +73,30 @@ export function FormulaCalculator({
   }, [outcome]);
 
   useEffect(() => {
-    if (!result?.headline) return;
+    if (!interaction || interaction === trackedInteraction.current || !outcome.ok || !outcome.result.headline) return;
+    const consent = interactionConsent.current;
+    if (!consent.allowed) return;
     const timer = window.setTimeout(() => {
+      trackedInteraction.current = interaction;
+      if (!analyticsAllowed() || consent.generation !== readConsentGeneration()) return;
       trackEvent("tool_calculated", {
         tool_slug: toolSlug,
         formula_id: definition.formulaId,
       });
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [result?.headline, toolSlug, definition.formulaId]);
+  }, [outcome, interaction, toolSlug, definition.formulaId]);
 
   function updateField(id: string, next: string) {
+    interactionConsent.current = { allowed: analyticsAllowed(), generation: readConsentGeneration() };
+    setInteraction((current) => current + 1);
     setActivePreset(null);
     setValues((prev) => ({ ...prev, [id]: next }));
   }
 
   function onPreset(presetId: string) {
+    interactionConsent.current = { allowed: analyticsAllowed(), generation: readConsentGeneration() };
+    setInteraction((current) => current + 1);
     const merged: CalcInputs = { ...defaultInputs(definition) };
     for (const [key, value] of Object.entries(values)) {
       const field = definition.fields.find((f) => f.id === key);

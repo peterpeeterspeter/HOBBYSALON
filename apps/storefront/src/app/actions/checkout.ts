@@ -314,15 +314,6 @@ export async function checkoutComplete(options?: {
     if (orderSetId) {
       successParams.set("order", orderSetId);
     }
-    if (bundleContext.bundleIds.length > 0) {
-      const primaryBundleId = bundleContext.bundleIds[0];
-      if (primaryBundleId) {
-        successParams.set("bundle_id", primaryBundleId);
-      }
-      successParams.set("bundle_count", String(bundleContext.bundleIds.length));
-      successParams.set("bundle_value", String(bundleContext.bundleValue));
-      successParams.set("bundle_ids", bundleContext.bundleIds.join(","));
-    }
     const query = successParams.toString();
     redirect(query ? `/checkout/success?${query}` : "/checkout/success");
   }

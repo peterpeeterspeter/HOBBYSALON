@@ -5,6 +5,7 @@ import { LANDING_IMAGES } from "@/components/ui/ai-generated-image";
 import type { HomeMakeItem } from "@/lib/services/home-page";
 import type { WorkshopDiscoveryItem } from "@/lib/platform/queries/workshops";
 import { HomeReveal } from "./HomeReveal";
+import { HomeRecommendationsList } from "./HomeRecommendationsList";
 
 type HomeDiscoverBlockProps = {
   workshops: WorkshopDiscoveryItem[];
@@ -35,6 +36,7 @@ function MakeListRow({ item }: { item: HomeMakeItem }) {
   return (
     <Link
       href={href}
+      data-home-recommendation
       className="group flex gap-4 border-b border-[var(--border)] py-4 transition-colors last:border-b-0 hover:bg-[var(--section-highlight)]/60 sm:gap-5"
     >
       <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-[0.75rem] bg-[var(--section-alt)] sm:h-24 sm:w-36">
@@ -208,14 +210,14 @@ export function HomeDiscoverBlock({
                 Meer inspiratie
               </Link>
             </div>
-            <div className="rounded-[1.25rem] border border-[var(--border)] bg-[var(--card)] px-4 sm:px-5">
+            <HomeRecommendationsList>
               {makeItems.map((item) => (
                 <MakeListRow
                   key={`${item.kind}-${item.item.id}`}
                   item={item}
                 />
               ))}
-            </div>
+            </HomeRecommendationsList>
           </section>
         </HomeReveal>
       ) : null}

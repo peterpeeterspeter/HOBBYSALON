@@ -198,10 +198,11 @@ test("actual journey TSX exposes ordered clickable material TrackedLinks with si
   const links = all.filter(node => node.type === "TrackedLink" && node.props.eventPayload?.leg === "material");
   assert.deepEqual(links.map(node => node.props.href), ["/product/wol", "/product/haaknaald"]);
   assert.deepEqual(links.map(text), ["Wol", "Haaknaald"]);
-  for (const link of links) {
+  for (const [index, link] of links.entries()) {
     assert.equal(link.props.event, "home_journey_clicked");
-    assert.equal(link.props.eventPayload.journey_kind, "project");
-    assert.equal(link.props.eventPayload.href, link.props.href);
+    assert.deepEqual({ ...link.props.eventPayload }, {
+      journey_kind: "project", destination: "product", leg: "material", item_index: index,
+    });
   }
   assert.match(text(all.find(node => node.type === "ul")), /Wol, Haaknaald, Vrije keuze/);
   assert.equal(all.filter(node => node.type === "TrackedLink" && !node.props.href).length, 0);
@@ -231,9 +232,9 @@ for (const kind of ["project", "article"]) {
     assert.ok(cta);
     assert.equal(text(cta).trim(), kind === "article" ? "Lees dit artikel" : "Bekijk dit project");
     assert.equal(cta.props.event, "home_journey_clicked");
-    assert.deepEqual(Object.keys(cta.props.eventPayload).sort(), ["href", "journey_kind"]);
-    assert.equal(cta.props.eventPayload.journey_kind, kind);
-    assert.equal(cta.props.eventPayload.href, journey.href);
+    assert.deepEqual({ ...cta.props.eventPayload }, {
+      journey_kind: kind, destination: kind, leg: "content",
+    });
   });
 }
 
@@ -276,8 +277,10 @@ test("actual journey workshop and maker links retain established tracking and pl
     const link = all.find(node => node.type === "TrackedLink" && node.props.eventPayload?.leg === leg);
     assert.equal(link.props.href, href);
     assert.equal(link.props.event, "home_journey_clicked");
-    assert.equal(link.props.eventPayload.href, href);
-    assert.equal(link.props.eventPayload.journey_kind, "project");
+    assert.deepEqual({ ...link.props.eventPayload }, {
+      journey_kind: "project", destination: leg === "maker" ? "creator" : "workshop", leg,
+      ...(leg === "maker" ? { item_index: 0 } : {}),
+    });
   }
   const plain = render(fixture({ workshop: { label: "Samen haken" }, makers: [{ label: "Atelier" }] }));
   assert.equal(plain.filter(node => node.type === "TrackedLink" && ["workshop", "maker"].includes(node.props.eventPayload?.leg)).length, 0);
