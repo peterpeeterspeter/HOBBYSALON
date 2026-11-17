@@ -5,6 +5,9 @@ import {
   validateAuthSession,
 } from "@/lib/auth/session";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
+import { createPlatformClient } from "@/lib/platform/client";
+import { queueConversion } from "@/lib/analytics/conversions.server";
+import { queueConfirmedRegistration } from "@/lib/analytics/conversion-producers.server";
 
 type ConfirmationBody = {
   accessToken?: unknown;
@@ -28,6 +31,9 @@ export async function POST(request: Request) {
   }
 
   await persistAuthSession(session);
+  try {
+    await queueConfirmedRegistration(createPlatformClient(), session.user, queueConversion);
+  } catch { /* A missing analytics database must not block confirmation. */ }
 
   // Cookie is bootstrap only; DB intent wins when cookie is missing/stale.
   const cookieNext = await consumeAuthNextPath("");

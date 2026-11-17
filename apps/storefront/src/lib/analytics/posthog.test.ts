@@ -107,10 +107,10 @@ for (const event of ["project_view", "home_recommendations_viewed", "home_search
 test("controlled enums and bounded slug codes are preserved", (t) => {
   const fixture = browser(t);
   sendPosthogEvent("tool_calculated", { tool_slug: "workshop-break-even", formula_id: "workshop_breakeven", query: "private" });
-  sendPosthogEvent("home_recommendations_viewed", { recommendation_source: "hobby_passport", item_count: 4 });
+  sendPosthogEvent("home_recommendations_viewed", { recommendation_source: "home_make_list", item_count: 4 });
   sendPosthogEvent("project_view", { difficulty_level: "advanced", project_id: UUID });
   assert.deepEqual(params(fixture.calls[0]), expected({ tool_slug: "workshop-break-even", formula_id: "workshop_breakeven" }));
-  assert.deepEqual(params(fixture.calls[1]), expected({ recommendation_source: "hobby_passport", item_count: 4 }));
+  assert.deepEqual(params(fixture.calls[1]), expected({ recommendation_source: "home_make_list", item_count: 4 }));
   assert.deepEqual(params(fixture.calls[2]), expected({ difficulty_level: "advanced", project_id: UUID }));
 });
 
@@ -164,6 +164,34 @@ test("bridge reads consent on each call and never replays dropped events", (t) =
   fixture.values.set("hs_posthog_consent_v1", "denied");
   sendPosthogEvent("sign_up", { method: "email" });
   assert.deepEqual(fixture.calls, [["sign_up", { hs_safe: expected({ method: "email" }) }]]);
+});
+
+test("new interaction fields fail closed for URL, free text, forged enum and identifier values", (t) => {
+  const fixture = browser(t);
+  for (const [event, payload] of [
+    ["social_follow_clicked", { channel: "private-name", placement: "/private", href: "https://private" }],
+    ["home_route_clicked", { route: "private-name" }],
+    ["home_event_clicked", { agenda_item_id: "private-name", event_id: UUID, item_index: -1 }],
+    ["home_journey_clicked", { journey_kind: "private", leg: "private", destination: "/private", href: "https://private" }],
+    ["home_product_clicked", { route: "private", product_id: "private", item_index: 0.5 }],
+    ["home_provider_clicked", { destination: "/partners" }],
+    ["home_recommendations_viewed", { recommendation_source: "hobby_passport" }],
+    ["tool_used", { interaction: "calculation", tool_slug: "private@example.test" }],
+    ["bundle_add", { bundle_id: "project:private", partial: "true" }],
+    ["add_to_cart", { variant_id: "variant_private-name" }],
+  ] as const) {
+    sendPosthogEvent(event, payload);
+    assert.deepEqual(params(fixture.calls.at(-1)!), expected(), event);
+  }
+});
+
+test("bounded commerce identifiers and boolean partial are preserved without labels", (t) => {
+  const fixture = browser(t);
+  const variant = "variant_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+  sendPosthogEvent("add_to_cart", { variant_id: variant, quantity: 2, product_name: "Private" });
+  assert.deepEqual(params(fixture.calls[0]), expected({ variant_id: variant, quantity: 2 }));
+  sendPosthogEvent("bundle_add", { bundle_id: `project:${UUID}`, item_count: 2, partial: true, bundle_label: "Private" });
+  assert.deepEqual(params(fixture.calls[1]), expected({ bundle_id: `project:${UUID}`, item_count: 2, partial: true }));
 });
 
 test("bridge safely ignores malformed payloads and throwing property access", (t) => {

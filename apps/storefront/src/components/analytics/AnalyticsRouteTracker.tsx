@@ -15,8 +15,8 @@ import { countConsentPageview } from "@/lib/analytics/consent-counter";
 export function AnalyticsRouteTracker() {
   const pathname = usePathname();
   useEffect(() => {
-    const ready = () => { sendPageView(); consumeConversionReceipt(); };
-    const sync = () => { syncAnalytics(ready); };
+    const ready = () => { sendPageView(); };
+    const sync = () => { syncAnalytics(ready); consumeConversionReceipt(); };
     // The existing denied bucket includes both refusal and no choice yet.
     const bucket = readConsent() === "granted" ? "granted" : "denied";
     countConsentPageview(pathname, bucket);

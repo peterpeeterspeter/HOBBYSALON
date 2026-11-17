@@ -33,7 +33,7 @@ const ICONS: Record<SocialChannel["id"], ComponentType<{ size?: number; classNam
  * Homepage banner: follow Hobbysalon on social media and win a voucher.
  * Each tile opens the profile (the app on a phone), where one tap follows.
  */
-export function SocialFollowBanner({ placement = "home" }: { placement?: string }) {
+export function SocialFollowBanner({ placement = "home" }: { placement?: "home" }) {
   if (SOCIAL_CHANNELS.length === 0) return null;
   return (
     <section

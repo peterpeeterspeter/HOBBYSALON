@@ -9,7 +9,7 @@ import { confirmLeadMagnetOptIn } from "@/lib/analytics/conversion-producers.ser
 function confirmationResponse(request: NextRequest, message: string, status = 200) {
   return new NextResponse(
     `<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Nieuwsbrief</title></head><body><main><h1>${message}</h1><p><a href="${request.nextUrl.origin}">Terug naar Hobbysalon</a></p></main></body></html>`,
-    { status, headers: { "Content-Type": "text/html; charset=utf-8" } }
+    { status, headers: { "Content-Type": "text/html; charset=utf-8", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" } }
   );
 }
 
@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
   if (eventError) return confirmationResponse(request, "Bevestigen mislukt. Probeer later opnieuw.", 500);
   if (!event) return confirmationResponse(request, "Deze inschrijving is al bevestigd of bestaat niet.");
 
+  let sent = false;
+  try {
   const sync = await syncConfirmedAcumbamailSubscriber({
     email: payload.email,
     firstName: null,
@@ -63,12 +65,15 @@ export async function GET(request: NextRequest) {
   }
 
   const deliveryUrl = leadMagnet.file_url.replace("{{token}}", encodeURIComponent(token!));
-  const sent = await sendNewsletterEmail({
+  sent = await sendNewsletterEmail({
     to: payload.email,
     subject: `Je download: ${leadMagnet.title}`,
     html: `<p>Bedankt voor je bevestiging.</p><p><a href="${deliveryUrl}">Download ${leadMagnet.title}</a></p>`,
   });
-  return sent
-    ? confirmationResponse(request, "Bedankt! Je downloadlink is naar je inbox gestuurd.")
-    : confirmationResponse(request, "Je inschrijving is bevestigd, maar de downloadmail kon niet worden verstuurd. Probeer later opnieuw.", 502);
+  } catch { /* Confirmation is complete even when a downstream mail service fails. */ }
+  // Leave the token-bearing HTML route before mounting any browser analytics.
+  const response = NextResponse.redirect(new URL(`/nieuwsbrief/resultaat?mail=${sent ? "verzonden" : "mislukt"}`, request.url), 303);
+  response.headers.set("Referrer-Policy", "no-referrer");
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }

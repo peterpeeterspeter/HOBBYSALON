@@ -1,5 +1,5 @@
 import type { PostHog } from "posthog-js";
-import { CONVERSION_COOKIE, CONSENT_GENERATION_KEY, validConsentGeneration } from "./conversions";
+import { CONVERSION_COOKIE, PLATFORM_RETURN_COOKIE, CONSENT_GENERATION_KEY, validConsentGeneration } from "./conversions";
 import { pageParameters } from "./pageview";
 import { posthogConfig } from "./posthog-config";
 
@@ -65,7 +65,7 @@ export function clearAnalyticsCookies(includeReceipt = true): void {
   try {
     const names = document.cookie.split(";").map((part) => part.trim().split("=")[0])
       .filter((name) => /^_ga(?:_[A-Za-z0-9]+)?$|^_gid$|^_gat(?:_[A-Za-z0-9_-]+)?$/.test(name));
-    if (includeReceipt) names.push(CONVERSION_COOKIE);
+    if (includeReceipt) names.push(CONVERSION_COOKIE, PLATFORM_RETURN_COOKIE);
     const parts = window.location.pathname.split("/").filter(Boolean).slice(0, 10);
     const paths = new Set(["/"]);
     for (let i = 1; i <= parts.length; i++) {

@@ -6,6 +6,8 @@ import { getAuthUser } from "@/lib/auth/session";
 import { getCreatorByUserId } from "@/lib/platform/queries/creators";
 import { createPlatformClient } from "@/lib/platform/client";
 import { withFlash } from "@/lib/dashboard/return-path";
+import { queueConversion } from "@/lib/analytics/conversions.server";
+import { queueConfirmedWorkshop } from "@/lib/analytics/conversion-producers.server";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -82,10 +84,15 @@ export async function updateInboxItemStatusAction(formData: FormData): Promise<v
     .update({ status })
     .eq("id", id)
     .eq(config.ownerColumn, creator.id)
-    .select("id");
+    .select(source === "workshop" ? "id, workshop_id, status" : "id");
 
   if (error || !data?.length) {
     redirect(withFlash(returnPath, "error", "Deze aanvraag kon niet worden bijgewerkt."));
+  }
+  if (source === "workshop") {
+    await queueConfirmedWorkshop(supabase, {
+      data: data[0] as unknown as { id: string; workshop_id: string; status: string }, error,
+    }, queueConversion);
   }
 
   revalidatePath("/dashboard");

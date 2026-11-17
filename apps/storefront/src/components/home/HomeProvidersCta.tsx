@@ -16,7 +16,7 @@ export function HomeProvidersCta() {
           <TrackedLink
             href="/partners"
             event="home_provider_clicked"
-            eventPayload={{ destination: "/partners" }}
+            eventPayload={{ destination: "partners" }}
             className="mt-6 inline-flex min-h-12 items-center rounded-[0.75rem] bg-[var(--accent)] px-6 font-bold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:translate-y-px"
           >
             Kies je rol

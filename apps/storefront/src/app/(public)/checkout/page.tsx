@@ -13,7 +13,6 @@ import { CheckoutAddressForm } from "@/components/checkout/CheckoutAddressForm";
 import { CheckoutShippingStep } from "@/components/checkout/CheckoutShippingStep";
 import { CheckoutPaymentForm } from "@/components/checkout/CheckoutPaymentForm";
 import { TrackOnMount } from "@/components/analytics/TrackOnMount";
-import { getAuthUser } from "@/lib/auth/session";
 import { PageLayout } from "@/components/layout/page-layout";
 import { CardShell } from "@/components/ui/card-shell";
 import { PriceDisplay } from "@/components/domain/price-display";
@@ -89,7 +88,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   }
 
   await refreshShippingQuote(cartId);
-  const [shipping, cart, viewer] = await Promise.all([cartShippingSummary(cartId), getCartForCheckout(cartId), getAuthUser()]);
+  const [shipping, cart] = await Promise.all([cartShippingSummary(cartId), getCartForCheckout(cartId)]);
 
   if (!cart || !cart.items?.length) {
     redirect("/cart");
@@ -130,9 +129,6 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   const totalCents = medusaAmountToCents(totalMajor);
   const itemCount = items.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
   const bundleGroups = getBundleGroups(c.items);
-  const bundleIds = bundleGroups.map((group) => group.bundleId);
-  const bundleValue = bundleGroups.reduce((sum, group) => sum + group.total, 0);
-  const primaryBundleId = bundleIds[0] ?? null;
 
   return (
     <PageLayout title="Afrekenen" description="Rond je bestelling rustig stap voor stap af." size="narrow">
@@ -142,12 +138,8 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         payload={{
           currency_code: currencyCode,
           total_amount: totalCents,
+          total_amount_unit: "cents",
           item_count: itemCount,
-          bundle_id: primaryBundleId,
-          bundle_count: bundleGroups.length,
-          bundle_value: bundleValue,
-          bundle_ids: bundleIds,
-          user_id: viewer?.id ?? null,
         }}
       />
 

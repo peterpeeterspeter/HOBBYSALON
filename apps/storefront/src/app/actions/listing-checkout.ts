@@ -7,6 +7,7 @@ import { createPlatformClient } from "@/lib/platform/client";
 import { getStripeClient } from "@/lib/payments/stripe-client";
 import { absoluteUrl } from "@/lib/seo";
 import { withFlash } from "@/lib/dashboard/return-path";
+import { platformReturnUrl, rememberPlatformReturn } from "@/lib/analytics/platform-return.server";
 
 function fail(message: string): never {
   redirect("/dashboard/products?error=" + encodeURIComponent(message));
@@ -54,7 +55,7 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
   }
 
   const stripe = getStripeClient();
-  let session: { url: string | null };
+  let session: { id: string; url: string | null };
   try {
     session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -82,9 +83,7 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
         creator_id: creator.id,
         credits: String(pack.credits),
       },
-      success_url: absoluteUrl(
-        "/dashboard/products?checkout=pending&type=credits"
-      ),
+      success_url: await platformReturnUrl("credit_pack"),
       cancel_url: absoluteUrl("/dashboard/products?checkout=cancelled"),
     });
   } catch (err) {
@@ -96,6 +95,7 @@ export async function createCreditPackCheckoutAction(formData: FormData): Promis
     fail("Kon geen betaalsessie starten. Probeer het later opnieuw.");
   }
 
+  await rememberPlatformReturn("credit_pack", session.id);
   redirect(session.url);
 }
 
@@ -135,7 +135,7 @@ export async function createPlanCheckoutAction(formData: FormData): Promise<void
   }
 
   const stripe = getStripeClient();
-  let session: { url: string | null };
+  let session: { id: string; url: string | null };
   try {
     session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -161,9 +161,7 @@ export async function createPlanCheckoutAction(formData: FormData): Promise<void
         segment: plan.segment,
         creator_id: creator.id,
       },
-      success_url: absoluteUrl(
-        "/dashboard/products?checkout=pending&type=plan"
-      ),
+      success_url: await platformReturnUrl("plan"),
       cancel_url: absoluteUrl("/dashboard/products?checkout=cancelled"),
     });
   } catch (err) {
@@ -175,6 +173,7 @@ export async function createPlanCheckoutAction(formData: FormData): Promise<void
     fail("Kon geen betaalsessie starten. Probeer het later opnieuw.");
   }
 
+  await rememberPlatformReturn("plan", session.id);
   redirect(session.url);
 }
 
@@ -269,12 +268,11 @@ export async function createWorkshopListingCheckoutAction(
         workshop_id: workshop.id,
         creator_id: creator.id,
       },
-      success_url: absoluteUrl(
-        "/dashboard/workshops?checkout=pending&type=workshop_listing"
-      ),
+      success_url: await platformReturnUrl("workshop_listing"),
       cancel_url: absoluteUrl("/dashboard/workshops?checkout=cancelled"),
     });
     sessionUrl = session.url;
+    if (sessionUrl) await rememberPlatformReturn("workshop_listing", session.id);
   } catch (err) {
     console.error(
       "Stripe checkout session creation failed (workshop listing):",

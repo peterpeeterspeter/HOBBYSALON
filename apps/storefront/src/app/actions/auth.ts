@@ -16,6 +16,8 @@ import {
 } from "@/lib/auth/session";
 import { turnstileErrorMessage } from "@/lib/auth/turnstile";
 import { createPlatformClient } from "@/lib/platform/client";
+import { queueConversion } from "@/lib/analytics/conversions.server";
+import { rememberEmailRegistration, queueConfirmedRegistration } from "@/lib/analytics/conversion-producers.server";
 import { readReferralCookie } from "@/lib/referrals/referrals";
 import { resolvePostAuthRedirectPath } from "@/lib/auth/post-auth";
 import {
@@ -258,6 +260,12 @@ export async function registerAction(
     };
   }
 
+  try {
+    const analytics = createPlatformClient();
+    await rememberEmailRegistration(analytics, user);
+    if (session) await queueConfirmedRegistration(analytics, session.user, queueConversion);
+  } catch { /* Account creation does not depend on analytics availability. */ }
+
   let profilePersisted = true;
   const registrationUserId = user?.id ?? session?.user?.id ?? null;
 
@@ -404,6 +412,12 @@ export async function registerMerchantAction(
         "Registratie mislukt. Gebruik een ander e-mailadres.",
     };
   }
+
+  try {
+    const analytics = createPlatformClient();
+    await rememberEmailRegistration(analytics, user);
+    if (session) await queueConfirmedRegistration(analytics, session.user, queueConversion);
+  } catch { /* Merchant onboarding does not determine whether an account was created. */ }
 
   const registrationUserId = user?.id ?? session?.user?.id ?? null;
   const nextPath =
