@@ -2,6 +2,7 @@
 
 import { analyticsAllowed } from "./consent";
 import { pageParameters } from "./pageview";
+import { sendGoogleEvent } from "./google-tag";
 
 
 type Scalar = string | number | boolean;
@@ -116,6 +117,7 @@ export function sendPosthogEvent(event: string, payload: Record<string, unknown>
       outboundEvent = "platform_charge_returned";
     }
     client.capture(outboundEvent, { hs_safe: parameters });
+    sendGoogleEvent(outboundEvent, parameters);
     return true;
   } catch {
     // Storage/property access and SDK failures must not break forms.
