@@ -36,7 +36,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Websitegebruik:</strong> bezoeken aan openbare pagina&apos;s
-                via PostHog. Alleen met toestemming meten we ook handelingen,
+                via PostHog en Google Analytics. Alleen met toestemming meten we ook handelingen,
                 zoals een aanmelding of een klik op een product.
               </li>
               <li>
@@ -49,7 +49,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold">3. Hoe gebruiken we je gegevens</h2>
             <ul className="mt-2 space-y-1 text-muted-foreground">
               <li>Om je onze content en diensten te leveren</li>
-              <li>Om inzicht te krijgen in websitegebruik met PostHog</li>
+              <li>Om inzicht te krijgen in websitegebruik met PostHog en Google Analytics</li>
               <li>Om inhoud te delen op sociale media, waaronder Pinterest</li>
               <li>
                 Om je op de hoogte te houden via nieuwsbrief (alleen met
@@ -65,6 +65,7 @@ export default function PrivacyPage() {
             </p>
             <ul className="mt-1 space-y-1 text-muted-foreground">
               <li>PostHog voor websitestatistieken, met verwerking in de Verenigde Staten</li>
+              <li>Google Analytics (Google Ireland Ltd.) voor websitestatistieken, met mogelijke verwerking in de Verenigde Staten</li>
               <li>
                 Sociale media platforms (Pinterest) wanneer we content publiceren
               </li>
@@ -139,9 +140,18 @@ export default function PrivacyPage() {
               We maken geen gebruikersprofielen en nemen geen sessies op.
             </p>
             <p className="mt-2 text-muted-foreground">
+              We gebruiken ook Google Analytics in de geavanceerde toestemmingsmodus.
+              Zonder toestemming plaatst Google Analytics geen cookies. Je browser stuurt
+              dan alleen een beperkt signaal zonder identificatie, zoals de bezochte
+              openbare pagina en het tijdstip. Google gebruikt deze signalen om het
+              totale aantal bezoeken te schatten. Na &lsquo;Toestaan&rsquo; plaatst Google
+              Analytics analytische cookies. Advertentiecookies en Google-signalen blijven
+              altijd uitgeschakeld.
+            </p>
+            <p className="mt-2 text-muted-foreground">
               Je kunt je keuze altijd aanpassen via &lsquo;Cookievoorkeuren wijzigen&rsquo;
               onderaan de website. Bij weigering verwijderen we de analytische opslag
-              van PostHog en blijven alleen de beperkte paginastatistieken over.
+              van PostHog en Google Analytics en blijven alleen de beperkte paginastatistieken over.
               Je keuze geldt afzonderlijk voor elke website van Hobbysalon.
             </p>
           </section>

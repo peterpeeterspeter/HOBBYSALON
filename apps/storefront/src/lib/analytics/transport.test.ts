@@ -3,12 +3,16 @@ import test from "node:test";
 import nextConfig from "../../../next.config";
 import { pageParameters } from "./pageview";
 
-test("CSP allows the PostHog ingestion host and removes legacy Google analytics sources", async () => {
+test("CSP allows PostHog and the Google tag hosts, nothing wider", async () => {
   const rules = await nextConfig.headers!();
   const policy = rules.find((rule) => rule.source === "/(.*)")!.headers.find((header) => header.key === "Content-Security-Policy")!.value;
   const connect = policy.split(";").find((directive) => directive.trim().startsWith("connect-src "))!;
   assert.ok(connect.split(/\s+/).includes("https://us.i.posthog.com"));
-  assert.doesNotMatch(policy, /google-analytics\.com|googletagmanager\.com/);
+  const script = policy.split(";").find((directive) => directive.trim().startsWith("script-src "))!;
+  assert.ok(script.split(/\s+/).includes("https://www.googletagmanager.com"));
+  for (const host of ["https://www.google-analytics.com", "https://*.google-analytics.com", "https://*.analytics.google.com"]) {
+    assert.ok(connect.split(/\s+/).includes(host));
+  }
   assert.ok(!connect.split(/\s+/).includes("https://*.posthog.com"));
   assert.ok(connect.includes("'self'"));
   assert.ok(!connect.split(/\s+/).includes("*"));
